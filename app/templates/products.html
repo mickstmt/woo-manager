@@ -1,0 +1,598 @@
+{% extends "base.html" %}
+
+{% block title %}Productos - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos adicionales para el nuevo diseño */
+    .result-count {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .product-image {
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 5px;
+    }
+    
+    .parent-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+    
+    .parent-link:hover {
+        text-decoration: underline;
+    }
+    
+    .variation-row {
+        background-color: #f8f9fa;
+    }
+    
+    .indent-cell {
+        padding-left: 2rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="bi bi-box-seam"></i> Gestión de Productos
+            </h1>
+            
+            <!-- Estadísticas -->
+            <div id="stats-container">
+                <span class="badge bg-primary" id="stat-total">
+                    <i class="bi bi-box"></i> Total: <span>-</span>
+                </span>
+            </div>
+        </div>
+        
+        <!-- Filtros y búsqueda -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="search-input" 
+                                   placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
+                            <button class="btn btn-primary" onclick="searchProducts()">
+                                Buscar
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearSearch()">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <select class="form-select" id="status-filter">
+                            <option value="">Todos los estados</option>
+                            <option value="publish" selected>Publicados</option>
+                            <option value="draft">Borradores</option>
+                            <option value="pending">Pendientes</option>
+                            <option value="private">Privados</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <select class="form-select" id="per-page-select">
+                            <option value="25">25 por página</option>
+                            <option value="50" selected>50 por página</option>
+                            <option value="100">100 por página</option>
+                            <option value="200">200 por página</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contador de resultados -->
+        <div id="result-count" class="result-count" style="display: none;"></div>
+        
+        <!-- Tabla de productos -->
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Listado de Productos</h5>
+            </div>
+            <div class="card-body">
+                <div id="loading" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando productos...</p>
+                </div>
+                
+                <div id="products-table-container"></div>
+                
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+let perPage = 50;
+let searchTerm = '';
+let statusFilter = 'publish';
+let loadedVariations = {};
+
+// Cargar productos automáticamente al cargar la página
+$(document).ready(function() {
+    loadStats();
+    loadProducts();
+    
+    // Evento para búsqueda con Enter
+    $('#search-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchProducts();
+        }
+    });
+    
+    // Evento para cambio de estado
+    $('#status-filter').on('change', function() {
+        statusFilter = $(this).val();
+        currentPage = 1;
+        loadProducts();
+    });
+    
+    // Evento para cambio de items por página
+    $('#per-page-select').on('change', function() {
+        perPage = parseInt($(this).val());
+        currentPage = 1;
+        loadProducts();
+    });
+});
+
+function loadStats() {
+    $.ajax({
+        url: '/products/stats',
+        method: 'GET',
+        success: function(data) {
+            if (data.success) {
+                $('#stat-total span').text(data.stats.total);
+            }
+        }
+    });
+}
+
+function searchProducts() {
+    searchTerm = $('#search-input').val();
+    currentPage = 1;
+    loadedVariations = {}; // Reset variaciones cargadas
+    loadProducts();
+}
+
+function clearSearch() {
+    searchTerm = '';
+    $('#search-input').val('');
+    currentPage = 1;
+    loadedVariations = {};
+    loadProducts();
+}
+
+function loadProducts(page = currentPage) {
+    currentPage = page;
+    
+    $('#loading').show();
+    $('#products-table-container').hide();
+    
+    $.ajax({
+        url: '/products/list',
+        method: 'GET',
+        data: {
+            page: currentPage,
+            per_page: perPage,
+            search: searchTerm,
+            status: statusFilter
+        },
+        success: function(data) {
+            $('#loading').hide();
+            $('#products-table-container').show();
+            
+            if (data.success) {
+                displayProducts(data);
+                displayPagination(data.pagination);
+                displayResultCount(data);
+            }
+        },
+        error: function(error) {
+            $('#loading').hide();
+            $('#products-table-container').html(
+                '<div class="alert alert-danger">Error al cargar productos</div>'
+            ).show();
+        }
+    });
+}
+
+function displayResultCount(data) {
+    if (data.search_term) {
+        let mode = data.search_mode === 'sku' ? 'SKU' : 'nombre';
+        let count = data.pagination.total;
+        let html = `${count} resultado(s) para "${data.search_term}" (modo: ${mode})`;
+        $('#result-count').html(html).show();
+    } else {
+        $('#result-count').hide();
+    }
+}
+
+function displayProducts(data) {
+    let products = data.products;
+    let showVariations = data.show_variations || false;
+    
+    if (products.length === 0) {
+        $('#products-table-container').html(
+            '<div class="alert alert-info">No se encontraron productos</div>'
+        );
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover align-middle">';
+    html += '<thead class="table-light">';
+    html += '<tr>';
+    html += '<th style="width: 70px;">Imagen</th>';
+    html += '<th style="width: 80px;">ID</th>';
+    html += '<th style="width: 120px;">Tipo</th>';
+    
+    // Mostrar columna "Padre" solo si estamos mostrando variaciones
+    if (showVariations) {
+        html += '<th style="width: 100px;">Padre</th>';
+        html += '<th>Producto / Variación</th>';
+    } else {
+        html += '<th>Producto</th>';
+    }
+    
+    html += '<th style="width: 140px;">SKU</th>';
+    html += '<th style="width: 100px;">Precio</th>';
+    html += '<th style="width: 100px;">Stock</th>';
+    html += '<th style="width: 120px;">Estado</th>';
+    
+    // Columna adicional para productos padre
+    if (!showVariations) {
+        html += '<th style="width: 120px;">Variaciones</th>';
+    }
+    
+    html += '<th style="width: 150px;">Acciones</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+    
+    products.forEach(function(product) {
+        // Badge de tipo
+        let typeBadge = '';
+        if (product.type === 'variation') {
+            typeBadge = '<span class="badge bg-info">Variación</span>';
+        } else if (product.type === 'variable') {
+            typeBadge = '<span class="badge bg-primary">Variable</span>';
+        } else {
+            typeBadge = '<span class="badge bg-secondary">Simple</span>';
+        }
+        
+        // Badge de estado de stock
+        let stockBadge = '';
+        if (product.stock_status === 'instock') {
+            stockBadge = '<span class="badge bg-success">En stock</span>';
+        } else if (product.stock_status === 'outofstock') {
+            stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+        } else {
+            stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
+        }
+        
+        // Badge de estado de publicación
+        let statusBadge = '';
+        if (product.status === 'publish') {
+            statusBadge = '<span class="badge bg-success">Publicado</span>';
+        } else if (product.status === 'draft') {
+            statusBadge = '<span class="badge bg-secondary">Borrador</span>';
+        } else {
+            statusBadge = '<span class="badge bg-warning">' + product.status + '</span>';
+        }
+        
+        html += '<tr id="product-' + product.id + '">';
+        
+        // Imagen
+        html += '<td><div class="product-image bg-light d-flex align-items-center justify-content-center">';
+        if (product.image_url) {
+            html += '<img src="' + product.image_url + '" alt="' + product.title + '" class="product-image">';
+        } else {
+            html += '<i class="bi bi-image text-muted"></i>';
+        }
+        html += '</div></td>';
+        
+        // ID
+        html += '<td><strong>' + product.id + '</strong></td>';
+        
+        // Tipo
+        html += '<td>' + typeBadge + '</td>';
+        
+        // Padre (solo para variaciones)
+        if (showVariations) {
+            if (product.parent_id) {
+                html += '<td><a href="/products/' + product.parent_id + '" class="parent-link">';
+                html += '#' + product.parent_id;
+                html += '</a></td>';
+            } else {
+                html += '<td>-</td>';
+            }
+        }
+        
+        // Título
+        html += '<td>' + product.title + '</td>';
+        
+        // SKU
+        html += '<td><code>' + product.sku + '</code></td>';
+        
+        // Precio
+        html += '<td>S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
+        
+        // Stock
+        html += '<td>' + product.stock + ' ' + stockBadge + '</td>';
+        
+        // Estado
+        html += '<td>' + statusBadge + '</td>';
+        
+        // Variaciones (solo para productos padre)
+        if (!showVariations) {
+            html += '<td>';
+            if (product.is_variable && product.variations_count > 0) {
+                html += '<button class="btn btn-sm btn-info" onclick="toggleVariations(' + product.id + ')" id="btn-var-' + product.id + '">';
+                html += '<i class="bi bi-chevron-down" id="icon-var-' + product.id + '"></i> ';
+                html += product.variations_count + ' vars';
+                html += '</button>';
+            } else {
+                html += '-';
+            }
+            html += '</td>';
+        }
+        
+        // Acciones
+        html += '<td>';
+        html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-primary me-1" title="Ver detalles">';
+        html += '<i class="bi bi-eye"></i>';
+        html += '</a>';
+        html += '<button class="btn btn-sm btn-success" title="Editar">';
+        html += '<i class="bi bi-pencil"></i>';
+        html += '</button>';
+        html += '</td>';
+        
+        html += '</tr>';
+        
+        // Fila para variaciones (solo productos padre)
+        if (!showVariations && product.is_variable && product.variations_count > 0) {
+            html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
+            html += '<td colspan="11" class="p-0">';
+            html += '<div id="variations-content-' + product.id + '"></div>';
+            html += '</td>';
+            html += '</tr>';
+        }
+    });
+    
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+    
+    $('#products-table-container').html(html);
+}
+
+function toggleVariations(productId) {
+    const variationsRow = $('#variations-' + productId);
+    const icon = $('#icon-var-' + productId);
+    
+    // Si ya está visible, ocultarlo
+    if (variationsRow.is(':visible')) {
+        variationsRow.hide();
+        icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
+        return;
+    }
+    
+    // Si no está cargado, cargarlo
+    if (!loadedVariations[productId]) {
+        loadVariations(productId);
+    }
+    
+    // Mostrar
+    variationsRow.show();
+    icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
+}
+
+function loadVariations(productId) {
+    $('#variations-content-' + productId).html(
+        '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div> Cargando variaciones...</div>'
+    );
+    
+    $.ajax({
+        url: '/products/' + productId + '/variations',
+        method: 'GET',
+        success: function(data) {
+            if (data.success) {
+                displayVariationsExpanded(productId, data.variations);
+                loadedVariations[productId] = true;
+            } else {
+                $('#variations-content-' + productId).html(
+                    '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
+                );
+            }
+        },
+        error: function(error) {
+            $('#variations-content-' + productId).html(
+                '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
+            );
+        }
+    });
+}
+
+function displayVariationsExpanded(productId, variations) {
+    if (variations.length === 0) {
+        $('#variations-content-' + productId).html(
+            '<div class="alert alert-info m-3">No se encontraron variaciones</div>'
+        );
+        return;
+    }
+    
+    let html = '<table class="table table-sm mb-0">';
+    html += '<tbody>';
+    
+    variations.forEach(function(variation) {
+        // Atributos
+        let attributesHtml = '';
+        for (let attr in variation.attributes) {
+            attributesHtml += '<span class="badge bg-secondary me-1">';
+            attributesHtml += attr + ': ' + variation.attributes[attr];
+            attributesHtml += '</span> ';
+        }
+        
+        // Stock badge
+        let stockBadge = '';
+        if (variation.stock_status === 'instock') {
+            stockBadge = '<span class="badge bg-success">En stock</span>';
+        } else if (variation.stock_status === 'outofstock') {
+            stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+        } else {
+            stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
+        }
+        
+        html += '<tr class="variation-row">';
+        
+        // Imagen
+        html += '<td style="width: 70px;"><div class="product-image bg-light d-flex align-items-center justify-content-center">';
+        if (variation.image_url) {
+            html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
+        } else {
+            html += '<i class="bi bi-image text-muted" style="font-size: 0.8rem;"></i>';
+        }
+        html += '</div></td>';
+        
+        // ID
+        html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
+        
+        // Tipo
+        html += '<td style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
+        
+        // Título con atributos
+        html += '<td class="indent-cell">';
+        html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
+        html += variation.title;
+        if (attributesHtml) {
+            html += '<br><small>' + attributesHtml + '</small>';
+        }
+        html += '</td>';
+        
+        // SKU
+        html += '<td style="width: 140px;"><code>' + variation.sku + '</code></td>';
+        
+        // Precio
+        html += '<td style="width: 100px;">S/ ' + parseFloat(variation.price).toFixed(2) + '</td>';
+        
+        // Stock
+        html += '<td style="width: 100px;">' + variation.stock + ' ' + stockBadge + '</td>';
+        
+        // Estado (vacío para variaciones en expansión)
+        html += '<td style="width: 120px;">-</td>';
+        
+        // Variaciones column (vacío)
+        html += '<td style="width: 120px;">-</td>';
+        
+        // Acciones
+        html += '<td style="width: 150px;">';
+        html += '<button class="btn btn-sm btn-primary me-1" title="Ver detalles">';
+        html += '<i class="bi bi-eye"></i>';
+        html += '</button>';
+        html += '<button class="btn btn-sm btn-success" title="Editar">';
+        html += '<i class="bi bi-pencil"></i>';
+        html += '</button>';
+        html += '</td>';
+        
+        html += '</tr>';
+    });
+    
+    html += '</tbody>';
+    html += '</table>';
+    
+    $('#variations-content-' + productId).html(html);
+}
+
+function displayPagination(pagination) {
+    if (pagination.pages <= 1) {
+        $('#pagination-container').html('');
+        return;
+    }
+    
+    let html = '<nav>';
+    html += '<ul class="pagination justify-content-center">';
+    
+    // Botón anterior
+    if (pagination.has_prev) {
+        html += '<li class="page-item">';
+        html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.prev_num + '); return false;">Anterior</a>';
+        html += '</li>';
+    } else {
+        html += '<li class="page-item disabled">';
+        html += '<span class="page-link">Anterior</span>';
+        html += '</li>';
+    }
+    
+    // Números de página
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            html += '<li class="page-item active">';
+            html += '<span class="page-link">' + i + '</span>';
+            html += '</li>';
+        } else if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += '<li class="page-item">';
+            html += '<a class="page-link" href="#" onclick="loadProducts(' + i + '); return false;">' + i + '</a>';
+            html += '</li>';
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += '<li class="page-item disabled">';
+            html += '<span class="page-link">...</span>';
+            html += '</li>';
+        }
+    }
+    
+    // Botón siguiente
+    if (pagination.has_next) {
+        html += '<li class="page-item">';
+        html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.next_num + '); return false;">Siguiente</a>';
+        html += '</li>';
+    } else {
+        html += '<li class="page-item disabled">';
+        html += '<span class="page-link">Siguiente</span>';
+        html += '</li>';
+    }
+    
+    html += '</ul>';
+    html += '</nav>';
+    
+    // Info de paginación
+    if (pagination.total > 0) {
+        let start = (pagination.page - 1) * pagination.per_page + 1;
+        let end = Math.min(pagination.page * pagination.per_page, pagination.total);
+        
+        html += '<p class="text-center text-muted">';
+        html += 'Mostrando ' + start + ' - ' + end + ' de ' + pagination.total + ' productos';
+        html += '</p>';
+    }
+    
+    $('#pagination-container').html(html);
+}
+
+function viewProduct(productId) {
+    window.location.href = '/products/' + productId;
+}
+</script>
+{% endblock %}

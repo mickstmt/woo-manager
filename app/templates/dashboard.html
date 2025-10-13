@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - WooCommerce Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </h1>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Card de Productos -->
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-box-seam"></i> Productos
+                </h5>
+                <p class="card-text display-6">1,234</p>
+                <a href="/products/" class="btn btn-light btn-sm">Ver todos</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Stock -->
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-boxes"></i> En Stock
+                </h5>
+                <p class="card-text display-6">987</p>
+                <a href="/stock/" class="btn btn-light btn-sm">Gestionar</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Sin Stock -->
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-exclamation-triangle"></i> Sin Stock
+                </h5>
+                <p class="card-text display-6">47</p>
+                <a href="/stock/" class="btn btn-light btn-sm">Ver detalles</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Precios -->
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-tag"></i> Con Descuento
+                </h5>
+                <p class="card-text display-6">156</p>
+                <a href="/prices/" class="btn btn-light btn-sm">Gestionar</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Bienvenido al Gestor de WooCommerce</h5>
+            </div>
+            <div class="card-body">
+                <p>Este sistema te permite gestionar tu tienda WooCommerce de manera rápida y eficiente.</p>
+                <p><strong>Ambiente actual:</strong> <span class="badge bg-info">{{ environment|upper }}</span></p>
+                <p class="text-muted mb-0">Estás conectado a la base de datos de pruebas. Puedes hacer cambios sin preocuparte.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

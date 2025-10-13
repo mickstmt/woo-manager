@@ -1,0 +1,939 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Stock - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .result-count {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .parent-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+    
+    .parent-link:hover {
+        text-decoration: underline;
+    }
+    
+    .bulk-actions-bar {
+        background: #e7f1ff;
+        border: 1px solid #0d6efd;
+        border-radius: 5px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        display: none;
+    }
+    
+    .bulk-actions-bar.active {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="bi bi-boxes"></i> Gestión de Stock
+            </h1>
+            
+            <!-- Estadísticas -->
+            <div id="stats-container">
+                <span class="badge bg-success me-2" id="stat-instock">
+                    <i class="bi bi-check-circle"></i> En stock: <span>0</span>
+                </span>
+                <span class="badge bg-danger me-2" id="stat-outofstock">
+                    <i class="bi bi-x-circle"></i> Sin stock: <span>0</span>
+                </span>
+                <span class="badge bg-warning" id="stat-lowstock">
+                    <i class="bi bi-exclamation-triangle"></i> Stock bajo: <span>0</span>
+                </span>
+            </div>
+        </div>
+        
+        <!-- Filtros y búsqueda -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="search-input" 
+                                   placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
+                            <button class="btn btn-primary" onclick="searchProducts()">
+                                Buscar
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearSearch()">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <select class="form-select" id="stock-filter">
+                            <option value="all">Todos</option>
+                            <option value="instock">En stock</option>
+                            <option value="outofstock">Sin stock</option>
+                            <option value="low">Stock bajo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="low-threshold" 
+                                   value="10" 
+                                   min="1" 
+                                   title="Stock bajo cuando es menor o igual a este número">
+                        </div>
+                        <small class="text-muted">Umbral stock bajo</small>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <select class="form-select" id="per-page-select">
+                            <option value="25">25 por página</option>
+                            <option value="50" selected>50 por página</option>
+                            <option value="100">100 por página</option>
+                            <option value="200">200 por página</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contador de resultados -->
+        <div id="result-count" class="result-count" style="display: none;"></div>
+        
+        <!-- Barra de acciones masivas -->
+        <div id="bulk-actions-bar" class="bulk-actions-bar">
+            <div>
+                <strong><span id="selected-count">0</span> productos seleccionados</strong>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-primary me-2" onclick="showBulkUpdateModal()">
+                    <i class="bi bi-pencil-square"></i> Actualizar Stock
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                    <i class="bi bi-x"></i> Cancelar
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tabla de stock -->
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Inventario de Productos</h5>
+                <div>
+                    <button class="btn btn-sm btn-success" onclick="exportToExcel()">
+                        <i class="bi bi-file-excel"></i> Exportar Excel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="loading" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando inventario...</p>
+                </div>
+                
+                <div id="stock-table-container"></div>
+                
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para actualización masiva -->
+<div class="modal fade" id="bulkUpdateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Actualización Masiva de Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Actualizar stock de <strong><span id="modal-count">0</span> productos</strong> seleccionados:</p>
+                
+                <div class="mb-3">
+                    <label class="form-label">Tipo de actualización:</label>
+                    <select class="form-select" id="update-type">
+                        <option value="set">Establecer valor</option>
+                        <option value="add">Sumar cantidad</option>
+                        <option value="subtract">Restar cantidad</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Cantidad:</label>
+                    <input type="number" class="form-control" id="bulk-stock-value" min="0" value="0">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Motivo del cambio (opcional):</label>
+                    <input type="text" class="form-control" id="bulk-reason" placeholder="Ej: Recepción de mercancía">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="executeBulkUpdate()">
+                    <i class="bi bi-check-lg"></i> Aplicar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let currentPage = 1;
+let perPage = 50;
+let searchTerm = '';
+let stockFilter = 'all';
+let lowThreshold = 10;
+let allProducts = [];
+let selectedProducts = [];
+
+// Cargar automáticamente al cargar la página
+$(document).ready(function() {
+    // NO cargar automáticamente, mostrar mensaje de búsqueda
+    loadStock();
+    
+    // Evento para búsqueda con Enter
+    $('#search-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchProducts();
+        }
+    });
+    
+    // Eventos de filtros
+    $('#stock-filter').on('change', function() {
+        stockFilter = $(this).val();
+        // Si hay productos cargados, re-filtrar inmediatamente
+        if (allProducts.length > 0) {
+            displayStock(allProducts);
+            // No necesitamos nueva búsqueda, solo re-filtrar lo que ya tenemos
+        }
+    });
+
+    $('#low-threshold').on('change', function() {
+        lowThreshold = parseInt($(this).val());
+        
+        // Recalcular is_low_stock para todos los productos
+        if (allProducts.length > 0) {
+            allProducts.forEach(function(product) {
+                product.is_low_stock = product.stock > 0 && product.stock <= lowThreshold;
+            });
+            
+            // Re-mostrar con nuevo threshold
+            displayStock(allProducts);
+        }
+    });
+    
+    $('#per-page-select').on('change', function() {
+        perPage = parseInt($(this).val());
+        currentPage = 1;
+        // Solo recargar si hay búsqueda activa
+        if (searchTerm && searchTerm.trim() !== '') {
+            loadStock();
+        }
+    });
+});
+
+function searchProducts() {
+    searchTerm = $('#search-input').val();
+    currentPage = 1;
+    loadStock();
+}
+
+function clearSearch() {
+    searchTerm = '';
+    $('#search-input').val('');
+    currentPage = 1;
+    
+    // Ocultar contador de resultados
+    $('#result-count').hide();
+    
+    // Resetear estadísticas
+    $('#stat-instock span').text('0');
+    $('#stat-outofstock span').text('0');
+    $('#stat-lowstock span').text('0');
+    
+    // Limpiar selección
+    clearSelection();
+    
+    // Recargar datos
+    loadStock();
+}
+
+function loadStock(page = currentPage) {
+    currentPage = page;
+    
+    // Si no hay búsqueda, mostrar mensaje y no hacer petición
+    if (!searchTerm || searchTerm.trim() === '') {
+        $('#loading').hide();
+        $('#stock-table-container').html(
+            '<div class="alert alert-info text-center py-5">' +
+            '<i class="bi bi-search" style="font-size: 3rem;"></i>' +
+            '<h5 class="mt-3">Buscar productos en inventario</h5>' +
+            '<p class="text-muted">Ingresa un nombre, SKU o ID para buscar productos y gestionar su stock.</p>' +
+            '</div>'
+        ).show();
+        
+        // Resetear estadísticas
+        $('#stat-instock span').text('0');
+        $('#stat-outofstock span').text('0');
+        $('#stat-lowstock span').text('0');
+        
+        // Ocultar contador de resultados
+        $('#result-count').hide();
+        
+        return; // Salir de la función
+    }
+    
+    $('#loading').show();
+    $('#stock-table-container').hide();
+    
+    $.ajax({
+        url: '/stock/list',
+        method: 'GET',
+        data: {
+            page: currentPage,
+            per_page: perPage,
+            search: searchTerm,
+            stock_filter: stockFilter,
+            low_threshold: lowThreshold
+        },
+        success: function(data) {
+            $('#loading').hide();
+            $('#stock-table-container').show();
+            
+            if (data.success) {
+                allProducts = data.products;
+                displayStock(data.products);
+                displayPagination(data.pagination);
+                updateStats(data.products);
+                displayResultCount(data);
+                clearSelection();
+            } else {
+                // Mostrar error específico del servidor
+                $('#stock-table-container').html(
+                    '<div class="alert alert-danger">' +
+                    '<strong>Error:</strong> ' + (data.error || 'Error desconocido') +
+                    '</div>'
+                ).show();
+                
+                console.error('Error del servidor:', data);
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#loading').hide();
+            
+            let errorMsg = 'Error al cargar inventario';
+            
+            // Intentar obtener mensaje de error del servidor
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg += ': ' + xhr.responseJSON.error;
+            } else if (xhr.responseText) {
+                errorMsg += ': ' + xhr.statusText;
+            }
+            
+            $('#stock-table-container').html(
+                '<div class="alert alert-danger">' + errorMsg + '</div>'
+            ).show();
+            
+            // Mostrar detalles en consola para debugging
+            console.error('Error AJAX:', {
+                status: status,
+                error: error,
+                xhr: xhr,
+                responseText: xhr.responseText
+            });
+        }
+    });
+}
+
+function displayResultCount(data) {
+    if (data.search_term) {
+        let count = data.pagination.total;
+        let html = `${count} resultado(s) para "${data.search_term}"`;
+        
+        // Si hay filtro activo, agregar info
+        if (stockFilter !== 'all') {
+            let filterName = {
+                'instock': 'en stock',
+                'outofstock': 'sin stock',
+                'low': 'con stock bajo'
+            }[stockFilter];
+            html += ` <span class="badge bg-secondary">Filtro: ${filterName}</span>`;
+        }
+        
+        $('#result-count').html(html).show();
+    } else {
+        $('#result-count').hide();
+    }
+}
+
+function displayStock(products) {
+    // Aplicar filtros del lado del cliente ANTES de mostrar
+    let filteredProducts = products.filter(function(product) {
+        // Filtro de stock
+        if (stockFilter === 'instock' && product.stock_status !== 'instock') {
+            return false;
+        }
+        if (stockFilter === 'outofstock' && product.stock_status !== 'outofstock') {
+            return false;
+        }
+        if (stockFilter === 'low' && !product.is_low_stock) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    if (filteredProducts.length === 0) {
+        let message = '<div class="alert alert-warning text-center">';
+        message += '<i class="bi bi-funnel"></i> ';
+        message += 'No se encontraron productos con los filtros aplicados.';
+        if (stockFilter !== 'all') {
+            message += '<br><small>Intenta cambiar el filtro o el umbral de stock bajo.</small>';
+        }
+        message += '</div>';
+        $('#stock-table-container').html(message);
+        
+        // Actualizar estadísticas con productos filtrados
+        updateStats(filteredProducts);
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover align-middle">';
+    html += '<thead class="table-light">';
+    html += '<tr>';
+    html += '<th style="width: 50px;"><input type="checkbox" id="select-all"></th>';
+    html += '<th style="width: 80px;">ID</th>';
+    html += '<th style="width: 100px;">Tipo</th>';
+    html += '<th style="width: 100px;">Padre</th>';
+    html += '<th>Producto</th>';
+    html += '<th style="width: 120px;">SKU</th>';
+    html += '<th style="width: 100px;">Precio</th>';
+    html += '<th style="width: 200px;" class="text-center">Stock</th>';
+    html += '<th style="width: 120px;">Estado</th>';
+    html += '<th style="width: 150px;">Acciones</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+    
+    filteredProducts.forEach(function(product) {
+        // Badge de tipo
+        let typeBadge = product.type === 'variation' 
+            ? '<span class="badge bg-info">Variación</span>'
+            : '<span class="badge bg-secondary">Simple</span>';
+        
+        // Badge de estado de stock
+        let stockBadge = '';
+        let rowClass = '';
+        
+        if (product.stock_status === 'outofstock') {
+            stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+            rowClass = 'table-danger';
+        } else if (product.is_low_stock) {
+            stockBadge = '<span class="badge bg-warning">Stock bajo</span>';
+            rowClass = 'table-warning';
+        } else if (product.stock_status === 'instock') {
+            stockBadge = '<span class="badge bg-success">En stock</span>';
+        } else {
+            stockBadge = '<span class="badge bg-info">Bajo pedido</span>';
+        }
+        
+        html += '<tr class="' + rowClass + '">';
+        html += '<td><input type="checkbox" class="product-checkbox" value="' + product.id + '" data-product=\'' + JSON.stringify(product) + '\'></td>';
+        html += '<td><strong>' + product.id + '</strong></td>';
+        html += '<td>' + typeBadge + '</td>';
+        
+        // Padre
+        if (product.parent_id) {
+            html += '<td><a href="/products/' + product.parent_id + '" class="parent-link">#' + product.parent_id + '</a></td>';
+        } else {
+            html += '<td>-</td>';
+        }
+        
+        html += '<td>' + product.title + '</td>';
+        html += '<td><code>' + product.sku + '</code></td>';
+        html += '<td>S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
+        
+        // Columna de stock con botones +/-
+        html += '<td class="text-center">';
+        html += '<div class="input-group input-group-sm">';
+        html += '<button class="btn btn-outline-secondary" onclick="adjustStock(' + product.id + ', -1)">';
+        html += '<i class="bi bi-dash"></i>';
+        html += '</button>';
+        html += '<input type="number" class="form-control text-center" id="stock-' + product.id + '" ';
+        html += 'value="' + product.stock + '" style="max-width: 80px;">';
+        html += '<button class="btn btn-outline-secondary" onclick="adjustStock(' + product.id + ', 1)">';
+        html += '<i class="bi bi-plus"></i>';
+        html += '</button>';
+        html += '</div>';
+        html += '</td>';
+        
+        html += '<td>' + stockBadge + '</td>';
+        
+        // Acciones
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-primary me-1" onclick="updateStock(' + product.id + ')" title="Guardar">';
+        html += '<i class="bi bi-save"></i>';
+        html += '</button>';
+        html += '<button class="btn btn-sm btn-secondary" onclick="viewHistory(' + product.id + ')" title="Ver historial">';
+        html += '<i class="bi bi-clock-history"></i>';
+        html += '</button>';
+        html += '</td>';
+        
+        html += '</tr>';
+    });
+    
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+    
+    $('#stock-table-container').html(html);
+    
+    // Evento para select all
+    $('#select-all').on('change', function() {
+        $('.product-checkbox').prop('checked', $(this).prop('checked'));
+        updateBulkActionsBar();
+    });
+    
+    // Evento para checkboxes individuales
+    $('.product-checkbox').on('change', function() {
+        updateBulkActionsBar();
+    });
+    
+    // Actualizar estadísticas con productos filtrados
+    updateStats(filteredProducts);
+}
+
+function updateBulkActionsBar() {
+    selectedProducts = [];
+    $('.product-checkbox:checked').each(function() {
+        let productData = $(this).data('product');
+        selectedProducts.push(productData);
+    });
+    
+    if (selectedProducts.length > 0) {
+        $('#bulk-actions-bar').addClass('active');
+        $('#selected-count').text(selectedProducts.length);
+    } else {
+        $('#bulk-actions-bar').removeClass('active');
+    }
+}
+
+function clearSelection() {
+    $('.product-checkbox').prop('checked', false);
+    $('#select-all').prop('checked', false);
+    selectedProducts = [];
+    $('#bulk-actions-bar').removeClass('active');
+}
+
+function showBulkUpdateModal() {
+    if (selectedProducts.length === 0) {
+        alert('No hay productos seleccionados');
+        return;
+    }
+    
+    $('#modal-count').text(selectedProducts.length);
+    $('#bulk-stock-value').val(0);
+    $('#update-type').val('set');
+    $('#bulk-reason').val('');
+    
+    let modal = new bootstrap.Modal(document.getElementById('bulkUpdateModal'));
+    modal.show();
+}
+
+function executeBulkUpdate() {
+    let updateType = $('#update-type').val();
+    let value = parseInt($('#bulk-stock-value').val());
+    let reason = $('#bulk-reason').val() || 'Actualización masiva';
+    
+    if (isNaN(value)) {
+        alert('Por favor ingresa un valor válido');
+        return;
+    }
+    
+    // Preparar datos
+    let updates = [];
+    selectedProducts.forEach(function(product) {
+        let newStock = product.stock;
+        
+        if (updateType === 'set') {
+            newStock = value;
+        } else if (updateType === 'add') {
+            newStock = product.stock + value;
+        } else if (updateType === 'subtract') {
+            newStock = Math.max(0, product.stock - value);
+        }
+        
+        updates.push({
+            id: product.id,
+            stock: newStock
+        });
+    });
+    
+    // Enviar actualización
+    $.ajax({
+        url: '/stock/update-multiple',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            products: updates,
+            reason: reason
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', `${response.total_updated} productos actualizados correctamente`);
+                
+                // Cerrar modal
+                bootstrap.Modal.getInstance(document.getElementById('bulkUpdateModal')).hide();
+                
+                // Recargar lista
+                loadStock(currentPage);
+            } else {
+                showNotification('error', response.error || 'Error al actualizar');
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = 'Error al actualizar el stock';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            showNotification('error', errorMsg);
+        }
+    });
+}
+
+function updateStats(products) {
+    let inStock = 0;
+    let outOfStock = 0;
+    let lowStock = 0;
+    
+    products.forEach(function(product) {
+        if (product.stock_status === 'outofstock') {
+            outOfStock++;
+        } else if (product.is_low_stock) {
+            lowStock++;
+        } else if (product.stock_status === 'instock') {
+            inStock++;
+        }
+    });
+    
+    $('#stat-instock span').text(inStock);
+    $('#stat-outofstock span').text(outOfStock);
+    $('#stat-lowstock span').text(lowStock);
+}
+
+function adjustStock(productId, change) {
+    let input = $('#stock-' + productId);
+    let currentValue = parseInt(input.val()) || 0;
+    let newValue = Math.max(0, currentValue + change);
+    input.val(newValue);
+}
+
+function updateStock(productId) {
+    let newStock = $('#stock-' + productId).val();
+    
+    if (newStock === '' || newStock === null) {
+        alert('Por favor ingresa un valor de stock');
+        return;
+    }
+    
+    newStock = parseInt(newStock);
+    
+    if (newStock < 0) {
+        alert('El stock no puede ser negativo');
+        return;
+    }
+    
+    let reason = prompt('Motivo del cambio (opcional):', 'Ajuste manual de inventario');
+    if (reason === null) {
+        return;
+    }
+    
+    let btn = event.target.closest('button');
+    let originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+    
+    $.ajax({
+        url: '/stock/update/' + productId,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            stock: newStock,
+            reason: reason || 'Actualización manual'
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                loadStock(currentPage);
+            } else {
+                showNotification('error', response.error || 'Error al actualizar');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = 'Error al actualizar el stock';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            showNotification('error', errorMsg);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            }
+    });
+}
+
+function exportToExcel() {
+    if (allProducts.length === 0) {
+        showNotification('error', 'Debes buscar productos primero para poder exportar');
+        return;
+    }
+    
+    // Preparar datos para Excel
+    let excelData = [];
+    
+    allProducts.forEach(function(product) {
+        excelData.push({
+            'ID': product.id,
+            'ID Padre': product.parent_id || '-',
+            'Tipo': product.type === 'variation' ? 'Variación' : 'Simple',
+            'Producto': product.title,
+            'SKU': product.sku,
+            'Precio': parseFloat(product.price).toFixed(2),
+            'Stock': product.stock,
+            'Estado Stock': product.stock_status,
+            'Estado Producto': product.stock_status === 'instock' ? 'En Stock' : 
+                              product.stock_status === 'outofstock' ? 'Sin Stock' : 'Bajo Pedido',
+            'Stock Bajo': product.is_low_stock ? 'Sí' : 'No'
+        });
+    });
+    
+    // Crear libro de Excel
+    let wb = XLSX.utils.book_new();
+    let ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Ajustar ancho de columnas
+    ws['!cols'] = [
+        {wch: 8},  // ID
+        {wch: 10}, // ID Padre
+        {wch: 12}, // Tipo
+        {wch: 40}, // Producto
+        {wch: 20}, // SKU
+        {wch: 10}, // Precio
+        {wch: 8},  // Stock
+        {wch: 12}, // Estado Stock
+        {wch: 15}, // Estado Producto
+        {wch: 10}  // Stock Bajo
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+    
+    // Generar nombre de archivo con fecha
+    let fecha = new Date().toISOString().split('T')[0];
+    let filename = `inventario_${fecha}.xlsx`;
+    
+    // Descargar
+    XLSX.writeFile(wb, filename);
+    
+    showNotification('success', 'Archivo Excel descargado correctamente');
+}
+
+function viewHistory(productId) {
+    $.ajax({
+        url: '/stock/history/' + productId,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                showHistoryModal(response.history, productId);
+            }
+        },
+        error: function() {
+            alert('Error al cargar el historial');
+        }
+    });
+}
+
+function showHistoryModal(history, productId) {
+    if (history.length === 0) {
+        alert('No hay historial de cambios para este producto');
+        return;
+    }
+    
+    let html = '<div class="modal fade" id="historyModal" tabindex="-1">';
+    html += '<div class="modal-dialog modal-lg">';
+    html += '<div class="modal-content">';
+    html += '<div class="modal-header">';
+    html += '<h5 class="modal-title">';
+    html += '<i class="bi bi-clock-history"></i> Historial de Cambios - Producto #' + productId;
+    html += '</h5>';
+    html += '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>';
+    html += '</div>';
+    html += '<div class="modal-body">';
+    html += '<table class="table table-sm table-hover">';
+    html += '<thead class="table-light"><tr>';
+    html += '<th>Fecha</th>';
+    html += '<th>Stock Anterior</th>';
+    html += '<th>Stock Nuevo</th>';
+    html += '<th>Cambio</th>';
+    html += '<th>Usuario</th>';
+    html += '<th>Motivo</th>';
+    html += '</tr></thead><tbody>';
+    
+    history.forEach(function(record) {
+        let changeClass = record.change_amount > 0 ? 'text-success' : 'text-danger';
+        let changeIcon = record.change_amount > 0 ? '↑' : '↓';
+        let changeBadge = record.change_amount > 0 ? 'bg-success' : 'bg-danger';
+        
+        html += '<tr>';
+        html += '<td><small>' + record.date + '</small></td>';
+        html += '<td><strong>' + record.old_stock + '</strong></td>';
+        html += '<td><strong>' + record.new_stock + '</strong></td>';
+        html += '<td>';
+        html += '<span class="badge ' + changeBadge + '">';
+        html += changeIcon + ' ' + Math.abs(record.change_amount);
+        html += '</span>';
+        html += '</td>';
+        html += '<td><small>' + record.changed_by + '</small></td>';
+        html += '<td><small class="text-muted">' + record.reason + '</small></td>';
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    html += '</div>';
+    html += '<div class="modal-footer">';
+    html += '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>';
+    html += '</div>';
+    html += '</div></div></div>';
+    
+    // Remover modal anterior si existe
+    $('#historyModal').remove();
+    
+    // Agregar y mostrar nuevo modal
+    $('body').append(html);
+    let modal = new bootstrap.Modal(document.getElementById('historyModal'));
+    modal.show();
+}
+
+function showNotification(type, message) {
+    let bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+    let icon = type === 'success' ? 'check-circle' : 'x-circle';
+    
+    let notification = $('<div class="toast-notification"></div>')
+        .addClass(bgClass)
+        .html('<i class="bi bi-' + icon + '"></i> ' + message)
+        .css({
+            position: 'fixed',
+            top: '80px',
+            right: '20px',
+            padding: '15px 20px',
+            borderRadius: '5px',
+            color: 'white',
+            zIndex: 9999,
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            minWidth: '300px'
+        });
+    
+    $('body').append(notification);
+    notification.fadeIn(300);
+    
+    setTimeout(function() {
+        notification.fadeOut(300, function() {
+            $(this).remove();
+        });
+    }, 3000);
+}
+
+function displayPagination(pagination) {
+    if (pagination.pages <= 1) {
+        $('#pagination-container').html('');
+        return;
+    }
+    
+    let html = '<nav>';
+    html += '<ul class="pagination justify-content-center">';
+    
+    // Botón anterior
+    if (pagination.has_prev) {
+        html += '<li class="page-item">';
+        html += '<a class="page-link" href="#" onclick="loadStock(' + pagination.prev_num + '); return false;">Anterior</a>';
+        html += '</li>';
+    } else {
+        html += '<li class="page-item disabled">';
+        html += '<span class="page-link">Anterior</span>';
+        html += '</li>';
+    }
+    
+    // Números de página (limitados)
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            html += '<li class="page-item active">';
+            html += '<span class="page-link">' + i + '</span>';
+            html += '</li>';
+        } else if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += '<li class="page-item">';
+            html += '<a class="page-link" href="#" onclick="loadStock(' + i + '); return false;">' + i + '</a>';
+            html += '</li>';
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += '<li class="page-item disabled">';
+            html += '<span class="page-link">...</span>';
+            html += '</li>';
+        }
+    }
+    
+    // Botón siguiente
+    if (pagination.has_next) {
+        html += '<li class="page-item">';
+        html += '<a class="page-link" href="#" onclick="loadStock(' + pagination.next_num + '); return false;">Siguiente</a>';
+        html += '</li>';
+    } else {
+        html += '<li class="page-item disabled">';
+        html += '<span class="page-link">Siguiente</span>';
+        html += '</li>';
+    }
+    
+    html += '</ul>';
+    html += '</nav>';
+    
+    // Info de paginación
+    if (pagination.total > 0) {
+        let start = (pagination.page - 1) * pagination.per_page + 1;
+        let end = Math.min(pagination.page * pagination.per_page, pagination.total);
+        
+        html += '<p class="text-center text-muted">';
+        html += 'Mostrando ' + start + ' - ' + end + ' de ' + pagination.total + ' productos';
+        html += '</p>';
+    }
+    
+    $('#pagination-container').html(html);
+}
+</script>
+{% endblock %}
