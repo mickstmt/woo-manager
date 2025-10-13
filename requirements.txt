@@ -8,9 +8,11 @@ Flask-Login==0.6.3
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.1
 greenlet==3.2.4
+gunicorn==23.0.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
+packaging==25.0
 pycparser==2.23
 PyMySQL==1.1.0
 python-dotenv==1.0.0
