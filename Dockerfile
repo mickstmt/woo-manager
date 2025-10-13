@@ -1,19 +1,28 @@
-# 1. Usamos una imagen oficial de Python como base
-FROM python:3.10-slim
+# Dockerfile
+FROM python:3.11-slim
 
-# 2. Establecemos el directorio de trabajo dentro del contenedor
+# Establecer directorio de trabajo
 WORKDIR /app
 
-# 3. Copiamos e instalamos las dependencias
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    gcc \
+    default-libmysqlclient-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-# 4. Copiamos el resto del código de la aplicación
+# Copiar requirements
+COPY requirements.txt .
+
+# Instalar dependencias de Python
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install gunicorn
+
+# Copiar el código de la aplicación
 COPY . .
 
-# 5. Exponemos el puerto en el que correrá la aplicación
-EXPOSE 8000
+# Exponer puerto
+EXPOSE 5000
 
-# 6. El comando para iniciar la aplicación usando Gunicorn
-#    (Asegúrate de que tu archivo se llame 'run.py' y tu app 'app')
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "run:app"]
+# Comando para ejecutar la aplicación
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "run:app"]

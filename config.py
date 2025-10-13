@@ -54,18 +54,12 @@ class ProductionConfig(Config):
     """Configuración para producción"""
     DEBUG = False
     ENVIRONMENT = 'production'
-    SESSION_COOKIE_SECURE = True
-    
-    # Obtener valores del .env
-    db_user = os.environ.get('DB_USER')
-    db_password = os.environ.get('DB_PASSWORD')
-    db_host = os.environ.get('DB_HOST')
-    db_name = os.environ.get('DB_NAME_PRODUCTION')
-    
-    # Codificar la contraseña para que funcione en la URL
+    SESSION_COOKIE_SECURE = True  # HTTPS en producción
     SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{db_user}:{quote_plus(db_password)}@"
-        f"{db_host}/{db_name}"
+        f"mysql+pymysql://{os.environ.get('DB_USER')}:"
+        f"{quote_plus(os.environ.get('DB_PASSWORD'))}@"
+        f"{os.environ.get('DB_HOST')}/"
+        f"{os.environ.get('DB_NAME_PRODUCTION')}"
     )
 
 # Diccionario de configuraciones
