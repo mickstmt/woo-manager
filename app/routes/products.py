@@ -24,10 +24,9 @@ def list_products():
     """
     Ruta para obtener lista de productos en formato JSON con paginación
     
-    Comportamiento inteligente:
+    Comportamiento simple:
     - Sin búsqueda: Muestra últimos productos padre creados
-    - Con búsqueda numérica (SKU): Muestra variaciones que coincidan
-    - Con búsqueda texto: Muestra productos padre que coincidan
+    - Con búsqueda: Busca en productos padre Y variaciones (muestra padre si encuentra variación)
     """
     try:
         from sqlalchemy import text
@@ -41,44 +40,55 @@ def list_products():
         # Limitar per_page
         per_page = min(per_page, 500)
         
-        # Determinar modo de búsqueda
-        search_mode = None  # 'sku', 'name', o None
-        show_variations = False
-        
-        if search:
-            # Detectar si es búsqueda por SKU (contiene números) o por nombre
-            if any(char.isdigit() for char in search):
-                search_mode = 'sku'
-                show_variations = True
-            else:
-                search_mode = 'name'
-        
         # ========================================
-        # CASO 1: Búsqueda por SKU (mostrar variaciones)
+        # CASO 1: Con búsqueda
         # ========================================
-        if search_mode == 'sku':
-            # Buscar variaciones que coincidan con el SKU, ID o ID del padre
-            variations_query = text("""
-                SELECT DISTINCT v.ID
+        if search and search.strip() != '':
+            status_filter = f"AND p.post_status = '{status}'" if status else "AND p.post_status = 'publish'"
+            
+            # Buscar en productos padre por título, ID o SKU
+            parent_query = text(f"""
+                SELECT DISTINCT p.ID
+                FROM wpyz_posts p
+                LEFT JOIN wpyz_postmeta pm ON p.ID = pm.post_id AND pm.meta_key = '_sku'
+                WHERE p.post_type = 'product'
+                {status_filter}
+                AND (
+                    p.post_title LIKE :search
+                    OR p.ID LIKE :search
+                    OR pm.meta_value LIKE :search
+                )
+            """)
+            
+            parent_result = db.session.execute(parent_query, {'search': f'%{search}%'})
+            parent_ids = [row[0] for row in parent_result]
+            
+            # Buscar en variaciones por SKU, título o ID del padre
+            variation_query = text(f"""
+                SELECT DISTINCT v.post_parent
                 FROM wpyz_posts v
                 LEFT JOIN wpyz_postmeta vm ON v.ID = vm.post_id AND vm.meta_key = '_sku'
                 WHERE v.post_type = 'product_variation'
+                AND v.post_parent != 0
                 AND (
-                    vm.meta_value LIKE :search
+                    v.post_title LIKE :search
                     OR v.ID LIKE :search
+                    OR vm.meta_value LIKE :search
                     OR v.post_parent LIKE :search
                 )
-                ORDER BY v.ID DESC
             """)
             
-            result = db.session.execute(variations_query, {'search': f'%{search}%'})
-            variation_ids = [row[0] for row in result]
+            variation_result = db.session.execute(variation_query, {'search': f'%{search}%'})
+            parent_ids_from_variations = [row[0] for row in variation_result if row[0]]
             
-            if not variation_ids:
+            # Combinar todos los IDs de productos padre (sin duplicados)
+            all_parent_ids = list(set(parent_ids + parent_ids_from_variations))
+            
+            if not all_parent_ids:
+                # No se encontró nada
                 return jsonify({
                     'success': True,
                     'products': [],
-                    'search_mode': 'sku',
                     'search_term': search,
                     'pagination': {
                         'page': page,
@@ -92,104 +102,26 @@ def list_products():
                     }
                 })
             
-            # Paginación manual
-            total_variations = len(variation_ids)
+            # Obtener productos padre
+            total_products = len(all_parent_ids)
+            
+            # Aplicar paginación manualmente
             start_idx = (page - 1) * per_page
             end_idx = start_idx + per_page
-            paginated_ids = variation_ids[start_idx:end_idx]
+            paginated_ids = all_parent_ids[start_idx:end_idx]
             
-            # Obtener variaciones
-            variations = Product.query.filter(Product.ID.in_(paginated_ids)).all()
-            
-            # Convertir a JSON
-            products_list = []
-            for variation in variations:
-                # Obtener producto padre
-                parent = Product.query.get(variation.post_parent) if variation.post_parent else None
-                
-                products_list.append({
-                    'id': variation.ID,
-                    'parent_id': variation.post_parent,
-                    'parent_title': parent.post_title if parent else 'N/A',
-                    'title': variation.post_title,
-                    'status': variation.post_status,
-                    'type': 'variation',
-                    'sku': variation.get_meta('_sku') or 'N/A',
-                    'price': variation.get_meta('_price') or '0',
-                    'stock': variation.get_meta('_stock') or 'N/A',
-                    'stock_status': variation.get_meta('_stock_status') or 'instock',
-                    'image_url': variation.get_image_url(),
-                    'date': variation.post_date.strftime('%Y-%m-%d %H:%M:%S') if variation.post_date else None
-                })
-            
-            # Calcular paginación
-            import math
-            total_pages = math.ceil(total_variations / per_page)
-            
-            return jsonify({
-                'success': True,
-                'products': products_list,
-                'search_mode': 'sku',
-                'search_term': search,
-                'show_variations': True,
-                'pagination': {
-                    'page': page,
-                    'per_page': per_page,
-                    'total': total_variations,
-                    'pages': total_pages,
-                    'has_prev': page > 1,
-                    'has_next': page < total_pages,
-                    'prev_num': page - 1 if page > 1 else None,
-                    'next_num': page + 1 if page < total_pages else None
-                }
-            })
-        
-        # ========================================
-        # CASO 2: Búsqueda por nombre (mostrar productos padre)
-        # ========================================
-        elif search_mode == 'name':
-            status_filter = f"AND p.post_status = '{status}'" if status else "AND p.post_status = 'publish'"
-            
-            # Contar total
-            count_query = text(f"""
-                SELECT COUNT(DISTINCT p.ID)
-                FROM wpyz_posts p
-                WHERE p.post_type = 'product'
-                {status_filter}
-                AND p.post_title LIKE :search
-            """)
-            
-            total_result = db.session.execute(count_query, {'search': f'%{search}%'})
-            total_products = total_result.scalar()
-            
-            # Obtener productos
-            offset = (page - 1) * per_page
-            
-            products_query = text(f"""
-                SELECT p.ID, p.post_date
-                FROM wpyz_posts p
-                WHERE p.post_type = 'product'
-                {status_filter}
-                AND p.post_title LIKE :search
-                GROUP BY p.ID, p.post_date
-                ORDER BY p.post_date DESC
-                LIMIT :limit OFFSET :offset
-            """)
-            
-            result = db.session.execute(
-                products_query,
-                {'search': f'%{search}%', 'limit': per_page, 'offset': offset}
-            )
-            
-            product_ids = [row[0] for row in result]
-            products_items = Product.query.filter(Product.ID.in_(product_ids)).all() if product_ids else []
+            products_items = Product.query.filter(Product.ID.in_(paginated_ids)).order_by(Product.ID.desc()).all()
             
             # Calcular páginas
             import math
             total_pages = math.ceil(total_products / per_page) if total_products > 0 else 1
+            has_prev = page > 1
+            has_next = page < total_pages
+            prev_num = page - 1 if has_prev else None
+            next_num = page + 1 if has_next else None
             
         # ========================================
-        # CASO 3: Sin búsqueda (mostrar últimos productos padre)
+        # CASO 2: Sin búsqueda (mostrar últimos productos padre)
         # ========================================
         else:
             query = Product.query.filter_by(post_type='product')
@@ -210,67 +142,74 @@ def list_products():
             
             products_items = products.items
             total_pages = products.pages
+            has_prev = products.has_prev
+            has_next = products.has_next
+            prev_num = products.prev_num
+            next_num = products.next_num
         
         # ========================================
-        # Procesar productos padre (CASO 2 y 3)
+        # Procesar productos padre
         # ========================================
-        if search_mode != 'sku':
-            product_ids = [p.ID for p in products_items]
-            
-            # Contar variaciones
-            from sqlalchemy import func
-            variations_query = db.session.query(
-                Product.post_parent,
-                func.count(Product.ID).label('count')
-            ).filter(
-                Product.post_type == 'product_variation',
-                Product.post_parent.in_(product_ids)
-            ).group_by(Product.post_parent).all()
-            
-            variations_dict = {row[0]: row[1] for row in variations_query}
-            
-            # Convertir a JSON
-            products_list = []
-            for product in products_items:
-                variations_count = variations_dict.get(product.ID, 0)
-                is_variable = variations_count > 0
-                
-                products_list.append({
-                    'id': product.ID,
-                    'parent_id': None,
-                    'parent_title': None,
-                    'title': product.post_title,
-                    'status': product.post_status,
-                    'type': 'variable' if is_variable else 'simple',
-                    'sku': product.get_meta('_sku') or 'N/A',
-                    'price': product.get_meta('_price') or '0',
-                    'stock': product.get_meta('_stock') or 'N/A',
-                    'stock_status': product.get_meta('_stock_status') or 'instock',
-                    'is_variable': is_variable,
-                    'variations_count': variations_count,
-                    'image_url': product.get_image_url(),
-                    'date': product.post_date.strftime('%Y-%m-%d %H:%M:%S') if product.post_date else None
-                })
+        product_ids = [p.ID for p in products_items]
         
-        # Respuesta final
-        pagination_data = {
-            'page': page,
-            'per_page': per_page,
-            'total': total_products if search_mode != 'sku' else 0,
-            'pages': total_pages,
-            'has_prev': page > 1,
-            'has_next': page < total_pages,
-            'prev_num': page - 1 if page > 1 else None,
-            'next_num': page + 1 if page < total_pages else None
-        }
+        # Contar variaciones de todos los productos en UNA SOLA consulta
+        from sqlalchemy import func
+        variations_query = db.session.query(
+            Product.post_parent,
+            func.count(Product.ID).label('count')
+        ).filter(
+            Product.post_type == 'product_variation',
+            Product.post_parent.in_(product_ids)
+        ).group_by(Product.post_parent).all()
+        
+        # Crear diccionario para búsqueda rápida
+        variations_dict = {row[0]: row[1] for row in variations_query}
+        
+        # Convertir a formato JSON
+        products_list = []
+        for product in products_items:
+            # Obtener metadatos importantes
+            sku = product.get_meta('_sku') or 'N/A'
+            price = product.get_meta('_price') or '0'
+            stock = product.get_meta('_stock') or 'N/A'
+            stock_status = product.get_meta('_stock_status') or 'instock'
+            
+            # Obtener cantidad de variaciones del diccionario
+            variations_count = variations_dict.get(product.ID, 0)
+            
+            # Determinar tipo de producto
+            is_variable = variations_count > 0
+            product_type = 'variable' if is_variable else 'simple'
+            
+            products_list.append({
+                'id': product.ID,
+                'title': product.post_title,
+                'status': product.post_status,
+                'type': product_type,
+                'sku': sku,
+                'price': price,
+                'stock': stock,
+                'stock_status': stock_status,
+                'is_variable': is_variable,
+                'variations_count': variations_count,
+                'image_url': product.get_image_url(),  # ← Mantiene tu función de imagen
+                'date': product.post_date.strftime('%Y-%m-%d %H:%M:%S') if product.post_date else None
+            })
         
         return jsonify({
             'success': True,
             'products': products_list,
-            'search_mode': search_mode or 'default',
             'search_term': search if search else '',
-            'show_variations': show_variations,
-            'pagination': pagination_data
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total_products,
+                'pages': total_pages,
+                'has_prev': has_prev,
+                'has_next': has_next,
+                'prev_num': prev_num,
+                'next_num': next_num
+            }
         })
         
     except Exception as e:

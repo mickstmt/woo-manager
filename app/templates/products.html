@@ -222,9 +222,8 @@ function loadProducts(page = currentPage) {
 
 function displayResultCount(data) {
     if (data.search_term) {
-        let mode = data.search_mode === 'sku' ? 'SKU' : 'nombre';
         let count = data.pagination.total;
-        let html = `${count} resultado(s) para "${data.search_term}" (modo: ${mode})`;
+        let html = `${count} resultado(s) para "${data.search_term}"`;
         $('#result-count').html(html).show();
     } else {
         $('#result-count').hide();
