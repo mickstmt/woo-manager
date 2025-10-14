@@ -126,9 +126,15 @@
                 <strong><span id="selected-count">0</span> productos seleccionados</strong>
             </div>
             <div>
+                {% if current_user.is_admin() %}
                 <button class="btn btn-sm btn-primary me-2" onclick="showBulkUpdateModal()">
                     <i class="bi bi-pencil-square"></i> Actualizar Stock
                 </button>
+                {% else %}
+                <span class="text-muted">
+                    <i class="bi bi-info-circle"></i> Solo administradores pueden actualizar masivamente
+                </span>
+                {% endif %}
                 <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
                     <i class="bi bi-x"></i> Cancelar
                 </button>
@@ -556,9 +562,14 @@ function clearSelection() {
 
 function showBulkUpdateModal() {
     if (selectedProducts.length === 0) {
-        alert('No hay productos seleccionados');
+        showNotification('error', 'No hay productos seleccionados');
         return;
     }
+    
+    {% if not current_user.is_admin() %}
+    showNotification('error', 'Solo los administradores pueden actualizar stock masivamente');
+    return;
+    {% endif %}
     
     $('#modal-count').text(selectedProducts.length);
     $('#bulk-stock-value').val(0);

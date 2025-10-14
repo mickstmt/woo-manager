@@ -1,5 +1,6 @@
 # app/routes/products.py
 from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required
 from app.models import Product, ProductMeta
 from app import db
 from sqlalchemy import or_
@@ -9,6 +10,7 @@ bp = Blueprint('products', __name__, url_prefix='/products')
 
 
 @bp.route('/')
+@login_required
 def index():
     """
     Ruta principal de productos
@@ -20,6 +22,7 @@ def index():
 
 
 @bp.route('/list')
+@login_required
 def list_products():
     """
     Ruta para obtener lista de productos en formato JSON con paginación
@@ -222,6 +225,7 @@ def list_products():
 
 
 @bp.route('/stats')
+@login_required
 def stats():
     """
     Obtener estadísticas generales de productos
@@ -267,6 +271,7 @@ def stats():
         }), 500
 
 @bp.route('/<int:product_id>/variations')
+@login_required
 def get_variations(product_id):
     """
     Obtener todas las variaciones de un producto variable
@@ -324,6 +329,7 @@ def get_variations(product_id):
         }), 500
 
 @bp.route('/<int:product_id>')
+@login_required
 def view_product(product_id):
     """
     Ver detalles de un producto específico

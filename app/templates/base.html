@@ -28,6 +28,7 @@
     </div>
     {% endif %}
     
+    {% if current_user.is_authenticated %}
     <!-- Navegación -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
@@ -69,7 +70,56 @@
                 </ul>
             </div>
         </div>
+        <ul class="navbar-nav ms-auto">
+            {% if current_user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> 
+                        {{ current_user.username }}
+                        {% if current_user.is_admin() %}
+                        <span class="badge bg-danger ms-1">Admin</span>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li class="dropdown-header">
+                            <small class="text-muted">{{ current_user.email }}</small>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                <i class="bi bi-person"></i> Mi Perfil
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                                <i class="bi bi-key"></i> Cambiar Contraseña
+                            </a>
+                        </li>
+                        {% if current_user.is_admin() %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li class="dropdown-header">
+                            <small class="text-danger">
+                                <i class="bi bi-shield-check"></i> Panel Admin
+                            </small>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#">
+                                <i class="bi bi-people"></i> Gestión de Usuarios
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            {% endif %}
+        </ul>
     </nav>
+    {% endif %}
     
     <!-- Contenido principal -->
     <div class="container-fluid mt-4">

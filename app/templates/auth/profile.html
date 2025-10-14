@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Perfil - WooCommerce Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="bi bi-person-circle"></i> Mi Perfil
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Información del perfil -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Información Personal
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th style="width: 200px;">Nombre Completo:</th>
+                        <td>{{ current_user.full_name or 'No especificado' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Usuario:</th>
+                        <td><code>{{ current_user.username }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Email:</th>
+                        <td>{{ current_user.email }}</td>
+                    </tr>
+                    <tr>
+                        <th>Rol:</th>
+                        <td>
+                            {% if current_user.role == 'admin' %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-shield-fill-check"></i> Administrador
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-person"></i> Usuario
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Estado:</th>
+                        <td>
+                            {% if current_user.is_active %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> Activo
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-circle"></i> Inactivo
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Registro:</th>
+                        <td>{{ current_user.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th>Último Acceso:</th>
+                        <td>
+                            {% if current_user.last_login %}
+                                {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                                Primera vez
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                
+                <hr>
+                
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-warning">
+                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estadísticas rápidas -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-speedometer2"></i> Acceso Rápido
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('products.index') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-box"></i> Productos
+                    </a>
+                    <a href="{{ url_for('stock.index') }}" class="btn btn-outline-success">
+                        <i class="bi bi-boxes"></i> Stock
+                    </a>
+                    {% if current_user.is_admin() %}
+                    <hr>
+                    <small class="text-muted">Panel de Administrador</small>
+                    <a href="#" class="btn btn-outline-danger">
+                        <i class="bi bi-people"></i> Usuarios
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

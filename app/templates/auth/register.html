@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Registro - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .register-container {
+        max-width: 500px;
+        margin: 50px auto;
+    }
+    
+    .register-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .register-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px 15px 0 0;
+        padding: 30px;
+        text-align: center;
+    }
+    
+    .register-header i {
+        font-size: 3rem;
+        margin-bottom: 10px;
+    }
+    
+    .register-body {
+        padding: 30px;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-register {
+        border-radius: 10px;
+        padding: 12px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        transition: transform 0.2s;
+    }
+    
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .password-strength {
+        height: 5px;
+        border-radius: 3px;
+        margin-top: 5px;
+        transition: all 0.3s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-container">
+    <div class="card register-card">
+        <div class="register-header">
+            <i class="bi bi-person-plus"></i>
+            <h3 class="mb-0">Crear Cuenta</h3>
+            <p class="mb-0 mt-2" style="opacity: 0.9;">Únete a WooCommerce Manager</p>
+        </div>
+        
+        <div class="register-body">
+            <!-- Mostrar mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                <div class="mb-3">
+                    <label for="full_name" class="form-label">
+                        <i class="bi bi-person"></i> Nombre Completo
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="full_name" 
+                           name="full_name" 
+                           placeholder="Ej: Juan Pérez"
+                           required 
+                           autofocus>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="username" class="form-label">
+                        <i class="bi bi-at"></i> Usuario
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="username" 
+                           name="username" 
+                           placeholder="Elige un nombre de usuario"
+                           pattern="[a-zA-Z0-9_]{3,20}"
+                           title="Solo letras, números y guiones bajos. Entre 3 y 20 caracteres."
+                           required>
+                    <small class="text-muted">Solo letras, números y guiones bajos</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">
+                        <i class="bi bi-envelope"></i> Email
+                    </label>
+                    <input type="email" 
+                           class="form-control" 
+                           id="email" 
+                           name="email" 
+                           placeholder="tu@email.com"
+                           required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">
+                        <i class="bi bi-lock"></i> Contraseña
+                    </label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Mínimo 6 caracteres"
+                           minlength="6"
+                           required>
+                    <div class="password-strength" id="strength-bar"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password2" class="form-label">
+                        <i class="bi bi-lock-fill"></i> Confirmar Contraseña
+                    </label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password2" 
+                           name="password2" 
+                           placeholder="Repite la contraseña"
+                           minlength="6"
+                           required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-register w-100">
+                    <i class="bi bi-person-check"></i> Crear Cuenta
+                </button>
+            </form>
+            
+            <hr class="my-4">
+            
+            <div class="text-center">
+                <p class="mb-0">
+                    ¿Ya tienes una cuenta? 
+                    <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-bold">
+                        Inicia sesión aquí
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Verificar fortaleza de contraseña
+$('#password').on('input', function() {
+    let password = $(this).val();
+    let strength = 0;
+    let strengthBar = $('#strength-bar');
+    
+    if (password.length >= 6) strength++;
+    if (password.length >= 10) strength++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+    if (/\d/.test(password)) strength++;
+    if (/[^a-zA-Z0-9]/.test(password)) strength++;
+    
+    strengthBar.removeClass('bg-danger bg-warning bg-info bg-success');
+    
+    if (strength <= 1) {
+        strengthBar.addClass('bg-danger').css('width', '25%');
+    } else if (strength === 2) {
+        strengthBar.addClass('bg-warning').css('width', '50%');
+    } else if (strength === 3) {
+        strengthBar.addClass('bg-info').css('width', '75%');
+    } else {
+        strengthBar.addClass('bg-success').css('width', '100%');
+    }
+});
+
+// Verificar que las contraseñas coincidan
+$('#password2').on('input', function() {
+    let password = $('#password').val();
+    let password2 = $(this).val();
+    
+    if (password !== password2 && password2.length > 0) {
+        $(this).addClass('is-invalid');
+    } else {
+        $(this).removeClass('is-invalid');
+    }
+});
+</script>
+{% endblock %}

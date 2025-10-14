@@ -1,5 +1,7 @@
 # app/routes/stock.py
 from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required, current_user
+from app.routes.auth import admin_required
 from app.models import Product, ProductMeta
 from app import db
 from sqlalchemy import or_, func
@@ -8,6 +10,7 @@ bp = Blueprint('stock', __name__, url_prefix='/stock')
 
 
 @bp.route('/')
+@login_required
 def index():
     """
     Vista principal de gestión de stock
@@ -18,6 +21,7 @@ def index():
 
 
 @bp.route('/list')
+@login_required
 def list_stock():
     """
     Obtener lista de productos con información de stock
@@ -216,6 +220,7 @@ def list_stock():
 
 
 @bp.route('/stats')
+@login_required
 def stock_stats():
     """
     Obtener estadísticas generales de stock
@@ -247,6 +252,7 @@ def stock_stats():
     
 
 @bp.route('/update/<int:product_id>', methods=['POST'])
+@login_required
 def update_stock(product_id):
     """
     Actualizar stock de un producto individual
@@ -359,6 +365,7 @@ def update_stock(product_id):
 
 
 @bp.route('/update-multiple', methods=['POST'])
+@admin_required
 def update_multiple_stock():
     """
     Actualizar stock de múltiples productos a la vez
@@ -486,6 +493,7 @@ def update_multiple_stock():
 
 
 @bp.route('/history/<int:product_id>')
+@login_required
 def product_history(product_id):
     """
     Obtener historial de cambios de un producto
