@@ -50,7 +50,12 @@ def login():
             
             # Redirigir a la página que intentaba acceder o al dashboard
             next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('products.index'))
+            if next_page:
+                return redirect(next_page)
+            else:
+                # Redirigir al dashboard principal
+                from flask import redirect, url_for
+                return redirect('/')
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
     

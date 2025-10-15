@@ -2,81 +2,271 @@
 
 {% block title %}Dashboard - WooCommerce Manager{% endblock %}
 
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    .welcome-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .quick-action-btn {
+        border-radius: 10px;
+        padding: 15px;
+        border: 2px solid #e0e0e0;
+        transition: all 0.3s;
+    }
+    
+    .quick-action-btn:hover {
+        border-color: #667eea;
+        background-color: #f8f9fa;
+        transform: translateY(-3px);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- Bienvenida -->
+<div class="welcome-card">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="mb-3">
+                <i class="bi bi-speedometer2"></i> 
+                ¡Bienvenido, {{ current_user.full_name or current_user.username }}!
+            </h1>
+            <p class="mb-0 lead">
+                Panel de control de WooCommerce Manager
+            </p>
+            <small class="opacity-75">
+                Último acceso: 
+                {% if current_user.last_login %}
+                    {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    Primera vez
+                {% endif %}
+            </small>
+        </div>
+        <div class="col-md-4 text-center">
+            {% if current_user.is_admin() %}
+                <span class="badge bg-warning text-dark" style="font-size: 1.2rem; padding: 10px 20px;">
+                    <i class="bi bi-shield-fill-check"></i> Administrador
+                </span>
+            {% else %}
+                <span class="badge bg-light text-dark" style="font-size: 1.2rem; padding: 10px 20px;">
+                    <i class="bi bi-person"></i> Usuario
+                </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas rápidas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card text-center p-4 bg-primary text-white">
+            <div class="stat-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-number" id="total-products">-</div>
+            <div class="stat-label">Total Productos</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card text-center p-4 bg-success text-white">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-number" id="in-stock">-</div>
+            <div class="stat-label">En Stock</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card text-center p-4 bg-danger text-white">
+            <div class="stat-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="stat-number" id="out-stock">-</div>
+            <div class="stat-label">Sin Stock</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card text-center p-4 bg-warning text-dark">
+            <div class="stat-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-number" id="low-stock">-</div>
+            <div class="stat-label">Stock Bajo</div>
+        </div>
+    </div>
+</div>
+
+<!-- Acciones rápidas -->
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">
-            <i class="bi bi-speedometer2"></i> Dashboard
-        </h1>
+        <h4 class="mb-3">
+            <i class="bi bi-lightning-charge"></i> Acciones Rápidas
+        </h4>
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- Card de Productos -->
+<div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-box-seam"></i> Productos
-                </h5>
-                <p class="card-text display-6">1,234</p>
-                <a href="/products/" class="btn btn-light btn-sm">Ver todos</a>
+        <a href="{{ url_for('products.index') }}" class="text-decoration-none">
+            <div class="card quick-action-btn text-center p-4">
+                <i class="bi bi-box-seam text-primary" style="font-size: 2rem;"></i>
+                <h5 class="mt-2 mb-0">Productos</h5>
+                <small class="text-muted">Gestionar catálogo</small>
             </div>
-        </div>
+        </a>
     </div>
     
-    <!-- Card de Stock -->
     <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-boxes"></i> En Stock
-                </h5>
-                <p class="card-text display-6">987</p>
-                <a href="/stock/" class="btn btn-light btn-sm">Gestionar</a>
+        <a href="{{ url_for('stock.index') }}" class="text-decoration-none">
+            <div class="card quick-action-btn text-center p-4">
+                <i class="bi bi-boxes text-success" style="font-size: 2rem;"></i>
+                <h5 class="mt-2 mb-0">Stock</h5>
+                <small class="text-muted">Control de inventario</small>
             </div>
-        </div>
+        </a>
     </div>
     
-    <!-- Card de Sin Stock -->
     <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-exclamation-triangle"></i> Sin Stock
-                </h5>
-                <p class="card-text display-6">47</p>
-                <a href="/stock/" class="btn btn-light btn-sm">Ver detalles</a>
+        <a href="{{ url_for('prices.index') }}" class="text-decoration-none">
+            <div class="card quick-action-btn text-center p-4">
+                <i class="bi bi-tag text-warning" style="font-size: 2rem;"></i>
+                <h5 class="mt-2 mb-0">Precios</h5>
+                <small class="text-muted">Actualizar precios</small>
             </div>
-        </div>
+        </a>
     </div>
     
-    <!-- Card de Precios -->
     <div class="col-md-3">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="bi bi-tag"></i> Con Descuento
-                </h5>
-                <p class="card-text display-6">156</p>
-                <a href="/prices/" class="btn btn-light btn-sm">Gestionar</a>
+        <a href="{{ url_for('images.index') }}" class="text-decoration-none">
+            <div class="card quick-action-btn text-center p-4">
+                <i class="bi bi-image text-info" style="font-size: 2rem;"></i>
+                <h5 class="mt-2 mb-0">Imágenes</h5>
+                <small class="text-muted">Gestionar imágenes</small>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
+<!-- Información adicional -->
+<div class="row">
+    <div class="col-md-6">
         <div class="card">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Bienvenido al Gestor de WooCommerce</h5>
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Información del Sistema
+                </h5>
             </div>
             <div class="card-body">
-                <p>Este sistema te permite gestionar tu tienda WooCommerce de manera rápida y eficiente.</p>
-                <p><strong>Ambiente actual:</strong> <span class="badge bg-info">{{ environment|upper }}</span></p>
-                <p class="text-muted mb-0">Estás conectado a la base de datos de pruebas. Puedes hacer cambios sin preocuparte.</p>
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th>Entorno:</th>
+                        <td>
+                            <span class="badge bg-{{ 'success' if environment == 'production' else 'warning' }}">
+                                {{ environment|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Base de Datos:</th>
+                        <td><code>{{ db_prefix }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Usuario Actual:</th>
+                        <td>{{ current_user.username }} ({{ current_user.email }})</td>
+                    </tr>
+                    <tr>
+                        <th>Rol:</th>
+                        <td>
+                            {% if current_user.is_admin() %}
+                                <span class="badge bg-danger">Administrador</span>
+                            {% else %}
+                                <span class="badge bg-primary">Usuario</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-circle"></i> Mi Perfil
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Gestiona tu cuenta y configuraciones</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-person"></i> Ver Perfil Completo
+                    </a>
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-warning">
+                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Cargar estadísticas al iniciar
+$(document).ready(function() {
+    loadStats();
+});
+
+function loadStats() {
+    $.ajax({
+        url: '/products/stats',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                $('#total-products').text(response.stats.total);
+                $('#in-stock').text(response.stats.published || 0);
+                $('#out-stock').text(response.stats.draft || 0);
+                $('#low-stock').text(response.stats.pending || 0);
+            }
+        },
+        error: function() {
+            console.log('Error al cargar estadísticas');
+        }
+    });
+}
+</script>
 {% endblock %}

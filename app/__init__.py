@@ -1,5 +1,5 @@
 # app/__init__.py
-from flask import Flask, redirect, url_for, request
+from flask import Flask, redirect, render_template, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from config import config
@@ -74,11 +74,10 @@ def create_app(config_name=None):
             'current_user': current_user
         }
     
-    # Ruta principal - redirige al dashboard
+    # Ruta principal - Mostrar dashboard
     @app.route('/')
     def index():
-        # Si está autenticado, mostrar dashboard
-        # Si no, el middleware lo redirigirá al login
-        return redirect(url_for('products.index'))
+        """Dashboard principal"""
+        return render_template('dashboard.html')
     
     return app
