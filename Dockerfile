@@ -18,11 +18,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install gunicorn
 
-# Copiar el código de la aplicación
+# Copiar el código
 COPY . .
 
 # Exponer puerto
 EXPOSE 5000
 
-# Comando para ejecutar la aplicación
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "run:app"]
+# Configurar Gunicorn con timeouts apropiados
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "--keep-alive", "5", "run:app"]

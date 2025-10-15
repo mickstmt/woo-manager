@@ -1,3 +1,4 @@
+# config.py
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
@@ -15,6 +16,22 @@ class Config:
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
     PERMANENT_SESSION_LIFETIME = 3600
+    
+    # ========================================
+    # CONFIGURACIÓN DEL POOL DE CONEXIONES
+    # ========================================
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,              # Número de conexiones en el pool
+        'pool_recycle': 3600,         # Reciclar conexiones cada hora
+        'pool_pre_ping': True,        # Verificar conexión antes de usar
+        'max_overflow': 20,           # Conexiones adicionales si se necesitan
+        'pool_timeout': 30,           # Timeout para obtener conexión del pool
+        'connect_args': {
+            'connect_timeout': 10,    # Timeout de conexión inicial
+            'read_timeout': 30,       # Timeout de lectura
+            'write_timeout': 30       # Timeout de escritura
+        }
+    }
 
 class DevelopmentConfig(Config):
     """Configuración para desarrollo local"""
@@ -82,6 +99,20 @@ class ProductionConfig(Config):
     
     # Construir URL de conexión
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{encoded_password}@{db_host}/{db_name}"
+    
+    # En producción, pool más conservador para evitar sobrecargar Hostinger
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,               # Menos conexiones simultáneas
+        'pool_recycle': 1800,         # Reciclar cada 30 minutos
+        'pool_pre_ping': True,        # Verificar antes de usar (CRÍTICO)
+        'max_overflow': 10,
+        'pool_timeout': 30,
+        'connect_args': {
+            'connect_timeout': 10,
+            'read_timeout': 30,
+            'write_timeout': 30
+        }
+    }
 
 # Diccionario de configuraciones
 config = {

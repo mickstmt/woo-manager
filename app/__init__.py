@@ -22,6 +22,14 @@ def create_app(config_name=None):
     db.init_app(app)
     login_manager.init_app(app)
     
+    # ========================================
+    # MANEJAR RECONEXIÓN DE BD
+    # ========================================
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        """Cerrar sesión de BD al final de cada request"""
+        db.session.remove()
+    
     # Configurar Flask-Login
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
@@ -32,27 +40,36 @@ def create_app(config_name=None):
     
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        try:
+            return User.query.get(int(user_id))
+        except Exception as e:
+            # Si falla la conexión, invalidar sesión
+            import logging
+            logging.error(f"Error al cargar usuario {user_id}: {str(e)}")
+            return None
     
     # ========================================
-    # PROTECCIÓN GLOBAL - Requiere login en TODAS las rutas
+    # PROTECCIÓN GLOBAL
     # ========================================
     @app.before_request
     def require_login():
-        """Middleware que requiere autenticación en todas las rutas excepto las públicas"""
+        """Middleware que requiere autenticación"""
         
-        # Lista de rutas públicas (que NO requieren login)
         public_endpoints = [
             'auth.login',
             'auth.register',
             'static'
         ]
         
-        # Verificar si la ruta actual es pública
         if request.endpoint and request.endpoint not in public_endpoints:
-            if not current_user.is_authenticated:
-                # Guardar la URL a la que intentaba acceder
-                return redirect(url_for('auth.login', next=request.url))
+            try:
+                if not current_user.is_authenticated:
+                    return redirect(url_for('auth.login', next=request.url))
+            except Exception as e:
+                # Si hay error de BD, redirigir a login
+                import logging
+                logging.error(f"Error en require_login: {str(e)}")
+                return redirect(url_for('auth.login'))
     
     # Registrar blueprints
     from app.routes import products, stock, prices, images, categories, auth
@@ -74,7 +91,7 @@ def create_app(config_name=None):
             'current_user': current_user
         }
     
-    # Ruta principal - Mostrar dashboard
+    # Ruta principal
     @app.route('/')
     def index():
         """Dashboard principal"""
