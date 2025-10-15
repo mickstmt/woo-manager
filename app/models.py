@@ -112,7 +112,9 @@ class Product(db.Model):
                     if parent:
                         return parent.get_image_url(parent_checked=True)
                 except Exception as e:
-                    print(f"Error al obtener imagen del padre para variación {self.ID}: {str(e)}")
+                    # Solo log de errores importantes
+                    import logging
+                    logging.error(f"Error al obtener imagen del padre para variación {self.ID}: {str(e)}")
                     return None
             
             if not thumbnail_id:
@@ -131,21 +133,19 @@ class Product(db.Model):
             row = result.fetchone()
             
             if row and row[0]:
-                # ⚠️ IMPORTANTE: Cambiar 'tu-dominio-aqui' por tu dominio real
-                # Ejemplo: https://mitienda.com/wp-content/uploads/
-                # O para desarrollo: http://localhost:5000/wp-content/uploads/
+                # Construir URL completa de la imagen
                 base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
                 image_path = row[0]
                 full_url = base_url + image_path
                 
-                print(f"[DEBUG] Imagen encontrada para producto {self.ID}: {full_url}")
                 return full_url
             
-            print(f"[DEBUG] No se encontró archivo para imagen ID {thumbnail_id}")
             return None
             
         except Exception as e:
-            print(f"[ERROR] Error al obtener imagen para producto {self.ID}: {str(e)}")
+            # Solo log de errores críticos
+            import logging
+            logging.error(f"Error al obtener imagen para producto {self.ID}: {str(e)}")
             return None
     
     def get_variations(self):
