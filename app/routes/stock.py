@@ -369,6 +369,17 @@ def update_stock(product_id):
 def update_multiple_stock():
     """
     Actualizar stock de múltiples productos a la vez
+    
+    URL: POST http://localhost:5000/stock/update-multiple
+    
+    JSON Body:
+    {
+        "products": [
+            {"id": 123, "stock": 50},
+            {"id": 124, "stock": 30}
+        ],
+        "reason": "Recepción de mercancía"
+    }
     """
     try:
         from app.models import StockHistory
@@ -387,81 +398,79 @@ def update_multiple_stock():
         updated = []
         errors = []
         
-        # ⭐ DESACTIVAR AUTOFLUSH durante todo el proceso
-        with db.session.no_autoflush:
-            # Procesar cada producto
-            for item in products_data:
-                product_id = item.get('id')
-                new_stock = item.get('stock')
-                
-                try:
-                    # Validar
-                    if not product_id or new_stock is None:
-                        errors.append({
-                            'id': product_id,
-                            'error': 'ID o stock faltante'
-                        })
-                        continue
-                    
-                    new_stock = int(new_stock)
-                    if new_stock < 0:
-                        errors.append({
-                            'id': product_id,
-                            'error': 'Stock no puede ser negativo'
-                        })
-                        continue
-                    
-                    # Buscar producto
-                    product = Product.query.get(product_id)
-                    if not product:
-                        errors.append({
-                            'id': product_id,
-                            'error': 'Producto no encontrado'
-                        })
-                        continue
-                    
-                    # Obtener stock actual
-                    old_stock_value = product.get_meta('_stock')
-                    old_stock = int(old_stock_value) if old_stock_value else 0
-                    
-                    # Actualizar
-                    product.set_meta('_stock', new_stock)
-                    
-                    if new_stock > 0:
-                        product.set_meta('_stock_status', 'instock')
-                    else:
-                        product.set_meta('_stock_status', 'outofstock')
-                    
-                    product.set_meta('_manage_stock', 'yes')
-                    
-                    # Registrar en historial
-                    change_amount = new_stock - old_stock
-                    history = StockHistory(
-                        product_id=product.ID,
-                        product_title=product.post_title,
-                        sku=product.get_meta('_sku') or 'N/A',
-                        old_stock=old_stock,
-                        new_stock=new_stock,
-                        change_amount=change_amount,
-                        changed_by='admin',
-                        change_reason=reason
-                    )
-                    db.session.add(history)
-                    
-                    updated.append({
-                        'id': product.ID,
-                        'title': product.post_title,
-                        'old_stock': old_stock,
-                        'new_stock': new_stock
-                    })
-                    
-                except Exception as e:
+        # Procesar cada producto
+        for item in products_data:
+            product_id = item.get('id')
+            new_stock = item.get('stock')
+            
+            try:
+                # Validar
+                if not product_id or new_stock is None:
                     errors.append({
                         'id': product_id,
-                        'error': str(e)
+                        'error': 'ID o stock faltante'
                     })
+                    continue
+                
+                new_stock = int(new_stock)
+                if new_stock < 0:
+                    errors.append({
+                        'id': product_id,
+                        'error': 'Stock no puede ser negativo'
+                    })
+                    continue
+                
+                # Buscar producto
+                product = Product.query.get(product_id)
+                if not product:
+                    errors.append({
+                        'id': product_id,
+                        'error': 'Producto no encontrado'
+                    })
+                    continue
+                
+                # Obtener stock actual
+                old_stock_value = product.get_meta('_stock')
+                old_stock = int(old_stock_value) if old_stock_value else 0
+                
+                # Actualizar
+                product.set_meta('_stock', new_stock)
+                
+                if new_stock > 0:
+                    product.set_meta('_stock_status', 'instock')
+                else:
+                    product.set_meta('_stock_status', 'outofstock')
+                
+                product.set_meta('_manage_stock', 'yes')
+                
+                # Registrar en historial
+                change_amount = new_stock - old_stock
+                history = StockHistory(
+                    product_id=product.ID,
+                    product_title=product.post_title,
+                    sku=product.get_meta('_sku') or 'N/A',
+                    old_stock=old_stock,
+                    new_stock=new_stock,
+                    change_amount=change_amount,
+                    changed_by='admin',
+                    change_reason=reason
+                )
+                db.session.add(history)
+                
+                updated.append({
+                    'id': product.ID,
+                    'title': product.post_title,
+                    'old_stock': old_stock,
+                    'new_stock': new_stock
+                })
+                
+            except Exception as e:
+                errors.append({
+                    'id': product_id,
+                    'error': str(e)
+                })
         
-        # ⭐ Ahora SÍ hacer commit de todo junto
+        # Guardar todos los cambios
         db.session.commit()
         
         return jsonify({
