@@ -71,7 +71,7 @@ def logout():
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """Página de registro"""
+    """Página de registro - Solo correos autorizados en lista blanca"""
     if current_user.is_authenticated:
         return redirect(url_for('products.index'))
     
@@ -79,20 +79,47 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        password2 = request.form.get('password2')
+        password_confirm = request.form.get('password_confirm')
         full_name = request.form.get('full_name')
         
-        # Validaciones
-        if not all([username, email, password, password2]):
+        # Validación de campos vacíos
+        if not all([username, email, password, password_confirm]):
             flash('Todos los campos son obligatorios.', 'danger')
             return redirect(url_for('auth.register'))
         
-        if password != password2:
+        # Limpiar email
+        email = email.lower().strip()
+        
+        # ========================================
+        # VALIDACIÓN 1: Dominio corporativo
+        # ========================================
+        if not email.endswith('@izistoreperu.com'):
+            flash('❌ Solo se permiten correos corporativos @izistoreperu.com', 'danger')
+            return redirect(url_for('auth.register'))
+        
+        # ========================================
+        # VALIDACIÓN 2: Email en lista blanca
+        # ========================================
+        from whitelist import is_email_authorized
+        
+        if not is_email_authorized(email):
+            flash('❌ Este correo no está autorizado para registro. Contacta al administrador del sistema.', 'danger')
+            return redirect(url_for('auth.register'))
+        
+        # Validar que las contraseñas coincidan
+        if password != password_confirm:
             flash('Las contraseñas no coinciden.', 'danger')
             return redirect(url_for('auth.register'))
         
+        # Validar longitud de contraseña
         if len(password) < 6:
             flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
+            return redirect(url_for('auth.register'))
+        
+        # Validar formato de usuario
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
+            flash('El usuario debe tener entre 3 y 20 caracteres (solo letras, números y guiones bajos).', 'danger')
             return redirect(url_for('auth.register'))
         
         # Verificar si el usuario ya existe
@@ -100,26 +127,37 @@ def register():
             flash('El nombre de usuario ya está en uso.', 'danger')
             return redirect(url_for('auth.register'))
         
+        # Verificar si el email ya existe
         if User.query.filter_by(email=email).first():
-            flash('El email ya está registrado.', 'danger')
+            flash('Este correo ya tiene una cuenta registrada.', 'danger')
             return redirect(url_for('auth.register'))
         
         # Crear nuevo usuario
-        user = User(
-            username=username,
-            email=email,
-            full_name=full_name,
-            role='user'
-        )
-        user.set_password(password)
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('¡Registro exitoso! Ya puedes iniciar sesión.', 'success')
-        return redirect(url_for('auth.login'))
+        try:
+            new_user = User(
+                username=username,
+                email=email,
+                full_name=full_name,
+                role='user'
+            )
+            new_user.set_password(password)
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            flash('✅ ¡Cuenta creada exitosamente! Ya puedes iniciar sesión.', 'success')
+            return redirect(url_for('auth.login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear la cuenta: {str(e)}', 'danger')
+            return redirect(url_for('auth.register'))
     
-    return render_template('auth/register.html')
+    # GET: Mostrar formulario
+    from whitelist import get_authorized_count
+    authorized_count = get_authorized_count()
+    
+    return render_template('auth/register.html', authorized_count=authorized_count)
 
 @bp.route('/profile')
 @login_required
