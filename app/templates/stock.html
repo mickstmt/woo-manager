@@ -34,6 +34,24 @@
         align-items: center;
         justify-content: space-between;
     }
+
+    #processing-status {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+    }
+
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
 </style>
 {% endblock %}
 
@@ -168,40 +186,66 @@
     </div>
 </div>
 
-<!-- Modal para actualización masiva -->
+<!-- Modal de actualización masiva -->
 <div class="modal fade" id="bulkUpdateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Actualización Masiva de Stock</h5>
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square"></i> 
+                    Actualización Masiva de Stock
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            
             <div class="modal-body">
-                <p>Actualizar stock de <strong><span id="modal-count">0</span> productos</strong> seleccionados:</p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Se actualizarán <strong><span id="modal-count">0</span></strong> productos
+                </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Tipo de actualización:</label>
+                    <label class="form-label">Tipo de actualización</label>
                     <select class="form-select" id="update-type">
                         <option value="set">Establecer valor</option>
-                        <option value="add">Sumar cantidad</option>
-                        <option value="subtract">Restar cantidad</option>
+                        <option value="add">Aumentar cantidad</option>
+                        <option value="subtract">Disminuir cantidad</option>
                     </select>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Cantidad:</label>
-                    <input type="number" class="form-control" id="bulk-stock-value" min="0" value="0">
+                    <label class="form-label">Cantidad</label>
+                    <input type="number" class="form-control" id="bulk-stock-value" 
+                           min="0" value="0" placeholder="Ingresa la cantidad">
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Motivo del cambio (opcional):</label>
-                    <input type="text" class="form-control" id="bulk-reason" placeholder="Ej: Recepción de mercancía">
+                    <label class="form-label">Razón del cambio (opcional)</label>
+                    <input type="text" class="form-control" id="bulk-reason" 
+                           placeholder="Ej: Recepción de mercancía, Inventario físico">
+                </div>
+
+                <!-- Estado de procesamiento -->
+                <div id="processing-status" class="alert alert-warning" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div>
+                            <strong>Procesando actualización...</strong>
+                            <br>
+                            <small>Esto puede tomar unos segundos. Por favor no cierres esta ventana.</small>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="executeBulkUpdate()">
-                    <i class="bi bi-check-lg"></i> Aplicar Cambios
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btn-cancel">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="executeBulkUpdate()" id="btn-apply">
+                    <i class="bi bi-check-circle"></i> Aplicar Cambios
                 </button>
             </div>
         </div>
@@ -580,13 +624,27 @@ function showBulkUpdateModal() {
     modal.show();
 }
 
+let isProcessing = false; // Variable global para evitar doble envío
+
 function executeBulkUpdate() {
+    // Evitar doble clic
+    if (isProcessing) {
+        console.log('Ya hay una actualización en proceso...');
+        return;
+    }
+    
     let updateType = $('#update-type').val();
     let value = parseInt($('#bulk-stock-value').val());
     let reason = $('#bulk-reason').val() || 'Actualización masiva';
     
+    // Validaciones
     if (isNaN(value)) {
-        alert('Por favor ingresa un valor válido');
+        showNotification('error', 'Por favor ingresa un valor válido');
+        return;
+    }
+    
+    if (selectedProducts.length === 0) {
+        showNotification('error', 'No hay productos seleccionados');
         return;
     }
     
@@ -609,6 +667,14 @@ function executeBulkUpdate() {
         });
     });
     
+    // Bloquear interfaz
+    isProcessing = true;
+    $('#btn-apply').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Procesando...');
+    $('#btn-cancel').prop('disabled', true);
+    $('#processing-status').slideDown();
+    
+    console.log('Enviando actualización de', updates.length, 'productos...');
+    
     // Enviar actualización
     $.ajax({
         url: '/stock/update-multiple',
@@ -618,25 +684,59 @@ function executeBulkUpdate() {
             products: updates,
             reason: reason
         }),
+        timeout: 60000, // Timeout de 60 segundos
         success: function(response) {
+            console.log('Respuesta recibida:', response);
+            
             if (response.success) {
-                showNotification('success', `${response.total_updated} productos actualizados correctamente`);
+                // Éxito
+                let message = response.message;
+                
+                if (response.errors && response.errors.length > 0) {
+                    message += ` (${response.errors.length} productos con errores)`;
+                    showNotification('warning', message);
+                } else {
+                    showNotification('success', message);
+                }
                 
                 // Cerrar modal
-                bootstrap.Modal.getInstance(document.getElementById('bulkUpdateModal')).hide();
+                let modal = bootstrap.Modal.getInstance(document.getElementById('bulkUpdateModal'));
+                modal.hide();
                 
-                // Recargar lista
-                loadStock(currentPage);
+                // Limpiar selección
+                clearSelection();
+                
+                // Recargar lista después de un pequeño delay
+                setTimeout(function() {
+                    loadStock(currentPage);
+                }, 500);
+                
             } else {
                 showNotification('error', response.error || 'Error al actualizar');
             }
         },
-        error: function(xhr) {
+        error: function(xhr, status, error) {
+            console.error('Error AJAX:', status, error);
+            console.error('Response:', xhr.responseText);
+            
             let errorMsg = 'Error al actualizar el stock';
-            if (xhr.responseJSON && xhr.responseJSON.error) {
+            
+            if (status === 'timeout') {
+                errorMsg = 'La actualización está tomando más tiempo del esperado. Verifica los cambios en unos momentos.';
+            } else if (xhr.responseJSON && xhr.responseJSON.error) {
                 errorMsg = xhr.responseJSON.error;
+            } else if (xhr.status === 0) {
+                errorMsg = 'Error de conexión. Verifica tu conexión a internet.';
             }
+            
             showNotification('error', errorMsg);
+        },
+        complete: function() {
+            // Desbloquear interfaz
+            isProcessing = false;
+            $('#btn-apply').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Aplicar Cambios');
+            $('#btn-cancel').prop('disabled', false);
+            $('#processing-status').slideUp();
         }
     });
 }
