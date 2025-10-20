@@ -1,5 +1,5 @@
 # app/__init__.py
-from flask import Flask, redirect, render_template, url_for, request
+from flask import Flask, redirect, url_for, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from config import config

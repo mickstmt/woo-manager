@@ -546,16 +546,21 @@ function displayStock(products) {
         html += '</div>';
         html += '</td>';
         
-        html += '<td>' + stockBadge + '</td>';
+        html += '<td><span class="stock-status-badge">' + stockBadge + '</span></td>';
         
         // Acciones
         html += '<td>';
-        html += '<button class="btn btn-sm btn-primary me-1" onclick="updateStock(' + product.id + ')" title="Guardar">';
+        html += '<div class="btn-group" role="group">';
+        html += '<button class="btn btn-sm btn-primary" onclick="updateStock(' + product.id + ')" title="Guardar cambios">';
         html += '<i class="bi bi-save"></i>';
         html += '</button>';
-        html += '<button class="btn btn-sm btn-secondary" onclick="viewHistory(' + product.id + ')" title="Ver historial">';
+        html += '<button class="btn btn-sm btn-info" onclick="viewHistory(' + product.id + ')" title="Ver historial">';
         html += '<i class="bi bi-clock-history"></i>';
         html += '</button>';
+        html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-secondary" title="Ver detalles">';
+        html += '<i class="bi bi-eye"></i>';
+        html += '</a>';
+        html += '</div>';
         html += '</td>';
         
         html += '</tr>';
@@ -769,46 +774,36 @@ function adjustStock(productId, change) {
 }
 
 function updateStock(productId) {
-    let newStock = $('#stock-' + productId).val();
+    let input = $('#stock-' + productId);
+    let newStock = parseInt(input.val());
+    let reason = 'Ajuste manual de inventario';
     
-    if (newStock === '' || newStock === null) {
-        alert('Por favor ingresa un valor de stock');
+    // Validar
+    if (isNaN(newStock) || newStock < 0) {
+        showNotification('error', 'Stock inválido');
         return;
     }
     
-    newStock = parseInt(newStock);
-    
-    if (newStock < 0) {
-        alert('El stock no puede ser negativo');
-        return;
-    }
-    
-    let reason = prompt('Motivo del cambio (opcional):', 'Ajuste manual de inventario');
-    if (reason === null) {
-        return;
-    }
-    
-    let btn = event.target.closest('button');
-    let originalHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    btn.disabled = true;
+    // Deshabilitar input mientras procesa
+    input.prop('disabled', true);
     
     $.ajax({
-        url: '/stock/update/' + productId,
+        url: `/stock/update/${productId}`,
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
             stock: newStock,
-            reason: reason || 'Actualización manual'
+            reason: reason
         }),
         success: function(response) {
             if (response.success) {
-                showNotification('success', response.message);
+                showNotification('success', 'Stock actualizado correctamente');
+                
+                // Recargar la tabla para reflejar cambios
                 loadStock(currentPage);
             } else {
                 showNotification('error', response.error || 'Error al actualizar');
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
+                input.prop('disabled', false);
             }
         },
         error: function(xhr) {
@@ -817,9 +812,8 @@ function updateStock(productId) {
                 errorMsg = xhr.responseJSON.error;
             }
             showNotification('error', errorMsg);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            }
+            input.prop('disabled', false);
+        }
     });
 }
 

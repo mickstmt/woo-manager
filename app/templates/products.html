@@ -361,15 +361,22 @@ function displayProducts(data) {
         }
         
         // Acciones
-        html += '<td>';
-        html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-primary me-1" title="Ver detalles">';
+        html += '<td class="text-end">';
+        html += '<div class="btn-group" role="group">';
+
+        // Botón Ver Detalles
+        html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles">';
         html += '<i class="bi bi-eye"></i>';
         html += '</a>';
-        html += '<button class="btn btn-sm btn-success" title="Editar">';
-        html += '<i class="bi bi-pencil"></i>';
-        html += '</button>';
+
+        // Botón Editar en WordPress
+        html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-secondary" title="Editar en WordPress">';
+        html += '<i class="bi bi-wordpress"></i>';
+        html += '</a>';
+
+        html += '</div>';
         html += '</td>';
-        
+
         html += '</tr>';
         
         // Fila para variaciones (solo productos padre)
@@ -592,6 +599,198 @@ function displayPagination(pagination) {
 
 function viewProduct(productId) {
     window.location.href = '/products/' + productId;
+}
+
+// Función para escapar HTML y evitar XSS
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Edición rápida de stock
+function quickEditStock(productId, productTitle, currentStock) {
+    // Crear modal dinámico
+    const modalHtml = `
+        <div class="modal fade" id="quickStockModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-boxes"></i> Actualizar Stock
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>${productTitle}</h6>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">Stock Actual</label>
+                            <input type="number" class="form-control" value="${currentStock}" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nuevo Stock</label>
+                            <input type="number" class="form-control" id="quick-new-stock" min="0" value="${currentStock}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Razón del Cambio</label>
+                            <input type="text" class="form-control" id="quick-stock-reason" placeholder="Ej: Inventario físico">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="saveQuickStock(${productId})">
+                            <i class="bi bi-check-circle"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Eliminar modal anterior si existe
+    $('#quickStockModal').remove();
+    
+    // Agregar y mostrar modal
+    $('body').append(modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('quickStockModal'));
+    modal.show();
+    
+    // Enfocar input
+    $('#quickStockModal').on('shown.bs.modal', function () {
+        $('#quick-new-stock').focus().select();
+    });
+}
+
+// Guardar cambio rápido de stock
+function saveQuickStock(productId) {
+    const newStock = $('#quick-new-stock').val();
+    const reason = $('#quick-stock-reason').val() || 'Actualización rápida';
+    
+    $.ajax({
+        url: `/stock/update/${productId}`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            stock: parseInt(newStock),
+            reason: reason
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', 'Stock actualizado correctamente');
+                $('#quickStockModal').modal('hide');
+                loadProducts(currentPage); // Recargar tabla
+            } else {
+                showNotification('error', response.error || 'Error al actualizar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al actualizar el stock');
+        }
+    });
+}
+
+// Edición rápida de precio (solo admins)
+function quickEditPrice(productId, productTitle) {
+    // Obtener precios actuales
+    $.ajax({
+        url: `/products/${productId}`,
+        method: 'GET',
+        success: function(data) {
+            // Extraer precios del HTML retornado (o mejor hacer un endpoint API)
+            showPriceModal(productId, productTitle);
+        },
+        error: function() {
+            showNotification('error', 'Error al cargar información del producto');
+        }
+    });
+}
+
+// Mostrar modal de precio
+function showPriceModal(productId, productTitle) {
+    const modalHtml = `
+        <div class="modal fade" id="quickPriceModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-tag"></i> Actualizar Precio
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>${productTitle}</h6>
+                        <hr>
+                        <div class="mb-3">
+                            <label class="form-label">Precio Regular (S/)</label>
+                            <input type="number" class="form-control" id="quick-regular-price" step="0.01" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Precio Oferta (S/) - Opcional</label>
+                            <input type="number" class="form-control" id="quick-sale-price" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-warning" onclick="saveQuickPrice(${productId})">
+                            <i class="bi bi-check-circle"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Eliminar modal anterior si existe
+    $('#quickPriceModal').remove();
+    
+    // Agregar y mostrar modal
+    $('body').append(modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('quickPriceModal'));
+    modal.show();
+    
+    // Enfocar input
+    $('#quickPriceModal').on('shown.bs.modal', function () {
+        $('#quick-regular-price').focus();
+    });
+}
+
+// Guardar cambio rápido de precio
+function saveQuickPrice(productId) {
+    const regularPrice = $('#quick-regular-price').val();
+    const salePrice = $('#quick-sale-price').val();
+    
+    if (!regularPrice || parseFloat(regularPrice) < 0) {
+        showNotification('error', 'El precio regular es obligatorio');
+        return;
+    }
+    
+    $.ajax({
+        url: `/prices/update/${productId}`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            regular_price: parseFloat(regularPrice),
+            sale_price: salePrice ? parseFloat(salePrice) : null
+        }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', 'Precio actualizado correctamente');
+                $('#quickPriceModal').modal('hide');
+                loadProducts(currentPage); // Recargar tabla
+            } else {
+                showNotification('error', response.error || 'Error al actualizar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al actualizar el precio');
+        }
+    });
 }
 </script>
 {% endblock %}

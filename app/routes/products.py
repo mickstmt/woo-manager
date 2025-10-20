@@ -1,5 +1,6 @@
 # app/routes/products.py
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+
 from flask_login import login_required
 from app.models import Product, ProductMeta
 from app import db
@@ -328,21 +329,114 @@ def get_variations(product_id):
             'error': str(e)
         }), 500
 
+
 @bp.route('/<int:product_id>')
 @login_required
 def view_product(product_id):
     """
-    Ver detalles de un producto específico
+    Ver detalles completos de un producto
     
-    URL: http://localhost:5000/products/123
+    URL: /products/123
     """
-    product = Product.query.get_or_404(product_id)
-    
-    # Obtener todos los metadatos del producto
-    metadata = {}
-    for meta in product.product_meta:
-        metadata[meta.meta_key] = meta.meta_value
-    
-    return render_template('product_detail.html', 
-                         product=product,
-                         metadata=metadata)
+    try:
+        # Obtener el producto
+        product = Product.query.get(product_id)
+        
+        if not product:
+            flash('Producto no encontrado.', 'danger')
+            return redirect(url_for('products.index'))
+        
+        # Obtener metadatos importantes
+        product_data = {
+            'id': product.ID,
+            'title': product.post_title,
+            'status': product.post_status,
+            'type': product.post_type,
+            'description': product.post_content,
+            'short_description': product.post_excerpt,
+            'created_at': product.post_date,
+            'modified_at': product.post_modified,
+            
+            # Metadatos
+            'sku': product.get_meta('_sku') or 'N/A',
+            'regular_price': product.get_meta('_regular_price') or '0',
+            'sale_price': product.get_meta('_sale_price') or '',
+            'price': product.get_meta('_price') or '0',
+            'stock': product.get_meta('_stock') or '0',
+            'stock_status': product.get_meta('_stock_status') or 'outofstock',
+            'manage_stock': product.get_meta('_manage_stock') or 'no',
+            'backorders': product.get_meta('_backorders') or 'no',
+            'sold_individually': product.get_meta('_sold_individually') or 'no',
+            
+            # Dimensiones
+            'weight': product.get_meta('_weight') or '',
+            'length': product.get_meta('_length') or '',
+            'width': product.get_meta('_width') or '',
+            'height': product.get_meta('_height') or '',
+            
+            # Imagen
+            'image_url': product.get_image_url(),
+            
+            # Producto padre (si es variación)
+            'parent_id': product.post_parent
+        }
+        
+        # Si es variación, obtener el producto padre
+        parent_product = None
+        if product.post_type == 'product_variation' and product.post_parent:
+            parent_product = Product.query.get(product.post_parent)
+        
+        # Si es producto variable, obtener variaciones
+        variations = []
+        if product.post_type == 'product':
+            variations_query = Product.query.filter_by(
+                post_type='product_variation',
+                post_parent=product.ID
+            ).all()
+            
+            for var in variations_query:
+                variations.append({
+                    'id': var.ID,
+                    'title': var.post_title,
+                    'sku': var.get_meta('_sku') or 'N/A',
+                    'price': var.get_meta('_price') or '0',
+                    'stock': var.get_meta('_stock') or '0',
+                    'stock_status': var.get_meta('_stock_status') or 'outofstock',
+                    'image_url': var.get_image_url()
+                })
+        
+        # Obtener categorías
+        from sqlalchemy import text
+        categories_query = text("""
+            SELECT t.name, t.slug
+            FROM wpyz_term_relationships tr
+            JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            JOIN wpyz_terms t ON tt.term_id = t.term_id
+            WHERE tr.object_id = :product_id
+            AND tt.taxonomy = 'product_cat'
+        """)
+        
+        categories_result = db.session.execute(categories_query, {'product_id': product_id})
+        categories = [{'name': row[0], 'slug': row[1]} for row in categories_result]
+        
+        # Obtener historial de stock
+        from app.models import StockHistory
+        stock_history = StockHistory.query.filter_by(
+            product_id=product_id
+        ).order_by(StockHistory.created_at.desc()).limit(10).all()
+        
+        return render_template(
+            'products/view.html',
+            product=product_data,
+            parent_product=parent_product,
+            variations=variations,
+            categories=categories,
+            stock_history=stock_history
+        )
+        
+    except Exception as e:
+        import traceback
+        print("Error al ver producto:")
+        print(traceback.format_exc())
+        flash(f'Error al cargar el producto: {str(e)}', 'danger')
+        return redirect(url_for('products.index'))
