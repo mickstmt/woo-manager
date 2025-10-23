@@ -1,9 +1,8 @@
 # app/routes/products.py
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
-
 from flask_login import login_required
 from app.models import Product, ProductMeta
-from app import db
+from app import db, cache
 from sqlalchemy import or_
 
 # Crear el blueprint
@@ -24,6 +23,7 @@ def index():
 
 @bp.route('/list')
 @login_required
+@cache.cached(timeout=180, query_string=True)  # Cache 3 min basado en parámetros URL
 def list_products():
     """
     Ruta para obtener lista de productos en formato JSON con paginación
@@ -152,10 +152,10 @@ def list_products():
             next_num = products.next_num
         
         # ========================================
-        # Procesar productos padre
+        # Procesar productos padre - OPTIMIZADO
         # ========================================
         product_ids = [p.ID for p in products_items]
-        
+
         # Contar variaciones de todos los productos en UNA SOLA consulta
         from sqlalchemy import func
         variations_query = db.session.query(
@@ -165,26 +165,69 @@ def list_products():
             Product.post_type == 'product_variation',
             Product.post_parent.in_(product_ids)
         ).group_by(Product.post_parent).all()
-        
+
         # Crear diccionario para búsqueda rápida
         variations_dict = {row[0]: row[1] for row in variations_query}
-        
+
+        # ========================================
+        # OPTIMIZACIÓN: Eager load de metadatos en 1 query
+        # ========================================
+        # Obtener TODOS los metadatos necesarios de todos los productos en UNA sola consulta
+        meta_keys = ['_sku', '_price', '_stock', '_stock_status', '_thumbnail_id']
+
+        all_meta = db.session.query(
+            ProductMeta.post_id,
+            ProductMeta.meta_key,
+            ProductMeta.meta_value
+        ).filter(
+            ProductMeta.post_id.in_(product_ids),
+            ProductMeta.meta_key.in_(meta_keys)
+        ).all()
+
+        # Crear diccionario anidado: {product_id: {meta_key: meta_value}}
+        meta_dict = {}
+        for post_id, meta_key, meta_value in all_meta:
+            if post_id not in meta_dict:
+                meta_dict[post_id] = {}
+            meta_dict[post_id][meta_key] = meta_value
+
         # Convertir a formato JSON
         products_list = []
         for product in products_items:
-            # Obtener metadatos importantes
-            sku = product.get_meta('_sku') or 'N/A'
-            price = product.get_meta('_price') or '0'
-            stock = product.get_meta('_stock') or 'N/A'
-            stock_status = product.get_meta('_stock_status') or 'instock'
-            
+            # Obtener metadatos del diccionario (sin queries adicionales)
+            product_meta = meta_dict.get(product.ID, {})
+            sku = product_meta.get('_sku', 'N/A')
+            price = product_meta.get('_price', '0')
+            stock = product_meta.get('_stock', 'N/A')
+            stock_status = product_meta.get('_stock_status', 'instock')
+            thumbnail_id = product_meta.get('_thumbnail_id')
+
             # Obtener cantidad de variaciones del diccionario
             variations_count = variations_dict.get(product.ID, 0)
-            
+
             # Determinar tipo de producto
             is_variable = variations_count > 0
             product_type = 'variable' if is_variable else 'simple'
-            
+
+            # Obtener URL de imagen (usando thumbnail_id del diccionario para evitar query)
+            image_url = None
+            if thumbnail_id:
+                try:
+                    image_query = text("""
+                        SELECT meta_value
+                        FROM wpyz_postmeta
+                        WHERE post_id = :image_id
+                        AND meta_key = '_wp_attached_file'
+                        LIMIT 1
+                    """)
+                    result = db.session.execute(image_query, {'image_id': int(thumbnail_id)})
+                    row = result.fetchone()
+                    if row and row[0]:
+                        base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
+                        image_url = base_url + row[0]
+                except:
+                    image_url = None
+
             products_list.append({
                 'id': product.ID,
                 'title': product.post_title,
@@ -196,7 +239,7 @@ def list_products():
                 'stock_status': stock_status,
                 'is_variable': is_variable,
                 'variations_count': variations_count,
-                'image_url': product.get_image_url(),  # ← Mantiene tu función de imagen
+                'image_url': image_url,
                 'date': product.post_date.strftime('%Y-%m-%d %H:%M:%S') if product.post_date else None
             })
         

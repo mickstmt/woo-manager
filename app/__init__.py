@@ -2,12 +2,14 @@
 from flask import Flask, redirect, url_for, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
+from flask_caching import Cache
 from config import config
 import os
 
 # Inicializar extensiones
 db = SQLAlchemy()
 login_manager = LoginManager()
+cache = Cache()
 
 def create_app(config_name=None):
     """Factory para crear la aplicación Flask"""
@@ -17,10 +19,15 @@ def create_app(config_name=None):
     
     app = Flask(__name__)
     app.config.from_object(config[config_name])
-    
+
+    # Configuración de caché
+    app.config['CACHE_TYPE'] = 'SimpleCache'  # Caché en memoria (para desarrollo)
+    app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutos por defecto
+
     # Inicializar extensiones
     db.init_app(app)
     login_manager.init_app(app)
+    cache.init_app(app)
     
     # ========================================
     # MANEJAR RECONEXIÓN DE BD

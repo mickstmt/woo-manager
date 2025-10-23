@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from app.routes.auth import admin_required
 from app.models import Product, ProductMeta
-from app import db
+from app import db, cache
 from datetime import datetime
 from sqlalchemy import or_, func
 
@@ -23,6 +23,7 @@ def index():
 
 @bp.route('/list')
 @login_required
+@cache.cached(timeout=300, query_string=True)  # Cache 5 min basado en búsqueda
 def list_stock():
     """
     Obtener lista de productos con información de stock
@@ -115,7 +116,7 @@ def list_stock():
                     'product': product,
                     'is_variation': False
                 })
-        
+
         # Obtener variaciones
         if variation_ids:
             variations = Product.query.filter(Product.ID.in_(variation_ids)).all()
@@ -124,30 +125,66 @@ def list_stock():
                     'product': variation,
                     'is_variation': True
                 })
-        
+
         # ========================================
-        # Procesar todos los items
+        # OPTIMIZACIÓN: Eager load de metadatos - 1 query
+        # ========================================
+        all_product_ids = [item['product'].ID for item in all_items]
+
+        # Obtener TODOS los metadatos en UNA sola consulta
+        meta_keys = ['_sku', '_price', '_stock', '_stock_status', '_manage_stock']
+
+        all_meta = db.session.query(
+            ProductMeta.post_id,
+            ProductMeta.meta_key,
+            ProductMeta.meta_value
+        ).filter(
+            ProductMeta.post_id.in_(all_product_ids),
+            ProductMeta.meta_key.in_(meta_keys)
+        ).all()
+
+        # Crear diccionario: {product_id: {meta_key: meta_value}}
+        meta_dict = {}
+        for post_id, meta_key, meta_value in all_meta:
+            if post_id not in meta_dict:
+                meta_dict[post_id] = {}
+            meta_dict[post_id][meta_key] = meta_value
+
+        # ========================================
+        # OPTIMIZACIÓN: Cargar productos padre en 1 query
+        # ========================================
+        parent_ids = list(set([item['product'].post_parent for item in all_items
+                              if item['is_variation'] and item['product'].post_parent]))
+
+        parents_dict = {}
+        if parent_ids:
+            parents = Product.query.filter(Product.ID.in_(parent_ids)).all()
+            parents_dict = {p.ID: p for p in parents}
+
+        # ========================================
+        # Procesar todos los items - SIN QUERIES ADICIONALES
         # ========================================
         for item in all_items:
             product = item['product']
             is_variation = item['is_variation']
-            
-            # Obtener metadatos
-            sku = product.get_meta('_sku') or 'N/A'
-            price = product.get_meta('_price') or '0'
-            stock = product.get_meta('_stock')
-            stock_status = product.get_meta('_stock_status') or 'instock'
-            manage_stock = product.get_meta('_manage_stock') or 'no'
-            
+
+            # Obtener metadatos del diccionario (sin queries)
+            product_meta = meta_dict.get(product.ID, {})
+            sku = product_meta.get('_sku', 'N/A')
+            price = product_meta.get('_price', '0')
+            stock = product_meta.get('_stock')
+            stock_status = product_meta.get('_stock_status', 'instock')
+            manage_stock = product_meta.get('_manage_stock', 'no')
+
             # Convertir stock a número
             try:
                 stock_quantity = int(stock) if stock else 0
             except:
                 stock_quantity = 0
-            
+
             # Determinar si tiene stock bajo
             is_low_stock = stock_quantity > 0 and stock_quantity <= low_threshold
-            
+
             # Aplicar filtro de stock
             if stock_filter == 'instock' and stock_status != 'instock':
                 continue
@@ -155,16 +192,16 @@ def list_stock():
                 continue
             elif stock_filter == 'low' and not is_low_stock:
                 continue
-            
-            # Obtener padre si es variación
+
+            # Obtener padre del diccionario (sin query)
             parent_id = None
             parent_title = None
             if is_variation and product.post_parent:
-                parent = Product.query.get(product.post_parent)
+                parent = parents_dict.get(product.post_parent)
                 if parent:
                     parent_id = parent.ID
                     parent_title = parent.post_title
-            
+
             product_data = {
                 'id': product.ID,
                 'parent_id': parent_id,
@@ -178,7 +215,7 @@ def list_stock():
                 'manage_stock': manage_stock,
                 'is_low_stock': is_low_stock
             }
-            
+
             products_list.append(product_data)
         
         # ========================================
@@ -257,9 +294,9 @@ def stock_stats():
 def update_stock(product_id):
     """
     Actualizar stock de un producto individual
-    
+
     URL: POST http://localhost:5000/stock/update/123
-    
+
     JSON Body:
     {
         "stock": 50,
@@ -267,6 +304,9 @@ def update_stock(product_id):
     }
     """
     try:
+        # Invalidar caché al actualizar stock
+        cache.clear()
+
         from app.models import StockHistory
         
         # Obtener datos del request
@@ -373,6 +413,9 @@ def update_multiple_stock():
     SOLO ADMINS
     """
     try:
+        # Invalidar caché al actualizar stock masivo
+        cache.clear()
+
         # Obtener datos
         data = request.get_json()
         products_data = data.get('products', [])
