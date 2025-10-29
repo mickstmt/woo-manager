@@ -1,5 +1,1136 @@
 {% extends "base.html" %}
+
+{% block title %}Gestión de Precios - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .result-count {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+
+    .parent-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+
+    .parent-link:hover {
+        text-decoration: underline;
+    }
+
+    .bulk-actions-bar {
+        background: #e7f3ff;
+        border: 1px solid #0d6efd;
+        border-radius: 5px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        display: none;
+    }
+
+    .bulk-actions-bar.active {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .price-input {
+        width: 90px;
+        font-size: 0.9rem;
+    }
+
+    .on-sale-badge {
+        background: #28a745;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+    }
+
+    .price-column {
+        font-family: 'Courier New', monospace;
+    }
+
+    #processing-status {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+    }
+
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .modal-action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .currency-symbol {
+        font-weight: bold;
+        color: #28a745;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Gestión de Precios</h1>
-<p>Próximamente...</p>
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="bi bi-tag"></i> Gestión de Precios
+            </h1>
+
+            <!-- Estadísticas -->
+            <div id="stats-container">
+                <span class="badge bg-primary me-2" id="stat-total">
+                    <i class="bi bi-box"></i> Total: <span>0</span>
+                </span>
+                <span class="badge bg-success me-2" id="stat-onsale">
+                    <i class="bi bi-percent"></i> En oferta: <span>0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Filtros y búsqueda -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text"
+                                   class="form-control"
+                                   id="search-input"
+                                   placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
+                            <button class="btn btn-primary" onclick="searchProducts()">
+                                Buscar
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearSearch()">
+                                Limpiar
+                            </button>
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Escribe un SKU, nombre o ID y presiona Enter o click en Buscar
+                        </small>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Moneda</label>
+                        <input type="text" class="form-control" id="currency-symbol" value="S/" readonly>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Por página</label>
+                        <select class="form-select" id="per-page-select">
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contador de resultados -->
+        <div id="result-count" class="result-count" style="display: none;"></div>
+
+        <!-- Barra de acciones masivas -->
+        <div id="bulk-actions-bar" class="bulk-actions-bar">
+            <div>
+                <strong><span id="selected-count">0</span> productos seleccionados</strong>
+            </div>
+            <div class="modal-action-buttons">
+                {% if current_user.is_admin() %}
+                <button class="btn btn-sm btn-success" onclick="showPercentageModal('increment')">
+                    <i class="bi bi-arrow-up-circle"></i> Incrementar %
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="showPercentageModal('discount')">
+                    <i class="bi bi-arrow-down-circle"></i> Descontar %
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="showFixedPriceModal()">
+                    <i class="bi bi-cash"></i> Precio Fijo
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="showRemoveSaleModal()">
+                    <i class="bi bi-x-circle"></i> Quitar Ofertas
+                </button>
+                {% else %}
+                <span class="text-muted">
+                    <i class="bi bi-info-circle"></i> Solo administradores pueden actualizar masivamente
+                </span>
+                {% endif %}
+                <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                    <i class="bi bi-x"></i> Cancelar
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabla de precios -->
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Precios de Productos</h5>
+                <div>
+                    <button class="btn btn-sm btn-info" onclick="exportToExcel()" disabled>
+                        <i class="bi bi-file-excel"></i> Exportar Excel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="loading" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando precios...</p>
+                </div>
+
+                <div id="empty-state" class="text-center py-5">
+                    <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+                    <h5 class="mt-3 text-muted">Busca un producto para comenzar</h5>
+                    <p class="text-muted">Ingresa un SKU, nombre o ID en el buscador de arriba</p>
+                </div>
+
+                <div id="prices-table-container" style="display: none;"></div>
+
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Incremento/Descuento Porcentual -->
+<div class="modal fade" id="percentageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="percentage-modal-title">
+                    <i class="bi bi-percent"></i>
+                    Aplicar Porcentaje
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="percentage-modal-subtitle">Aplicar incremento/descuento porcentual a <strong><span id="percentage-count"></span> productos</strong></p>
+
+                <div class="mb-3">
+                    <label class="form-label">Porcentaje (%)</label>
+                    <input type="number" class="form-control" id="percentage-input"
+                           placeholder="Ejemplo: 10" step="0.01" min="0" max="100">
+                    <small class="text-muted" id="percentage-help"></small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Aplicar a</label>
+                    <select class="form-select" id="apply-to-select">
+                        <option value="regular">Solo Precio Regular</option>
+                        <option value="sale">Solo Precio de Oferta</option>
+                        <option value="both">Ambos Precios</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Razón del cambio</label>
+                    <input type="text" class="form-control" id="percentage-reason"
+                           placeholder="Ejemplo: Ajuste por inflación 2025">
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Nota:</strong> Los precios se redondearán a 2 decimales.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="applyPercentage()">
+                    <i class="bi bi-check"></i> Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Eliminar Ofertas -->
+<div class="modal fade" id="removeSaleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-x-circle"></i>
+                    Eliminar Precios de Oferta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de eliminar los precios de oferta de <strong><span id="remove-sale-count"></span> productos</strong>?</p>
+
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Atención:</strong> Los productos volverán a tener su precio regular como precio activo.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Razón del cambio</label>
+                    <input type="text" class="form-control" id="remove-sale-reason"
+                           placeholder="Ejemplo: Fin de promoción">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="applyRemoveSale()">
+                    <i class="bi bi-trash"></i> Eliminar Ofertas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Precio Fijo -->
+<div class="modal fade" id="fixedPriceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash"></i>
+                    Establecer Precio Fijo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Establecer precio fijo a <strong><span id="fixed-price-count"></span> productos seleccionados</strong></p>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Nota:</strong> Todos los productos seleccionados tendrán el MISMO precio que definas aquí.
+                    Si quieres precios diferentes, edítalos uno por uno.
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Precio Regular <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" class="form-control" id="fixed-regular-price"
+                                   placeholder="100.00" step="0.01" min="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Precio de Oferta <small class="text-muted">(opcional)</small></label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" class="form-control" id="fixed-sale-price"
+                                   placeholder="80.00" step="0.01" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Razón del cambio</label>
+                    <input type="text" class="form-control" id="fixed-price-reason"
+                           placeholder="Ejemplo: Uniformizar precios de categoría">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="applyFixedPrice()">
+                    <i class="bi bi-check"></i> Aplicar Precios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Historial de Precios -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clock-history"></i>
+                    Historial de Cambios de Precios
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="history-product-title"></h6>
+                <div id="history-loading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <div id="history-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+let currentSearch = '';
+let currentPerPage = 50;
+let selectedProducts = new Set();
+let allProducts = [];
+let percentageMode = 'increment'; // 'increment' o 'discount'
+
+// Al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Enter en búsqueda
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchProducts();
+        }
+    });
+
+    // Cambio en per_page
+    document.getElementById('per-page-select').addEventListener('change', function() {
+        currentPerPage = parseInt(this.value);
+        if (currentSearch) {
+            searchProducts();
+        }
+    });
+});
+
+// Buscar productos
+function searchProducts() {
+    const searchInput = document.getElementById('search-input');
+    currentSearch = searchInput.value.trim();
+    currentPage = 1;
+    selectedProducts.clear();
+    updateBulkActionsBar();
+
+    if (!currentSearch) {
+        showAlert('Por favor ingresa un término de búsqueda', 'warning');
+        return;
+    }
+
+    loadPrices();
+}
+
+// Limpiar búsqueda
+function clearSearch() {
+    document.getElementById('search-input').value = '';
+    currentSearch = '';
+    currentPage = 1;
+    selectedProducts.clear();
+    updateBulkActionsBar();
+
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('prices-table-container').style.display = 'none';
+    document.getElementById('result-count').style.display = 'none';
+    document.getElementById('pagination-container').innerHTML = '';
+}
+
+// Cargar precios
+function loadPrices() {
+    if (!currentSearch) {
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('prices-table-container').style.display = 'none';
+        return;
+    }
+
+    const loading = document.getElementById('loading');
+    const emptyState = document.getElementById('empty-state');
+    const tableContainer = document.getElementById('prices-table-container');
+
+    loading.style.display = 'block';
+    emptyState.style.display = 'none';
+    tableContainer.style.display = 'none';
+
+    const url = `/prices/list?search=${encodeURIComponent(currentSearch)}&page=${currentPage}&per_page=${currentPerPage}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+
+            if (data.success) {
+                allProducts = data.products;
+                renderPricesTable(data.products);
+                renderPagination(data.pagination);
+                updateResultCount(data.pagination.total, data.search_term);
+                updateStats(data.products);
+
+                if (data.products.length > 0) {
+                    tableContainer.style.display = 'block';
+                } else {
+                    emptyState.innerHTML = `
+                        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                        <h5 class="mt-3 text-muted">No se encontraron productos</h5>
+                        <p class="text-muted">Intenta con otro término de búsqueda</p>
+                    `;
+                    emptyState.style.display = 'block';
+                }
+            } else {
+                showAlert('Error al cargar precios: ' + data.error, 'danger');
+                emptyState.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error('Error:', error);
+        });
+}
+
+// Renderizar tabla de precios
+function renderPricesTable(products) {
+    const container = document.getElementById('prices-table-container');
+    const currency = document.getElementById('currency-symbol').value;
+
+    if (products.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">No se encontraron productos</p>';
+        return;
+    }
+
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead class="table-light">
+                    <tr>
+                        {% if current_user.is_admin() %}
+                        <th width="40">
+                            <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
+                        </th>
+                        {% endif %}
+                        <th>ID</th>
+                        <th>Producto</th>
+                        <th width="120">SKU</th>
+                        <th width="110" class="text-end">P. Regular</th>
+                        <th width="110" class="text-end">P. Oferta</th>
+                        <th width="110" class="text-end">P. Activo</th>
+                        <th width="80" class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    products.forEach(product => {
+        const onSaleBadge = product.on_sale ? '<span class="on-sale-badge">OFERTA</span>' : '';
+        const parentInfo = product.parent_id ? `
+            <br><small class="text-muted">
+                <i class="bi bi-arrow-return-right"></i>
+                <a href="#" class="parent-link">Padre: ${product.parent_title} (#${product.parent_id})</a>
+            </small>
+        ` : '';
+
+        const typeIcon = product.type === 'variation' ?
+            '<i class="bi bi-diagram-3" title="Variación"></i>' :
+            '<i class="bi bi-box" title="Producto simple"></i>';
+
+        html += `
+            <tr data-product-id="${product.id}">
+                {% if current_user.is_admin() %}
+                <td>
+                    <input type="checkbox" class="form-check-input product-checkbox"
+                           value="${product.id}" onchange="toggleProductSelection(${product.id})">
+                </td>
+                {% endif %}
+                <td>${typeIcon} ${product.id}</td>
+                <td>
+                    ${product.title} ${onSaleBadge}
+                    ${parentInfo}
+                </td>
+                <td><code>${product.sku}</code></td>
+                <td class="text-end price-column">
+                    <input type="number" class="form-control form-control-sm price-input"
+                           id="regular-${product.id}"
+                           value="${product.regular_price.toFixed(2)}"
+                           step="0.01" min="0.01"
+                           onchange="updateIndividualPrice(${product.id})">
+                </td>
+                <td class="text-end price-column">
+                    <input type="number" class="form-control form-control-sm price-input"
+                           id="sale-${product.id}"
+                           value="${product.sale_price ? product.sale_price.toFixed(2) : ''}"
+                           step="0.01" min="0"
+                           placeholder="Sin oferta"
+                           onchange="updateIndividualPrice(${product.id})">
+                </td>
+                <td class="text-end price-column">
+                    <strong class="currency-symbol">${currency}</strong> ${product.price.toFixed(2)}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-info" onclick="showHistory(${product.id}, '${product.title.replace(/'/g, "\\'")}')">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// Actualizar precio individual
+function updateIndividualPrice(productId) {
+    const regularInput = document.getElementById(`regular-${productId}`);
+    const saleInput = document.getElementById(`sale-${productId}`);
+
+    const regularPrice = parseFloat(regularInput.value);
+    const salePrice = saleInput.value ? parseFloat(saleInput.value) : null;
+
+    // Validaciones
+    if (!regularPrice || regularPrice <= 0) {
+        showAlert('El precio regular debe ser mayor que 0', 'danger');
+        return;
+    }
+
+    if (salePrice !== null && salePrice >= regularPrice) {
+        showAlert('El precio de oferta debe ser menor que el precio regular', 'danger');
+        return;
+    }
+
+    // Confirmar
+    if (!confirm('¿Actualizar precios de este producto?')) {
+        return;
+    }
+
+    const reason = prompt('Razón del cambio (opcional):') || 'Actualización manual';
+
+    // Enviar actualización
+    fetch(`/prices/update/${productId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            regular_price: regularPrice,
+            sale_price: salePrice,
+            reason: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Precios actualizados correctamente', 'success');
+            loadPrices(); // Recargar
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error de conexión: ' + error, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+// Toggle selección de producto
+function toggleProductSelection(productId) {
+    if (selectedProducts.has(productId)) {
+        selectedProducts.delete(productId);
+    } else {
+        selectedProducts.add(productId);
+    }
+    updateBulkActionsBar();
+}
+
+// Toggle seleccionar todos
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+        const productId = parseInt(checkbox.value);
+        if (selectAllCheckbox.checked) {
+            selectedProducts.add(productId);
+        } else {
+            selectedProducts.delete(productId);
+        }
+    });
+
+    updateBulkActionsBar();
+}
+
+// Actualizar barra de acciones masivas
+function updateBulkActionsBar() {
+    const bar = document.getElementById('bulk-actions-bar');
+    const countSpan = document.getElementById('selected-count');
+
+    countSpan.textContent = selectedProducts.size;
+
+    if (selectedProducts.size > 0) {
+        bar.classList.add('active');
+    } else {
+        bar.classList.remove('active');
+    }
+}
+
+// Limpiar selección
+function clearSelection() {
+    selectedProducts.clear();
+    updateBulkActionsBar();
+
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+
+    const selectAll = document.getElementById('select-all');
+    if (selectAll) selectAll.checked = false;
+}
+
+// Mostrar modal de porcentaje
+function showPercentageModal(mode) {
+    if (selectedProducts.size === 0) {
+        showAlert('Selecciona al menos un producto', 'warning');
+        return;
+    }
+
+    percentageMode = mode;
+
+    const modalElement = document.getElementById('percentageModal');
+    if (!modalElement) {
+        console.error('Modal percentageModal no encontrado');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+
+    const title = mode === 'increment' ?
+        '<i class="bi bi-arrow-up-circle"></i> Incrementar Precios' :
+        '<i class="bi bi-arrow-down-circle"></i> Descontar Precios';
+
+    const subtitle = mode === 'increment' ?
+        `Incrementar precios en un % a <strong>${selectedProducts.size} productos</strong>` :
+        `Aplicar descuento del % a <strong>${selectedProducts.size} productos</strong>`;
+
+    const help = mode === 'increment' ?
+        'Ejemplo: 10 = incrementar 10% (precio × 1.10)' :
+        'Ejemplo: 15 = descontar 15% (precio × 0.85)';
+
+    const titleEl = document.getElementById('percentage-modal-title');
+    const subtitleEl = document.getElementById('percentage-modal-subtitle');
+    const countEl = document.getElementById('percentage-count');
+    const helpEl = document.getElementById('percentage-help');
+    const inputEl = document.getElementById('percentage-input');
+    const reasonEl = document.getElementById('percentage-reason');
+
+    if (titleEl) titleEl.innerHTML = title;
+    if (subtitleEl) subtitleEl.innerHTML = subtitle;
+    if (countEl) countEl.textContent = selectedProducts.size;
+    if (helpEl) helpEl.textContent = help;
+    if (inputEl) inputEl.value = '';
+    if (reasonEl) reasonEl.value = '';
+
+    modal.show();
+}
+
+// Aplicar porcentaje
+function applyPercentage() {
+    const percentage = parseFloat(document.getElementById('percentage-input').value);
+    const applyTo = document.getElementById('apply-to-select').value;
+    const reason = document.getElementById('percentage-reason').value || 'Actualización masiva';
+
+    if (!percentage || percentage <= 0) {
+        showAlert('Ingresa un porcentaje válido', 'danger');
+        return;
+    }
+
+    // Ajustar porcentaje según modo
+    const finalPercentage = percentageMode === 'discount' ? -percentage : percentage;
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('percentageModal'));
+    modal.hide();
+
+    // Mostrar confirmación
+    const productIds = Array.from(selectedProducts);
+    const action = percentageMode === 'increment' ? 'incrementar' : 'descontar';
+
+    if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} ${Math.abs(finalPercentage)}% a ${productIds.length} productos?`)) {
+        return;
+    }
+
+    showAlert('Procesando actualización...', 'info');
+
+    // Enviar solicitud
+    fetch('/prices/update-multiple', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            mode: 'percentage',
+            products: productIds,
+            percentage: finalPercentage,
+            apply_to: applyTo,
+            reason: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`${data.total_updated} productos actualizados correctamente`, 'success');
+            if (data.total_errors > 0) {
+                console.error('Errores:', data.errors);
+                showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
+            }
+            clearSelection();
+            loadPrices();
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error de conexión: ' + error, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+// Mostrar modal eliminar ofertas
+function showRemoveSaleModal() {
+    if (selectedProducts.size === 0) {
+        showAlert('Selecciona al menos un producto', 'warning');
+        return;
+    }
+
+    const modalElement = document.getElementById('removeSaleModal');
+    if (!modalElement) {
+        console.error('Modal removeSaleModal no encontrado');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+
+    const countEl = document.getElementById('remove-sale-count');
+    const reasonEl = document.getElementById('remove-sale-reason');
+
+    if (countEl) countEl.textContent = selectedProducts.size;
+    if (reasonEl) reasonEl.value = '';
+
+    modal.show();
+}
+
+// Aplicar eliminación de ofertas
+function applyRemoveSale() {
+    const reason = document.getElementById('remove-sale-reason').value || 'Fin de promoción';
+    const productIds = Array.from(selectedProducts);
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('removeSaleModal'));
+    modal.hide();
+
+    showAlert('Procesando actualización...', 'info');
+
+    fetch('/prices/update-multiple', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            mode: 'remove_sale',
+            products: productIds,
+            reason: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`${data.total_updated} ofertas eliminadas correctamente`, 'success');
+            if (data.total_errors > 0) {
+                console.error('Errores:', data.errors);
+                showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
+            }
+            clearSelection();
+            loadPrices();
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error de conexión: ' + error, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+// Mostrar modal de precio fijo
+function showFixedPriceModal() {
+    if (selectedProducts.size === 0) {
+        showAlert('Selecciona al menos un producto', 'warning');
+        return;
+    }
+
+    const modalElement = document.getElementById('fixedPriceModal');
+    if (!modalElement) {
+        console.error('Modal fixedPriceModal no encontrado');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+
+    const countEl = document.getElementById('fixed-price-count');
+    const regularEl = document.getElementById('fixed-regular-price');
+    const saleEl = document.getElementById('fixed-sale-price');
+    const reasonEl = document.getElementById('fixed-price-reason');
+
+    if (countEl) countEl.textContent = selectedProducts.size;
+    if (regularEl) regularEl.value = '';
+    if (saleEl) saleEl.value = '';
+    if (reasonEl) reasonEl.value = '';
+
+    modal.show();
+}
+
+// Aplicar precio fijo
+function applyFixedPrice() {
+    const regularPrice = parseFloat(document.getElementById('fixed-regular-price').value);
+    const salePrice = document.getElementById('fixed-sale-price').value ?
+                      parseFloat(document.getElementById('fixed-sale-price').value) : null;
+    const reason = document.getElementById('fixed-price-reason').value || 'Precio fijo masivo';
+
+    // Validaciones
+    if (!regularPrice || regularPrice <= 0) {
+        showAlert('Ingresa un precio regular válido', 'danger');
+        return;
+    }
+
+    if (salePrice !== null && salePrice >= regularPrice) {
+        showAlert('El precio de oferta debe ser menor que el precio regular', 'danger');
+        return;
+    }
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('fixedPriceModal'));
+    modal.hide();
+
+    const productIds = Array.from(selectedProducts);
+
+    if (!confirm(`¿Establecer precio fijo a ${productIds.length} productos?\n\nRegular: S/ ${regularPrice.toFixed(2)}\nOferta: ${salePrice ? 'S/ ' + salePrice.toFixed(2) : 'Sin oferta'}`)) {
+        return;
+    }
+
+    showAlert('Procesando actualización...', 'info');
+
+    // Construir array de productos con precios
+    const productsData = productIds.map(id => ({
+        id: id,
+        regular_price: regularPrice,
+        sale_price: salePrice
+    }));
+
+    fetch('/prices/update-multiple', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            mode: 'fixed',
+            products: productsData,
+            reason: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`${data.total_updated} productos actualizados correctamente`, 'success');
+            if (data.total_errors > 0) {
+                console.error('Errores:', data.errors);
+                showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
+            }
+            clearSelection();
+            loadPrices();
+        } else {
+            showAlert('Error: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('Error de conexión: ' + error, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+// Mostrar historial
+function showHistory(productId, productTitle) {
+    const modalElement = document.getElementById('historyModal');
+    if (!modalElement) {
+        console.error('Modal historyModal no encontrado');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+
+    const titleEl = document.getElementById('history-product-title');
+    const loadingEl = document.getElementById('history-loading');
+    const contentEl = document.getElementById('history-content');
+
+    if (titleEl) titleEl.textContent = productTitle;
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (contentEl) contentEl.innerHTML = '';
+
+    modal.show();
+
+    fetch(`/prices/history/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('history-loading').style.display = 'none';
+
+            if (data.success && data.history.length > 0) {
+                renderHistory(data.history);
+            } else {
+                document.getElementById('history-content').innerHTML = '<p class="text-muted">No hay historial de cambios</p>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('history-loading').style.display = 'none';
+            document.getElementById('history-content').innerHTML = '<p class="text-danger">Error al cargar historial</p>';
+            console.error('Error:', error);
+        });
+}
+
+// Renderizar historial
+function renderHistory(history) {
+    const container = document.getElementById('history-content');
+    const currency = document.getElementById('currency-symbol').value;
+
+    let html = '<div class="timeline">';
+
+    history.forEach(record => {
+        const regularChange = record.new_regular_price !== record.old_regular_price;
+        const saleChange = record.new_sale_price !== record.old_sale_price;
+
+        html += `
+            <div class="border-start border-3 border-primary ps-3 mb-3">
+                <small class="text-muted">
+                    <i class="bi bi-calendar"></i> ${record.date} |
+                    <i class="bi bi-person"></i> ${record.changed_by}
+                </small>
+                <p class="mb-1"><strong>${record.reason}</strong></p>
+                ${regularChange ? `
+                    <div>
+                        Regular: ${currency} ${record.old_regular_price ? record.old_regular_price.toFixed(2) : '0.00'}
+                        → ${currency} ${record.new_regular_price ? record.new_regular_price.toFixed(2) : '0.00'}
+                    </div>
+                ` : ''}
+                ${saleChange ? `
+                    <div>
+                        Oferta: ${currency} ${record.old_sale_price ? record.old_sale_price.toFixed(2) : '-'}
+                        → ${currency} ${record.new_sale_price ? record.new_sale_price.toFixed(2) : '-'}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Renderizar paginación
+function renderPagination(pagination) {
+    const container = document.getElementById('pagination-container');
+
+    if (pagination.pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<nav><ul class="pagination justify-content-center">';
+
+    // Anterior
+    html += `
+        <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${pagination.prev_num}); return false;">Anterior</a>
+        </li>
+    `;
+
+    // Páginas
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `
+                <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+
+    // Siguiente
+    html += `
+        <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${pagination.next_num}); return false;">Siguiente</a>
+        </li>
+    `;
+
+    html += '</ul></nav>';
+    container.innerHTML = html;
+}
+
+// Ir a página
+function goToPage(page) {
+    if (page) {
+        currentPage = page;
+        loadPrices();
+        window.scrollTo(0, 0);
+    }
+}
+
+// Actualizar contador de resultados
+function updateResultCount(total, searchTerm) {
+    const countDiv = document.getElementById('result-count');
+    if (total > 0) {
+        countDiv.innerHTML = `
+            <i class="bi bi-check-circle text-success"></i>
+            Se encontraron <strong>${total}</strong> productos para "<strong>${searchTerm}</strong>"
+        `;
+        countDiv.style.display = 'block';
+    } else {
+        countDiv.style.display = 'none';
+    }
+}
+
+// Actualizar estadísticas
+function updateStats(products) {
+    const total = products.length;
+    const onSale = products.filter(p => p.on_sale).length;
+
+    document.querySelector('#stat-total span').textContent = total;
+    document.querySelector('#stat-onsale span').textContent = onSale;
+}
+
+// Mostrar alerta
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.maxWidth = '500px';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Exportar a Excel (placeholder)
+function exportToExcel() {
+    showAlert('Función de exportación próximamente...', 'info');
+}
+</script>
 {% endblock %}

@@ -259,11 +259,11 @@ class TermRelationship(db.Model):
 class StockHistory(db.Model):
     """
     Modelo para historial de cambios de stock
-    
+
     Registra todos los cambios de inventario para auditoría
     """
     __tablename__ = 'wpyz_stock_history'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, nullable=False)
     product_title = db.Column(db.String(200))
@@ -274,10 +274,43 @@ class StockHistory(db.Model):
     changed_by = db.Column(db.String(100), default='system')
     change_reason = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    
+
     def __repr__(self):
         return f'<StockHistory Product:{self.product_id} {self.old_stock}→{self.new_stock}>'
-    
+
+
+class PriceHistory(db.Model):
+    """
+    Modelo para historial de cambios de precios
+
+    Registra todos los cambios de precios para auditoría y análisis
+    Prefijo woo_ para distinguir de tablas WooCommerce (wpyz_)
+    """
+    __tablename__ = 'woo_price_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, nullable=False)
+    product_title = db.Column(db.String(200))
+    sku = db.Column(db.String(100))
+
+    # Precios anteriores
+    old_regular_price = db.Column(db.Numeric(10, 2))
+    old_sale_price = db.Column(db.Numeric(10, 2))
+    old_price = db.Column(db.Numeric(10, 2))
+
+    # Precios nuevos
+    new_regular_price = db.Column(db.Numeric(10, 2))
+    new_sale_price = db.Column(db.Numeric(10, 2))
+    new_price = db.Column(db.Numeric(10, 2))
+
+    # Auditoría
+    changed_by = db.Column(db.String(100), default='system')
+    change_reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def __repr__(self):
+        return f'<PriceHistory Product:{self.product_id} {self.old_price}→{self.new_price}>'
+
 
 class User(UserMixin, db.Model):
     """Modelo de usuario para autenticación"""
