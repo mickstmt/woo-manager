@@ -254,10 +254,24 @@
                     <i class="bi bi-info-circle"></i>
                     <strong>Nota:</strong> Los precios se redondearán a 2 decimales.
                 </div>
+
+                <!-- Estado de procesamiento -->
+                <div id="percentage-processing-status" class="alert alert-warning" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div>
+                            <strong>Procesando actualización...</strong>
+                            <br>
+                            <small>Esto puede tomar unos segundos. Por favor no cierres esta ventana.</small>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="applyPercentage()">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="percentage-btn-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="applyPercentage()" id="percentage-btn-apply">
                     <i class="bi bi-check"></i> Aplicar
                 </button>
             </div>
@@ -289,10 +303,24 @@
                     <input type="text" class="form-control" id="remove-sale-reason"
                            placeholder="Ejemplo: Fin de promoción">
                 </div>
+
+                <!-- Estado de procesamiento -->
+                <div id="remove-sale-processing-status" class="alert alert-warning" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div>
+                            <strong>Procesando actualización...</strong>
+                            <br>
+                            <small>Esto puede tomar unos segundos. Por favor no cierres esta ventana.</small>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="applyRemoveSale()">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="remove-sale-btn-cancel">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="applyRemoveSale()" id="remove-sale-btn-apply">
                     <i class="bi bi-trash"></i> Eliminar Ofertas
                 </button>
             </div>
@@ -344,10 +372,24 @@
                     <input type="text" class="form-control" id="fixed-price-reason"
                            placeholder="Ejemplo: Uniformizar precios de categoría">
                 </div>
+
+                <!-- Estado de procesamiento -->
+                <div id="fixed-price-processing-status" class="alert alert-warning" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div>
+                            <strong>Procesando actualización...</strong>
+                            <br>
+                            <small>Esto puede tomar unos segundos. Por favor no cierres esta ventana.</small>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="applyFixedPrice()">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="fixed-price-btn-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="applyFixedPrice()" id="fixed-price-btn-apply">
                     <i class="bi bi-check"></i> Aplicar Precios
                 </button>
             </div>
@@ -750,21 +792,24 @@ function applyPercentage() {
         return;
     }
 
-    // Ajustar porcentaje según modo
-    const finalPercentage = percentageMode === 'discount' ? -percentage : percentage;
-
-    const modal = bootstrap.Modal.getInstance(document.getElementById('percentageModal'));
-    modal.hide();
-
-    // Mostrar confirmación
+    // Mostrar confirmación antes de bloquear UI
     const productIds = Array.from(selectedProducts);
     const action = percentageMode === 'increment' ? 'incrementar' : 'descontar';
+    const finalPercentage = percentageMode === 'discount' ? -percentage : percentage;
 
     if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} ${Math.abs(finalPercentage)}% a ${productIds.length} productos?`)) {
         return;
     }
 
-    showAlert('Procesando actualización...', 'info');
+    // Bloquear interfaz del modal
+    const btnApply = document.getElementById('percentage-btn-apply');
+    const btnCancel = document.getElementById('percentage-btn-cancel');
+    const processingStatus = document.getElementById('percentage-processing-status');
+
+    btnApply.disabled = true;
+    btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    btnCancel.disabled = true;
+    processingStatus.style.display = 'block';
 
     // Enviar solicitud
     fetch('/prices/update-multiple', {
@@ -788,8 +833,15 @@ function applyPercentage() {
                 console.error('Errores:', data.errors);
                 showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
             }
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('percentageModal'));
+            modal.hide();
+
             clearSelection();
-            loadPrices();
+
+            // Recargar lista después de un pequeño delay
+            setTimeout(() => loadPrices(), 500);
         } else {
             showAlert('Error: ' + data.error, 'danger');
         }
@@ -797,6 +849,13 @@ function applyPercentage() {
     .catch(error => {
         showAlert('Error de conexión: ' + error, 'danger');
         console.error('Error:', error);
+    })
+    .finally(() => {
+        // Desbloquear interfaz
+        btnApply.disabled = false;
+        btnApply.innerHTML = '<i class="bi bi-check"></i> Aplicar';
+        btnCancel.disabled = false;
+        processingStatus.style.display = 'none';
     });
 }
 
@@ -829,10 +888,19 @@ function applyRemoveSale() {
     const reason = document.getElementById('remove-sale-reason').value || 'Fin de promoción';
     const productIds = Array.from(selectedProducts);
 
-    const modal = bootstrap.Modal.getInstance(document.getElementById('removeSaleModal'));
-    modal.hide();
+    if (!confirm(`¿Eliminar ofertas de ${productIds.length} productos?`)) {
+        return;
+    }
 
-    showAlert('Procesando actualización...', 'info');
+    // Bloquear interfaz del modal
+    const btnApply = document.getElementById('remove-sale-btn-apply');
+    const btnCancel = document.getElementById('remove-sale-btn-cancel');
+    const processingStatus = document.getElementById('remove-sale-processing-status');
+
+    btnApply.disabled = true;
+    btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    btnCancel.disabled = true;
+    processingStatus.style.display = 'block';
 
     fetch('/prices/update-multiple', {
         method: 'POST',
@@ -853,8 +921,15 @@ function applyRemoveSale() {
                 console.error('Errores:', data.errors);
                 showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
             }
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('removeSaleModal'));
+            modal.hide();
+
             clearSelection();
-            loadPrices();
+
+            // Recargar lista después de un pequeño delay
+            setTimeout(() => loadPrices(), 500);
         } else {
             showAlert('Error: ' + data.error, 'danger');
         }
@@ -862,6 +937,13 @@ function applyRemoveSale() {
     .catch(error => {
         showAlert('Error de conexión: ' + error, 'danger');
         console.error('Error:', error);
+    })
+    .finally(() => {
+        // Desbloquear interfaz
+        btnApply.disabled = false;
+        btnApply.innerHTML = '<i class="bi bi-trash"></i> Eliminar Ofertas';
+        btnCancel.disabled = false;
+        processingStatus.style.display = 'none';
     });
 }
 
@@ -911,16 +993,21 @@ function applyFixedPrice() {
         return;
     }
 
-    const modal = bootstrap.Modal.getInstance(document.getElementById('fixedPriceModal'));
-    modal.hide();
-
     const productIds = Array.from(selectedProducts);
 
     if (!confirm(`¿Establecer precio fijo a ${productIds.length} productos?\n\nRegular: S/ ${regularPrice.toFixed(2)}\nOferta: ${salePrice ? 'S/ ' + salePrice.toFixed(2) : 'Sin oferta'}`)) {
         return;
     }
 
-    showAlert('Procesando actualización...', 'info');
+    // Bloquear interfaz del modal
+    const btnApply = document.getElementById('fixed-price-btn-apply');
+    const btnCancel = document.getElementById('fixed-price-btn-cancel');
+    const processingStatus = document.getElementById('fixed-price-processing-status');
+
+    btnApply.disabled = true;
+    btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    btnCancel.disabled = true;
+    processingStatus.style.display = 'block';
 
     // Construir array de productos con precios
     const productsData = productIds.map(id => ({
@@ -948,8 +1035,15 @@ function applyFixedPrice() {
                 console.error('Errores:', data.errors);
                 showAlert(`${data.total_errors} productos con errores (ver consola)`, 'warning');
             }
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('fixedPriceModal'));
+            modal.hide();
+
             clearSelection();
-            loadPrices();
+
+            // Recargar lista después de un pequeño delay
+            setTimeout(() => loadPrices(), 500);
         } else {
             showAlert('Error: ' + data.error, 'danger');
         }
@@ -957,6 +1051,13 @@ function applyFixedPrice() {
     .catch(error => {
         showAlert('Error de conexión: ' + error, 'danger');
         console.error('Error:', error);
+    })
+    .finally(() => {
+        // Desbloquear interfaz
+        btnApply.disabled = false;
+        btnApply.innerHTML = '<i class="bi bi-check"></i> Aplicar Precios';
+        btnCancel.disabled = false;
+        processingStatus.style.display = 'none';
     });
 }
 
