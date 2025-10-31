@@ -554,6 +554,23 @@ def export_excel():
         # PASO 2: Obtener todos los IDs de productos
         product_ids = [p.ID for p in products]
 
+        # PASO 2.5: Obtener IDs de productos padre para variantes
+        parent_ids = set()
+        for p in products:
+            if p.post_type == 'product_variation' and p.post_parent > 0:
+                parent_ids.add(p.post_parent)
+
+        # Cargar productos padre que no están en la lista
+        parent_products = {}
+        if parent_ids:
+            missing_parent_ids = parent_ids - set(product_ids)
+            if missing_parent_ids:
+                parents = db.session.query(Product).filter(
+                    Product.ID.in_(list(missing_parent_ids))
+                ).all()
+                for parent in parents:
+                    parent_products[parent.ID] = parent
+
         # PASO 3: Eager load de todos los metadatos
         meta_keys_base = ['_sku', '_price', '_regular_price', '_sale_price', '_stock',
                          '_stock_status', '_thumbnail_id', '_product_image_gallery']
@@ -574,17 +591,50 @@ def export_excel():
             meta_dict[post_id][meta_key] = meta_value
 
         # PASO 4: Detectar todos los atributos únicos (para columnas dinámicas)
+        # Atributos específicos que queremos detectar
+        known_attributes = ['color', 'conector', 'talla', 'medidas', 'medida']
         all_attributes = set()
+
         for post_id in product_ids:
             product_meta = meta_dict.get(post_id, {})
             for key in product_meta.keys():
                 if key.startswith('attribute_pa_'):
-                    # Extraer nombre del atributo (ej: attribute_pa_color -> Color)
-                    attr_name = key.replace('attribute_pa_', '').replace('_', ' ').title()
-                    all_attributes.add(attr_name)
+                    # Extraer nombre del atributo (ej: attribute_pa_color -> color)
+                    attr_slug = key.replace('attribute_pa_', '')
+                    all_attributes.add(attr_slug)
 
-        # Ordenar atributos alfabéticamente
+        # Ordenar atributos alfabéticamente y capitalizar
         sorted_attributes = sorted(list(all_attributes))
+
+        # PASO 4.5: Crear diccionario de términos (slug -> nombre legible)
+        # Obtener todos los slugs de atributos únicos
+        all_slugs = set()
+        for post_id in product_ids:
+            product_meta = meta_dict.get(post_id, {})
+            for key, value in product_meta.items():
+                if key.startswith('attribute_pa_') and value:
+                    all_slugs.add(value)
+
+        # Consultar nombres legibles desde wpyz_terms
+        from sqlalchemy import text
+        term_names = {}
+        if all_slugs:
+            # Convertir set a lista y crear placeholders
+            slug_list = list(all_slugs)
+            placeholders = ','.join([':slug' + str(i) for i in range(len(slug_list))])
+
+            query = text(f"""
+                SELECT slug, name
+                FROM wpyz_terms
+                WHERE slug IN ({placeholders})
+            """)
+
+            # Crear diccionario de parámetros
+            params = {f'slug{i}': slug for i, slug in enumerate(slug_list)}
+
+            result = db.session.execute(query, params)
+            for row in result:
+                term_names[row.slug] = row.name
 
         # PASO 5: Crear archivo Excel
         wb = Workbook()
@@ -593,7 +643,8 @@ def export_excel():
 
         # PASO 6: Crear encabezados
         headers = ['ID', 'Título', 'SKU']
-        headers.extend(sorted_attributes)  # Atributos dinámicos
+        # Capitalizar nombres de atributos para headers
+        headers.extend([attr.replace('_', ' ').title() for attr in sorted_attributes])
         headers.extend(['ID Padre', 'Descripción Corta', 'Descripción Larga',
                        'Precio Regular', 'Precio Oferta', 'URL Imagen', 'Stock'])
 
@@ -628,9 +679,16 @@ def export_excel():
             col_num += 1
 
             # Atributos dinámicos
-            for attr_name in sorted_attributes:
-                attr_key = 'attribute_pa_' + attr_name.lower().replace(' ', '_')
-                attr_value = product_meta.get(attr_key, '')
+            for attr_slug in sorted_attributes:
+                attr_key = 'attribute_pa_' + attr_slug
+                attr_value_slug = product_meta.get(attr_key, '')
+
+                # Convertir slug a nombre legible
+                if attr_value_slug and attr_value_slug in term_names:
+                    attr_value = term_names[attr_value_slug]
+                else:
+                    attr_value = attr_value_slug
+
                 ws.cell(row=row_num, column=col_num, value=attr_value)
                 col_num += 1
 
@@ -639,12 +697,27 @@ def export_excel():
             ws.cell(row=row_num, column=col_num, value=parent_id)
             col_num += 1
 
-            # Descripción Corta
-            ws.cell(row=row_num, column=col_num, value=product.post_excerpt or '')
+            # Descripción Corta y Larga
+            # Para variantes, obtener del producto padre si está vacío
+            desc_corta = product.post_excerpt or ''
+            desc_larga = product.post_content or ''
+
+            # Si es variante y no tiene descripciones, intentar obtener del padre
+            if product.post_type == 'product_variation' and product.post_parent > 0:
+                if not desc_corta or not desc_larga:
+                    # Buscar padre en la lista de productos o en parent_products
+                    padre = next((p for p in products if p.ID == product.post_parent), None)
+                    if not padre and product.post_parent in parent_products:
+                        padre = parent_products[product.post_parent]
+
+                    if padre:
+                        desc_corta = desc_corta or padre.post_excerpt or ''
+                        desc_larga = desc_larga or padre.post_content or ''
+
+            ws.cell(row=row_num, column=col_num, value=desc_corta)
             col_num += 1
 
-            # Descripción Larga
-            ws.cell(row=row_num, column=col_num, value=product.post_content or '')
+            ws.cell(row=row_num, column=col_num, value=desc_larga)
             col_num += 1
 
             # Precio Regular
