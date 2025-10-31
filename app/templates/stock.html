@@ -214,14 +214,37 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">Cantidad</label>
-                    <input type="number" class="form-control" id="bulk-stock-value" 
+                    <label class="form-label">Cantidad de Stock <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="bulk-stock-value"
                            min="0" value="0" placeholder="Ingresa la cantidad">
                 </div>
-                
+
+                <!-- Sección de Threshold -->
+                <div class="mb-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="update-threshold-check">
+                                <label class="form-check-label fw-bold" for="update-threshold-check">
+                                    🎯 Actualizar umbral de stock bajo
+                                </label>
+                            </div>
+
+                            <div id="threshold-input-container" style="display: none;">
+                                <label class="form-label small">Umbral (cantidad)</label>
+                                <input type="number" class="form-control form-control-sm" id="bulk-threshold-value"
+                                       min="0" value="2" placeholder="2">
+                                <small class="text-muted">
+                                    💡 Cuando el stock llegue a esta cantidad, el producto se marcará como "stock bajo"
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Razón del cambio (opcional)</label>
-                    <input type="text" class="form-control" id="bulk-reason" 
+                    <input type="text" class="form-control" id="bulk-reason"
                            placeholder="Ej: Recepción de mercancía, Inventario físico">
                 </div>
 
@@ -288,15 +311,24 @@ $(document).ready(function() {
 
     $('#low-threshold').on('change', function() {
         lowThreshold = parseInt($(this).val());
-        
+
         // Recalcular is_low_stock para todos los productos
         if (allProducts.length > 0) {
             allProducts.forEach(function(product) {
                 product.is_low_stock = product.stock > 0 && product.stock <= lowThreshold;
             });
-            
+
             // Re-mostrar con nuevo threshold
             displayStock(allProducts);
+        }
+    });
+
+    // Evento para checkbox de threshold en modal de actualización masiva
+    $('#update-threshold-check').on('change', function() {
+        if ($(this).is(':checked')) {
+            $('#threshold-input-container').slideDown();
+        } else {
+            $('#threshold-input-container').slideUp();
         }
     });
     
@@ -637,27 +669,39 @@ function executeBulkUpdate() {
         console.log('Ya hay una actualización en proceso...');
         return;
     }
-    
+
     let updateType = $('#update-type').val();
     let value = parseInt($('#bulk-stock-value').val());
     let reason = $('#bulk-reason').val() || 'Actualización masiva';
-    
+
     // Validaciones
     if (isNaN(value)) {
         showNotification('error', 'Por favor ingresa un valor válido');
         return;
     }
-    
+
     if (selectedProducts.length === 0) {
         showNotification('error', 'No hay productos seleccionados');
         return;
     }
-    
+
+    // Verificar si se debe actualizar threshold
+    let updateThreshold = $('#update-threshold-check').is(':checked');
+    let thresholdValue = null;
+
+    if (updateThreshold) {
+        thresholdValue = parseInt($('#bulk-threshold-value').val());
+        if (isNaN(thresholdValue) || thresholdValue < 0) {
+            showNotification('error', 'El umbral de stock debe ser un número válido mayor o igual a 0');
+            return;
+        }
+    }
+
     // Preparar datos
     let updates = [];
     selectedProducts.forEach(function(product) {
         let newStock = product.stock;
-        
+
         if (updateType === 'set') {
             newStock = value;
         } else if (updateType === 'add') {
@@ -665,30 +709,41 @@ function executeBulkUpdate() {
         } else if (updateType === 'subtract') {
             newStock = Math.max(0, product.stock - value);
         }
-        
+
         updates.push({
             id: product.id,
             stock: newStock
         });
     });
-    
+
     // Bloquear interfaz
     isProcessing = true;
     $('#btn-apply').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Procesando...');
     $('#btn-cancel').prop('disabled', true);
     $('#processing-status').slideDown();
-    
+
     console.log('Enviando actualización de', updates.length, 'productos...');
-    
+    if (updateThreshold) {
+        console.log('Actualizando threshold a:', thresholdValue);
+    }
+
+    // Construir datos para enviar
+    let requestData = {
+        products: updates,
+        reason: reason
+    };
+
+    // Agregar threshold si está habilitado
+    if (updateThreshold) {
+        requestData.threshold = thresholdValue;
+    }
+
     // Enviar actualización
     $.ajax({
         url: '/stock/update-multiple',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({
-            products: updates,
-            reason: reason
-        }),
+        data: JSON.stringify(requestData),
         timeout: 60000, // Timeout de 60 segundos
         success: function(response) {
             console.log('Respuesta recibida:', response);

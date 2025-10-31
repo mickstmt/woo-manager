@@ -420,7 +420,8 @@ def update_multiple_stock():
         data = request.get_json()
         products_data = data.get('products', [])
         reason = data.get('reason', 'Actualización masiva')
-        
+        threshold = data.get('threshold')  # Puede ser None si no se envía
+
         if not products_data:
             return jsonify({
                 'success': False,
@@ -500,7 +501,7 @@ def update_multiple_stock():
                     post_id=product_id,
                     meta_key='_manage_stock'
                 ).first()
-                
+
                 if manage_meta:
                     manage_meta.meta_value = 'yes'
                 else:
@@ -510,7 +511,24 @@ def update_multiple_stock():
                         meta_value='yes'
                     )
                     db.session.add(manage_meta)
-                
+
+                # Actualizar _low_stock_amount si se envió threshold
+                if threshold is not None:
+                    threshold_meta = db.session.query(ProductMeta).filter_by(
+                        post_id=product_id,
+                        meta_key='_low_stock_amount'
+                    ).first()
+
+                    if threshold_meta:
+                        threshold_meta.meta_value = str(threshold)
+                    else:
+                        threshold_meta = ProductMeta(
+                            post_id=product_id,
+                            meta_key='_low_stock_amount',
+                            meta_value=str(threshold)
+                        )
+                        db.session.add(threshold_meta)
+
                 # COMMIT de los cambios del producto
                 db.session.commit()
                 
