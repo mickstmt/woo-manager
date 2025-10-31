@@ -483,3 +483,222 @@ def view_product(product_id):
         print(traceback.format_exc())
         flash(f'Error al cargar el producto: {str(e)}', 'danger')
         return redirect(url_for('products.index'))
+
+
+@bp.route('/export-excel')
+@login_required
+def export_excel():
+    """
+    Exportar productos a Excel con filtros de fecha y título
+
+    Parámetros GET:
+    - date_from: Fecha desde (YYYY-MM-DD) - obligatorio
+    - date_to: Fecha hasta (YYYY-MM-DD) - obligatorio
+    - title: Filtro de título (opcional)
+
+    Columnas del Excel:
+    ID | Título | SKU | [Atributos dinámicos] | ID Padre | Descripción Corta |
+    Descripción Larga | Precio Regular | Precio Oferta | URL Imagen | Stock
+    """
+    try:
+        from datetime import datetime, timedelta
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+        from openpyxl.utils import get_column_letter
+        from flask import make_response
+        from io import BytesIO
+
+        # Obtener parámetros
+        date_from_str = request.args.get('date_from')
+        date_to_str = request.args.get('date_to')
+        title_filter = request.args.get('title', '').strip()
+
+        # Validar parámetros obligatorios
+        if not date_from_str or not date_to_str:
+            return jsonify({
+                'success': False,
+                'error': 'Los parámetros date_from y date_to son obligatorios'
+            }), 400
+
+        # Convertir fechas
+        try:
+            date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+            date_to = datetime.strptime(date_to_str, '%Y-%m-%d')
+            # Agregar 23:59:59 a date_to para incluir todo el día
+            date_to = date_to.replace(hour=23, minute=59, second=59)
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Formato de fecha inválido. Usa YYYY-MM-DD'
+            }), 400
+
+        # PASO 1: Consultar productos del rango de fechas
+        query = db.session.query(Product).filter(
+            Product.post_type.in_(['product', 'product_variation']),
+            Product.post_date >= date_from,
+            Product.post_date <= date_to
+        )
+
+        # Filtrar por título si se especificó
+        if title_filter:
+            query = query.filter(Product.post_title.ilike(f'%{title_filter}%'))
+
+        products = query.order_by(Product.post_date.desc()).all()
+
+        if not products:
+            return jsonify({
+                'success': False,
+                'error': f'No se encontraron productos entre {date_from_str} y {date_to_str}'
+            }), 404
+
+        # PASO 2: Obtener todos los IDs de productos
+        product_ids = [p.ID for p in products]
+
+        # PASO 3: Eager load de todos los metadatos
+        meta_keys_base = ['_sku', '_price', '_regular_price', '_sale_price', '_stock',
+                         '_stock_status', '_thumbnail_id', '_product_image_gallery']
+
+        all_meta = db.session.query(
+            ProductMeta.post_id,
+            ProductMeta.meta_key,
+            ProductMeta.meta_value
+        ).filter(
+            ProductMeta.post_id.in_(product_ids)
+        ).all()
+
+        # Crear diccionario de metadatos
+        meta_dict = {}
+        for post_id, meta_key, meta_value in all_meta:
+            if post_id not in meta_dict:
+                meta_dict[post_id] = {}
+            meta_dict[post_id][meta_key] = meta_value
+
+        # PASO 4: Detectar todos los atributos únicos (para columnas dinámicas)
+        all_attributes = set()
+        for post_id in product_ids:
+            product_meta = meta_dict.get(post_id, {})
+            for key in product_meta.keys():
+                if key.startswith('attribute_pa_'):
+                    # Extraer nombre del atributo (ej: attribute_pa_color -> Color)
+                    attr_name = key.replace('attribute_pa_', '').replace('_', ' ').title()
+                    all_attributes.add(attr_name)
+
+        # Ordenar atributos alfabéticamente
+        sorted_attributes = sorted(list(all_attributes))
+
+        # PASO 5: Crear archivo Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Productos"
+
+        # PASO 6: Crear encabezados
+        headers = ['ID', 'Título', 'SKU']
+        headers.extend(sorted_attributes)  # Atributos dinámicos
+        headers.extend(['ID Padre', 'Descripción Corta', 'Descripción Larga',
+                       'Precio Regular', 'Precio Oferta', 'URL Imagen', 'Stock'])
+
+        # Escribir encabezados con estilo
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # PASO 7: Escribir datos de productos
+        for row_num, product in enumerate(products, 2):
+            product_meta = meta_dict.get(product.ID, {})
+
+            col_num = 1
+
+            # ID
+            ws.cell(row=row_num, column=col_num, value=product.ID)
+            col_num += 1
+
+            # Título
+            ws.cell(row=row_num, column=col_num, value=product.post_title)
+            col_num += 1
+
+            # SKU
+            sku = product_meta.get('_sku', '')
+            ws.cell(row=row_num, column=col_num, value=sku)
+            col_num += 1
+
+            # Atributos dinámicos
+            for attr_name in sorted_attributes:
+                attr_key = 'attribute_pa_' + attr_name.lower().replace(' ', '_')
+                attr_value = product_meta.get(attr_key, '')
+                ws.cell(row=row_num, column=col_num, value=attr_value)
+                col_num += 1
+
+            # ID Padre
+            parent_id = product.post_parent if product.post_parent > 0 else ''
+            ws.cell(row=row_num, column=col_num, value=parent_id)
+            col_num += 1
+
+            # Descripción Corta
+            ws.cell(row=row_num, column=col_num, value=product.post_excerpt or '')
+            col_num += 1
+
+            # Descripción Larga
+            ws.cell(row=row_num, column=col_num, value=product.post_content or '')
+            col_num += 1
+
+            # Precio Regular
+            regular_price = product_meta.get('_regular_price', '')
+            ws.cell(row=row_num, column=col_num, value=regular_price)
+            col_num += 1
+
+            # Precio Oferta
+            sale_price = product_meta.get('_sale_price', '')
+            ws.cell(row=row_num, column=col_num, value=sale_price)
+            col_num += 1
+
+            # URL Imagen
+            thumbnail_id = product_meta.get('_thumbnail_id', '')
+            # TODO: Convertir ID de imagen a URL (requiere consulta adicional)
+            ws.cell(row=row_num, column=col_num, value=thumbnail_id)
+            col_num += 1
+
+            # Stock
+            stock = product_meta.get('_stock', '')
+            ws.cell(row=row_num, column=col_num, value=stock)
+
+        # PASO 8: Ajustar anchos de columnas
+        for col_num in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col_num)
+            max_length = len(str(headers[col_num - 1]))
+
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row,
+                                   min_col=col_num, max_col=col_num):
+                for cell in row:
+                    if cell.value:
+                        max_length = max(max_length, len(str(cell.value)))
+
+            # Limitar ancho máximo
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+
+        # PASO 9: Generar archivo en memoria
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        # PASO 10: Crear respuesta HTTP
+        filename = f'productos_{date_from_str}_{date_to_str}.xlsx'
+        response = make_response(output.read())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+
+        return response
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500

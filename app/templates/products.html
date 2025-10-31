@@ -103,8 +103,13 @@
         
         <!-- Tabla de productos -->
         <div class="card">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Listado de Productos</h5>
+                <div>
+                    <button class="btn btn-sm btn-success" onclick="showExportModal()">
+                        <i class="bi bi-file-excel"></i> Exportar Excel
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="loading" class="text-center py-5" style="display: none;">
@@ -118,6 +123,74 @@
                 
                 <!-- Paginación -->
                 <div id="pagination-container" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Exportación a Excel -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-excel"></i>
+                    Exportar Productos a Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Formato del archivo:</strong><br>
+                    <small>
+                    ID | Título | SKU | [Atributos] | ID Padre | Descripción Corta | Descripción Larga | Precio Regular | Precio Oferta | URL Imagen | Stock
+                    </small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Filtro por Título (opcional)</label>
+                    <input type="text" class="form-control" id="export-title-filter"
+                           placeholder="Buscar por nombre del producto">
+                    <small class="text-muted">Deja vacío para exportar todos los productos del rango de fechas</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Rango de Fechas de Creación <span class="text-danger">*</span></label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label small">Desde:</label>
+                            <input type="date" class="form-control" id="export-date-from">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Hasta:</label>
+                            <input type="date" class="form-control" id="export-date-to">
+                        </div>
+                    </div>
+                    <small class="text-muted">Ambas fechas son obligatorias</small>
+                </div>
+
+                <!-- Estado de procesamiento -->
+                <div id="export-processing-status" class="alert alert-warning" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div>
+                            <strong>Generando archivo Excel...</strong>
+                            <br>
+                            <small>Esto puede tomar unos segundos. Por favor espera.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="export-btn-cancel">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="executeExport()" id="export-btn-apply">
+                    <i class="bi bi-download"></i> Descargar Excel
+                </button>
             </div>
         </div>
     </div>
@@ -791,6 +864,83 @@ function saveQuickPrice(productId) {
             showNotification('error', 'Error al actualizar el precio');
         }
     });
+}
+
+// Mostrar modal de exportación
+function showExportModal() {
+    const modalElement = document.getElementById('exportModal');
+    if (!modalElement) {
+        console.error('Modal exportModal no encontrado');
+        return;
+    }
+
+    // Configurar fechas por defecto (último mes)
+    const today = new Date();
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+    document.getElementById('export-date-from').value = lastMonth.toISOString().split('T')[0];
+    document.getElementById('export-date-to').value = today.toISOString().split('T')[0];
+    document.getElementById('export-title-filter').value = '';
+
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+// Ejecutar exportación
+function executeExport() {
+    const dateFrom = document.getElementById('export-date-from').value;
+    const dateTo = document.getElementById('export-date-to').value;
+    const titleFilter = document.getElementById('export-title-filter').value.trim();
+
+    // Validaciones
+    if (!dateFrom || !dateTo) {
+        alert('Por favor selecciona ambas fechas (desde y hasta)');
+        return;
+    }
+
+    if (new Date(dateFrom) > new Date(dateTo)) {
+        alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta"');
+        return;
+    }
+
+    // Bloquear interfaz
+    const btnApply = document.getElementById('export-btn-apply');
+    const btnCancel = document.getElementById('export-btn-cancel');
+    const processingStatus = document.getElementById('export-processing-status');
+
+    btnApply.disabled = true;
+    btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generando...';
+    btnCancel.disabled = true;
+    processingStatus.style.display = 'block';
+
+    // Construir URL con parámetros
+    const params = new URLSearchParams({
+        date_from: dateFrom,
+        date_to: dateTo
+    });
+
+    if (titleFilter) {
+        params.append('title', titleFilter);
+    }
+
+    // Iniciar descarga
+    window.location.href = `/products/export-excel?${params.toString()}`;
+
+    // Desbloquear interfaz después de 2 segundos (tiempo estimado para iniciar descarga)
+    setTimeout(() => {
+        btnApply.disabled = false;
+        btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
+        btnCancel.disabled = false;
+        processingStatus.style.display = 'none';
+
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+        modal.hide();
+
+        // Mostrar mensaje de éxito
+        alert('El archivo se está descargando. Revisa tu carpeta de descargas.');
+    }, 2000);
 }
 </script>
 {% endblock %}
