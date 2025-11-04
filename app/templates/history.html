@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Cambios - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-card {
+        transition: all 0.3s;
+    }
+    .history-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .change-positive {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .change-negative {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .change-neutral {
+        color: #6c757d;
+    }
+    .badge-stock {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+    }
+    .badge-price {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="bi bi-clock-history"></i> Historial de Cambios
+            </h1>
+
+            <!-- Estadísticas -->
+            <div id="stats-container">
+                <span class="badge bg-primary" id="stat-stock">
+                    <i class="bi bi-box"></i> Stock: <span>-</span>
+                </span>
+                <span class="badge bg-success ms-2" id="stat-prices">
+                    <i class="bi bi-tag"></i> Precios: <span>-</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs mb-3" id="historyTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="stock-tab" data-bs-toggle="tab" data-bs-target="#stock-history"
+                        type="button" role="tab">
+                    <i class="bi bi-box"></i> Historial de Stock
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="prices-tab" data-bs-toggle="tab" data-bs-target="#prices-history"
+                        type="button" role="tab">
+                    <i class="bi bi-tag"></i> Historial de Precios
+                </button>
+            </li>
+        </ul>
+
+        <!-- Contenido de pestañas -->
+        <div class="tab-content" id="historyTabContent">
+            <!-- TAB: Historial de Stock -->
+            <div class="tab-pane fade show active" id="stock-history" role="tabpanel">
+                <!-- Filtros -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="stock-search-input"
+                                           placeholder="Buscar por SKU, producto o usuario...">
+                                    <button class="btn btn-primary" onclick="searchStockHistory()">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small">Desde:</label>
+                                <input type="date" class="form-control" id="stock-date-from">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small">Hasta:</label>
+                                <input type="date" class="form-control" id="stock-date-to">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small">&nbsp;</label>
+                                <button class="btn btn-secondary w-100" onclick="clearStockFilters()">
+                                    <i class="bi bi-x-circle"></i> Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de historial de stock -->
+                <div class="card">
+                    <div class="card-body">
+                        <div id="stock-loading" class="text-center py-5" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando historial...</p>
+                        </div>
+
+                        <div id="stock-history-container"></div>
+
+                        <!-- Paginación -->
+                        <div id="stock-pagination-container" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Historial de Precios -->
+            <div class="tab-pane fade" id="prices-history" role="tabpanel">
+                <!-- Filtros -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="prices-search-input"
+                                           placeholder="Buscar por SKU, producto o usuario...">
+                                    <button class="btn btn-primary" onclick="searchPricesHistory()">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small">Desde:</label>
+                                <input type="date" class="form-control" id="prices-date-from">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small">Hasta:</label>
+                                <input type="date" class="form-control" id="prices-date-to">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small">&nbsp;</label>
+                                <button class="btn btn-secondary w-100" onclick="clearPricesFilters()">
+                                    <i class="bi bi-x-circle"></i> Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de historial de precios -->
+                <div class="card">
+                    <div class="card-body">
+                        <div id="prices-loading" class="text-center py-5" style="display: none;">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2">Cargando historial...</p>
+                        </div>
+
+                        <div id="prices-history-container"></div>
+
+                        <!-- Paginación -->
+                        <div id="prices-pagination-container" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let stockCurrentPage = 1;
+let stockPerPage = 50;
+let stockSearch = '';
+let stockDateFrom = '';
+let stockDateTo = '';
+
+let pricesCurrentPage = 1;
+let pricesPerPage = 50;
+let pricesSearch = '';
+let pricesDateFrom = '';
+let pricesDateTo = '';
+
+// Cargar automáticamente al cargar la página
+$(document).ready(function() {
+    loadStockHistory();
+
+    // Configurar fechas por defecto (últimos 30 días)
+    const today = new Date();
+    const lastMonth = new Date();
+    lastMonth.setDate(lastMonth.getDate() - 30);
+
+    $('#stock-date-from').val(lastMonth.toISOString().split('T')[0]);
+    $('#stock-date-to').val(today.toISOString().split('T')[0]);
+    $('#prices-date-from').val(lastMonth.toISOString().split('T')[0]);
+    $('#prices-date-to').val(today.toISOString().split('T')[0]);
+
+    // Evento para búsqueda con Enter
+    $('#stock-search-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchStockHistory();
+        }
+    });
+
+    $('#prices-search-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchPricesHistory();
+        }
+    });
+
+    // Cargar precios cuando se cambie a esa pestaña
+    $('#prices-tab').on('click', function() {
+        if ($('#prices-history-container').html() === '') {
+            loadPricesHistory();
+        }
+    });
+});
+
+// ============================================
+// FUNCIONES DE HISTORIAL DE STOCK
+// ============================================
+
+function loadStockHistory(page = 1) {
+    stockCurrentPage = page;
+
+    $('#stock-loading').show();
+    $('#stock-history-container').hide();
+
+    let url = `/history/stock?page=${page}&per_page=${stockPerPage}`;
+
+    if (stockSearch) {
+        url += `&search=${encodeURIComponent(stockSearch)}`;
+    }
+    if (stockDateFrom) {
+        url += `&date_from=${stockDateFrom}`;
+    }
+    if (stockDateTo) {
+        url += `&date_to=${stockDateTo}`;
+    }
+
+    $.ajax({
+        url: url,
+        method: 'GET',
+        success: function(data) {
+            $('#stock-loading').hide();
+            $('#stock-history-container').show();
+
+            if (data.success) {
+                displayStockHistory(data.items);
+                displayStockPagination(data.pagination);
+
+                // Actualizar estadística
+                $('#stat-stock span').text(data.pagination.total);
+            } else {
+                $('#stock-history-container').html(
+                    '<div class="alert alert-danger">Error: ' + data.error + '</div>'
+                );
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#stock-loading').hide();
+            $('#stock-history-container').html(
+                '<div class="alert alert-danger">Error al cargar historial de stock</div>'
+            ).show();
+        }
+    });
+}
+
+function displayStockHistory(items) {
+    if (items.length === 0) {
+        $('#stock-history-container').html(
+            '<div class="alert alert-warning text-center">No se encontraron cambios de stock</div>'
+        );
+        return;
+    }
+
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover align-middle">';
+    html += '<thead class="table-light">';
+    html += '<tr>';
+    html += '<th style="width: 80px;">ID</th>';
+    html += '<th>Producto</th>';
+    html += '<th style="width: 120px;">SKU</th>';
+    html += '<th style="width: 100px;">Stock Anterior</th>';
+    html += '<th style="width: 100px;">Stock Nuevo</th>';
+    html += '<th style="width: 100px;">Cambio</th>';
+    html += '<th style="width: 120px;">Usuario</th>';
+    html += '<th>Razón</th>';
+    html += '<th style="width: 180px;">Fecha</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+
+    items.forEach(function(item) {
+        let changeClass = 'change-neutral';
+        let changeIcon = 'bi-dash';
+
+        if (item.change_amount > 0) {
+            changeClass = 'change-positive';
+            changeIcon = 'bi-arrow-up';
+        } else if (item.change_amount < 0) {
+            changeClass = 'change-negative';
+            changeIcon = 'bi-arrow-down';
+        }
+
+        html += '<tr>';
+        html += `<td>${item.product_id}</td>`;
+        html += `<td><small>${item.product_title || 'N/A'}</small></td>`;
+        html += `<td><code>${item.sku || 'N/A'}</code></td>`;
+        html += `<td class="text-center">${item.old_stock}</td>`;
+        html += `<td class="text-center"><strong>${item.new_stock}</strong></td>`;
+        html += `<td class="text-center ${changeClass}">`;
+        html += `<i class="bi ${changeIcon}"></i> ${item.change_amount > 0 ? '+' : ''}${item.change_amount}`;
+        html += `</td>`;
+        html += `<td><span class="badge bg-secondary">${item.changed_by}</span></td>`;
+        html += `<td><small>${item.change_reason || '-'}</small></td>`;
+        html += `<td><small>${item.created_at}</small></td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+
+    $('#stock-history-container').html(html);
+}
+
+function displayStockPagination(pagination) {
+    if (pagination.pages <= 1) {
+        $('#stock-pagination-container').html('');
+        return;
+    }
+
+    let html = '<nav><ul class="pagination justify-content-center">';
+
+    // Botón anterior
+    if (pagination.has_prev) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadStockHistory(${pagination.prev_num}); return false;">
+                Anterior
+            </a>
+        </li>`;
+    }
+
+    // Páginas
+    for (let i = 1; i <= pagination.pages; i++) {
+        let active = i === pagination.page ? 'active' : '';
+        html += `<li class="page-item ${active}">
+            <a class="page-link" href="#" onclick="loadStockHistory(${i}); return false;">
+                ${i}
+            </a>
+        </li>`;
+    }
+
+    // Botón siguiente
+    if (pagination.has_next) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadStockHistory(${pagination.next_num}); return false;">
+                Siguiente
+            </a>
+        </li>`;
+    }
+
+    html += '</ul></nav>';
+    $('#stock-pagination-container').html(html);
+}
+
+function searchStockHistory() {
+    stockSearch = $('#stock-search-input').val().trim();
+    stockDateFrom = $('#stock-date-from').val();
+    stockDateTo = $('#stock-date-to').val();
+    loadStockHistory(1);
+}
+
+function clearStockFilters() {
+    $('#stock-search-input').val('');
+    $('#stock-date-from').val('');
+    $('#stock-date-to').val('');
+    stockSearch = '';
+    stockDateFrom = '';
+    stockDateTo = '';
+    loadStockHistory(1);
+}
+
+// ============================================
+// FUNCIONES DE HISTORIAL DE PRECIOS
+// ============================================
+
+function loadPricesHistory(page = 1) {
+    pricesCurrentPage = page;
+
+    $('#prices-loading').show();
+    $('#prices-history-container').hide();
+
+    let url = `/history/prices?page=${page}&per_page=${pricesPerPage}`;
+
+    if (pricesSearch) {
+        url += `&search=${encodeURIComponent(pricesSearch)}`;
+    }
+    if (pricesDateFrom) {
+        url += `&date_from=${pricesDateFrom}`;
+    }
+    if (pricesDateTo) {
+        url += `&date_to=${pricesDateTo}`;
+    }
+
+    $.ajax({
+        url: url,
+        method: 'GET',
+        success: function(data) {
+            $('#prices-loading').hide();
+            $('#prices-history-container').show();
+
+            if (data.success) {
+                displayPricesHistory(data.items);
+                displayPricesPagination(data.pagination);
+
+                // Actualizar estadística
+                $('#stat-prices span').text(data.pagination.total);
+            } else {
+                $('#prices-history-container').html(
+                    '<div class="alert alert-danger">Error: ' + data.error + '</div>'
+                );
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#prices-loading').hide();
+            $('#prices-history-container').html(
+                '<div class="alert alert-danger">Error al cargar historial de precios</div>'
+            ).show();
+        }
+    });
+}
+
+function displayPricesHistory(items) {
+    if (items.length === 0) {
+        $('#prices-history-container').html(
+            '<div class="alert alert-warning text-center">No se encontraron cambios de precios</div>'
+        );
+        return;
+    }
+
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover align-middle">';
+    html += '<thead class="table-light">';
+    html += '<tr>';
+    html += '<th style="width: 80px;">ID</th>';
+    html += '<th>Producto</th>';
+    html += '<th style="width: 120px;">SKU</th>';
+    html += '<th style="width: 100px;">P. Regular Ant.</th>';
+    html += '<th style="width: 100px;">P. Regular Nuevo</th>';
+    html += '<th style="width: 100px;">P. Oferta Ant.</th>';
+    html += '<th style="width: 100px;">P. Oferta Nuevo</th>';
+    html += '<th style="width: 120px;">Usuario</th>';
+    html += '<th>Razón</th>';
+    html += '<th style="width: 180px;">Fecha</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+
+    items.forEach(function(item) {
+        html += '<tr>';
+        html += `<td>${item.product_id}</td>`;
+        html += `<td><small>${item.product_title || 'N/A'}</small></td>`;
+        html += `<td><code>${item.sku || 'N/A'}</code></td>`;
+        html += `<td class="text-end">S/ ${item.old_regular_price ? item.old_regular_price.toFixed(2) : '-'}</td>`;
+        html += `<td class="text-end"><strong>S/ ${item.new_regular_price ? item.new_regular_price.toFixed(2) : '-'}</strong></td>`;
+        html += `<td class="text-end">S/ ${item.old_sale_price ? item.old_sale_price.toFixed(2) : '-'}</td>`;
+        html += `<td class="text-end"><strong>S/ ${item.new_sale_price ? item.new_sale_price.toFixed(2) : '-'}</strong></td>`;
+        html += `<td><span class="badge bg-secondary">${item.changed_by}</span></td>`;
+        html += `<td><small>${item.change_reason || '-'}</small></td>`;
+        html += `<td><small>${item.created_at}</small></td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+
+    $('#prices-history-container').html(html);
+}
+
+function displayPricesPagination(pagination) {
+    if (pagination.pages <= 1) {
+        $('#prices-pagination-container').html('');
+        return;
+    }
+
+    let html = '<nav><ul class="pagination justify-content-center">';
+
+    // Botón anterior
+    if (pagination.has_prev) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadPricesHistory(${pagination.prev_num}); return false;">
+                Anterior
+            </a>
+        </li>`;
+    }
+
+    // Páginas
+    for (let i = 1; i <= pagination.pages; i++) {
+        let active = i === pagination.page ? 'active' : '';
+        html += `<li class="page-item ${active}">
+            <a class="page-link" href="#" onclick="loadPricesHistory(${i}); return false;">
+                ${i}
+            </a>
+        </li>`;
+    }
+
+    // Botón siguiente
+    if (pagination.has_next) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadPricesHistory(${pagination.next_num}); return false;">
+                Siguiente
+            </a>
+        </li>`;
+    }
+
+    html += '</ul></nav>';
+    $('#prices-pagination-container').html(html);
+}
+
+function searchPricesHistory() {
+    pricesSearch = $('#prices-search-input').val().trim();
+    pricesDateFrom = $('#prices-date-from').val();
+    pricesDateTo = $('#prices-date-to').val();
+    loadPricesHistory(1);
+}
+
+function clearPricesFilters() {
+    $('#prices-search-input').val('');
+    $('#prices-date-from').val('');
+    $('#prices-date-to').val('');
+    pricesSearch = '';
+    pricesDateFrom = '';
+    pricesDateTo = '';
+    loadPricesHistory(1);
+}
+</script>
+{% endblock %}
