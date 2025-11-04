@@ -832,16 +832,24 @@ function updateStock(productId) {
     let input = $('#stock-' + productId);
     let newStock = parseInt(input.val());
     let reason = 'Ajuste manual de inventario';
-    
+    let saveBtn = $(`button[onclick="updateStock(${productId})"]`);
+
     // Validar
     if (isNaN(newStock) || newStock < 0) {
         showNotification('error', 'Stock inválido');
         return;
     }
-    
-    // Deshabilitar input mientras procesa
+
+    // Deshabilitar input y botón mientras procesa
     input.prop('disabled', true);
-    
+    saveBtn.prop('disabled', true);
+
+    // Guardar contenido original del botón
+    let originalBtnContent = saveBtn.html();
+
+    // Cambiar botón a estado de carga
+    saveBtn.html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando...');
+
     $.ajax({
         url: `/stock/update/${productId}`,
         method: 'POST',
@@ -853,12 +861,14 @@ function updateStock(productId) {
         success: function(response) {
             if (response.success) {
                 showNotification('success', 'Stock actualizado correctamente');
-                
+
                 // Recargar la tabla para reflejar cambios
                 loadStock(currentPage);
             } else {
                 showNotification('error', response.error || 'Error al actualizar');
                 input.prop('disabled', false);
+                saveBtn.prop('disabled', false);
+                saveBtn.html(originalBtnContent);
             }
         },
         error: function(xhr) {
@@ -868,6 +878,8 @@ function updateStock(productId) {
             }
             showNotification('error', errorMsg);
             input.prop('disabled', false);
+            saveBtn.prop('disabled', false);
+            saveBtn.html(originalBtnContent);
         }
     });
 }

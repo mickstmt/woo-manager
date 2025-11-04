@@ -632,6 +632,7 @@ function renderPricesTable(products) {
 function updateIndividualPrice(productId) {
     const regularInput = document.getElementById(`regular-${productId}`);
     const saleInput = document.getElementById(`sale-${productId}`);
+    const saveBtn = document.querySelector(`button[onclick="updateIndividualPrice(${productId})"]`);
 
     const regularPrice = parseFloat(regularInput.value);
     const salePrice = saleInput.value ? parseFloat(saleInput.value) : null;
@@ -654,6 +655,17 @@ function updateIndividualPrice(productId) {
 
     const reason = prompt('Razón del cambio (opcional):') || 'Actualización manual';
 
+    // Deshabilitar inputs y botón mientras procesa
+    regularInput.disabled = true;
+    saleInput.disabled = true;
+    saveBtn.disabled = true;
+
+    // Guardar contenido original del botón
+    const originalBtnContent = saveBtn.innerHTML;
+
+    // Cambiar botón a estado de carga
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+
     // Enviar actualización
     fetch(`/prices/update/${productId}`, {
         method: 'POST',
@@ -673,11 +685,21 @@ function updateIndividualPrice(productId) {
             loadPrices(); // Recargar
         } else {
             showAlert('Error: ' + data.error, 'danger');
+            // Restaurar estado del botón en caso de error
+            regularInput.disabled = false;
+            saleInput.disabled = false;
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnContent;
         }
     })
     .catch(error => {
         showAlert('Error de conexión: ' + error, 'danger');
         console.error('Error:', error);
+        // Restaurar estado del botón en caso de error
+        regularInput.disabled = false;
+        saleInput.disabled = false;
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalBtnContent;
     });
 }
 
