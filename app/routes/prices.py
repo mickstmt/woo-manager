@@ -368,22 +368,30 @@ def update_price(product_id):
         # Guardar en la base de datos
         db.session.commit()
 
-        # Registrar en el historial
-        history = PriceHistory(
-            product_id=product.ID,
-            product_title=product.post_title,
-            sku=product.get_meta('_sku') or 'N/A',
-            old_regular_price=old_regular_price,
-            old_sale_price=old_sale_price,
-            old_price=old_price,
-            new_regular_price=new_regular_price,
-            new_sale_price=new_sale_price,
-            new_price=new_price,
-            changed_by=current_user.username,
-            change_reason=reason
-        )
-        db.session.add(history)
-        db.session.commit()
+        # Registrar en el historial (transacción separada)
+        try:
+            history = PriceHistory(
+                product_id=product.ID,
+                product_title=product.post_title,
+                sku=product.get_meta('_sku') or 'N/A',
+                old_regular_price=old_regular_price,
+                old_sale_price=old_sale_price,
+                old_price=old_price,
+                new_regular_price=new_regular_price,
+                new_sale_price=new_sale_price,
+                new_price=new_price,
+                changed_by=current_user.username,
+                change_reason=reason
+            )
+            db.session.add(history)
+            db.session.commit()
+        except Exception as hist_error:
+            # Si falla el historial, no fallar la actualización de precios
+            db.session.rollback()
+            import logging
+            logging.error(f"Error al guardar historial de precios para producto {product.ID}: {str(hist_error)}")
+            import traceback
+            logging.error(traceback.format_exc())
 
         return jsonify({
             'success': True,

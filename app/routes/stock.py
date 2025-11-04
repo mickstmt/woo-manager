@@ -370,22 +370,30 @@ def update_stock(product_id):
         
         # Guardar en la base de datos
         db.session.commit()
-        
-        # Registrar en el historial
-        change_amount = new_stock - old_stock
-        history = StockHistory(
-            product_id=product.ID,
-            product_title=product.post_title,
-            sku=product.get_meta('_sku') or 'N/A',
-            old_stock=old_stock,
-            new_stock=new_stock,
-            change_amount=change_amount,
-            changed_by='admin',  # Por ahora, luego lo haremos dinámico
-            change_reason=reason
-        )
-        db.session.add(history)
-        db.session.commit()
-        
+
+        # Registrar en el historial (transacción separada)
+        try:
+            change_amount = new_stock - old_stock
+            history = StockHistory(
+                product_id=product.ID,
+                product_title=product.post_title,
+                sku=product.get_meta('_sku') or 'N/A',
+                old_stock=old_stock,
+                new_stock=new_stock,
+                change_amount=change_amount,
+                changed_by=current_user.username,
+                change_reason=reason
+            )
+            db.session.add(history)
+            db.session.commit()
+        except Exception as hist_error:
+            # Si falla el historial, no fallar la actualización del stock
+            db.session.rollback()
+            import logging
+            logging.error(f"Error al guardar historial para producto {product.ID}: {str(hist_error)}")
+            import traceback
+            logging.error(traceback.format_exc())
+
         return jsonify({
             'success': True,
             'message': f'Stock actualizado de {old_stock} a {new_stock}',
@@ -395,7 +403,7 @@ def update_stock(product_id):
             'new_stock': new_stock,
             'change_amount': change_amount
         })
-        
+
     except Exception as e:
         db.session.rollback()
         import traceback
