@@ -344,7 +344,8 @@ def update_stock(product_id):
         
         # Obtener stock actual
         old_stock_value = product.get_meta('_stock')
-        old_stock = int(old_stock_value) if old_stock_value else 0
+        # Convertir a float primero para manejar decimales (ej: '9.000000')
+        old_stock = int(float(old_stock_value)) if old_stock_value else 0
         
         # Si no cambió nada, no hacer nada
         if old_stock == new_stock:
@@ -464,8 +465,15 @@ def update_multiple_stock():
                     post_id=product_id,
                     meta_key='_stock'
                 ).first()
-                
-                old_stock = int(old_stock_meta.meta_value) if old_stock_meta and old_stock_meta.meta_value else 0
+
+                # Convertir a float primero para manejar decimales (ej: '9.000000')
+                if old_stock_meta and old_stock_meta.meta_value:
+                    try:
+                        old_stock = int(float(old_stock_meta.meta_value))
+                    except (ValueError, TypeError):
+                        old_stock = 0
+                else:
+                    old_stock = 0
                 
                 # Actualizar o crear meta _stock
                 if old_stock_meta:
