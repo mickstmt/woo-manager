@@ -3,6 +3,7 @@ from app import db
 from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from config import get_local_time
 
 class Product(db.Model):
     """
@@ -273,7 +274,7 @@ class StockHistory(db.Model):
     change_amount = db.Column(db.Integer)
     changed_by = db.Column(db.String(100), default='system')
     change_reason = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    created_at = db.Column(db.DateTime, default=get_local_time)
 
     def __repr__(self):
         return f'<StockHistory Product:{self.product_id} {self.old_stock}→{self.new_stock}>'
@@ -306,7 +307,7 @@ class PriceHistory(db.Model):
     # Auditoría
     changed_by = db.Column(db.String(100), default='system')
     change_reason = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    created_at = db.Column(db.DateTime, default=get_local_time)
 
     def __repr__(self):
         return f'<PriceHistory Product:{self.product_id} {self.old_price}→{self.new_price}>'
@@ -315,7 +316,7 @@ class PriceHistory(db.Model):
 class User(UserMixin, db.Model):
     """Modelo de usuario para autenticación"""
     __tablename__ = 'woo_users'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
@@ -323,26 +324,26 @@ class User(UserMixin, db.Model):
     full_name = db.Column(db.String(100))
     role = db.Column(db.Enum('admin', 'user'), default='user')
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
     last_login = db.Column(db.DateTime)
-    
+
     def set_password(self, password):
         """Hashear contraseña"""
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         """Verificar contraseña"""
         return check_password_hash(self.password_hash, password)
-    
+
     def is_admin(self):
         """Verificar si es admin"""
         return self.role == 'admin'
-    
+
     def update_last_login(self):
         """Actualizar último login"""
-        self.last_login = datetime.utcnow()
+        self.last_login = get_local_time()
         db.session.commit()
-    
+
     def __repr__(self):
         return f'<User {self.username}>'

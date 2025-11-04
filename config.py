@@ -2,16 +2,30 @@
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Cargar variables de entorno
 load_dotenv()
+
+def get_local_time():
+    """
+    Obtener la hora actual en la zona horaria de Perú (America/Lima, UTC-5)
+
+    Retorna:
+        datetime: Hora actual con timezone America/Lima
+    """
+    return datetime.now(ZoneInfo('America/Lima'))
 
 class Config:
     """Configuración base"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-change-this'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     DB_PREFIX = os.environ.get('DB_PREFIX', 'wpyz_')
-    
+
+    # Configuración de zona horaria
+    TIMEZONE = 'America/Lima'  # UTC-5 (Perú)
+
     # Configuración de sesión
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
