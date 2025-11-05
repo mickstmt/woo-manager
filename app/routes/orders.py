@@ -14,11 +14,22 @@ bp = Blueprint('orders', __name__, url_prefix='/orders')
 @login_required
 def index():
     """
-    Vista principal del módulo de pedidos
+    Vista principal del módulo de pedidos (listado)
 
     URL: http://localhost:5000/orders/
     """
-    return render_template('orders.html', title='Gestión de Pedidos')
+    return render_template('orders_list.html', title='Gestión de Pedidos')
+
+
+@bp.route('/create')
+@login_required
+def create_page():
+    """
+    Página para crear nuevo pedido (Wizard de 3 pasos)
+
+    URL: http://localhost:5000/orders/create
+    """
+    return render_template('orders_create.html', title='Crear Nuevo Pedido')
 
 
 @bp.route('/list')
@@ -213,7 +224,206 @@ def search_products():
         }), 500
 
 
-@bp.route('/create', methods=['POST'])
+@bp.route('/get-categories')
+@login_required
+def get_categories():
+    """
+    Obtener árbol de categorías de productos
+
+    Retorna categorías principales y subcategorías anidadas
+    """
+    try:
+        from sqlalchemy import text
+        from app.models import Term, TermTaxonomy
+
+        # Obtener todas las categorías con productos
+        query = text("""
+            SELECT
+                t.term_id,
+                t.name,
+                t.slug,
+                tt.parent,
+                tt.count
+            FROM wpyz_terms t
+            JOIN wpyz_term_taxonomy tt ON t.term_id = tt.term_id
+            WHERE tt.taxonomy = 'product_cat'
+            AND tt.count > 0
+            ORDER BY tt.parent, t.name
+        """)
+
+        result = db.session.execute(query)
+        categories = []
+        category_dict = {}
+
+        # Primera pasada: crear todas las categorías
+        for row in result:
+            cat = {
+                'id': row[0],
+                'name': row[1],
+                'slug': row[2],
+                'parent_id': row[3] or 0,
+                'product_count': row[4],
+                'children': []
+            }
+            category_dict[cat['id']] = cat
+
+            if cat['parent_id'] == 0:
+                categories.append(cat)
+
+        # Segunda pasada: anidar subcategorías
+        for cat_id, cat in category_dict.items():
+            if cat['parent_id'] != 0 and cat['parent_id'] in category_dict:
+                category_dict[cat['parent_id']]['children'].append(cat)
+
+        return jsonify({
+            'success': True,
+            'categories': categories
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/get-products-by-category/<int:category_id>')
+@login_required
+def get_products_by_category(category_id):
+    """
+    Obtener productos de una categoría específica
+    Solo productos principales (no variaciones)
+    """
+    try:
+        from sqlalchemy import text
+
+        # Obtener IDs de productos en esta categoría
+        query = text("""
+            SELECT DISTINCT p.ID
+            FROM wpyz_posts p
+            JOIN wpyz_term_relationships tr ON p.ID = tr.object_id
+            JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            WHERE tt.term_id = :category_id
+            AND p.post_type = 'product'
+            AND p.post_status = 'publish'
+            ORDER BY p.post_title
+        """)
+
+        result = db.session.execute(query, {'category_id': category_id})
+        product_ids = [row[0] for row in result]
+
+        if not product_ids:
+            return jsonify({
+                'success': True,
+                'products': []
+            })
+
+        # Obtener detalles de productos
+        products = Product.query.filter(Product.ID.in_(product_ids)).all()
+
+        products_list = []
+        for product in products:
+            sku = product.get_meta('_sku') or 'N/A'
+            price = product.get_meta('_price') or '0'
+            stock_status = product.get_meta('_stock_status') or 'outofstock'
+
+            # Verificar si tiene variaciones
+            has_variations = Product.query.filter_by(
+                post_type='product_variation',
+                post_parent=product.ID,
+                post_status='publish'
+            ).count() > 0
+
+            products_list.append({
+                'id': product.ID,
+                'name': product.post_title,
+                'sku': sku,
+                'price': float(price),
+                'stock_status': stock_status,
+                'has_variations': has_variations,
+                'image_url': product.get_image_url()
+            })
+
+        return jsonify({
+            'success': True,
+            'products': products_list
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/get-variations/<int:product_id>')
+@login_required
+def get_variations(product_id):
+    """
+    Obtener todas las variaciones de un producto
+    """
+    try:
+        # Obtener producto padre
+        parent_product = Product.query.get(product_id)
+        if not parent_product:
+            return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
+
+        # Obtener variaciones
+        variations = Product.query.filter_by(
+            post_type='product_variation',
+            post_parent=product_id,
+            post_status='publish'
+        ).all()
+
+        variations_list = []
+        for variation in variations:
+            sku = variation.get_meta('_sku') or 'N/A'
+            price = variation.get_meta('_price') or '0'
+            stock = variation.get_meta('_stock') or '0'
+            stock_status = variation.get_meta('_stock_status') or 'outofstock'
+
+            # Obtener atributos
+            attributes = {}
+            for meta in variation.product_meta:
+                if meta.meta_key.startswith('attribute_pa_'):
+                    attr_name = meta.meta_key.replace('attribute_pa_', '')
+                    attributes[attr_name] = meta.meta_value
+
+            variations_list.append({
+                'id': variation.ID,
+                'name': variation.post_title,
+                'sku': sku,
+                'price': float(price),
+                'stock': int(float(stock)),
+                'stock_status': stock_status,
+                'attributes': attributes,
+                'image_url': variation.get_image_url()
+            })
+
+        return jsonify({
+            'success': True,
+            'parent': {
+                'id': parent_product.ID,
+                'name': parent_product.post_title,
+                'image_url': parent_product.get_image_url()
+            },
+            'variations': variations_list
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/save-order', methods=['POST'])
 @login_required
 def create_order():
     """
@@ -226,6 +436,10 @@ def create_order():
             "last_name": "Pérez",
             "email": "juan@example.com",
             "phone": "987654321",
+            "company": "12345678",  # DNI/CE
+            "billing_ruc": "20123456789",  # Opcional
+            "billing_entrega": "billing_domicilio",  # billing_domicilio | billing_agencia | billing_recojo
+            "billing_referencia": "Frente al parque",  # Opcional
             "address_1": "Av. Principal 123",
             "city": "Lima",
             "state": "Lima",
@@ -237,9 +451,10 @@ def create_order():
                 "product_id": 123,
                 "variation_id": 456,  # opcional
                 "quantity": 2,
-                "price": 50.00
+                "price": 50.00  # Precio CON IGV incluido
             }
         ],
+        "shipping_cost": 15.00,  # Costo de envío
         "payment_method": "cod",
         "payment_method_title": "Yape",
         "customer_note": "Cliente contactó por WhatsApp"
@@ -257,25 +472,33 @@ def create_order():
 
         customer = data['customer']
         items_data = data['items']
+        shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
 
-        # Calcular totales
-        subtotal = Decimal('0')
-        tax_rate = Decimal('0.18')  # IGV 18%
+        # ===== CALCULAR TOTALES =====
+        # Los precios INCLUYEN IGV (18%)
+        # Fórmula: precio_sin_igv = precio_con_igv / 1.18
 
+        total_with_tax = Decimal('0')
+
+        # Sumar productos
         for item_data in items_data:
-            item_subtotal = Decimal(str(item_data['price'])) * item_data['quantity']
-            subtotal += item_subtotal
+            item_price_with_tax = Decimal(str(item_data['price'])) * item_data['quantity']
+            total_with_tax += item_price_with_tax
 
-        tax_amount = subtotal * tax_rate
-        total_amount = subtotal + tax_amount
+        # Sumar envío
+        total_with_tax += shipping_cost
 
-        # Crear pedido
+        # Calcular subtotal e IGV
+        subtotal = total_with_tax / Decimal('1.18')
+        tax_amount = total_with_tax - subtotal
+
+        # ===== CREAR PEDIDO =====
         order = Order(
             status='wc-processing',  # Estado inicial
             currency='PEN',
             type='shop_order',
             tax_amount=tax_amount,
-            total_amount=total_amount,
+            total_amount=total_with_tax,
             customer_id=0,  # Sin cuenta de usuario
             billing_email=customer.get('email'),
             date_created_gmt=get_local_time(),
@@ -290,25 +513,26 @@ def create_order():
         db.session.add(order)
         db.session.flush()  # Para obtener el ID del pedido
 
+        # ===== DIRECCIONES =====
         # Crear dirección de facturación
         billing_address = OrderAddress(
             order_id=order.id,
             address_type='billing',
             first_name=customer.get('first_name'),
             last_name=customer.get('last_name'),
-            company=customer.get('company', ''),
+            company=customer.get('company', ''),  # DNI/CE
             address_1=customer.get('address_1'),
             address_2=customer.get('address_2', ''),
             city=customer.get('city'),
             state=customer.get('state'),
-            postcode=customer.get('postcode'),
+            postcode=customer.get('postcode', ''),
             country=customer.get('country', 'PE'),
             email=customer.get('email'),
             phone=customer.get('phone')
         )
         db.session.add(billing_address)
 
-        # Usar misma dirección para envío (por defecto)
+        # Usar misma dirección para envío
         shipping_address = OrderAddress(
             order_id=order.id,
             address_type='shipping',
@@ -319,29 +543,39 @@ def create_order():
             address_2=customer.get('address_2', ''),
             city=customer.get('city'),
             state=customer.get('state'),
-            postcode=customer.get('postcode'),
+            postcode=customer.get('postcode', ''),
             country=customer.get('country', 'PE'),
             email=customer.get('email'),
             phone=customer.get('phone')
         )
         db.session.add(shipping_address)
 
-        # Agregar items al pedido
+        # ===== ITEMS DEL PEDIDO =====
+        items_subtotal = Decimal('0')
+        items_tax = Decimal('0')
+
         for item_data in items_data:
             product_id = item_data['product_id']
             variation_id = item_data.get('variation_id', 0)
             quantity = item_data['quantity']
-            price = Decimal(str(item_data['price']))
+            price_with_tax = Decimal(str(item_data['price']))
 
             # Obtener producto
-            product = Product.query.get(product_id)
+            if variation_id:
+                product = Product.query.get(variation_id)
+            else:
+                product = Product.query.get(product_id)
+
             if not product:
                 raise Exception(f'Producto {product_id} no encontrado')
 
-            # Calcular subtotal e impuestos del item
-            line_subtotal = price * quantity
-            line_tax = line_subtotal * tax_rate
-            line_total = line_subtotal
+            # Calcular subtotal e impuestos del item (precio incluye IGV)
+            line_total_with_tax = price_with_tax * quantity
+            line_subtotal = line_total_with_tax / Decimal('1.18')
+            line_tax = line_total_with_tax - line_subtotal
+
+            items_subtotal += line_subtotal
+            items_tax += line_tax
 
             # Crear item
             order_item = OrderItem(
@@ -357,10 +591,10 @@ def create_order():
                 ('_product_id', product_id),
                 ('_variation_id', variation_id),
                 ('_qty', quantity),
-                ('_line_subtotal', str(line_subtotal)),
-                ('_line_subtotal_tax', str(line_tax)),
-                ('_line_total', str(line_total)),
-                ('_line_tax', str(line_tax)),
+                ('_line_subtotal', str(line_subtotal.quantize(Decimal('0.01')))),
+                ('_line_subtotal_tax', str(line_tax.quantize(Decimal('0.01')))),
+                ('_line_total', str(line_subtotal.quantize(Decimal('0.01')))),
+                ('_line_tax', str(line_tax.quantize(Decimal('0.01')))),
                 ('_tax_class', ''),
             ]
 
@@ -372,32 +606,84 @@ def create_order():
                 )
                 db.session.add(item_meta)
 
-            # Reducir stock
-            stock_meta = product.product_meta.filter_by(meta_key='_stock').first()
-            if stock_meta:
-                current_stock = int(float(stock_meta.meta_value))
-                new_stock = max(0, current_stock - quantity)
-                stock_meta.meta_value = str(new_stock)
+            # Reducir stock del producto correcto
+            target_product = Product.query.get(variation_id if variation_id else product_id)
+            if target_product:
+                stock_meta = target_product.product_meta.filter_by(meta_key='_stock').first()
+                if stock_meta:
+                    current_stock = int(float(stock_meta.meta_value))
+                    new_stock = max(0, current_stock - quantity)
+                    stock_meta.meta_value = str(new_stock)
 
-                # Actualizar estado de stock
-                if new_stock == 0:
-                    stock_status_meta = product.product_meta.filter_by(meta_key='_stock_status').first()
-                    if stock_status_meta:
-                        stock_status_meta.meta_value = 'outofstock'
+                    # Actualizar estado de stock
+                    if new_stock == 0:
+                        stock_status_meta = target_product.product_meta.filter_by(meta_key='_stock_status').first()
+                        if stock_status_meta:
+                            stock_status_meta.meta_value = 'outofstock'
 
-        # Agregar metadatos del pedido
+        # ===== ITEM DE ENVÍO =====
+        if shipping_cost > 0:
+            shipping_subtotal = shipping_cost / Decimal('1.18')
+            shipping_tax = shipping_cost - shipping_subtotal
+
+            shipping_item = OrderItem(
+                order_item_name='Envío',
+                order_item_type='shipping',
+                order_id=order.id
+            )
+            db.session.add(shipping_item)
+            db.session.flush()
+
+            shipping_metas = [
+                ('method_id', 'flat_rate'),
+                ('cost', str(shipping_subtotal.quantize(Decimal('0.01')))),
+                ('total_tax', str(shipping_tax.quantize(Decimal('0.01')))),
+                ('taxes', 'a:1:{s:1:"1";s:4:"' + str(shipping_tax.quantize(Decimal('0.01'))) + '";}'),
+            ]
+
+            for meta_key, meta_value in shipping_metas:
+                shipping_meta = OrderItemMeta(
+                    order_item_id=shipping_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(shipping_meta)
+        else:
+            shipping_subtotal = Decimal('0')
+            shipping_tax = Decimal('0')
+
+        # ===== METADATOS DEL PEDIDO =====
         order_metas = [
+            # Identificación
             ('_created_via', 'woocommerce-manager'),
             ('_order_source', 'whatsapp'),
             ('_created_by', current_user.username),
-            ('_prices_include_tax', 'no'),
+            ('_order_version', '9.0.0'),
+
+            # Configuración de impuestos
+            ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
+
+            # Totales
             ('_cart_discount', '0'),
             ('_cart_discount_tax', '0'),
-            ('_order_shipping', '0'),
-            ('_order_shipping_tax', '0'),
-            ('_order_tax', str(tax_amount)),
-            ('_order_total', str(total_amount)),
-            ('_order_version', '9.0.0'),
+            ('_order_shipping', str(shipping_subtotal.quantize(Decimal('0.01')))),
+            ('_order_shipping_tax', str(shipping_tax.quantize(Decimal('0.01')))),
+            ('_order_tax', str(tax_amount.quantize(Decimal('0.01')))),
+            ('_order_total', str(total_with_tax.quantize(Decimal('0.01')))),
+
+            # Campos custom del plugin Checkout Field Editor
+            ('_billing_ruc', customer.get('billing_ruc', '')),
+            ('_billing_entrega', customer.get('billing_entrega', 'billing_domicilio')),
+            ('_billing_referencia', customer.get('billing_referencia', '')),
+            ('_thwcfe_ship_to_billing', '1'),  # Copiar billing a shipping
+
+            # Attribution (rastreo de origen)
+            ('_wc_order_attribution_source_type', 'direct'),
+            ('_wc_order_attribution_referrer', 'whatsapp'),
+            ('_wc_order_attribution_utm_source', 'whatsapp'),
+            ('_wc_order_attribution_session_pages', '1'),
+            ('_wc_order_attribution_session_count', '1'),
+            ('_wc_order_attribution_user_agent', request.headers.get('User-Agent', '')[:200]),
         ]
 
         for meta_key, meta_value in order_metas:
@@ -408,6 +694,29 @@ def create_order():
             )
             db.session.add(order_meta)
 
+        # ===== GUARDAR EN POSTMETA TAMBIÉN =====
+        # WooCommerce guarda algunos metadatos tanto en wc_orders_meta como en postmeta
+        from sqlalchemy import text
+        postmeta_fields = [
+            ('_billing_ruc', customer.get('billing_ruc', '')),
+            ('_billing_entrega', customer.get('billing_entrega', 'billing_domicilio')),
+            ('_billing_referencia', customer.get('billing_referencia', '')),
+            ('_thwcfe_ship_to_billing', '1'),
+            ('_billing_company', customer.get('company', '')),  # DNI/CE
+        ]
+
+        for meta_key, meta_value in postmeta_fields:
+            if meta_value:  # Solo insertar si tiene valor
+                insert_postmeta = text("""
+                    INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                    VALUES (:post_id, :meta_key, :meta_value)
+                """)
+                db.session.execute(insert_postmeta, {
+                    'post_id': order.id,
+                    'meta_key': meta_key,
+                    'meta_value': str(meta_value)
+                })
+
         # Guardar todo
         db.session.commit()
 
@@ -415,7 +724,9 @@ def create_order():
             'success': True,
             'message': f'Pedido #{order.id} creado exitosamente',
             'order_id': order.id,
-            'total': float(total_amount)
+            'total': float(total_with_tax),
+            'tax': float(tax_amount),
+            'subtotal': float(subtotal)
         })
 
     except Exception as e:

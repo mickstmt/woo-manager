@@ -1,0 +1,1129 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Nuevo Pedido - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Wizard Steps */
+    .wizard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    .wizard-steps::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 0;
+    }
+
+    .wizard-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .wizard-step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+    }
+
+    .wizard-step.active .wizard-step-circle {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .wizard-step.completed .wizard-step-circle {
+        background: #198754;
+        color: white;
+    }
+
+    .wizard-step-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .wizard-step.active .wizard-step-label {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    /* Content areas */
+    .wizard-content {
+        display: none;
+    }
+
+    .wizard-content.active {
+        display: block;
+    }
+
+    /* Sidebar de categorías */
+    .categories-sidebar {
+        height: calc(100vh - 250px);
+        overflow-y: auto;
+        border-right: 1px solid #dee2e6;
+        padding-right: 15px;
+    }
+
+    .category-item {
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: all 0.2s;
+    }
+
+    .category-item:hover {
+        background: #f8f9fa;
+    }
+
+    .category-item.active {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .category-item.has-children {
+        font-weight: 600;
+    }
+
+    .category-children {
+        margin-left: 20px;
+        display: none;
+    }
+
+    .category-children.expanded {
+        display: block;
+    }
+
+    .category-toggle {
+        cursor: pointer;
+        margin-right: 5px;
+    }
+
+    /* Grid de productos */
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .product-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+
+    .product-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .product-card img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 5px;
+        margin-bottom: 10px;
+    }
+
+    .product-card-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+        height: 40px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .product-card-price {
+        color: #198754;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .product-card-sku {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    /* Cart (sticky) */
+    .cart-sidebar {
+        position: sticky;
+        top: 80px;
+        height: calc(100vh - 100px);
+        overflow-y: auto;
+        border-left: 1px solid #dee2e6;
+        padding-left: 15px;
+    }
+
+    .cart-item {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f8f9fa;
+    }
+
+    .cart-item-remove {
+        float: right;
+        cursor: pointer;
+        color: #dc3545;
+    }
+
+    .cart-totals {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 15px;
+        border-top: 2px solid #dee2e6;
+        margin-top: 20px;
+    }
+
+    /* Form styling */
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .form-section h5 {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    /* Variations modal */
+    .variation-item {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .variation-item:hover {
+        border-color: #0d6efd;
+        background: #f8f9fa;
+    }
+
+    .variation-attributes {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .out-of-stock {
+        opacity: 0.5;
+        cursor: not-allowed !important;
+    }
+
+    /* Navigation buttons */
+    .wizard-navigation {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 2px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+    <!-- Wizard Steps Header -->
+    <div class="wizard-steps">
+        <div class="wizard-step active" data-step="1">
+            <div class="wizard-step-circle">1</div>
+            <div class="wizard-step-label">Seleccionar Productos</div>
+        </div>
+        <div class="wizard-step" data-step="2">
+            <div class="wizard-step-circle">2</div>
+            <div class="wizard-step-label">Datos del Cliente</div>
+        </div>
+        <div class="wizard-step" data-step="3">
+            <div class="wizard-step-circle">3</div>
+            <div class="wizard-step-label">Confirmar Pedido</div>
+        </div>
+    </div>
+
+    <!-- PASO 1: Selección de Productos -->
+    <div class="wizard-content active" id="step-1">
+        <div class="row">
+            <!-- Sidebar de categorías -->
+            <div class="col-md-3">
+                <h5>Categorías</h5>
+                <div class="categories-sidebar" id="categories-tree">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando categorías...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid de productos -->
+            <div class="col-md-6">
+                <h5>Productos</h5>
+                <div class="products-grid" id="products-grid">
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-box" style="font-size: 3rem; color: #dee2e6;"></i>
+                        <p class="text-muted mt-3">Selecciona una categoría para ver productos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carrito -->
+            <div class="col-md-3">
+                <div class="cart-sidebar">
+                    <h5>Carrito <span class="badge bg-primary" id="cart-count">0</span></h5>
+                    <div id="cart-items">
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-cart" style="font-size: 2rem;"></i>
+                            <p class="mt-2">Carrito vacío</p>
+                        </div>
+                    </div>
+                    <div class="cart-totals">
+                        <div class="d-flex justify-content-between mb-2">
+                            <strong>Subtotal:</strong>
+                            <span id="cart-subtotal">S/ 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <strong>IGV (18%):</strong>
+                            <span id="cart-tax">S/ 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between border-top pt-2">
+                            <strong style="font-size: 1.2rem;">TOTAL:</strong>
+                            <strong style="font-size: 1.2rem;" id="cart-total">S/ 0.00</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wizard-navigation">
+            <a href="/orders/" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Cancelar
+            </a>
+            <button class="btn btn-primary" onclick="goToStep(2)" id="btn-step-1">
+                Continuar <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- PASO 2: Datos del Cliente -->
+    <div class="wizard-content" id="step-2">
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Datos personales -->
+                <div class="form-section">
+                    <h5><i class="bi bi-person"></i> Datos del Cliente</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="first-name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Apellido <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="last-name" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" id="phone" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">DNI / CE <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="dni" required>
+                            <small class="text-muted">Documento de identidad</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">RUC (Opcional)</label>
+                            <input type="text" class="form-control" id="ruc" maxlength="11">
+                            <small class="text-muted">Solo si necesita factura</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dirección de entrega -->
+                <div class="form-section">
+                    <h5><i class="bi bi-geo-alt"></i> Dirección de Entrega</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Entrega <span class="text-danger">*</span></label>
+                        <select class="form-select" id="delivery-type" required>
+                            <option value="billing_domicilio">Entrega a Domicilio</option>
+                            <option value="billing_agencia">Agencia de Transporte</option>
+                            <option value="billing_recojo">Recojo en Tienda</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="address" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Referencia (Opcional)</label>
+                        <input type="text" class="form-control" id="reference" placeholder="Ej: Cerca del parque, frente al colegio...">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Distrito <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="city" value="Lima" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="state" value="LIMA" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de pago -->
+                <div class="form-section">
+                    <h5><i class="bi bi-credit-card"></i> Información de Pago</h5>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Método de Pago <span class="text-danger">*</span></label>
+                            <select class="form-select" id="payment-method" required>
+                                <option value="cod">Yape</option>
+                                <option value="cheque">Plin</option>
+                                <option value="qr_dinamico">Paga con QR (Yape/Plin/BIM)</option>
+                                <option value="bacs">Banca Virtual y Agentes</option>
+                                <option value="izipaypay">Paga con Yape y Plin</option>
+                                <option value="woo-mercado-pago-basic">Mercado Pago</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Costo de Envío <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.1" required>
+                            <small class="text-muted">Ingrese S/ 0 si es recojo en tienda</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas del Pedido</label>
+                        <textarea class="form-control" id="customer-note" rows="2" placeholder="Cliente contactó por WhatsApp..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen del carrito -->
+            <div class="col-md-4">
+                <div class="form-section sticky-top" style="top: 80px;">
+                    <h5><i class="bi bi-cart"></i> Resumen del Pedido</h5>
+                    <div id="cart-summary"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wizard-navigation">
+            <button class="btn btn-secondary" onclick="goToStep(1)">
+                <i class="bi bi-arrow-left"></i> Volver
+            </button>
+            <button class="btn btn-primary" onclick="goToStep(3)" id="btn-step-2">
+                Continuar <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- PASO 3: Confirmación -->
+    <div class="wizard-content" id="step-3">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Revisa todos los datos antes de crear el pedido. Una vez creado, se reducirá el stock automáticamente.
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Resumen del cliente -->
+            <div class="col-md-6">
+                <div class="form-section">
+                    <h5><i class="bi bi-person-check"></i> Datos del Cliente</h5>
+                    <div id="customer-summary"></div>
+                </div>
+
+                <div class="form-section">
+                    <h5><i class="bi bi-truck"></i> Información de Entrega</h5>
+                    <div id="delivery-summary"></div>
+                </div>
+            </div>
+
+            <!-- Resumen de productos y totales -->
+            <div class="col-md-6">
+                <div class="form-section">
+                    <h5><i class="bi bi-box"></i> Productos del Pedido</h5>
+                    <div id="products-summary"></div>
+                </div>
+
+                <div class="form-section">
+                    <h5><i class="bi bi-calculator"></i> Totales</h5>
+                    <div id="totals-summary"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wizard-navigation">
+            <button class="btn btn-secondary" onclick="goToStep(2)">
+                <i class="bi bi-arrow-left"></i> Volver
+            </button>
+            <button class="btn btn-success btn-lg" onclick="submitOrder()" id="btn-submit">
+                <i class="bi bi-check-circle"></i> Crear Pedido
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para seleccionar variaciones -->
+<div class="modal fade" id="variationsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="variations-modal-title">Seleccionar Variación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="variations-modal-body">
+                <!-- Variaciones se cargan dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let currentStep = 1;
+let selectedCategory = null;
+let cart = [];
+let categories = [];
+
+// Datos del pedido
+let orderData = {
+    customer: {},
+    items: [],
+    shipping_cost: 0,
+    payment_method: '',
+    payment_method_title: '',
+    customer_note: ''
+};
+
+$(document).ready(function() {
+    loadCategories();
+    updateCartDisplay();
+
+    // Actualizar resumen cuando cambie el costo de envío
+    $('#shipping-cost').on('input', function() {
+        updateCartSummary();
+    });
+});
+
+// ==================== PASO 1: PRODUCTOS ====================
+
+function loadCategories() {
+    $.ajax({
+        url: '/orders/get-categories',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                categories = response.categories;
+                renderCategories(response.categories);
+            } else {
+                showNotification('error', 'Error al cargar categorías');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+function renderCategories(cats, parentElement = null) {
+    const container = parentElement || $('#categories-tree');
+    container.empty();
+
+    cats.forEach(cat => {
+        const hasChildren = cat.children && cat.children.length > 0;
+        const toggleIcon = hasChildren ? '<i class="bi bi-chevron-right category-toggle" data-cat-id="' + cat.id + '"></i>' : '';
+
+        const catHtml = `
+            <div class="category-wrapper">
+                <div class="category-item ${hasChildren ? 'has-children' : ''}" onclick="selectCategory(${cat.id}, '${cat.name}')">
+                    ${toggleIcon}
+                    ${cat.name} <small class="text-muted">(${cat.product_count})</small>
+                </div>
+                ${hasChildren ? '<div class="category-children" id="cat-children-' + cat.id + '"></div>' : ''}
+            </div>
+        `;
+
+        container.append(catHtml);
+
+        if (hasChildren) {
+            renderCategories(cat.children, $(`#cat-children-${cat.id}`));
+        }
+    });
+
+    // Event listener para toggle
+    $('.category-toggle').on('click', function(e) {
+        e.stopPropagation();
+        const catId = $(this).data('cat-id');
+        const children = $(`#cat-children-${catId}`);
+
+        if (children.hasClass('expanded')) {
+            children.removeClass('expanded');
+            $(this).removeClass('bi-chevron-down').addClass('bi-chevron-right');
+        } else {
+            children.addClass('expanded');
+            $(this).removeClass('bi-chevron-right').addClass('bi-chevron-down');
+        }
+    });
+}
+
+function selectCategory(catId, catName) {
+    selectedCategory = catId;
+
+    // Actualizar UI
+    $('.category-item').removeClass('active');
+    event.target.classList.add('active');
+
+    // Cargar productos
+    loadProductsByCategory(catId);
+}
+
+function loadProductsByCategory(catId) {
+    $('#products-grid').html(`
+        <div class="col-12 text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Cargando productos...</p>
+        </div>
+    `);
+
+    $.ajax({
+        url: `/orders/get-products-by-category/${catId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderProducts(response.products);
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al cargar productos');
+        }
+    });
+}
+
+function renderProducts(products) {
+    const container = $('#products-grid');
+    container.empty();
+
+    if (products.length === 0) {
+        container.html(`
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #dee2e6;"></i>
+                <p class="text-muted mt-3">No hay productos en esta categoría</p>
+            </div>
+        `);
+        return;
+    }
+
+    products.forEach(product => {
+        const imageUrl = product.image_url || 'https://via.placeholder.com/200';
+        const inStock = product.stock_status === 'instock';
+        const stockClass = inStock ? '' : 'out-of-stock';
+
+        const html = `
+            <div class="product-card ${stockClass}" onclick="selectProduct(${product.id}, ${product.has_variations})">
+                <img src="${imageUrl}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/200'">
+                <div class="product-card-name">${product.name}</div>
+                <div class="product-card-price">S/ ${product.price.toFixed(2)}</div>
+                <div class="product-card-sku">SKU: ${product.sku}</div>
+                ${!inStock ? '<div class="badge bg-danger mt-2">Sin Stock</div>' : ''}
+                ${product.has_variations ? '<div class="badge bg-info mt-2">Tiene Variaciones</div>' : ''}
+            </div>
+        `;
+
+        container.append(html);
+    });
+}
+
+function selectProduct(productId, hasVariations) {
+    if (hasVariations) {
+        loadVariations(productId);
+    } else {
+        // Producto simple, agregar directamente
+        $.ajax({
+            url: `/orders/get-variations/${productId}`,
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    addToCart({
+                        product_id: productId,
+                        variation_id: 0,
+                        name: response.parent.name,
+                        price: 0, // Se obtendrá del producto
+                        quantity: 1,
+                        image_url: response.parent.image_url
+                    });
+                }
+            }
+        });
+    }
+}
+
+function loadVariations(productId) {
+    $.ajax({
+        url: `/orders/get-variations/${productId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                showVariationsModal(response.parent, response.variations);
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al cargar variaciones');
+        }
+    });
+}
+
+function showVariationsModal(parent, variations) {
+    $('#variations-modal-title').text(parent.name);
+
+    const body = $('#variations-modal-body');
+    body.empty();
+
+    variations.forEach(variation => {
+        const inStock = variation.stock > 0;
+        const stockClass = inStock ? '' : 'out-of-stock';
+
+        // Formatear atributos
+        let attributesHtml = '';
+        for (const [key, value] of Object.entries(variation.attributes)) {
+            attributesHtml += `<span class="badge bg-secondary me-1">${key}: ${value}</span>`;
+        }
+
+        const html = `
+            <div class="variation-item ${stockClass}" onclick="addVariationToCart(${variation.id}, '${variation.name}', ${variation.price}, '${parent.image_url || ''}')">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>${variation.name}</strong>
+                        <div class="variation-attributes">${attributesHtml}</div>
+                        <small class="text-muted">SKU: ${variation.sku} | Stock: ${variation.stock}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold text-success">S/ ${variation.price.toFixed(2)}</div>
+                        ${!inStock ? '<span class="badge bg-danger">Sin Stock</span>' : '<span class="badge bg-success">En Stock</span>'}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        body.append(html);
+    });
+
+    $('#variationsModal').modal('show');
+}
+
+function addVariationToCart(variationId, name, price, imageUrl) {
+    addToCart({
+        product_id: 0,
+        variation_id: variationId,
+        name: name,
+        price: price,
+        quantity: 1,
+        image_url: imageUrl
+    });
+
+    $('#variationsModal').modal('hide');
+}
+
+function addToCart(item) {
+    // Verificar si ya existe
+    const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
+
+    if (existing) {
+        existing.quantity++;
+    } else {
+        cart.push(item);
+    }
+
+    updateCartDisplay();
+    showNotification('success', 'Producto agregado al carrito');
+}
+
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    updateCartDisplay();
+}
+
+function updateQuantity(index, change) {
+    cart[index].quantity += change;
+
+    if (cart[index].quantity < 1) {
+        removeFromCart(index);
+    } else {
+        updateCartDisplay();
+    }
+}
+
+function updateCartDisplay() {
+    const container = $('#cart-items');
+    const count = $('#cart-count');
+
+    count.text(cart.length);
+
+    if (cart.length === 0) {
+        container.html(`
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-cart" style="font-size: 2rem;"></i>
+                <p class="mt-2">Carrito vacío</p>
+            </div>
+        `);
+
+        $('#btn-step-1').prop('disabled', true);
+    } else {
+        container.empty();
+
+        cart.forEach((item, index) => {
+            const html = `
+                <div class="cart-item">
+                    <span class="cart-item-remove" onclick="removeFromCart(${index})">
+                        <i class="bi bi-x-circle"></i>
+                    </span>
+                    <strong>${item.name}</strong><br>
+                    <small>S/ ${item.price.toFixed(2)}</small>
+                    <div class="d-flex align-items-center justify-content-between mt-2">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">-</button>
+                            <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, 1)">+</button>
+                        </div>
+                        <span class="fw-bold">S/ ${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+
+            container.append(html);
+        });
+
+        $('#btn-step-1').prop('disabled', false);
+    }
+
+    updateCartTotals();
+}
+
+function updateCartTotals() {
+    // Los precios YA incluyen IGV
+    let totalWithTax = 0;
+
+    cart.forEach(item => {
+        totalWithTax += item.price * item.quantity;
+    });
+
+    // Calcular subtotal sin IGV (precio / 1.18)
+    const subtotal = totalWithTax / 1.18;
+    const tax = totalWithTax - subtotal;
+
+    $('#cart-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
+    $('#cart-tax').text(`S/ ${tax.toFixed(2)}`);
+    $('#cart-total').text(`S/ ${totalWithTax.toFixed(2)}`);
+}
+
+// ==================== PASO 2: CLIENTE ====================
+
+function updateCartSummary() {
+    const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+
+    // Los precios YA incluyen IGV
+    let totalWithTax = 0;
+    cart.forEach(item => {
+        totalWithTax += item.price * item.quantity;
+    });
+
+    const subtotal = totalWithTax / 1.18;
+    const tax = totalWithTax - subtotal;
+    const grandTotal = totalWithTax + shippingCost;
+
+    const html = `
+        <div class="mb-2">
+            <small class="text-muted">${cart.length} producto(s)</small>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+            <span>Subtotal:</span>
+            <span>S/ ${subtotal.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+            <span>IGV (18%):</span>
+            <span>S/ ${tax.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+            <span>Envío:</span>
+            <span>S/ ${shippingCost.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between border-top pt-2 mt-2">
+            <strong>TOTAL:</strong>
+            <strong class="text-success">S/ ${grandTotal.toFixed(2)}</strong>
+        </div>
+    `;
+
+    $('#cart-summary').html(html);
+}
+
+// ==================== PASO 3: CONFIRMACIÓN ====================
+
+function showStep3Summary() {
+    // Resumen del cliente
+    const customerHtml = `
+        <p><strong>Nombre:</strong> ${$('#first-name').val()} ${$('#last-name').val()}</p>
+        <p><strong>Email:</strong> ${$('#email').val()}</p>
+        <p><strong>Teléfono:</strong> ${$('#phone').val()}</p>
+        <p><strong>DNI/CE:</strong> ${$('#dni').val()}</p>
+        ${$('#ruc').val() ? `<p><strong>RUC:</strong> ${$('#ruc').val()}</p>` : ''}
+    `;
+    $('#customer-summary').html(customerHtml);
+
+    // Resumen de entrega
+    const deliveryType = $('#delivery-type option:selected').text();
+    const deliveryHtml = `
+        <p><strong>Tipo:</strong> ${deliveryType}</p>
+        <p><strong>Dirección:</strong> ${$('#address').val()}</p>
+        ${$('#reference').val() ? `<p><strong>Referencia:</strong> ${$('#reference').val()}</p>` : ''}
+        <p><strong>Distrito:</strong> ${$('#city').val()}</p>
+        <p><strong>Departamento:</strong> ${$('#state').val()}</p>
+        <p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>
+    `;
+    $('#delivery-summary').html(deliveryHtml);
+
+    // Resumen de productos
+    let productsHtml = '';
+    cart.forEach(item => {
+        productsHtml += `
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                <div>
+                    <strong>${item.name}</strong><br>
+                    <small>Cantidad: ${item.quantity} x S/ ${item.price.toFixed(2)}</small>
+                </div>
+                <div class="text-end">
+                    <strong>S/ ${(item.price * item.quantity).toFixed(2)}</strong>
+                </div>
+            </div>
+        `;
+    });
+    $('#products-summary').html(productsHtml);
+
+    // Totales
+    const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+    let totalWithTax = 0;
+    cart.forEach(item => {
+        totalWithTax += item.price * item.quantity;
+    });
+
+    const subtotal = totalWithTax / 1.18;
+    const tax = totalWithTax - subtotal;
+    const grandTotal = totalWithTax + shippingCost;
+
+    const totalsHtml = `
+        <div class="d-flex justify-content-between mb-2">
+            <span>Subtotal:</span>
+            <span>S/ ${subtotal.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <span>IGV (18%):</span>
+            <span>S/ ${tax.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+            <span>Costo de Envío:</span>
+            <span>S/ ${shippingCost.toFixed(2)}</span>
+        </div>
+        <div class="d-flex justify-content-between border-top pt-2">
+            <strong style="font-size: 1.3rem;">TOTAL:</strong>
+            <strong style="font-size: 1.3rem;" class="text-success">S/ ${grandTotal.toFixed(2)}</strong>
+        </div>
+    `;
+    $('#totals-summary').html(totalsHtml);
+}
+
+// ==================== NAVEGACIÓN ====================
+
+function goToStep(step) {
+    // Validar antes de avanzar
+    if (step === 2 && cart.length === 0) {
+        showNotification('error', 'Debes agregar al menos un producto al carrito');
+        return;
+    }
+
+    if (step === 3) {
+        if (!validateStep2()) {
+            return;
+        }
+        updateCartSummary();
+        showStep3Summary();
+    }
+
+    // Actualizar UI
+    $('.wizard-content').removeClass('active');
+    $(`#step-${step}`).addClass('active');
+
+    $('.wizard-step').removeClass('active').removeClass('completed');
+
+    for (let i = 1; i < step; i++) {
+        $(`.wizard-step[data-step="${i}"]`).addClass('completed');
+    }
+
+    $(`.wizard-step[data-step="${step}"]`).addClass('active');
+
+    currentStep = step;
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+function validateStep2() {
+    const required = ['first-name', 'last-name', 'email', 'phone', 'dni', 'address', 'city', 'state'];
+
+    for (const field of required) {
+        const value = $(`#${field}`).val();
+        if (!value || value.trim() === '') {
+            showNotification('error', `Por favor completa todos los campos requeridos`);
+            $(`#${field}`).focus();
+            return false;
+        }
+    }
+
+    // Validar email
+    const email = $('#email').val();
+    if (!email.includes('@')) {
+        showNotification('error', 'Email inválido');
+        $('#email').focus();
+        return false;
+    }
+
+    return true;
+}
+
+// ==================== ENVÍO DE PEDIDO ====================
+
+function submitOrder() {
+    const btn = $('#btn-submit');
+    btn.prop('disabled', true);
+    btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
+
+    // Preparar datos
+    const orderData = {
+        customer: {
+            first_name: $('#first-name').val(),
+            last_name: $('#last-name').val(),
+            email: $('#email').val(),
+            phone: $('#phone').val(),
+            company: $('#dni').val(),  // DNI/CE
+            address_1: $('#address').val(),
+            city: $('#city').val(),
+            state: $('#state').val(),
+            postcode: '',
+            country: 'PE',
+            // Campos custom
+            billing_ruc: $('#ruc').val() || '',
+            billing_entrega: $('#delivery-type').val(),
+            billing_referencia: $('#reference').val() || ''
+        },
+        items: cart.map(item => ({
+            product_id: item.product_id || 0,
+            variation_id: item.variation_id || 0,
+            quantity: item.quantity,
+            price: item.price
+        })),
+        shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
+        payment_method: $('#payment-method').val(),
+        payment_method_title: $('#payment-method option:selected').text(),
+        customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
+    };
+
+    // Enviar
+    $.ajax({
+        url: '/orders/save-order',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(orderData),
+        success: function(response) {
+            if (response.success) {
+                // Mostrar mensaje de éxito
+                showNotification('success', response.message);
+
+                // Redirigir después de 2 segundos
+                setTimeout(function() {
+                    window.location.href = '/orders/';
+                }, 2000);
+            } else {
+                showNotification('error', response.error || 'Error al crear pedido');
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+        }
+    });
+}
+
+// ==================== UTILIDADES ====================
+
+function showNotification(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-warning';
+    const html = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
+             style="z-index: 9999; max-width: 500px;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('body').append(html);
+    setTimeout(() => $('.alert').fadeOut(), 3000);
+}
+</script>
+{% endblock %}
