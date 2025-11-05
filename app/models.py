@@ -347,3 +347,150 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return f'<User {self.username}>'
+
+
+class Order(db.Model):
+    """
+    Modelo para pedidos de WooCommerce (HPOS - High Performance Order Storage)
+
+    Representa la tabla wpyz_wc_orders donde WooCommerce guarda los pedidos
+    con el nuevo sistema de almacenamiento de alto rendimiento
+    """
+    __tablename__ = 'wpyz_wc_orders'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    status = db.Column(db.String(20))
+    currency = db.Column(db.String(10))
+    type = db.Column(db.String(20))
+    tax_amount = db.Column(db.Numeric(26, 8))
+    total_amount = db.Column(db.Numeric(26, 8))
+    customer_id = db.Column(db.BigInteger)
+    billing_email = db.Column(db.String(320))
+    date_created_gmt = db.Column(db.DateTime)
+    date_updated_gmt = db.Column(db.DateTime)
+    parent_order_id = db.Column(db.BigInteger)
+    payment_method = db.Column(db.String(100))
+    payment_method_title = db.Column(db.Text)
+    transaction_id = db.Column(db.String(100))
+    ip_address = db.Column(db.String(100))
+    user_agent = db.Column(db.Text)
+    customer_note = db.Column(db.Text)
+
+    # Relaciones
+    addresses = db.relationship('OrderAddress', backref='order', lazy='dynamic')
+    items = db.relationship('OrderItem', backref='order', lazy='dynamic')
+    meta = db.relationship('OrderMeta', backref='order', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Order {self.id}: {self.status} - {self.total_amount}>'
+
+    def get_meta(self, key):
+        """Obtener un metadato específico del pedido"""
+        meta = self.meta.filter_by(meta_key=key).first()
+        return meta.meta_value if meta else None
+
+    def set_meta(self, key, value):
+        """Establecer o actualizar un metadato del pedido"""
+        meta = self.meta.filter_by(meta_key=key).first()
+        if meta:
+            meta.meta_value = str(value)
+        else:
+            new_meta = OrderMeta(
+                order_id=self.id,
+                meta_key=key,
+                meta_value=str(value)
+            )
+            db.session.add(new_meta)
+
+
+class OrderAddress(db.Model):
+    """
+    Modelo para direcciones de pedidos (facturación y envío)
+    """
+    __tablename__ = 'wpyz_wc_order_addresses'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
+    address_type = db.Column(db.String(20))  # 'billing' o 'shipping'
+    first_name = db.Column(db.Text)
+    last_name = db.Column(db.Text)
+    company = db.Column(db.Text)
+    address_1 = db.Column(db.Text)
+    address_2 = db.Column(db.Text)
+    city = db.Column(db.Text)
+    state = db.Column(db.Text)
+    postcode = db.Column(db.Text)
+    country = db.Column(db.Text)
+    email = db.Column(db.String(320))
+    phone = db.Column(db.String(100))
+
+    def __repr__(self):
+        return f'<OrderAddress {self.address_type}: {self.first_name} {self.last_name}>'
+
+
+class OrderItem(db.Model):
+    """
+    Modelo para items (productos) de un pedido
+    """
+    __tablename__ = 'wpyz_woocommerce_order_items'
+
+    order_item_id = db.Column(db.BigInteger, primary_key=True)
+    order_item_name = db.Column(db.Text)
+    order_item_type = db.Column(db.String(200))
+    order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
+
+    # Relación con metadatos
+    item_meta = db.relationship('OrderItemMeta', backref='order_item', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<OrderItem {self.order_item_id}: {self.order_item_name}>'
+
+    def get_meta(self, key):
+        """Obtener un metadato específico del item"""
+        meta = self.item_meta.filter_by(meta_key=key).first()
+        return meta.meta_value if meta else None
+
+    def set_meta(self, key, value):
+        """Establecer o actualizar un metadato del item"""
+        meta = self.item_meta.filter_by(meta_key=key).first()
+        if meta:
+            meta.meta_value = str(value)
+        else:
+            new_meta = OrderItemMeta(
+                order_item_id=self.order_item_id,
+                meta_key=key,
+                meta_value=str(value)
+            )
+            db.session.add(new_meta)
+
+
+class OrderItemMeta(db.Model):
+    """
+    Modelo para metadatos de items de pedido
+
+    Aquí se guardan cantidades, precios, impuestos, IDs de productos, etc.
+    """
+    __tablename__ = 'wpyz_woocommerce_order_itemmeta'
+
+    meta_id = db.Column(db.BigInteger, primary_key=True)
+    order_item_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_woocommerce_order_items.order_item_id'))
+    meta_key = db.Column(db.String(255))
+    meta_value = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<OrderItemMeta {self.meta_key}: {self.meta_value[:50]}>'
+
+
+class OrderMeta(db.Model):
+    """
+    Modelo para metadatos de pedidos
+    """
+    __tablename__ = 'wpyz_wc_orders_meta'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
+    meta_key = db.Column(db.String(255))
+    meta_value = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<OrderMeta {self.meta_key}: {self.meta_value[:50]}>'

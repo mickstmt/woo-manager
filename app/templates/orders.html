@@ -1,0 +1,698 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Pedidos - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: box-shadow 0.2s;
+    }
+
+    .order-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .status-badge {
+        font-size: 0.85rem;
+        padding: 4px 10px;
+    }
+
+    .product-item {
+        border: 1px solid #e9ecef;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f8f9fa;
+    }
+
+    .product-item .remove-btn {
+        float: right;
+        cursor: pointer;
+        color: #dc3545;
+    }
+
+    #products-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .search-result-item {
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+    }
+
+    .search-result-item:hover {
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="bi bi-cart-check"></i> Gestión de Pedidos
+            </h1>
+            <button class="btn btn-primary" onclick="showCreateOrderModal()">
+                <i class="bi bi-plus-circle"></i> Nuevo Pedido (WhatsApp)
+            </button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text"
+                                   class="form-control"
+                                   id="search-input"
+                                   placeholder="Buscar por ID, email, nombre o teléfono...">
+                            <button class="btn btn-primary" onclick="searchOrders()">
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="status-filter">
+                            <option value="">Todos los estados</option>
+                            <option value="wc-processing">Procesando</option>
+                            <option value="wc-completed">Completado</option>
+                            <option value="wc-delivered">Entregado</option>
+                            <option value="wc-enviado">Enviado</option>
+                            <option value="wc-en-transito">En Tránsito</option>
+                            <option value="wc-listo-enviar">Listo para Enviar</option>
+                            <option value="wc-on-hold">En Espera</option>
+                            <option value="wc-cancelled">Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="per-page-select">
+                            <option value="20">20 por página</option>
+                            <option value="50">50 por página</option>
+                            <option value="100">100 por página</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-5" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando pedidos...</p>
+        </div>
+
+        <!-- Lista de pedidos -->
+        <div id="orders-container"></div>
+
+        <!-- Paginación -->
+        <div id="pagination-container" class="mt-3"></div>
+    </div>
+</div>
+
+<!-- Modal para crear pedido -->
+<div class="modal fade" id="createOrderModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cart-plus"></i> Crear Nuevo Pedido (Venta por WhatsApp)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Columna izquierda: Datos del cliente -->
+                    <div class="col-md-6">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-person"></i> Datos del Cliente
+                        </h6>
+
+                        <div class="mb-3">
+                            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customer-first-name" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Apellido <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customer-last-name" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="customer-email" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" id="customer-phone" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Dirección <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="customer-address" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Ciudad <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="customer-city" value="Lima" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Departamento</label>
+                                <input type="text" class="form-control" id="customer-state" value="Lima">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Código Postal</label>
+                                <input type="text" class="form-control" id="customer-postcode" value="15001">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">País</label>
+                                <input type="text" class="form-control" id="customer-country" value="PE" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: Productos -->
+                    <div class="col-md-6">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-box"></i> Productos
+                        </h6>
+
+                        <!-- Buscador de productos -->
+                        <div class="mb-3">
+                            <label class="form-label">Buscar producto (por SKU o nombre)</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="product-search"
+                                   placeholder="Escribe para buscar...">
+                            <div id="product-search-results" class="border rounded mt-2" style="display: none; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+
+                        <!-- Lista de productos agregados -->
+                        <div id="products-list">
+                            <p class="text-muted text-center py-4">
+                                <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                                No hay productos agregados
+                            </p>
+                        </div>
+
+                        <!-- Total -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>Subtotal:</strong>
+                                <span id="order-subtotal">S/ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <strong>IGV (18%):</strong>
+                                <span id="order-tax">S/ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-2">
+                                <strong style="font-size: 1.2rem;">TOTAL:</strong>
+                                <strong style="font-size: 1.2rem;" id="order-total">S/ 0.00</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información adicional -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-credit-card"></i> Información de Pago
+                        </h6>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Método de Pago</label>
+                        <select class="form-select" id="payment-method">
+                            <option value="cod">Yape</option>
+                            <option value="cheque">Plin</option>
+                            <option value="qr_dinamico">QR (Yape/Plin/BIM)</option>
+                            <option value="bacs">Banca Virtual</option>
+                            <option value="izipaypay">Izipay (Yape/Plin)</option>
+                            <option value="woo-mercado-pago-basic">Mercado Pago</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Notas del Cliente</label>
+                        <textarea class="form-control" id="customer-note" rows="2" placeholder="Contactó por WhatsApp..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createOrder()">
+                    <i class="bi bi-check-circle"></i> Crear Pedido
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let currentPage = 1;
+let perPage = 20;
+let searchTerm = '';
+let statusFilter = '';
+let selectedProducts = [];
+
+$(document).ready(function() {
+    // Cargar pedidos inicial
+    loadOrders();
+
+    // Eventos
+    $('#status-filter').on('change', function() {
+        statusFilter = $(this).val();
+        currentPage = 1;
+        loadOrders();
+    });
+
+    $('#per-page-select').on('change', function() {
+        perPage = parseInt($(this).val());
+        currentPage = 1;
+        loadOrders();
+    });
+
+    // Buscar productos mientras se escribe
+    let searchTimeout;
+    $('#product-search').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val();
+
+        if (query.length < 2) {
+            $('#product-search-results').hide();
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            searchProducts(query);
+        }, 300);
+    });
+
+    // Enter para buscar pedidos
+    $('#search-input').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchOrders();
+        }
+    });
+});
+
+function searchOrders() {
+    searchTerm = $('#search-input').val();
+    currentPage = 1;
+    loadOrders();
+}
+
+function loadOrders(page = 1) {
+    currentPage = page;
+    $('#loading').show();
+    $('#orders-container').hide();
+
+    $.ajax({
+        url: '/orders/list',
+        method: 'GET',
+        data: {
+            page: currentPage,
+            per_page: perPage,
+            search: searchTerm,
+            status: statusFilter
+        },
+        success: function(response) {
+            if (response.success) {
+                renderOrders(response.orders);
+                renderPagination(response.pagination);
+            } else {
+                showNotification('error', 'Error al cargar pedidos');
+            }
+            $('#loading').hide();
+            $('#orders-container').show();
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+            $('#loading').hide();
+        }
+    });
+}
+
+function renderOrders(orders) {
+    const container = $('#orders-container');
+
+    if (orders.length === 0) {
+        container.html(`
+            <div class="alert alert-info text-center">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">No se encontraron pedidos</h5>
+                <p>Intenta con otros filtros de búsqueda</p>
+            </div>
+        `);
+        return;
+    }
+
+    let html = '';
+    orders.forEach(order => {
+        const statusClass = order.status.includes('delivered') ? 'success' :
+                           order.status.includes('completed') ? 'info' :
+                           order.status.includes('cancelled') ? 'danger' : 'warning';
+
+        const statusText = order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
+
+        html += `
+            <div class="order-card">
+                <div class="row align-items-center">
+                    <div class="col-md-1">
+                        <h5 class="mb-0">#${order.id}</h5>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="badge bg-${statusClass} status-badge">${statusText}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>${order.customer_name}</strong><br>
+                        <small class="text-muted">${order.billing_email}</small><br>
+                        <small class="text-muted"><i class="bi bi-phone"></i> ${order.customer_phone}</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>${order.currency} ${order.total.toFixed(2)}</strong><br>
+                        <small class="text-muted">${order.payment_method}</small>
+                    </div>
+                    <div class="col-md-2">
+                        <small class="text-muted">${order.date_created}</small><br>
+                        <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.html(html);
+}
+
+function renderPagination(pagination) {
+    const container = $('#pagination-container');
+
+    if (pagination.pages <= 1) {
+        container.html('');
+        return;
+    }
+
+    let html = '<nav><ul class="pagination justify-content-center">';
+
+    // Anterior
+    html += `<li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadOrders(${pagination.prev_num}); return false;">Anterior</a>
+             </li>`;
+
+    // Números de página
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+        } else if (i === 1 || i === pagination.pages || Math.abs(i - pagination.page) <= 2) {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="loadOrders(${i}); return false;">${i}</a></li>`;
+        } else if (Math.abs(i - pagination.page) === 3) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    // Siguiente
+    html += `<li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="loadOrders(${pagination.next_num}); return false;">Siguiente</a>
+             </li>`;
+
+    html += '</ul></nav>';
+    container.html(html);
+}
+
+function showCreateOrderModal() {
+    selectedProducts = [];
+    updateProductsList();
+    calculateTotals();
+    $('#createOrderModal').modal('show');
+}
+
+function searchProducts(query) {
+    $.ajax({
+        url: '/orders/search-products',
+        method: 'GET',
+        data: { q: query },
+        success: function(response) {
+            if (response.success) {
+                renderProductSearchResults(response.products);
+            }
+        }
+    });
+}
+
+function renderProductSearchResults(products) {
+    const container = $('#product-search-results');
+
+    if (products.length === 0) {
+        container.html('<div class="p-2 text-muted">No se encontraron productos</div>');
+        container.show();
+        return;
+    }
+
+    let html = '';
+    products.forEach(product => {
+        html += `
+            <div class="search-result-item" onclick="addProduct(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, ${product.stock})">
+                <strong>${product.name}</strong><br>
+                <small class="text-muted">SKU: ${product.sku} | Precio: S/ ${product.price.toFixed(2)} | Stock: ${product.stock}</small>
+            </div>
+        `;
+    });
+
+    container.html(html);
+    container.show();
+}
+
+function addProduct(id, name, price, stock) {
+    // Verificar si ya existe
+    const existing = selectedProducts.find(p => p.id === id);
+    if (existing) {
+        showNotification('warning', 'Este producto ya está agregado');
+        return;
+    }
+
+    selectedProducts.push({
+        id: id,
+        name: name,
+        price: price,
+        stock: stock,
+        quantity: 1
+    });
+
+    updateProductsList();
+    calculateTotals();
+
+    // Limpiar búsqueda
+    $('#product-search').val('');
+    $('#product-search-results').hide();
+}
+
+function removeProduct(index) {
+    selectedProducts.splice(index, 1);
+    updateProductsList();
+    calculateTotals();
+}
+
+function updateQuantity(index, change) {
+    const product = selectedProducts[index];
+    const newQty = product.quantity + change;
+
+    if (newQty < 1) {
+        showNotification('warning', 'La cantidad mínima es 1');
+        return;
+    }
+
+    if (newQty > product.stock) {
+        showNotification('warning', `Stock disponible: ${product.stock}`);
+        return;
+    }
+
+    product.quantity = newQty;
+    updateProductsList();
+    calculateTotals();
+}
+
+function updateProductsList() {
+    const container = $('#products-list');
+
+    if (selectedProducts.length === 0) {
+        container.html(`
+            <p class="text-muted text-center py-4">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                No hay productos agregados
+            </p>
+        `);
+        return;
+    }
+
+    let html = '';
+    selectedProducts.forEach((product, index) => {
+        html += `
+            <div class="product-item">
+                <span class="remove-btn" onclick="removeProduct(${index})">
+                    <i class="bi bi-x-circle"></i>
+                </span>
+                <strong>${product.name}</strong><br>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">-</button>
+                        <button class="btn btn-outline-secondary" disabled>${product.quantity}</button>
+                        <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, 1)">+</button>
+                    </div>
+                    <span>S/ ${(product.price * product.quantity).toFixed(2)}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.html(html);
+}
+
+function calculateTotals() {
+    let subtotal = 0;
+    selectedProducts.forEach(product => {
+        subtotal += product.price * product.quantity;
+    });
+
+    const tax = subtotal * 0.18;
+    const total = subtotal + tax;
+
+    $('#order-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
+    $('#order-tax').text(`S/ ${tax.toFixed(2)}`);
+    $('#order-total').text(`S/ ${total.toFixed(2)}`);
+}
+
+function createOrder() {
+    // Validar campos del cliente
+    const customer = {
+        first_name: $('#customer-first-name').val().trim(),
+        last_name: $('#customer-last-name').val().trim(),
+        email: $('#customer-email').val().trim(),
+        phone: $('#customer-phone').val().trim(),
+        address_1: $('#customer-address').val().trim(),
+        city: $('#customer-city').val().trim(),
+        state: $('#customer-state').val().trim(),
+        postcode: $('#customer-postcode').val().trim(),
+        country: $('#customer-country').val().trim()
+    };
+
+    // Validaciones
+    if (!customer.first_name || !customer.last_name) {
+        showNotification('error', 'Nombre y apellido son requeridos');
+        return;
+    }
+
+    if (!customer.email || !customer.email.includes('@')) {
+        showNotification('error', 'Email válido es requerido');
+        return;
+    }
+
+    if (!customer.phone) {
+        showNotification('error', 'Teléfono es requerido');
+        return;
+    }
+
+    if (!customer.address_1 || !customer.city) {
+        showNotification('error', 'Dirección y ciudad son requeridas');
+        return;
+    }
+
+    if (selectedProducts.length === 0) {
+        showNotification('error', 'Debe agregar al menos un producto');
+        return;
+    }
+
+    // Preparar items
+    const items = selectedProducts.map(product => ({
+        product_id: product.id,
+        quantity: product.quantity,
+        price: product.price
+    }));
+
+    // Datos del pedido
+    const orderData = {
+        customer: customer,
+        items: items,
+        payment_method: $('#payment-method').val(),
+        payment_method_title: $('#payment-method option:selected').text(),
+        customer_note: $('#customer-note').val().trim()
+    };
+
+    // Deshabilitar botón
+    const btn = $('button[onclick="createOrder()"]');
+    btn.prop('disabled', true);
+    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Creando pedido...');
+
+    // Enviar
+    $.ajax({
+        url: '/orders/create',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(orderData),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                $('#createOrderModal').modal('hide');
+                loadOrders(); // Recargar lista
+
+                // Limpiar formulario
+                $('#createOrderModal input').val('');
+                $('#createOrderModal textarea').val('');
+                selectedProducts = [];
+                updateProductsList();
+            } else {
+                showNotification('error', response.error || 'Error al crear pedido');
+            }
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+        }
+    });
+}
+
+function showNotification(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const html = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
+             style="z-index: 9999; max-width: 500px;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('body').append(html);
+    setTimeout(() => $('.alert').fadeOut(), 3000);
+}
+</script>
+{% endblock %}
