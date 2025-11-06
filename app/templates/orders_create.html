@@ -922,7 +922,16 @@ $(document).on('click', '#add-variation-btn', function() {
     $('.attribute-selector').val('');
 });
 
-function addToCart(item) {
+function addToCart(productId, variationId, name, price, sku) {
+    const item = {
+        product_id: productId,
+        variation_id: variationId,
+        name: name,
+        price: parseFloat(price),
+        quantity: 1,
+        sku: sku
+    };
+
     // Verificar si ya existe
     const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
 

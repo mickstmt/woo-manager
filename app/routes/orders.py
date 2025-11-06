@@ -404,8 +404,13 @@ def get_variations(product_id):
                 # Obtener atributos
                 attributes = {}
                 for meta in variation.product_meta:
-                    if meta.meta_key.startswith('attribute_pa_'):
-                        attr_name = meta.meta_key.replace('attribute_pa_', '').replace('_', ' ').title()
+                    if meta.meta_key.startswith('attribute_pa_') or meta.meta_key.startswith('attribute_'):
+                        # Manejar tanto attribute_pa_xxx como attribute_xxx
+                        if meta.meta_key.startswith('attribute_pa_'):
+                            attr_name = meta.meta_key.replace('attribute_pa_', '').replace('_', ' ').title()
+                        else:
+                            attr_name = meta.meta_key.replace('attribute_', '').replace('_', ' ').title()
+
                         attr_value = meta.meta_value
                         attributes[attr_name] = attr_value
 
@@ -413,6 +418,9 @@ def get_variations(product_id):
                         if attr_name not in attributes_map:
                             attributes_map[attr_name] = set()
                         attributes_map[attr_name].add(attr_value)
+
+                # Debug: imprimir atributos encontrados
+                print(f"Variación {variation.ID}: {len(attributes)} atributos - {list(attributes.keys())}")
 
                 # Obtener imagen con manejo de errores
                 try:
