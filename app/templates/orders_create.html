@@ -296,11 +296,28 @@
 
             <!-- Grid de productos -->
             <div class="col-md-6">
-                <h5>Productos</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Productos</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="toggle-search">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                </div>
+
+                <!-- Buscador de productos (inicialmente oculto) -->
+                <div class="mb-3" id="search-container" style="display: none;">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="product-search" placeholder="Buscar por nombre o SKU...">
+                        <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div id="search-results" class="mt-2"></div>
+                </div>
+
                 <div class="products-grid" id="products-grid">
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-box" style="font-size: 3rem; color: #dee2e6;"></i>
-                        <p class="text-muted mt-3">Selecciona una categoría para ver productos</p>
+                        <p class="text-muted mt-3">Selecciona una categoría o usa el buscador</p>
                     </div>
                 </div>
             </div>
@@ -584,7 +601,11 @@ function loadCategories() {
 
 function renderCategories(cats, parentElement = null) {
     const container = parentElement || $('#categories-tree');
-    container.empty();
+
+    // Solo limpiar el contenedor principal, no los hijos
+    if (!parentElement) {
+        container.empty();
+    }
 
     cats.forEach(cat => {
         const hasChildren = cat.children && cat.children.length > 0;
@@ -592,7 +613,7 @@ function renderCategories(cats, parentElement = null) {
 
         const catHtml = `
             <div class="category-wrapper">
-                <div class="category-item ${hasChildren ? 'has-children' : ''}" onclick="selectCategory(${cat.id}, '${cat.name}')">
+                <div class="category-item ${hasChildren ? 'has-children' : ''}" data-cat-id="${cat.id}" data-cat-name="${cat.name}">
                     ${toggleIcon}
                     ${cat.name} <small class="text-muted">(${cat.product_count})</small>
                 </div>
@@ -606,29 +627,41 @@ function renderCategories(cats, parentElement = null) {
             renderCategories(cat.children, $(`#cat-children-${cat.id}`));
         }
     });
-
-    // Event listener para toggle
-    $('.category-toggle').on('click', function(e) {
-        e.stopPropagation();
-        const catId = $(this).data('cat-id');
-        const children = $(`#cat-children-${catId}`);
-
-        if (children.hasClass('expanded')) {
-            children.removeClass('expanded');
-            $(this).removeClass('bi-chevron-down').addClass('bi-chevron-right');
-        } else {
-            children.addClass('expanded');
-            $(this).removeClass('bi-chevron-right').addClass('bi-chevron-down');
-        }
-    });
 }
+
+// Event listener global para toggle de categorías (delegación de eventos)
+$(document).on('click', '.category-toggle', function(e) {
+    e.stopPropagation();
+    const catId = $(this).data('cat-id');
+    const children = $(`#cat-children-${catId}`);
+
+    if (children.hasClass('expanded')) {
+        children.removeClass('expanded');
+        $(this).removeClass('bi-chevron-down').addClass('bi-chevron-right');
+    } else {
+        children.addClass('expanded');
+        $(this).removeClass('bi-chevron-right').addClass('bi-chevron-down');
+    }
+});
+
+// Event listener global para selección de categoría
+$(document).on('click', '.category-item', function(e) {
+    // No hacer nada si se hizo clic en el toggle
+    if ($(e.target).hasClass('category-toggle')) {
+        return;
+    }
+
+    const catId = $(this).data('cat-id');
+    const catName = $(this).data('cat-name');
+    selectCategory(catId, catName);
+});
 
 function selectCategory(catId, catName) {
     selectedCategory = catId;
 
     // Actualizar UI
     $('.category-item').removeClass('active');
-    event.target.classList.add('active');
+    $(`.category-item[data-cat-id="${catId}"]`).addClass('active');
 
     // Cargar productos
     loadProductsByCategory(catId);
@@ -870,6 +903,171 @@ function updateCartTotals() {
     $('#cart-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
     $('#cart-tax').text(`S/ ${tax.toFixed(2)}`);
     $('#cart-total').text(`S/ ${totalWithTax.toFixed(2)}`);
+}
+
+// ==================== BUSCADOR DE PRODUCTOS ====================
+
+let searchTimeout = null;
+
+// Toggle del buscador
+$('#toggle-search').on('click', function() {
+    $('#search-container').slideToggle();
+    $('#product-search').focus();
+});
+
+// Limpiar búsqueda
+$('#clear-search').on('click', function() {
+    $('#product-search').val('');
+    $('#search-results').empty();
+    $('#product-search').focus();
+});
+
+// Búsqueda en tiempo real (con debounce)
+$('#product-search').on('input', function() {
+    const searchTerm = $(this).val().trim();
+
+    // Limpiar timeout anterior
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+
+    if (searchTerm.length < 2) {
+        $('#search-results').empty();
+        return;
+    }
+
+    // Esperar 500ms antes de buscar
+    searchTimeout = setTimeout(() => {
+        searchProducts(searchTerm);
+    }, 500);
+});
+
+function searchProducts(searchTerm) {
+    $('#search-results').html(`
+        <div class="text-center py-2">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <small class="ms-2">Buscando...</small>
+        </div>
+    `);
+
+    $.ajax({
+        url: '/orders/search-products',
+        method: 'GET',
+        data: { q: searchTerm },
+        success: function(response) {
+            if (response.success) {
+                displaySearchResults(response.products);
+            } else {
+                $('#search-results').html(`
+                    <div class="alert alert-warning py-2">
+                        <small>Error al buscar productos</small>
+                    </div>
+                `);
+            }
+        },
+        error: function() {
+            $('#search-results').html(`
+                <div class="alert alert-danger py-2">
+                    <small>Error de conexión</small>
+                </div>
+            `);
+        }
+    });
+}
+
+function displaySearchResults(products) {
+    if (products.length === 0) {
+        $('#search-results').html(`
+            <div class="alert alert-info py-2 mb-0">
+                <small><i class="bi bi-info-circle"></i> No se encontraron productos</small>
+            </div>
+        `);
+        return;
+    }
+
+    let html = '<div class="list-group">';
+    products.forEach(product => {
+        const stockBadge = product.stock > 0
+            ? `<span class="badge bg-success">${product.stock} en stock</span>`
+            : `<span class="badge bg-danger">Sin stock</span>`;
+
+        html += `
+            <div class="list-group-item list-group-item-action py-2 search-result-item"
+                 data-product-id="${product.id}"
+                 data-product-type="${product.type}"
+                 style="cursor: pointer;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${product.name}</strong><br>
+                        <small class="text-muted">SKU: ${product.sku} | S/ ${product.price.toFixed(2)}</small>
+                    </div>
+                    <div>
+                        ${stockBadge}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    $('#search-results').html(html);
+}
+
+// Event listener para resultados de búsqueda
+$(document).on('click', '.search-result-item', function() {
+    const productId = $(this).data('product-id');
+    const productType = $(this).data('product-type');
+
+    if (productType === 'product_variation') {
+        // Es una variación directa, podemos obtener datos desde la búsqueda
+        const name = $(this).find('strong').text();
+        const priceText = $(this).find('small').text();
+        const price = parseFloat(priceText.split('S/')[1]);
+        const sku = priceText.split('SKU: ')[1].split(' |')[0];
+
+        addToCart(productId, productId, name, price, sku);
+
+        // Limpiar búsqueda
+        $('#product-search').val('');
+        $('#search-results').empty();
+        $('#search-container').slideUp();
+
+        showNotification('success', 'Producto agregado al carrito');
+    } else {
+        // Es producto padre, verificar si tiene variaciones
+        loadSingleProduct(productId);
+    }
+});
+
+function loadSingleProduct(productId) {
+    $.ajax({
+        url: `/orders/get-variations/${productId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.variations.length > 0) {
+                // Tiene variaciones, mostrar modal
+                showVariationsModal(productId);
+
+                // Limpiar búsqueda
+                $('#product-search').val('');
+                $('#search-results').empty();
+            } else {
+                // Producto simple, agregar directamente usando datos del response
+                const parent = response.parent;
+                addToCart(parent.id, 0, parent.name, 0, 'N/A');  // Necesitamos mejorar esto
+
+                // Limpiar búsqueda
+                $('#product-search').val('');
+                $('#search-results').empty();
+                $('#search-container').slideUp();
+
+                showNotification('success', 'Producto agregado al carrito');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al cargar producto');
+        }
+    });
 }
 
 // ==================== PASO 2: CLIENTE ====================

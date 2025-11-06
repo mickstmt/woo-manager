@@ -301,7 +301,7 @@ def get_products_by_category(category_id):
 
         # Obtener IDs de productos en esta categoría
         query = text("""
-            SELECT DISTINCT p.ID
+            SELECT DISTINCT p.ID, p.post_title
             FROM wpyz_posts p
             JOIN wpyz_term_relationships tr ON p.ID = tr.object_id
             JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
@@ -325,26 +325,37 @@ def get_products_by_category(category_id):
 
         products_list = []
         for product in products:
-            sku = product.get_meta('_sku') or 'N/A'
-            price = product.get_meta('_price') or '0'
-            stock_status = product.get_meta('_stock_status') or 'outofstock'
+            try:
+                sku = product.get_meta('_sku') or 'N/A'
+                price = product.get_meta('_price') or '0'
+                stock_status = product.get_meta('_stock_status') or 'outofstock'
 
-            # Verificar si tiene variaciones
-            has_variations = Product.query.filter_by(
-                post_type='product_variation',
-                post_parent=product.ID,
-                post_status='publish'
-            ).count() > 0
+                # Verificar si tiene variaciones
+                has_variations = Product.query.filter_by(
+                    post_type='product_variation',
+                    post_parent=product.ID,
+                    post_status='publish'
+                ).count() > 0
 
-            products_list.append({
-                'id': product.ID,
-                'name': product.post_title,
-                'sku': sku,
-                'price': float(price),
-                'stock_status': stock_status,
-                'has_variations': has_variations,
-                'image_url': product.get_image_url()
-            })
+                # Obtener imagen con manejo de errores
+                try:
+                    image_url = product.get_image_url()
+                except Exception as img_error:
+                    image_url = None
+                    print(f"Error obteniendo imagen para producto {product.ID}: {img_error}")
+
+                products_list.append({
+                    'id': product.ID,
+                    'name': product.post_title,
+                    'sku': sku,
+                    'price': float(price),
+                    'stock_status': stock_status,
+                    'has_variations': has_variations,
+                    'image_url': image_url
+                })
+            except Exception as prod_error:
+                print(f"Error procesando producto {product.ID}: {prod_error}")
+                continue
 
         return jsonify({
             'success': True,
@@ -381,35 +392,53 @@ def get_variations(product_id):
 
         variations_list = []
         for variation in variations:
-            sku = variation.get_meta('_sku') or 'N/A'
-            price = variation.get_meta('_price') or '0'
-            stock = variation.get_meta('_stock') or '0'
-            stock_status = variation.get_meta('_stock_status') or 'outofstock'
+            try:
+                sku = variation.get_meta('_sku') or 'N/A'
+                price = variation.get_meta('_price') or '0'
+                stock = variation.get_meta('_stock') or '0'
+                stock_status = variation.get_meta('_stock_status') or 'outofstock'
 
-            # Obtener atributos
-            attributes = {}
-            for meta in variation.product_meta:
-                if meta.meta_key.startswith('attribute_pa_'):
-                    attr_name = meta.meta_key.replace('attribute_pa_', '')
-                    attributes[attr_name] = meta.meta_value
+                # Obtener atributos
+                attributes = {}
+                for meta in variation.product_meta:
+                    if meta.meta_key.startswith('attribute_pa_'):
+                        attr_name = meta.meta_key.replace('attribute_pa_', '')
+                        attributes[attr_name] = meta.meta_value
 
-            variations_list.append({
-                'id': variation.ID,
-                'name': variation.post_title,
-                'sku': sku,
-                'price': float(price),
-                'stock': int(float(stock)),
-                'stock_status': stock_status,
-                'attributes': attributes,
-                'image_url': variation.get_image_url()
-            })
+                # Obtener imagen con manejo de errores
+                try:
+                    image_url = variation.get_image_url()
+                except Exception as img_error:
+                    image_url = None
+                    print(f"Error obteniendo imagen para variación {variation.ID}: {img_error}")
+
+                variations_list.append({
+                    'id': variation.ID,
+                    'name': variation.post_title,
+                    'sku': sku,
+                    'price': float(price),
+                    'stock': int(float(stock)),
+                    'stock_status': stock_status,
+                    'attributes': attributes,
+                    'image_url': image_url
+                })
+            except Exception as var_error:
+                print(f"Error procesando variación {variation.ID}: {var_error}")
+                continue
+
+        # Obtener imagen del producto padre con manejo de errores
+        try:
+            parent_image_url = parent_product.get_image_url()
+        except Exception as img_error:
+            parent_image_url = None
+            print(f"Error obteniendo imagen del producto padre {parent_product.ID}: {img_error}")
 
         return jsonify({
             'success': True,
             'parent': {
                 'id': parent_product.ID,
                 'name': parent_product.post_title,
-                'image_url': parent_product.get_image_url()
+                'image_url': parent_image_url
             },
             'variations': variations_list
         })
