@@ -805,11 +805,17 @@ let currentParent = null;
 let selectedAttributes = {};
 
 function showVariationsModal(parent, variations, availableAttributes) {
-    $('#variations-modal-title').text(parent.name);
-
+    // LIMPIAR TODO PRIMERO
+    selectedAttributes = {};
     currentVariations = variations;
     currentParent = parent;
-    selectedAttributes = {};
+
+    // Limpiar UI
+    $('#selected-variation-info').hide();
+    $('#no-variation-match').hide();
+
+    // Actualizar título
+    $('#variations-modal-title').text(parent.name);
 
     // Generar selectores de atributos
     const container = $('#attribute-selectors');
@@ -817,6 +823,7 @@ function showVariationsModal(parent, variations, availableAttributes) {
 
     if (Object.keys(availableAttributes).length === 0) {
         container.html('<p class="text-muted">Este producto no tiene variaciones configuradas.</p>');
+        $('#variationsModal').modal('show');
         return;
     }
 
@@ -836,11 +843,11 @@ function showVariationsModal(parent, variations, availableAttributes) {
         container.append(html);
     }
 
-    // Ocultar info de selección
-    $('#selected-variation-info').hide();
-    $('#no-variation-match').hide();
-
+    // Mostrar modal
     $('#variationsModal').modal('show');
+
+    // Debug: confirmar que los selectores se crearon
+    console.log(`Modal abierto: ${$('.attribute-selector').length} selectores creados`);
 }
 
 // Event listener para cambios en los selectores
@@ -864,6 +871,8 @@ function findMatchingVariation() {
     const totalAttributes = $('.attribute-selector').length;
     const selectedCount = Object.keys(selectedAttributes).length;
 
+    console.log(`Buscando variación: ${selectedCount}/${totalAttributes} atributos seleccionados`, selectedAttributes);
+
     if (selectedCount < totalAttributes) {
         // Aún faltan atributos por seleccionar
         $('#selected-variation-info').hide();
@@ -873,10 +882,13 @@ function findMatchingVariation() {
 
     // Buscar variación que coincida con TODOS los atributos seleccionados
     const matchingVariation = currentVariations.find(variation => {
-        return Object.entries(selectedAttributes).every(([attrName, attrValue]) => {
+        const match = Object.entries(selectedAttributes).every(([attrName, attrValue]) => {
             return variation.attributes[attrName] === attrValue;
         });
+        return match;
     });
+
+    console.log('Variación encontrada:', matchingVariation);
 
     if (matchingVariation) {
         // Mostrar información de la variación
@@ -899,10 +911,18 @@ function findMatchingVariation() {
 
         $('#selected-variation-info').show();
         $('#no-variation-match').hide();
+
+        console.log('Botón configurado con:', {
+            id: matchingVariation.id,
+            name: matchingVariation.name,
+            price: matchingVariation.price,
+            disabled: !inStock
+        });
     } else {
         // No hay variación que coincida
         $('#selected-variation-info').hide();
         $('#no-variation-match').show();
+        console.log('No se encontró variación que coincida');
     }
 }
 
@@ -916,10 +936,20 @@ $(document).on('click', '#add-variation-btn', function() {
     addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku);
 
     $('#variationsModal').modal('hide');
+});
 
-    // Limpiar selección
+// Limpiar modal cuando se cierra
+$('#variationsModal').on('hidden.bs.modal', function() {
+    // Limpiar selectores
     selectedAttributes = {};
     $('.attribute-selector').val('');
+
+    // Ocultar información de variación seleccionada
+    $('#selected-variation-info').hide();
+    $('#no-variation-match').hide();
+
+    // Limpiar contenedor de selectores
+    $('#attribute-selectors').empty();
 });
 
 function addToCart(productId, variationId, name, price, sku) {
