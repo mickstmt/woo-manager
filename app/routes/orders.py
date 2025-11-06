@@ -375,7 +375,7 @@ def get_products_by_category(category_id):
 @login_required
 def get_variations(product_id):
     """
-    Obtener todas las variaciones de un producto
+    Obtener todas las variaciones de un producto organizadas por atributos
     """
     try:
         # Obtener producto padre
@@ -390,7 +390,10 @@ def get_variations(product_id):
             post_status='publish'
         ).all()
 
+        # Recolectar todos los atributos únicos y sus valores
+        attributes_map = {}  # {attr_name: set(values)}
         variations_list = []
+
         for variation in variations:
             try:
                 sku = variation.get_meta('_sku') or 'N/A'
@@ -402,15 +405,20 @@ def get_variations(product_id):
                 attributes = {}
                 for meta in variation.product_meta:
                     if meta.meta_key.startswith('attribute_pa_'):
-                        attr_name = meta.meta_key.replace('attribute_pa_', '')
-                        attributes[attr_name] = meta.meta_value
+                        attr_name = meta.meta_key.replace('attribute_pa_', '').replace('_', ' ').title()
+                        attr_value = meta.meta_value
+                        attributes[attr_name] = attr_value
+
+                        # Agregar al mapa de atributos
+                        if attr_name not in attributes_map:
+                            attributes_map[attr_name] = set()
+                        attributes_map[attr_name].add(attr_value)
 
                 # Obtener imagen con manejo de errores
                 try:
                     image_url = variation.get_image_url()
                 except Exception as img_error:
                     image_url = None
-                    print(f"Error obteniendo imagen para variación {variation.ID}: {img_error}")
 
                 variations_list.append({
                     'id': variation.ID,
@@ -426,12 +434,16 @@ def get_variations(product_id):
                 print(f"Error procesando variación {variation.ID}: {var_error}")
                 continue
 
+        # Convertir sets a listas ordenadas para JSON
+        available_attributes = {}
+        for attr_name, values in attributes_map.items():
+            available_attributes[attr_name] = sorted(list(values))
+
         # Obtener imagen del producto padre con manejo de errores
         try:
             parent_image_url = parent_product.get_image_url()
         except Exception as img_error:
             parent_image_url = None
-            print(f"Error obteniendo imagen del producto padre {parent_product.ID}: {img_error}")
 
         return jsonify({
             'success': True,
@@ -440,6 +452,7 @@ def get_variations(product_id):
                 'name': parent_product.post_title,
                 'image_url': parent_image_url
             },
+            'available_attributes': available_attributes,
             'variations': variations_list
         })
 

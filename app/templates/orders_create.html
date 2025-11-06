@@ -251,11 +251,16 @@
 
     /* Navigation buttons */
     .wizard-navigation {
+        position: sticky;
+        bottom: 0;
         display: flex;
         justify-content: space-between;
         margin-top: 30px;
-        padding-top: 20px;
+        padding: 20px;
+        background: white;
         border-top: 2px solid #dee2e6;
+        z-index: 100;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
     }
 </style>
 {% endblock %}
@@ -542,8 +547,40 @@
                 <h5 class="modal-title" id="variations-modal-title">Seleccionar Variación</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="variations-modal-body">
-                <!-- Variaciones se cargan dinámicamente -->
+            <div class="modal-body">
+                <!-- Selectores de atributos -->
+                <div id="attribute-selectors">
+                    <!-- Se generan dinámicamente -->
+                </div>
+
+                <!-- Producto seleccionado -->
+                <div id="selected-variation-info" class="mt-4" style="display: none;">
+                    <div class="alert alert-info">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="mb-2">Producto seleccionado:</h6>
+                                <p class="mb-1"><strong id="selected-variation-name"></strong></p>
+                                <p class="mb-1">
+                                    <span class="text-muted">SKU: <span id="selected-variation-sku"></span></span>
+                                </p>
+                                <p class="mb-0">
+                                    <span id="selected-variation-stock-badge"></span>
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <h4 class="text-success mb-0">S/ <span id="selected-variation-price">0.00</span></h4>
+                                <button type="button" class="btn btn-primary mt-2" id="add-variation-btn">
+                                    <i class="bi bi-cart-plus"></i> Agregar al Carrito
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mensaje cuando no hay coincidencia -->
+                <div id="no-variation-match" class="alert alert-warning mt-3" style="display: none;">
+                    <i class="bi bi-exclamation-triangle"></i> No hay stock disponible para esta combinación
+                </div>
             </div>
         </div>
     </div>
@@ -753,7 +790,7 @@ function loadVariations(productId) {
         method: 'GET',
         success: function(response) {
             if (response.success) {
-                showVariationsModal(response.parent, response.variations);
+                showVariationsModal(response.parent, response.variations, response.available_attributes);
             }
         },
         error: function() {
@@ -762,56 +799,128 @@ function loadVariations(productId) {
     });
 }
 
-function showVariationsModal(parent, variations) {
+// Variables globales para el modal de variaciones
+let currentVariations = [];
+let currentParent = null;
+let selectedAttributes = {};
+
+function showVariationsModal(parent, variations, availableAttributes) {
     $('#variations-modal-title').text(parent.name);
 
-    const body = $('#variations-modal-body');
-    body.empty();
+    currentVariations = variations;
+    currentParent = parent;
+    selectedAttributes = {};
 
-    variations.forEach(variation => {
-        const inStock = variation.stock > 0;
-        const stockClass = inStock ? '' : 'out-of-stock';
+    // Generar selectores de atributos
+    const container = $('#attribute-selectors');
+    container.empty();
 
-        // Formatear atributos
-        let attributesHtml = '';
-        for (const [key, value] of Object.entries(variation.attributes)) {
-            attributesHtml += `<span class="badge bg-secondary me-1">${key}: ${value}</span>`;
-        }
+    if (Object.keys(availableAttributes).length === 0) {
+        container.html('<p class="text-muted">Este producto no tiene variaciones configuradas.</p>');
+        return;
+    }
+
+    for (const [attrName, values] of Object.entries(availableAttributes)) {
+        const selectId = `attr-${attrName.toLowerCase().replace(/\s+/g, '-')}`;
 
         const html = `
-            <div class="variation-item ${stockClass}" onclick="addVariationToCart(${variation.id}, '${variation.name}', ${variation.price}, '${parent.image_url || ''}')">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <strong>${variation.name}</strong>
-                        <div class="variation-attributes">${attributesHtml}</div>
-                        <small class="text-muted">SKU: ${variation.sku} | Stock: ${variation.stock}</small>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold text-success">S/ ${variation.price.toFixed(2)}</div>
-                        ${!inStock ? '<span class="badge bg-danger">Sin Stock</span>' : '<span class="badge bg-success">En Stock</span>'}
-                    </div>
-                </div>
+            <div class="mb-3">
+                <label for="${selectId}" class="form-label fw-bold">${attrName}:</label>
+                <select class="form-select attribute-selector" id="${selectId}" data-attr-name="${attrName}">
+                    <option value="">-- Seleccionar ${attrName} --</option>
+                    ${values.map(value => `<option value="${value}">${value}</option>`).join('')}
+                </select>
             </div>
         `;
 
-        body.append(html);
-    });
+        container.append(html);
+    }
+
+    // Ocultar info de selección
+    $('#selected-variation-info').hide();
+    $('#no-variation-match').hide();
 
     $('#variationsModal').modal('show');
 }
 
-function addVariationToCart(variationId, name, price, imageUrl) {
-    addToCart({
-        product_id: 0,
-        variation_id: variationId,
-        name: name,
-        price: price,
-        quantity: 1,
-        image_url: imageUrl
+// Event listener para cambios en los selectores
+$(document).on('change', '.attribute-selector', function() {
+    // Actualizar atributos seleccionados
+    selectedAttributes = {};
+    $('.attribute-selector').each(function() {
+        const attrName = $(this).data('attr-name');
+        const attrValue = $(this).val();
+        if (attrValue) {
+            selectedAttributes[attrName] = attrValue;
+        }
     });
 
-    $('#variationsModal').modal('hide');
+    // Buscar variación que coincida
+    findMatchingVariation();
+});
+
+function findMatchingVariation() {
+    // Verificar si todos los atributos están seleccionados
+    const totalAttributes = $('.attribute-selector').length;
+    const selectedCount = Object.keys(selectedAttributes).length;
+
+    if (selectedCount < totalAttributes) {
+        // Aún faltan atributos por seleccionar
+        $('#selected-variation-info').hide();
+        $('#no-variation-match').hide();
+        return;
+    }
+
+    // Buscar variación que coincida con TODOS los atributos seleccionados
+    const matchingVariation = currentVariations.find(variation => {
+        return Object.entries(selectedAttributes).every(([attrName, attrValue]) => {
+            return variation.attributes[attrName] === attrValue;
+        });
+    });
+
+    if (matchingVariation) {
+        // Mostrar información de la variación
+        $('#selected-variation-name').text(matchingVariation.name);
+        $('#selected-variation-sku').text(matchingVariation.sku);
+        $('#selected-variation-price').text(matchingVariation.price.toFixed(2));
+
+        const inStock = matchingVariation.stock > 0;
+        const stockBadge = inStock
+            ? `<span class="badge bg-success">En Stock (${matchingVariation.stock})</span>`
+            : `<span class="badge bg-danger">Sin Stock</span>`;
+        $('#selected-variation-stock-badge').html(stockBadge);
+
+        // Habilitar/deshabilitar botón según stock
+        $('#add-variation-btn').prop('disabled', !inStock);
+        $('#add-variation-btn').data('variation-id', matchingVariation.id);
+        $('#add-variation-btn').data('variation-name', matchingVariation.name);
+        $('#add-variation-btn').data('variation-price', matchingVariation.price);
+        $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
+
+        $('#selected-variation-info').show();
+        $('#no-variation-match').hide();
+    } else {
+        // No hay variación que coincida
+        $('#selected-variation-info').hide();
+        $('#no-variation-match').show();
+    }
 }
+
+// Event listener para agregar al carrito
+$(document).on('click', '#add-variation-btn', function() {
+    const variationId = $(this).data('variation-id');
+    const variationName = $(this).data('variation-name');
+    const variationPrice = $(this).data('variation-price');
+    const variationSku = $(this).data('variation-sku');
+
+    addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku);
+
+    $('#variationsModal').modal('hide');
+
+    // Limpiar selección
+    selectedAttributes = {};
+    $('.attribute-selector').val('');
+});
 
 function addToCart(item) {
     // Verificar si ya existe
@@ -1046,7 +1155,7 @@ function loadSingleProduct(productId) {
         success: function(response) {
             if (response.success && response.variations.length > 0) {
                 // Tiene variaciones, mostrar modal
-                showVariationsModal(productId);
+                showVariationsModal(response.parent, response.variations, response.available_attributes);
 
                 // Limpiar búsqueda
                 $('#product-search').val('');
