@@ -555,7 +555,7 @@
 
                 <!-- Producto seleccionado -->
                 <div id="selected-variation-info" class="mt-4" style="display: none;">
-                    <div class="alert alert-info">
+                    <div class="border rounded p-3 bg-light">
                         <div class="row">
                             <div class="col-md-8">
                                 <h6 class="mb-2">Producto seleccionado:</h6>
@@ -770,15 +770,13 @@ function selectProduct(productId, hasVariations) {
             method: 'GET',
             success: function(response) {
                 if (response.success) {
-                    addToCart({
-                        product_id: productId,
-                        variation_id: 0,
-                        name: response.parent.name,
-                        price: 0, // Se obtendrá del producto
-                        quantity: 1,
-                        image_url: response.parent.image_url
-                    });
+                    const parent = response.parent;
+                    addToCart(parent.id, 0, parent.name, parent.price, parent.sku);
+                    showNotification('success', 'Producto agregado al carrito');
                 }
+            },
+            error: function() {
+                showNotification('error', 'Error al agregar producto');
             }
         });
     }
@@ -846,8 +844,11 @@ function showVariationsModal(parent, variations, availableAttributes) {
     // Mostrar modal
     $('#variationsModal').modal('show');
 
-    // Debug: confirmar que los selectores se crearon
-    console.log(`Modal abierto: ${$('.attribute-selector').length} selectores creados`);
+    // IMPORTANTE: Forzar la eliminación de aria-hidden después de que Bootstrap lo muestre
+    setTimeout(() => {
+        $('#variationsModal').removeAttr('aria-hidden');
+        $('#variationsModal').attr('aria-modal', 'true');
+    }, 50);
 }
 
 // Event listener para cambios en los selectores
@@ -871,8 +872,6 @@ function findMatchingVariation() {
     const totalAttributes = $('.attribute-selector').length;
     const selectedCount = Object.keys(selectedAttributes).length;
 
-    console.log(`Buscando variación: ${selectedCount}/${totalAttributes} atributos seleccionados`, selectedAttributes);
-
     if (selectedCount < totalAttributes) {
         // Aún faltan atributos por seleccionar
         $('#selected-variation-info').hide();
@@ -887,8 +886,6 @@ function findMatchingVariation() {
         });
         return match;
     });
-
-    console.log('Variación encontrada:', matchingVariation);
 
     if (matchingVariation) {
         // Mostrar información de la variación
@@ -909,20 +906,14 @@ function findMatchingVariation() {
         $('#add-variation-btn').data('variation-price', matchingVariation.price);
         $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
 
-        $('#selected-variation-info').show();
+        // Usar CSS directo en lugar de .show() para forzar visibilidad
+        $('#selected-variation-info').css('display', 'block');
         $('#no-variation-match').hide();
 
-        console.log('Botón configurado con:', {
-            id: matchingVariation.id,
-            name: matchingVariation.name,
-            price: matchingVariation.price,
-            disabled: !inStock
-        });
     } else {
         // No hay variación que coincida
         $('#selected-variation-info').hide();
         $('#no-variation-match').show();
-        console.log('No se encontró variación que coincida');
     }
 }
 
@@ -1202,7 +1193,7 @@ function loadSingleProduct(productId) {
             } else {
                 // Producto simple, agregar directamente usando datos del response
                 const parent = response.parent;
-                addToCart(parent.id, 0, parent.name, 0, 'N/A');  // Necesitamos mejorar esto
+                addToCart(parent.id, 0, parent.name, parent.price, parent.sku);
 
                 // Limpiar búsqueda
                 $('#product-search').val('');
@@ -1233,9 +1224,27 @@ function updateCartSummary() {
     const tax = totalWithTax - subtotal;
     const grandTotal = totalWithTax + shippingCost;
 
+    // Generar lista de productos
+    let productsHtml = '';
+    cart.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        productsHtml += `
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                <div style="flex: 1;">
+                    <div class="fw-bold" style="font-size: 0.9rem;">${item.name}</div>
+                    <small class="text-muted">S/ ${item.price.toFixed(2)} x ${item.quantity}</small>
+                </div>
+                <div class="text-end">
+                    <span class="fw-bold">S/ ${itemTotal.toFixed(2)}</span>
+                </div>
+            </div>
+        `;
+    });
+
     const html = `
-        <div class="mb-2">
-            <small class="text-muted">${cart.length} producto(s)</small>
+        <div class="mb-3">
+            <h6 class="mb-2">Productos (${cart.length})</h6>
+            ${productsHtml}
         </div>
         <div class="d-flex justify-content-between mb-1">
             <span>Subtotal:</span>
@@ -1339,6 +1348,11 @@ function goToStep(step) {
     if (step === 2 && cart.length === 0) {
         showNotification('error', 'Debes agregar al menos un producto al carrito');
         return;
+    }
+
+    if (step === 2) {
+        // Actualizar resumen del pedido al entrar al paso 2
+        updateCartSummary();
     }
 
     if (step === 3) {

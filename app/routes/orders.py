@@ -408,10 +408,19 @@ def get_variations(product_id):
                         # Manejar tanto attribute_pa_xxx como attribute_xxx
                         if meta.meta_key.startswith('attribute_pa_'):
                             attr_name = meta.meta_key.replace('attribute_pa_', '').replace('_', ' ').title()
+
+                            # Para atributos PA (globales), buscar el nombre del término en wpyz_terms
+                            # El meta_value es el slug, necesitamos el nombre
+                            from sqlalchemy import text
+                            term_query = text("""
+                                SELECT name FROM wpyz_terms WHERE slug = :slug LIMIT 1
+                            """)
+                            term_result = db.session.execute(term_query, {'slug': meta.meta_value}).fetchone()
+                            attr_value = term_result[0] if term_result else meta.meta_value
                         else:
                             attr_name = meta.meta_key.replace('attribute_', '').replace('_', ' ').title()
+                            attr_value = meta.meta_value
 
-                        attr_value = meta.meta_value
                         attributes[attr_name] = attr_value
 
                         # Agregar al mapa de atributos
@@ -453,12 +462,20 @@ def get_variations(product_id):
         except Exception as img_error:
             parent_image_url = None
 
+        # Obtener precio y SKU del producto padre para productos simples
+        parent_price = parent_product.get_meta('_price') or '0'
+        parent_sku = parent_product.get_meta('_sku') or 'N/A'
+        parent_stock = parent_product.get_meta('_stock') or '0'
+
         return jsonify({
             'success': True,
             'parent': {
                 'id': parent_product.ID,
                 'name': parent_product.post_title,
-                'image_url': parent_image_url
+                'image_url': parent_image_url,
+                'price': float(parent_price),
+                'sku': parent_sku,
+                'stock': int(parent_stock)
             },
             'available_attributes': available_attributes,
             'variations': variations_list
@@ -551,8 +568,8 @@ def create_order():
             total_amount=total_with_tax,
             customer_id=0,  # Sin cuenta de usuario
             billing_email=customer.get('email'),
-            date_created_gmt=get_local_time(),
-            date_updated_gmt=get_local_time(),
+            date_created_gmt=datetime.utcnow(),
+            date_updated_gmt=datetime.utcnow(),
             payment_method=data.get('payment_method', 'cod'),
             payment_method_title=data.get('payment_method_title', 'Pago manual'),
             customer_note=data.get('customer_note', ''),

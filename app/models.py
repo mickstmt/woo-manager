@@ -358,7 +358,7 @@ class Order(db.Model):
     """
     __tablename__ = 'wpyz_wc_orders'
 
-    id = db.Column(db.BigInteger, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     status = db.Column(db.String(20))
     currency = db.Column(db.String(10))
     type = db.Column(db.String(20))
@@ -409,7 +409,7 @@ class OrderAddress(db.Model):
     """
     __tablename__ = 'wpyz_wc_order_addresses'
 
-    id = db.Column(db.BigInteger, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
     address_type = db.Column(db.String(20))  # 'billing' o 'shipping'
     first_name = db.Column(db.Text)
@@ -434,7 +434,7 @@ class OrderItem(db.Model):
     """
     __tablename__ = 'wpyz_woocommerce_order_items'
 
-    order_item_id = db.Column(db.BigInteger, primary_key=True)
+    order_item_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     order_item_name = db.Column(db.Text)
     order_item_type = db.Column(db.String(200))
     order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
@@ -472,7 +472,7 @@ class OrderItemMeta(db.Model):
     """
     __tablename__ = 'wpyz_woocommerce_order_itemmeta'
 
-    meta_id = db.Column(db.BigInteger, primary_key=True)
+    meta_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     order_item_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_woocommerce_order_items.order_item_id'))
     meta_key = db.Column(db.String(255))
     meta_value = db.Column(db.Text)
@@ -487,7 +487,7 @@ class OrderMeta(db.Model):
     """
     __tablename__ = 'wpyz_wc_orders_meta'
 
-    id = db.Column(db.BigInteger, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'))
     meta_key = db.Column(db.String(255))
     meta_value = db.Column(db.Text)
