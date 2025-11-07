@@ -392,106 +392,162 @@ def get_products_by_category(category_id):
 def get_variations(product_id):
     """
     Obtener todas las variaciones de un producto organizadas por atributos
+    Optimizado con queries SQL en batch
     """
     try:
-        # Obtener producto padre
-        parent_product = Product.query.get(product_id)
-        if not parent_product:
+        from sqlalchemy import text
+
+        # Query optimizada: obtener producto padre con sus metadatos
+        parent_query = text("""
+            SELECT
+                p.ID,
+                p.post_title,
+                MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) AS price,
+                MAX(CASE WHEN pm.meta_key = '_sku' THEN pm.meta_value END) AS sku,
+                MAX(CASE WHEN pm.meta_key = '_stock' THEN pm.meta_value END) AS stock,
+                MAX(CASE WHEN pm.meta_key = '_thumbnail_id' THEN pm.meta_value END) AS thumbnail_id
+            FROM wpyz_posts p
+            LEFT JOIN wpyz_postmeta pm ON p.ID = pm.post_id
+                AND pm.meta_key IN ('_price', '_sku', '_stock', '_thumbnail_id')
+            WHERE p.ID = :product_id
+            GROUP BY p.ID, p.post_title
+        """)
+
+        parent_result = db.session.execute(parent_query, {'product_id': product_id}).fetchone()
+
+        if not parent_result:
             return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
 
-        # Obtener variaciones
-        variations = Product.query.filter_by(
-            post_type='product_variation',
-            post_parent=product_id,
-            post_status='publish'
-        ).all()
+        # Query optimizada: obtener todas las variaciones con sus metadatos y atributos
+        variations_query = text("""
+            SELECT
+                p.ID,
+                p.post_title,
+                MAX(CASE WHEN pm.meta_key = '_sku' THEN pm.meta_value END) AS sku,
+                MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) AS price,
+                MAX(CASE WHEN pm.meta_key = '_stock' THEN pm.meta_value END) AS stock,
+                MAX(CASE WHEN pm.meta_key = '_stock_status' THEN pm.meta_value END) AS stock_status,
+                MAX(CASE WHEN pm.meta_key = '_thumbnail_id' THEN pm.meta_value END) AS thumbnail_id,
+                GROUP_CONCAT(
+                    CASE
+                        WHEN pm.meta_key LIKE 'attribute_%'
+                        THEN CONCAT(pm.meta_key, ':', pm.meta_value)
+                    END
+                    SEPARATOR '||'
+                ) AS attributes_raw
+            FROM wpyz_posts p
+            LEFT JOIN wpyz_postmeta pm ON p.ID = pm.post_id
+            WHERE p.post_parent = :product_id
+            AND p.post_type = 'product_variation'
+            AND p.post_status = 'publish'
+            GROUP BY p.ID, p.post_title
+            ORDER BY p.ID
+        """)
 
-        # Recolectar todos los atributos únicos y sus valores
-        attributes_map = {}  # {attr_name: set(values)}
+        variations_result = db.session.execute(
+            variations_query,
+            {'product_id': product_id}
+        ).fetchall()
+
+        # Obtener todos los slugs únicos de atributos PA para buscar nombres en batch
+        all_slugs = set()
+        for var in variations_result:
+            if var[7]:  # attributes_raw
+                attrs = var[7].split('||')
+                for attr in attrs:
+                    if attr and ':' in attr:
+                        key, value = attr.split(':', 1)
+                        if key.startswith('attribute_pa_'):
+                            all_slugs.add(value)
+
+        # Obtener nombres de términos en batch
+        slug_to_name = {}
+        if all_slugs:
+            terms_query = text("""
+                SELECT slug, name
+                FROM wpyz_terms
+                WHERE slug IN :slugs
+            """)
+            terms_result = db.session.execute(
+                terms_query,
+                {'slugs': tuple(all_slugs)}
+            ).fetchall()
+            slug_to_name = {row[0]: row[1] for row in terms_result}
+
+        # Obtener URLs de imágenes en batch
+        thumbnail_ids = [var[6] for var in variations_result if var[6]]
+        if parent_result[5]:
+            thumbnail_ids.append(parent_result[5])
+
+        image_urls = {}
+        if thumbnail_ids:
+            image_query = text("""
+                SELECT pm.post_id, pm.meta_value
+                FROM wpyz_postmeta pm
+                WHERE pm.post_id IN :thumbnail_ids
+                AND pm.meta_key = '_wp_attached_file'
+            """)
+            image_results = db.session.execute(
+                image_query,
+                {'thumbnail_ids': tuple(thumbnail_ids)}
+            ).fetchall()
+
+            for img_row in image_results:
+                image_urls[str(img_row[0])] = f"https://www.izistoreperu.com/wp-content/uploads/{img_row[1]}"
+
+        # Procesar variaciones
+        attributes_map = {}
         variations_list = []
 
-        for variation in variations:
-            try:
-                sku = variation.get_meta('_sku') or 'N/A'
-                price = variation.get_meta('_price') or '0'
-                stock = variation.get_meta('_stock') or '0'
-                stock_status = variation.get_meta('_stock_status') or 'outofstock'
+        for var in variations_result:
+            # Parsear atributos
+            attributes = {}
+            if var[7]:  # attributes_raw
+                attrs = var[7].split('||')
+                for attr in attrs:
+                    if attr and ':' in attr:
+                        key, value = attr.split(':', 1)
 
-                # Obtener atributos
-                attributes = {}
-                for meta in variation.product_meta:
-                    if meta.meta_key.startswith('attribute_pa_') or meta.meta_key.startswith('attribute_'):
-                        # Manejar tanto attribute_pa_xxx como attribute_xxx
-                        if meta.meta_key.startswith('attribute_pa_'):
-                            attr_name = meta.meta_key.replace('attribute_pa_', '').replace('_', ' ').title()
-
-                            # Para atributos PA (globales), buscar el nombre del término en wpyz_terms
-                            # El meta_value es el slug, necesitamos el nombre
-                            from sqlalchemy import text
-                            term_query = text("""
-                                SELECT name FROM wpyz_terms WHERE slug = :slug LIMIT 1
-                            """)
-                            term_result = db.session.execute(term_query, {'slug': meta.meta_value}).fetchone()
-                            attr_value = term_result[0] if term_result else meta.meta_value
+                        if key.startswith('attribute_pa_'):
+                            attr_name = key.replace('attribute_pa_', '').replace('_', ' ').title()
+                            attr_value = slug_to_name.get(value, value)
+                        elif key.startswith('attribute_'):
+                            attr_name = key.replace('attribute_', '').replace('_', ' ').title()
+                            attr_value = value
                         else:
-                            attr_name = meta.meta_key.replace('attribute_', '').replace('_', ' ').title()
-                            attr_value = meta.meta_value
+                            continue
 
                         attributes[attr_name] = attr_value
 
-                        # Agregar al mapa de atributos
                         if attr_name not in attributes_map:
                             attributes_map[attr_name] = set()
                         attributes_map[attr_name].add(attr_value)
 
-                # Debug: imprimir atributos encontrados
-                print(f"Variación {variation.ID}: {len(attributes)} atributos - {list(attributes.keys())}")
+            variations_list.append({
+                'id': var[0],
+                'name': var[1],
+                'sku': var[2] or 'N/A',
+                'price': float(var[3]) if var[3] else 0.0,
+                'stock': int(float(var[4])) if var[4] else 0,
+                'stock_status': var[5] or 'outofstock',
+                'attributes': attributes,
+                'image_url': image_urls.get(str(var[6])) if var[6] else None
+            })
 
-                # Obtener imagen con manejo de errores
-                try:
-                    image_url = variation.get_image_url()
-                except Exception as img_error:
-                    image_url = None
-
-                variations_list.append({
-                    'id': variation.ID,
-                    'name': variation.post_title,
-                    'sku': sku,
-                    'price': float(price),
-                    'stock': int(float(stock)),
-                    'stock_status': stock_status,
-                    'attributes': attributes,
-                    'image_url': image_url
-                })
-            except Exception as var_error:
-                print(f"Error procesando variación {variation.ID}: {var_error}")
-                continue
-
-        # Convertir sets a listas ordenadas para JSON
+        # Convertir sets a listas ordenadas
         available_attributes = {}
         for attr_name, values in attributes_map.items():
             available_attributes[attr_name] = sorted(list(values))
 
-        # Obtener imagen del producto padre con manejo de errores
-        try:
-            parent_image_url = parent_product.get_image_url()
-        except Exception as img_error:
-            parent_image_url = None
-
-        # Obtener precio y SKU del producto padre para productos simples
-        parent_price = parent_product.get_meta('_price') or '0'
-        parent_sku = parent_product.get_meta('_sku') or 'N/A'
-        parent_stock = parent_product.get_meta('_stock') or '0'
-
         return jsonify({
             'success': True,
             'parent': {
-                'id': parent_product.ID,
-                'name': parent_product.post_title,
-                'image_url': parent_image_url,
-                'price': float(parent_price),
-                'sku': parent_sku,
-                'stock': int(parent_stock)
+                'id': parent_result[0],
+                'name': parent_result[1],
+                'image_url': image_urls.get(str(parent_result[5])) if parent_result[5] else None,
+                'price': float(parent_result[2]) if parent_result[2] else 0.0,
+                'sku': parent_result[3] or 'N/A',
+                'stock': int(float(parent_result[4])) if parent_result[4] else 0
             },
             'available_attributes': available_attributes,
             'variations': variations_list

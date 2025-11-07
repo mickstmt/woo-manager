@@ -783,16 +783,29 @@ function selectProduct(productId, hasVariations) {
 }
 
 function loadVariations(productId) {
+    // Mostrar indicador de carga
+    showNotification('info', 'Cargando variaciones...');
+
     $.ajax({
         url: `/orders/get-variations/${productId}`,
         method: 'GET',
+        beforeSend: function() {
+            // Deshabilitar clics en productos mientras se carga
+            $('.product-card').css('pointer-events', 'none');
+        },
         success: function(response) {
             if (response.success) {
                 showVariationsModal(response.parent, response.variations, response.available_attributes);
+                // Cerrar notificación de carga
+                $('.alert').fadeOut();
             }
         },
         error: function() {
             showNotification('error', 'Error al cargar variaciones');
+        },
+        complete: function() {
+            // Rehabilitar clics en productos
+            $('.product-card').css('pointer-events', 'auto');
         }
     });
 }
