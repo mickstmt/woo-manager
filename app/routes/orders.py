@@ -1,5 +1,5 @@
 # app/routes/orders.py
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.models import Order, OrderAddress, OrderItem, OrderItemMeta, OrderMeta, Product, ProductMeta
 from app import db
@@ -876,6 +876,21 @@ def create_order():
         # Guardar todo
         db.session.commit()
 
+        # Verificar que el pedido se guardó correctamente
+        verify_query = text('SELECT id, status, total_amount FROM wpyz_wc_orders WHERE id = :order_id')
+        verification = db.session.execute(verify_query, {'order_id': order.id}).fetchone()
+
+        if not verification:
+            # El pedido no existe después del commit - algo falló silenciosamente
+            current_app.logger.error(f"CRITICAL: Order {order.id} was committed but does not exist in database")
+            return jsonify({
+                'success': False,
+                'error': f'El pedido fue creado con ID {order.id} pero no se pudo verificar en la base de datos. Contacte al administrador.',
+                'order_id': order.id
+            }), 500
+
+        current_app.logger.info(f"Order {order.id} created successfully and verified in database")
+
         return jsonify({
             'success': True,
             'message': f'Pedido #{order.id} creado exitosamente',
@@ -888,10 +903,12 @@ def create_order():
     except Exception as e:
         db.session.rollback()
         import traceback
+        error_details = traceback.format_exc()
+        current_app.logger.error(f"Error creating order: {str(e)}\n{error_details}")
         return jsonify({
             'success': False,
             'error': str(e),
-            'traceback': traceback.format_exc()
+            'traceback': error_details
         }), 500
 
 
