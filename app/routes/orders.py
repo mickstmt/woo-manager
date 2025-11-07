@@ -6,8 +6,15 @@ from app import db
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import or_, desc
+import pytz
 
 bp = Blueprint('orders', __name__, url_prefix='/orders')
+
+
+def get_lima_time():
+    """Obtener la hora actual en zona horaria de Lima (America/Lima)"""
+    lima_tz = pytz.timezone('America/Lima')
+    return datetime.now(lima_tz).replace(tzinfo=None)
 
 
 @bp.route('/')
@@ -640,8 +647,8 @@ def create_order():
             total_amount=total_with_tax,
             customer_id=0,  # Sin cuenta de usuario
             billing_email=customer.get('email'),
-            date_created_gmt=datetime.utcnow(),
-            date_updated_gmt=datetime.utcnow(),
+            date_created_gmt=get_lima_time(),
+            date_updated_gmt=get_lima_time(),
             payment_method=data.get('payment_method', 'cod'),
             payment_method_title=data.get('payment_method_title', 'Pago manual'),
             customer_note=data.get('customer_note', ''),
