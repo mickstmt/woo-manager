@@ -659,6 +659,39 @@ def create_order():
         db.session.add(order)
         db.session.flush()  # Para obtener el ID del pedido
 
+        # ===== REGISTRO EN WPYZ_POSTS (CRÍTICO para compatibilidad HPOS) =====
+        # WooCommerce HPOS requiere sincronización con wpyz_posts para plugins antiguos
+        from sqlalchemy import text
+        insert_post = text("""
+            INSERT INTO wpyz_posts (
+                ID, post_author, post_date, post_date_gmt, post_content, post_title,
+                post_excerpt, post_status, comment_status, ping_status, post_password,
+                post_name, to_ping, pinged, post_modified, post_modified_gmt,
+                post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
+            ) VALUES (
+                :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
+                '', :post_status, 'open', 'closed', '',
+                :post_name, '', '', :post_modified, :post_modified_gmt,
+                '', 0, '', 0, 'shop_order', '', 0
+            )
+        """)
+
+        current_time = get_gmt_time()
+        post_date_local = current_time  # En GMT como WooCommerce espera
+        post_title = f"Order &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
+        post_name = f"order-{current_time.strftime('%b-%d-%Y-%I-%M-%S-%p').lower()}"
+
+        db.session.execute(insert_post, {
+            'order_id': order.id,
+            'post_date': current_time,
+            'post_date_gmt': current_time,
+            'post_title': post_title,
+            'post_status': f'wc-{status}',  # wc-processing, wc-pending, etc.
+            'post_name': post_name,
+            'post_modified': current_time,
+            'post_modified_gmt': current_time
+        })
+
         # ===== DIRECCIONES =====
         # Crear dirección de facturación
         billing_address = OrderAddress(
