@@ -686,7 +686,7 @@ def create_order():
             'post_date': current_time,
             'post_date_gmt': current_time,
             'post_title': post_title,
-            'post_status': f'wc-{status}',  # wc-processing, wc-pending, etc.
+            'post_status': order.status,  # wc-processing, wc-pending, etc.
             'post_name': post_name,
             'post_modified': current_time,
             'post_modified_gmt': current_time
