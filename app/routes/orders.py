@@ -766,6 +766,9 @@ def create_order():
             db.session.flush()
 
             # Agregar metadatos del item
+            # Crear estructura de _line_tax_data (serializado PHP)
+            line_tax_data = f'a:2:{{s:5:"total";a:1:{{i:1;s:{len(str(line_tax.quantize(Decimal("0.01"))))}:"{line_tax.quantize(Decimal("0.01"))}";}}s:8:"subtotal";a:1:{{i:1;s:{len(str(line_tax.quantize(Decimal("0.01"))))}:"{line_tax.quantize(Decimal("0.01"))}";}}}}'
+
             item_metas = [
                 ('_product_id', product_id),
                 ('_variation_id', variation_id),
@@ -774,7 +777,9 @@ def create_order():
                 ('_line_subtotal_tax', str(line_tax.quantize(Decimal('0.01')))),
                 ('_line_total', str(line_subtotal.quantize(Decimal('0.01')))),
                 ('_line_tax', str(line_tax.quantize(Decimal('0.01')))),
+                ('_line_tax_data', line_tax_data),  # Desglose de impuestos serializado
                 ('_tax_class', ''),
+                ('_reduced_stock', quantity),  # Cantidad de stock reducida
             ]
 
             for meta_key, meta_value in item_metas:
@@ -830,6 +835,40 @@ def create_order():
         else:
             shipping_subtotal = Decimal('0')
             shipping_tax = Decimal('0')
+
+        # ===== ITEM DE IMPUESTO (TAX) =====
+        # WooCommerce requiere un item separado para los impuestos totales
+        total_tax_amount = items_tax + shipping_tax
+        if total_tax_amount > 0:
+            tax_item = OrderItem(
+                order_item_name='PE-IMPUESTO-1',  # Nombre del impuesto en Perú
+                order_item_type='tax',
+                order_id=order.id
+            )
+            db.session.add(tax_item)
+            db.session.flush()
+
+            # Metadatos del item de impuesto (coinciden con estructura de WooCommerce)
+            tax_metas = [
+                ('rate_id', '1'),  # ID de la tasa de impuesto (IGV)
+                ('label', 'Impuesto'),  # Etiqueta visible
+                ('compound', ''),  # No es compuesto
+                ('tax_amount', str(items_tax.quantize(Decimal('0.01')))),  # Impuesto de productos
+                ('shipping_tax_amount', str(shipping_tax.quantize(Decimal('0.01')))),  # Impuesto de envío
+                ('rate_percent', '18'),  # IGV es 18%
+                ('_wcpdf_rate_percentage', '18.00'),  # Para plugin PDF
+                ('_wcpdf_ubl_tax_category', 'S'),  # Categoría para facturación electrónica
+                ('_wcpdf_ubl_tax_reason', ''),
+                ('_wcpdf_ubl_tax_scheme', 'VAT'),  # Esquema de impuesto
+            ]
+
+            for meta_key, meta_value in tax_metas:
+                tax_meta = OrderItemMeta(
+                    order_item_id=tax_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(tax_meta)
 
         # ===== METADATOS DEL PEDIDO =====
         # Construir índices de direcciones para búsqueda
