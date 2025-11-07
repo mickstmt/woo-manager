@@ -11,10 +11,9 @@ import pytz
 bp = Blueprint('orders', __name__, url_prefix='/orders')
 
 
-def get_lima_time():
-    """Obtener la hora actual en zona horaria de Lima (America/Lima)"""
-    lima_tz = pytz.timezone('America/Lima')
-    return datetime.now(lima_tz).replace(tzinfo=None)
+def get_gmt_time():
+    """Obtener la hora actual en GMT/UTC como espera WooCommerce"""
+    return datetime.utcnow()
 
 
 @bp.route('/')
@@ -647,8 +646,8 @@ def create_order():
             total_amount=total_with_tax,
             customer_id=0,  # Sin cuenta de usuario
             billing_email=customer.get('email'),
-            date_created_gmt=get_lima_time(),
-            date_updated_gmt=get_lima_time(),
+            date_created_gmt=get_gmt_time(),
+            date_updated_gmt=get_gmt_time(),
             payment_method=data.get('payment_method', 'cod'),
             payment_method_title=data.get('payment_method_title', 'Pago manual'),
             customer_note=data.get('customer_note', ''),
@@ -799,6 +798,10 @@ def create_order():
             shipping_tax = Decimal('0')
 
         # ===== METADATOS DEL PEDIDO =====
+        # Construir índices de direcciones para búsqueda
+        billing_index = f"{customer.get('first_name', '')} {customer.get('last_name', '')} {customer.get('company', '')} {customer.get('address_1', '')} {customer.get('city', '')} {customer.get('state', '')} {customer.get('postcode', '')} {customer.get('country', '')} {customer.get('email', '')} {customer.get('phone', '')}".strip()
+        shipping_index = billing_index  # Usamos la misma dirección
+
         order_metas = [
             # Identificación
             ('_created_via', 'woocommerce-manager'),
@@ -808,6 +811,11 @@ def create_order():
 
             # Configuración de impuestos
             ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
+            ('is_vat_exempt', 'no'),  # No está exento de impuestos
+
+            # Índices de búsqueda (CRÍTICO para que WooCommerce encuentre el pedido)
+            ('_billing_address_index', billing_index),
+            ('_shipping_address_index', shipping_index),
 
             # Totales
             ('_cart_discount', '0'),
@@ -821,6 +829,8 @@ def create_order():
             ('_billing_ruc', customer.get('billing_ruc', '')),
             ('_billing_entrega', customer.get('billing_entrega', 'billing_domicilio')),
             ('_billing_referencia', customer.get('billing_referencia', '')),
+            ('billing_entrega', customer.get('billing_entrega', 'billing_domicilio')),
+            ('billing_referencia', customer.get('billing_referencia', '')),
             ('_thwcfe_ship_to_billing', '1'),  # Copiar billing a shipping
 
             # Attribution (rastreo de origen)
