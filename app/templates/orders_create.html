@@ -765,10 +765,13 @@ function selectProduct(productId, hasVariations) {
         loadVariations(productId);
     } else {
         // Producto simple, agregar directamente
+        showLoadingOverlay('Agregando producto...');
+
         $.ajax({
             url: `/orders/get-variations/${productId}`,
             method: 'GET',
             success: function(response) {
+                hideLoadingOverlay();
                 if (response.success) {
                     const parent = response.parent;
                     addToCart(parent.id, 0, parent.name, parent.price, parent.sku);
@@ -776,6 +779,7 @@ function selectProduct(productId, hasVariations) {
                 }
             },
             error: function() {
+                hideLoadingOverlay();
                 showNotification('error', 'Error al agregar producto');
             }
         });
@@ -783,8 +787,8 @@ function selectProduct(productId, hasVariations) {
 }
 
 function loadVariations(productId) {
-    // Mostrar indicador de carga
-    showNotification('info', 'Cargando variaciones...');
+    // Mostrar overlay de carga
+    showLoadingOverlay('Cargando variaciones...');
 
     $.ajax({
         url: `/orders/get-variations/${productId}`,
@@ -795,12 +799,12 @@ function loadVariations(productId) {
         },
         success: function(response) {
             if (response.success) {
+                hideLoadingOverlay();
                 showVariationsModal(response.parent, response.variations, response.available_attributes);
-                // Cerrar notificación de carga
-                $('.alert').fadeOut();
             }
         },
         error: function() {
+            hideLoadingOverlay();
             showNotification('error', 'Error al cargar variaciones');
         },
         complete: function() {
@@ -1192,10 +1196,14 @@ $(document).on('click', '.search-result-item', function() {
 });
 
 function loadSingleProduct(productId) {
+    showLoadingOverlay('Cargando producto...');
+
     $.ajax({
         url: `/orders/get-variations/${productId}`,
         method: 'GET',
         success: function(response) {
+            hideLoadingOverlay();
+
             if (response.success && response.variations.length > 0) {
                 // Tiene variaciones, mostrar modal
                 showVariationsModal(response.parent, response.variations, response.available_attributes);
@@ -1217,6 +1225,7 @@ function loadSingleProduct(productId) {
             }
         },
         error: function() {
+            hideLoadingOverlay();
             showNotification('error', 'Error al cargar producto');
         }
     });
@@ -1497,6 +1506,39 @@ function showNotification(type, message) {
     `;
     $('body').append(html);
     setTimeout(() => $('.alert').fadeOut(), 3000);
+}
+
+function showLoadingOverlay(message = 'Cargando...') {
+    // Remover overlay existente si hay
+    $('#loading-overlay').remove();
+
+    const html = `
+        <div id="loading-overlay" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        ">
+            <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-light mt-3 fs-5">${message}</p>
+        </div>
+    `;
+    $('body').append(html);
+}
+
+function hideLoadingOverlay() {
+    $('#loading-overlay').fadeOut(300, function() {
+        $(this).remove();
+    });
 }
 </script>
 {% endblock %}
