@@ -295,67 +295,83 @@ def get_products_by_category(category_id):
     """
     Obtener productos de una categoría específica
     Solo productos principales (no variaciones)
+    Optimizado con una sola query SQL
     """
     try:
         from sqlalchemy import text
 
-        # Obtener IDs de productos en esta categoría
+        # Query optimizada: obtener productos con todos sus datos en una sola consulta
         query = text("""
-            SELECT DISTINCT p.ID, p.post_title
+            SELECT DISTINCT
+                p.ID,
+                p.post_title,
+                MAX(CASE WHEN pm.meta_key = '_sku' THEN pm.meta_value END) AS sku,
+                MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) AS price,
+                MAX(CASE WHEN pm.meta_key = '_stock_status' THEN pm.meta_value END) AS stock_status,
+                MAX(CASE WHEN pm.meta_key = '_thumbnail_id' THEN pm.meta_value END) AS thumbnail_id,
+                (
+                    SELECT COUNT(*)
+                    FROM wpyz_posts pv
+                    WHERE pv.post_parent = p.ID
+                    AND pv.post_type = 'product_variation'
+                    AND pv.post_status = 'publish'
+                ) AS has_variations
             FROM wpyz_posts p
             JOIN wpyz_term_relationships tr ON p.ID = tr.object_id
             JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            LEFT JOIN wpyz_postmeta pm ON p.ID = pm.post_id
+                AND pm.meta_key IN ('_sku', '_price', '_stock_status', '_thumbnail_id')
             WHERE tt.term_id = :category_id
             AND p.post_type = 'product'
             AND p.post_status = 'publish'
+            GROUP BY p.ID, p.post_title
             ORDER BY p.post_title
         """)
 
-        result = db.session.execute(query, {'category_id': category_id})
-        product_ids = [row[0] for row in result]
+        result = db.session.execute(query, {'category_id': category_id}).fetchall()
 
-        if not product_ids:
+        if not result:
             return jsonify({
                 'success': True,
                 'products': []
             })
 
-        # Obtener detalles de productos
-        products = Product.query.filter(Product.ID.in_(product_ids)).all()
+        # Obtener URLs de imágenes en batch si hay thumbnails
+        thumbnail_ids = [row[5] for row in result if row[5]]
+        image_urls = {}
 
+        if thumbnail_ids:
+            image_query = text("""
+                SELECT pm.post_id, pm.meta_value
+                FROM wpyz_postmeta pm
+                WHERE pm.post_id IN :thumbnail_ids
+                AND pm.meta_key = '_wp_attached_file'
+            """)
+
+            image_results = db.session.execute(
+                image_query,
+                {'thumbnail_ids': tuple(thumbnail_ids)}
+            ).fetchall()
+
+            # Construir URLs de imágenes
+            for img_row in image_results:
+                image_urls[str(img_row[0])] = f"https://www.izistoreperu.com/wp-content/uploads/{img_row[1]}"
+
+        # Construir lista de productos
         products_list = []
-        for product in products:
-            try:
-                sku = product.get_meta('_sku') or 'N/A'
-                price = product.get_meta('_price') or '0'
-                stock_status = product.get_meta('_stock_status') or 'outofstock'
+        for row in result:
+            product_id = row[0]
+            thumbnail_id = row[5]
 
-                # Verificar si tiene variaciones
-                has_variations = Product.query.filter_by(
-                    post_type='product_variation',
-                    post_parent=product.ID,
-                    post_status='publish'
-                ).count() > 0
-
-                # Obtener imagen con manejo de errores
-                try:
-                    image_url = product.get_image_url()
-                except Exception as img_error:
-                    image_url = None
-                    print(f"Error obteniendo imagen para producto {product.ID}: {img_error}")
-
-                products_list.append({
-                    'id': product.ID,
-                    'name': product.post_title,
-                    'sku': sku,
-                    'price': float(price),
-                    'stock_status': stock_status,
-                    'has_variations': has_variations,
-                    'image_url': image_url
-                })
-            except Exception as prod_error:
-                print(f"Error procesando producto {product.ID}: {prod_error}")
-                continue
+            products_list.append({
+                'id': product_id,
+                'name': row[1],
+                'sku': row[2] or 'N/A',
+                'price': float(row[3]) if row[3] else 0.0,
+                'stock_status': row[4] or 'outofstock',
+                'has_variations': row[6] > 0,
+                'image_url': image_urls.get(str(thumbnail_id)) if thumbnail_id else None
+            })
 
         return jsonify({
             'success': True,
