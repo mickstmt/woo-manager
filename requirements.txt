@@ -19,6 +19,7 @@ packaging==25.0
 pycparser==2.23
 PyMySQL==1.1.0
 python-dotenv==1.0.0
+pytz==2024.1
 SQLAlchemy==2.0.43
 typing_extensions==4.15.0
 Werkzeug==3.0.1
