@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import or_, desc
 import pytz
+import hashlib
 
 bp = Blueprint('orders', __name__, url_prefix='/orders')
 
@@ -802,8 +803,16 @@ def create_order():
         billing_index = f"{customer.get('first_name', '')} {customer.get('last_name', '')} {customer.get('company', '')} {customer.get('address_1', '')} {customer.get('city', '')} {customer.get('state', '')} {customer.get('postcode', '')} {customer.get('country', '')} {customer.get('email', '')} {customer.get('phone', '')}".strip()
         shipping_index = billing_index  # Usamos la misma dirección
 
+        # Generar external_id (hash único del pedido)
+        external_id = hashlib.sha256(f"order_{order.id}_{get_gmt_time().timestamp()}".encode()).hexdigest()
+
+        # Generar edit_lock (timestamp actual + user ID)
+        edit_lock = f"{int(get_gmt_time().timestamp())}:{current_user.id}"
+
         order_metas = [
-            # Identificación
+            # Identificación crítica
+            ('external_id', external_id),  # CRÍTICO: Hash único para WooCommerce
+            ('_edit_lock', edit_lock),  # Lock de edición
             ('_created_via', 'woocommerce-manager'),
             ('_order_source', 'whatsapp'),
             ('_created_by', current_user.username),
