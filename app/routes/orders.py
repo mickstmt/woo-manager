@@ -1005,6 +1005,28 @@ def create_order():
 
         current_app.logger.info(f"Order {order.id} created successfully and fully verified (addresses: {address_count}, metas: {meta_count})")
 
+        # Limpiar cache de WooCommerce y LiteSpeed Cache
+        try:
+            # Limpiar transients de WooCommerce relacionados con pedidos
+            clear_transients = text("""
+                DELETE FROM wpyz_options
+                WHERE option_name LIKE '%_transient_wc_orders%'
+                OR option_name LIKE '%_transient_timeout_wc_orders%'
+                OR option_name LIKE '%_transient_wc_order_%'
+            """)
+            db.session.execute(clear_transients)
+            db.session.commit()
+
+            # Forzar actualización del pedido para invalidar cache
+            update_order = text("UPDATE wpyz_wc_orders SET date_updated_gmt = :now WHERE id = :order_id")
+            db.session.execute(update_order, {'now': get_gmt_time(), 'order_id': order.id})
+            db.session.commit()
+
+            current_app.logger.info(f"Cache cleared for order {order.id}")
+        except Exception as cache_error:
+            current_app.logger.warning(f"Could not clear cache for order {order.id}: {str(cache_error)}")
+            # No fallar si la limpieza de cache falla
+
         return jsonify({
             'success': True,
             'message': f'Pedido #{order.id} creado exitosamente',
