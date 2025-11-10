@@ -1059,3 +1059,70 @@ def create_order():
 
 # Importar get_local_time
 from config import get_local_time
+
+
+@bp.route('/debug-last-order')
+@login_required
+def debug_last_order():
+    """
+    Endpoint temporal para debugging: muestra información del último pedido creado
+    """
+    from sqlalchemy import text
+
+    # Obtener el último pedido
+    last_order_query = text("""
+        SELECT id, billing_email, customer_id, total_amount, date_created_gmt
+        FROM wpyz_wc_orders
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    last_order = db.session.execute(last_order_query).fetchone()
+
+    if not last_order:
+        return jsonify({'error': 'No hay pedidos en la base de datos'}), 404
+
+    order_id = last_order[0]
+
+    # Obtener direcciones
+    addresses_query = text("""
+        SELECT address_type, first_name, last_name, email, phone, company, address_1, city, state, country
+        FROM wpyz_wc_order_addresses
+        WHERE order_id = :order_id
+    """)
+    addresses = db.session.execute(addresses_query, {'order_id': order_id}).fetchall()
+
+    # Obtener billing_address_index
+    billing_index_query = text("""
+        SELECT meta_value
+        FROM wpyz_wc_orders_meta
+        WHERE order_id = :order_id
+        AND meta_key = '_billing_address_index'
+    """)
+    billing_index = db.session.execute(billing_index_query, {'order_id': order_id}).fetchone()
+
+    # Construir respuesta
+    result = {
+        'order_id': order_id,
+        'billing_email': last_order[1],
+        'customer_id': last_order[2],
+        'total_amount': float(last_order[3]) if last_order[3] else 0,
+        'date_created_gmt': str(last_order[4]),
+        'addresses': [],
+        'billing_address_index': billing_index[0] if billing_index else 'NOT FOUND'
+    }
+
+    for addr in addresses:
+        result['addresses'].append({
+            'type': addr[0],
+            'first_name': addr[1],
+            'last_name': addr[2],
+            'email': addr[3],
+            'phone': addr[4],
+            'company': addr[5],
+            'address_1': addr[6],
+            'city': addr[7],
+            'state': addr[8],
+            'country': addr[9]
+        })
+
+    return jsonify(result)
