@@ -696,7 +696,10 @@ def create_order():
         })
 
         # ===== DIRECCIONES =====
-        # Crear dirección de facturación
+        # IMPORTANTE: WooCommerce NO tiene HPOS habilitado, usa el sistema antiguo (postmeta)
+        # Guardamos en ambos sistemas para compatibilidad total
+
+        # 1. Guardar en wpyz_wc_order_addresses (HPOS - para compatibilidad futura)
         billing_address = OrderAddress(
             order_id=order.id,
             address_type='billing',
@@ -714,7 +717,6 @@ def create_order():
         )
         db.session.add(billing_address)
 
-        # Usar misma dirección para envío
         shipping_address = OrderAddress(
             order_id=order.id,
             address_type='shipping',
@@ -731,6 +733,43 @@ def create_order():
             phone=customer.get('phone')
         )
         db.session.add(shipping_address)
+
+        # 2. Guardar en wpyz_postmeta (Sistema antiguo - lo que WooCommerce está leyendo AHORA)
+        address_meta_fields = [
+            # Billing
+            ('_billing_first_name', customer.get('first_name', '')),
+            ('_billing_last_name', customer.get('last_name', '')),
+            ('_billing_company', customer.get('company', '')),
+            ('_billing_address_1', customer.get('address_1', '')),
+            ('_billing_address_2', customer.get('address_2', '')),
+            ('_billing_city', customer.get('city', '')),
+            ('_billing_state', customer.get('state', '')),
+            ('_billing_postcode', customer.get('postcode', '')),
+            ('_billing_country', customer.get('country', 'PE')),
+            ('_billing_email', customer.get('email', '')),
+            ('_billing_phone', customer.get('phone', '')),
+            # Shipping (mismos datos)
+            ('_shipping_first_name', customer.get('first_name', '')),
+            ('_shipping_last_name', customer.get('last_name', '')),
+            ('_shipping_company', customer.get('company', '')),
+            ('_shipping_address_1', customer.get('address_1', '')),
+            ('_shipping_address_2', customer.get('address_2', '')),
+            ('_shipping_city', customer.get('city', '')),
+            ('_shipping_state', customer.get('state', '')),
+            ('_shipping_postcode', customer.get('postcode', '')),
+            ('_shipping_country', customer.get('country', 'PE')),
+        ]
+
+        for meta_key, meta_value in address_meta_fields:
+            insert_address_meta = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:post_id, :meta_key, :meta_value)
+            """)
+            db.session.execute(insert_address_meta, {
+                'post_id': order.id,
+                'meta_key': meta_key,
+                'meta_value': str(meta_value)
+            })
 
         # ===== ITEMS DEL PEDIDO =====
         items_subtotal = Decimal('0')
@@ -932,13 +971,26 @@ def create_order():
             ('_wc_order_attribution_user_agent', request.headers.get('User-Agent', '')[:200]),
         ]
 
+        # Guardar metadatos en AMBOS sistemas
         for meta_key, meta_value in order_metas:
+            # 1. Guardar en wpyz_wc_orders_meta (HPOS - compatibilidad futura)
             order_meta = OrderMeta(
                 order_id=order.id,
                 meta_key=meta_key,
                 meta_value=str(meta_value)
             )
             db.session.add(order_meta)
+
+            # 2. Guardar en wpyz_postmeta (Sistema antiguo - lo que WooCommerce lee AHORA)
+            insert_postmeta_meta = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:post_id, :meta_key, :meta_value)
+            """)
+            db.session.execute(insert_postmeta_meta, {
+                'post_id': order.id,
+                'meta_key': meta_key,
+                'meta_value': str(meta_value)
+            })
 
         # ===== GUARDAR EN POSTMETA TAMBIÉN =====
         # WooCommerce guarda algunos metadatos tanto en wc_orders_meta como en postmeta
