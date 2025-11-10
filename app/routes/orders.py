@@ -957,20 +957,53 @@ def create_order():
         # Guardar todo
         db.session.commit()
 
-        # Verificar que el pedido se guardó correctamente
-        verify_query = text('SELECT id, status, total_amount FROM wpyz_wc_orders WHERE id = :order_id')
+        # Verificar que el pedido se guardó correctamente con TODOS sus datos
+        verify_query = text('SELECT id, status, total_amount, billing_email FROM wpyz_wc_orders WHERE id = :order_id')
         verification = db.session.execute(verify_query, {'order_id': order.id}).fetchone()
 
         if not verification:
-            # El pedido no existe después del commit - algo falló silenciosamente
             current_app.logger.error(f"CRITICAL: Order {order.id} was committed but does not exist in database")
             return jsonify({
                 'success': False,
-                'error': f'El pedido fue creado con ID {order.id} pero no se pudo verificar en la base de datos. Contacte al administrador.',
+                'error': f'El pedido fue creado con ID {order.id} pero no se pudo verificar en la base de datos.',
                 'order_id': order.id
             }), 500
 
-        current_app.logger.info(f"Order {order.id} created successfully and verified in database")
+        # Verificar direcciones
+        verify_addresses = text('SELECT COUNT(*) FROM wpyz_wc_order_addresses WHERE order_id = :order_id')
+        address_count = db.session.execute(verify_addresses, {'order_id': order.id}).fetchone()[0]
+
+        # Verificar metadatos
+        verify_metas = text('SELECT COUNT(*) FROM wpyz_wc_orders_meta WHERE order_id = :order_id')
+        meta_count = db.session.execute(verify_metas, {'order_id': order.id}).fetchone()[0]
+
+        # Verificar billing_email
+        billing_email = verification[3]
+
+        # Si falta algo crítico, retornar error detallado
+        errors = []
+        if address_count == 0:
+            errors.append('direcciones')
+        if meta_count == 0:
+            errors.append('metadatos')
+        if not billing_email:
+            errors.append('email')
+
+        if errors:
+            error_msg = f"El pedido {order.id} se creó incompleto. Faltan: {', '.join(errors)}"
+            current_app.logger.error(f"CRITICAL: Order {order.id} incomplete - Addresses: {address_count}, Metas: {meta_count}, Email: {billing_email}")
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'order_id': order.id,
+                'debug': {
+                    'addresses': address_count,
+                    'metas': meta_count,
+                    'email': billing_email or 'NULL'
+                }
+            }), 500
+
+        current_app.logger.info(f"Order {order.id} created successfully and fully verified (addresses: {address_count}, metas: {meta_count})")
 
         return jsonify({
             'success': True,
