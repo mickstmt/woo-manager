@@ -620,6 +620,9 @@ def create_order():
         items_data = data['items']
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
 
+        # DEBUG: Log customer data para verificar qué se está recibiendo
+        current_app.logger.info(f"Creating order with customer data: {customer}")
+
         # ===== CALCULAR TOTALES =====
         # Los precios INCLUYEN IGV (18%)
         # Fórmula: precio_sin_igv = precio_con_igv / 1.18
@@ -872,8 +875,14 @@ def create_order():
 
         # ===== METADATOS DEL PEDIDO =====
         # Construir índices de direcciones para búsqueda
+        # DEBUG: Log customer data antes de construir billing_index
+        current_app.logger.info(f"Building billing_index with customer: {customer}")
+
         billing_index = f"{customer.get('first_name', '')} {customer.get('last_name', '')} {customer.get('company', '')} {customer.get('address_1', '')} {customer.get('city', '')} {customer.get('state', '')} {customer.get('postcode', '')} {customer.get('country', '')} {customer.get('email', '')} {customer.get('phone', '')}".strip()
         shipping_index = billing_index  # Usamos la misma dirección
+
+        # DEBUG: Log billing_index generado
+        current_app.logger.info(f"Generated billing_index: {billing_index}")
 
         # Generar external_id (hash único del pedido)
         external_id = hashlib.sha256(f"order_{order.id}_{get_gmt_time().timestamp()}".encode()).hexdigest()
