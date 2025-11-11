@@ -17,6 +17,59 @@ def get_gmt_time():
     return datetime.utcnow()
 
 
+def get_next_manager_order_number():
+    """
+    Obtener el siguiente número de pedido para manager (formato W-XXXXX)
+    Almacena el contador en wpyz_options con la clave 'woocommerce_manager_order_number'
+
+    Returns:
+        str: Número de pedido en formato W-00001
+    """
+    from sqlalchemy import text
+
+    option_name = 'woocommerce_manager_order_number'
+
+    # Intentar obtener el contador actual
+    get_counter = text("""
+        SELECT option_value
+        FROM wpyz_options
+        WHERE option_name = :option_name
+    """)
+    result = db.session.execute(get_counter, {'option_name': option_name}).fetchone()
+
+    if result:
+        # Incrementar contador existente
+        current_number = int(result[0])
+        next_number = current_number + 1
+
+        update_counter = text("""
+            UPDATE wpyz_options
+            SET option_value = :next_number
+            WHERE option_name = :option_name
+        """)
+        db.session.execute(update_counter, {
+            'next_number': str(next_number),
+            'option_name': option_name
+        })
+    else:
+        # Crear contador si no existe (empezar en 1)
+        next_number = 1
+
+        insert_counter = text("""
+            INSERT INTO wpyz_options (option_name, option_value, autoload)
+            VALUES (:option_name, :next_number, 'no')
+        """)
+        db.session.execute(insert_counter, {
+            'option_name': option_name,
+            'next_number': str(next_number)
+        })
+
+    db.session.commit()
+
+    # Formatear como W-00001
+    return f"W-{next_number:05d}"
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -43,85 +96,184 @@ def create_page():
 @login_required
 def list_orders():
     """
-    Listar pedidos con paginación y filtros
+    Listar pedidos creados por el manager con paginación y filtros
 
     Query params:
     - page: número de página
     - per_page: items por página
-    - search: búsqueda por ID, email, nombre
-    - status: filtrar por estado
+    - search: búsqueda por ID, email, nombre, W-XXXXX
+    - created_by: filtrar por usuario creador
     """
     try:
+        from sqlalchemy import text
+        from app.models import User
+
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '', type=str)
-        status_filter = request.args.get('status', '', type=str)
+        created_by_filter = request.args.get('created_by', '', type=str)
 
         # Limitar per_page
         per_page = min(per_page, 100)
 
-        # Query base
-        query = Order.query
+        # Query optimizada con JOIN a postmeta para filtrar solo pedidos del manager
+        # IMPORTANTE: Solo mostramos pedidos que tienen _order_number (W-XXXXX)
+        query = text("""
+            SELECT DISTINCT
+                o.id,
+                o.status,
+                o.total_amount,
+                o.currency,
+                o.billing_email,
+                o.payment_method,
+                o.payment_method_title,
+                o.date_created_gmt,
+                ba.first_name,
+                ba.last_name,
+                ba.phone,
+                om_order_number.meta_value as order_number,
+                om_created_by.meta_value as created_by,
+                (SELECT COUNT(*) FROM wpyz_woocommerce_order_items WHERE order_id = o.id AND order_item_type = 'line_item') as items_count
+            FROM wpyz_wc_orders o
+            INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
+            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
+            WHERE 1=1
+            {search_filter}
+            {created_by_filter}
+            ORDER BY o.date_created_gmt DESC
+            LIMIT :limit OFFSET :offset
+        """)
 
-        # Filtro de búsqueda
+        # Query para contar total de registros
+        count_query = text("""
+            SELECT COUNT(DISTINCT o.id)
+            FROM wpyz_wc_orders o
+            INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
+            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
+            WHERE 1=1
+            {search_filter}
+            {created_by_filter}
+        """)
+
+        # Construir filtros dinámicos
+        search_filter = ""
+        created_by_filter_clause = ""
+        params = {
+            'limit': per_page,
+            'offset': (page - 1) * per_page
+        }
+
         if search:
-            # Buscar en pedidos o direcciones
-            query = query.join(OrderAddress, Order.id == OrderAddress.order_id, isouter=True)
-            query = query.filter(
-                or_(
-                    Order.id.like(f'%{search}%'),
-                    Order.billing_email.like(f'%{search}%'),
-                    OrderAddress.first_name.like(f'%{search}%'),
-                    OrderAddress.last_name.like(f'%{search}%'),
-                    OrderAddress.phone.like(f'%{search}%')
+            # Buscar por order_number (W-XXXXX), email, nombre, teléfono, ID
+            search_filter = """
+                AND (
+                    om_order_number.meta_value LIKE :search
+                    OR o.billing_email LIKE :search
+                    OR ba.first_name LIKE :search
+                    OR ba.last_name LIKE :search
+                    OR ba.phone LIKE :search
+                    OR CAST(o.id AS CHAR) LIKE :search
                 )
-            ).distinct()
+            """
+            params['search'] = f'%{search}%'
 
-        # Filtro de estado
-        if status_filter:
-            query = query.filter(Order.status == status_filter)
+        if created_by_filter:
+            created_by_filter_clause = "AND om_created_by.meta_value = :created_by"
+            params['created_by'] = created_by_filter
 
-        # Ordenar por fecha descendente
-        query = query.order_by(desc(Order.date_created_gmt))
+        # Formatear queries con filtros
+        final_query = query.text.format(
+            search_filter=search_filter,
+            created_by_filter=created_by_filter_clause
+        )
+        final_count_query = count_query.text.format(
+            search_filter=search_filter,
+            created_by_filter=created_by_filter_clause
+        )
 
-        # Paginar
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        # Ejecutar queries
+        results = db.session.execute(text(final_query), params).fetchall()
+        total_count = db.session.execute(text(final_count_query), params).fetchone()[0]
+
+        # Calcular paginación
+        total_pages = (total_count + per_page - 1) // per_page
+        has_prev = page > 1
+        has_next = page < total_pages
+        prev_num = page - 1 if has_prev else None
+        next_num = page + 1 if has_next else None
 
         # Preparar datos
         orders_list = []
-        for order in pagination.items:
-            # Obtener dirección de facturación
-            billing_address = order.addresses.filter_by(address_type='billing').first()
-
-            # Contar items
-            items_count = order.items.count()
-
+        for row in results:
             orders_list.append({
-                'id': order.id,
-                'status': order.status,
-                'total': float(order.total_amount) if order.total_amount else 0,
-                'currency': order.currency,
-                'billing_email': order.billing_email,
-                'customer_name': f"{billing_address.first_name} {billing_address.last_name}" if billing_address else 'N/A',
-                'customer_phone': billing_address.phone if billing_address else 'N/A',
-                'payment_method': order.payment_method_title or order.payment_method,
-                'items_count': items_count,
-                'date_created': order.date_created_gmt.strftime('%Y-%m-%d %H:%M:%S') if order.date_created_gmt else ''
+                'id': row[0],
+                'status': row[1],
+                'total': float(row[2]) if row[2] else 0,
+                'currency': row[3] or 'PEN',
+                'billing_email': row[4] or '',
+                'payment_method': row[6] or row[5] or '',
+                'customer_name': f"{row[8]} {row[9]}" if row[8] and row[9] else 'N/A',
+                'customer_phone': row[10] or 'N/A',
+                'order_number': row[11] or '',  # W-XXXXX
+                'created_by': row[12] or 'N/A',  # Usuario que creó el pedido
+                'items_count': row[13] or 0,
+                'date_created': row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else ''
             })
 
         return jsonify({
             'success': True,
             'orders': orders_list,
             'pagination': {
-                'page': pagination.page,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'pages': pagination.pages,
-                'has_prev': pagination.has_prev,
-                'has_next': pagination.has_next,
-                'prev_num': pagination.prev_num,
-                'next_num': pagination.next_num
+                'page': page,
+                'per_page': per_page,
+                'total': total_count,
+                'pages': total_pages,
+                'has_prev': has_prev,
+                'has_next': has_next,
+                'prev_num': prev_num,
+                'next_num': next_num
             }
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/get-users')
+@login_required
+def get_users():
+    """
+    Obtener lista de usuarios que han creado pedidos en el manager
+
+    Retorna lista de usuarios únicos que aparecen en _created_by
+    """
+    try:
+        from sqlalchemy import text
+
+        # Query para obtener usuarios únicos que han creado pedidos
+        query = text("""
+            SELECT DISTINCT meta_value as username
+            FROM wpyz_wc_orders_meta
+            WHERE meta_key = '_created_by'
+            AND meta_value IS NOT NULL
+            AND meta_value != ''
+            ORDER BY meta_value
+        """)
+
+        results = db.session.execute(query).fetchall()
+
+        users_list = [{'username': row[0]} for row in results]
+
+        return jsonify({
+            'success': True,
+            'users': users_list
         })
 
     except Exception as e:
@@ -662,38 +814,60 @@ def create_order():
         db.session.add(order)
         db.session.flush()  # Para obtener el ID del pedido
 
+        # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
+        # Genera un número único de pedido en formato W-00001 para identificar
+        # pedidos creados por el manager y evitar conflictos con IDs naturales
+        manager_order_number = get_next_manager_order_number()
+        current_app.logger.info(f"Generated manager order number: {manager_order_number} for order ID {order.id}")
+
         # ===== REGISTRO EN WPYZ_POSTS (CRÍTICO para compatibilidad HPOS) =====
         # WooCommerce HPOS requiere sincronización con wpyz_posts para plugins antiguos
+        # IMPORTANTE: Verificar si el ID ya existe antes de insertar para evitar
+        # duplicados por race conditions con pedidos naturales del sitio
         from sqlalchemy import text
-        insert_post = text("""
-            INSERT INTO wpyz_posts (
-                ID, post_author, post_date, post_date_gmt, post_content, post_title,
-                post_excerpt, post_status, comment_status, ping_status, post_password,
-                post_name, to_ping, pinged, post_modified, post_modified_gmt,
-                post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
-            ) VALUES (
-                :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
-                '', :post_status, 'open', 'closed', '',
-                :post_name, '', '', :post_modified, :post_modified_gmt,
-                '', 0, '', 0, 'shop_order', '', 0
-            )
+
+        # Verificar si el ID ya existe en wpyz_posts
+        check_post_exists = text("""
+            SELECT ID FROM wpyz_posts WHERE ID = :order_id
         """)
+        existing_post = db.session.execute(check_post_exists, {'order_id': order.id}).fetchone()
 
-        current_time = get_gmt_time()
-        post_date_local = current_time  # En GMT como WooCommerce espera
-        post_title = f"Order &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
-        post_name = f"order-{current_time.strftime('%b-%d-%Y-%I-%M-%S-%p').lower()}"
+        if not existing_post:
+            # El ID no existe, podemos insertar de manera segura
+            insert_post = text("""
+                INSERT INTO wpyz_posts (
+                    ID, post_author, post_date, post_date_gmt, post_content, post_title,
+                    post_excerpt, post_status, comment_status, ping_status, post_password,
+                    post_name, to_ping, pinged, post_modified, post_modified_gmt,
+                    post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
+                ) VALUES (
+                    :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
+                    '', :post_status, 'open', 'closed', '',
+                    :post_name, '', '', :post_modified, :post_modified_gmt,
+                    '', 0, '', 0, 'shop_order', '', 0
+                )
+            """)
 
-        db.session.execute(insert_post, {
-            'order_id': order.id,
-            'post_date': current_time,
-            'post_date_gmt': current_time,
-            'post_title': post_title,
-            'post_status': order.status,  # wc-processing, wc-pending, etc.
-            'post_name': post_name,
-            'post_modified': current_time,
-            'post_modified_gmt': current_time
-        })
+            current_time = get_gmt_time()
+            # Usar W-XXXXX en lugar del ID para identificar pedidos del manager
+            post_title = f"Pedido {manager_order_number} &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
+            post_name = f"order-{manager_order_number.lower()}-{current_time.strftime('%b-%d-%Y').lower()}"
+
+            db.session.execute(insert_post, {
+                'order_id': order.id,
+                'post_date': current_time,
+                'post_date_gmt': current_time,
+                'post_title': post_title,
+                'post_status': order.status,  # wc-processing, wc-pending, etc.
+                'post_name': post_name,
+                'post_modified': current_time,
+                'post_modified_gmt': current_time
+            })
+            current_app.logger.info(f"Inserted order {order.id} into wpyz_posts with title: {post_title}")
+        else:
+            # El ID ya existe (race condition con pedido natural)
+            # No insertamos en wpyz_posts, pero el pedido seguirá funcionando con postmeta
+            current_app.logger.warning(f"Order ID {order.id} already exists in wpyz_posts (race condition detected). Skipping wpyz_posts insert. Order will rely on postmeta only.")
 
         # ===== DIRECCIONES =====
         # IMPORTANTE: WooCommerce NO tiene HPOS habilitado, usa el sistema antiguo (postmeta)
@@ -942,6 +1116,7 @@ def create_order():
         order_metas = [
             # Identificación crítica
             ('external_id', external_id),  # CRÍTICO: Hash único para WooCommerce
+            ('_order_number', manager_order_number),  # CRÍTICO: Número de pedido W-XXXXX para manager
             ('_edit_lock', edit_lock),  # Lock de edición
             ('_created_via', 'woocommerce-manager'),
             ('_order_source', 'whatsapp'),
@@ -1105,8 +1280,9 @@ def create_order():
 
         return jsonify({
             'success': True,
-            'message': f'Pedido #{order.id} creado exitosamente',
+            'message': f'Pedido {manager_order_number} creado exitosamente',
             'order_id': order.id,
+            'order_number': manager_order_number,
             'total': float(total_with_tax),
             'tax': float(tax_amount),
             'subtotal': float(subtotal)

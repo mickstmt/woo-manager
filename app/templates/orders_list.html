@@ -83,16 +83,9 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <select class="form-select" id="status-filter">
-                            <option value="">Todos los estados</option>
-                            <option value="wc-processing">Procesando</option>
-                            <option value="wc-completed">Completado</option>
-                            <option value="wc-delivered">Entregado</option>
-                            <option value="wc-enviado">Enviado</option>
-                            <option value="wc-en-transito">En Tránsito</option>
-                            <option value="wc-listo-enviar">Listo para Enviar</option>
-                            <option value="wc-on-hold">En Espera</option>
-                            <option value="wc-cancelled">Cancelado</option>
+                        <select class="form-select" id="user-filter">
+                            <option value="">Todos los usuarios</option>
+                            <!-- Se llenará dinámicamente con JavaScript -->
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -272,16 +265,17 @@
 let currentPage = 1;
 let perPage = 20;
 let searchTerm = '';
-let statusFilter = '';
+let userFilter = '';
 let selectedProducts = [];
 
 $(document).ready(function() {
-    // Cargar pedidos inicial
+    // Cargar usuarios y pedidos
+    loadUsers();
     loadOrders();
 
     // Eventos
-    $('#status-filter').on('change', function() {
-        statusFilter = $(this).val();
+    $('#user-filter').on('change', function() {
+        userFilter = $(this).val();
         currentPage = 1;
         loadOrders();
     });
@@ -316,6 +310,24 @@ $(document).ready(function() {
     });
 });
 
+function loadUsers() {
+    $.ajax({
+        url: '/orders/get-users',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.users.length > 0) {
+                const select = $('#user-filter');
+                response.users.forEach(user => {
+                    select.append(`<option value="${user.username}">${user.username}</option>`);
+                });
+            }
+        },
+        error: function() {
+            console.log('Error al cargar usuarios');
+        }
+    });
+}
+
 function searchOrders() {
     searchTerm = $('#search-input').val();
     currentPage = 1;
@@ -334,7 +346,7 @@ function loadOrders(page = 1) {
             page: currentPage,
             per_page: perPage,
             search: searchTerm,
-            status: statusFilter
+            created_by: userFilter
         },
         success: function(response) {
             if (response.success) {
@@ -379,10 +391,12 @@ function renderOrders(orders) {
             <div class="order-card">
                 <div class="row align-items-center">
                     <div class="col-md-1">
-                        <h5 class="mb-0">#${order.id}</h5>
+                        <h5 class="mb-0 text-primary">${order.order_number || '#' + order.id}</h5>
+                        <small class="text-muted">ID: ${order.id}</small>
                     </div>
                     <div class="col-md-2">
-                        <span class="badge bg-${statusClass} status-badge">${statusText}</span>
+                        <span class="badge bg-${statusClass} status-badge">${statusText}</span><br>
+                        <small class="text-muted"><i class="bi bi-person-badge"></i> ${order.created_by}</small>
                     </div>
                     <div class="col-md-3">
                         <strong>${order.customer_name}</strong><br>
