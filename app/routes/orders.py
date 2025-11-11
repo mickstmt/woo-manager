@@ -70,6 +70,62 @@ def get_next_manager_order_number():
     return f"W-{next_number:05d}"
 
 
+def trigger_woocommerce_email(order_id):
+    """
+    Dispara el envío de correo de WooCommerce usando la API REST
+
+    Actualiza el estado del pedido al mismo estado que ya tiene, lo cual
+    fuerza a WooCommerce a disparar el hook de notificación por correo.
+
+    Args:
+        order_id (int): ID del pedido
+
+    Returns:
+        bool: True si se disparó correctamente, False si hubo error
+    """
+    import requests
+    from requests.auth import HTTPBasicAuth
+
+    try:
+        # Obtener credenciales de WooCommerce API
+        wc_url = current_app.config.get('WC_API_URL')
+        consumer_key = current_app.config.get('WC_CONSUMER_KEY')
+        consumer_secret = current_app.config.get('WC_CONSUMER_SECRET')
+
+        if not all([wc_url, consumer_key, consumer_secret]):
+            current_app.logger.error("WooCommerce API credentials not configured")
+            return False
+
+        # Endpoint de la API REST de WooCommerce
+        api_url = f"{wc_url}/wp-json/wc/v3/orders/{order_id}"
+
+        # Actualizar el pedido al mismo estado para disparar el hook de correo
+        # IMPORTANTE: set_paid=true dispara el correo de "Processing order"
+        payload = {
+            'status': 'processing',
+            'set_paid': True
+        }
+
+        # Hacer la petición PUT a la API de WooCommerce
+        response = requests.put(
+            api_url,
+            json=payload,
+            auth=HTTPBasicAuth(consumer_key, consumer_secret),
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            current_app.logger.info(f"Successfully triggered email for order {order_id}")
+            return True
+        else:
+            current_app.logger.error(f"Failed to trigger email for order {order_id}: {response.status_code} - {response.text}")
+            return False
+
+    except Exception as e:
+        current_app.logger.error(f"Exception triggering email for order {order_id}: {str(e)}")
+        return False
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -1277,6 +1333,18 @@ def create_order():
         except Exception as cache_error:
             current_app.logger.warning(f"Could not clear cache for order {order.id}: {str(cache_error)}")
             # No fallar si la limpieza de cache falla
+
+        # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
+        # Usar la API REST de WooCommerce para disparar el correo de "Processing order"
+        try:
+            email_sent = trigger_woocommerce_email(order.id)
+            if email_sent:
+                current_app.logger.info(f"Email notification triggered successfully for order {order.id}")
+            else:
+                current_app.logger.warning(f"Could not trigger email notification for order {order.id}")
+        except Exception as email_error:
+            current_app.logger.error(f"Exception triggering email for order {order.id}: {str(email_error)}")
+            # No fallar si el envío de correo falla, el pedido ya fue creado
 
         return jsonify({
             'success': True,

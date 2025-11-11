@@ -26,6 +26,11 @@ class Config:
     # Configuración de zona horaria
     TIMEZONE = 'America/Lima'  # UTC-5 (Perú)
 
+    # WooCommerce API REST
+    WC_API_URL = os.environ.get('WC_API_URL', 'https://www.izistoreperu.com')
+    WC_CONSUMER_KEY = os.environ.get('WC_CONSUMER_KEY')
+    WC_CONSUMER_SECRET = os.environ.get('WC_CONSUMER_SECRET')
+
     # Configuración de sesión
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
