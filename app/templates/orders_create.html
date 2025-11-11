@@ -412,31 +412,60 @@
 
                     <div class="mb-3">
                         <label class="form-label">Tipo de Entrega <span class="text-danger">*</span></label>
-                        <select class="form-select" id="delivery-type" required>
+                        <select class="form-select" id="delivery-type" required onchange="updateAddressFields()">
                             <option value="billing_domicilio">Entrega a Domicilio</option>
-                            <option value="billing_agencia">Agencia de Transporte</option>
-                            <option value="billing_recojo">Recojo en Tienda</option>
+                            <option value="billing_agencia">En Agencia Shalom/Olva Courier</option>
+                            <option value="billing_recojo">Recojo en Almacén</option>
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Dirección <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="address" required>
+                    <div class="mb-3" id="address-container">
+                        <label class="form-label" id="address-label">Dirección <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="address">
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3" id="reference-container">
                         <label class="form-label">Referencia (Opcional)</label>
                         <input type="text" class="form-control" id="reference" placeholder="Ej: Cerca del parque, frente al colegio...">
                     </div>
 
-                    <div class="row">
+                    <div class="row" id="location-container">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Distrito <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="city" value="Lima" required>
+                            <select class="form-select" id="city">
+                                <option value="">Seleccione distrito</option>
+                                <option value="Lima">Lima</option>
+                                <option value="Miraflores">Miraflores</option>
+                                <option value="San Isidro">San Isidro</option>
+                                <option value="Surco">Surco</option>
+                                <option value="La Molina">La Molina</option>
+                                <option value="San Borja">San Borja</option>
+                                <option value="Surquillo">Surquillo</option>
+                                <option value="Barranco">Barranco</option>
+                                <option value="Chorrillos">Chorrillos</option>
+                                <option value="San Miguel">San Miguel</option>
+                                <option value="Pueblo Libre">Pueblo Libre</option>
+                                <option value="Jesús María">Jesús María</option>
+                                <option value="Lince">Lince</option>
+                                <option value="Magdalena">Magdalena</option>
+                                <option value="San Martín de Porres">San Martín de Porres</option>
+                                <option value="Los Olivos">Los Olivos</option>
+                                <option value="Independencia">Independencia</option>
+                                <option value="Comas">Comas</option>
+                                <option value="Callao">Callao</option>
+                            </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Departamento <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="state" value="LIMA" required>
+                            <select class="form-select" id="state">
+                                <option value="">Seleccione departamento</option>
+                                <option value="LIMA" selected>Lima</option>
+                                <option value="CALL">Callao</option>
+                                <option value="AREQUIPA">Arequipa</option>
+                                <option value="CUSCO">Cusco</option>
+                                <option value="LA LIBERTAD">La Libertad</option>
+                                <option value="PIURA">Piura</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1506,6 +1535,46 @@ function showNotification(type, message) {
     `;
     $('body').append(html);
     setTimeout(() => $('.alert').fadeOut(), 3000);
+}
+
+// Función para actualizar campos según tipo de entrega
+function updateAddressFields() {
+    const deliveryType = $('#delivery-type').val();
+    const addressContainer = $('#address-container');
+    const addressLabel = $('#address-label');
+    const addressInput = $('#address');
+    const referenceContainer = $('#reference-container');
+    const locationContainer = $('#location-container');
+
+    if (deliveryType === 'billing_recojo') {
+        // Recojo en Almacén - Ocultar todos los campos de dirección
+        addressContainer.hide();
+        referenceContainer.hide();
+        locationContainer.hide();
+        addressInput.removeAttr('required');
+        $('#city').removeAttr('required');
+        $('#state').removeAttr('required');
+    } else if (deliveryType === 'billing_agencia') {
+        // En Agencia Shalom/Olva Courier - Cambiar label
+        addressContainer.show();
+        referenceContainer.show();
+        locationContainer.show();
+        addressLabel.html('Sede o Agencia Shalom / Olva Courier <span class="text-danger">*</span>');
+        addressInput.attr('placeholder', 'Ej: Agencia Shalom Av. Faucett 492');
+        addressInput.attr('required', 'required');
+        $('#city').attr('required', 'required');
+        $('#state').attr('required', 'required');
+    } else {
+        // Entrega a Domicilio - Mostrar todo normal
+        addressContainer.show();
+        referenceContainer.show();
+        locationContainer.show();
+        addressLabel.html('Dirección <span class="text-danger">*</span>');
+        addressInput.attr('placeholder', '');
+        addressInput.attr('required', 'required');
+        $('#city').attr('required', 'required');
+        $('#state').attr('required', 'required');
+    }
 }
 
 function showLoadingOverlay(message = 'Cargando...') {

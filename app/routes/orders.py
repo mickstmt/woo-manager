@@ -855,9 +855,9 @@ def create_order():
             # Mapear billing_entrega a nombres legibles para WooCommerce
             billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
             shipping_method_names = {
-                'billing_agencia': 'Recojo Agencia Shalom',
-                'billing_domicilio': 'A Domicilio',
-                'billing_recojo': 'Recojo Almacen - SMP Lima'
+                'billing_agencia': 'En Agencia Shalom/Olva Courier',
+                'billing_domicilio': 'Entrega a Domicilio',
+                'billing_recojo': 'Recojo en Almacén'
             }
             shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
 
