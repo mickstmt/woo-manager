@@ -852,8 +852,17 @@ def create_order():
             shipping_subtotal = shipping_cost / Decimal('1.18')
             shipping_tax = shipping_cost - shipping_subtotal
 
+            # Mapear billing_entrega a nombres legibles para WooCommerce
+            billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
+            shipping_method_names = {
+                'billing_agencia': 'Recojo Agencia Shalom',
+                'billing_domicilio': 'A Domicilio',
+                'billing_recojo': 'Recojo Almacen - SMP Lima'
+            }
+            shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
+
             shipping_item = OrderItem(
-                order_item_name='Envío',
+                order_item_name=shipping_method_name,  # Usar nombre específico del método
                 order_item_type='shipping',
                 order_id=order.id
             )
@@ -861,8 +870,9 @@ def create_order():
             db.session.flush()
 
             shipping_metas = [
-                ('method_id', 'flat_rate'),
+                ('method_id', 'advanced_shipping'),  # Cambiado de 'flat_rate' a 'advanced_shipping'
                 ('cost', str(shipping_subtotal.quantize(Decimal('0.01')))),
+                ('instance_id', '0'),  # Agregar instance_id
                 ('total_tax', str(shipping_tax.quantize(Decimal('0.01')))),
                 ('taxes', 'a:1:{s:1:"1";s:4:"' + str(shipping_tax.quantize(Decimal('0.01'))) + '";}'),
             ]
@@ -962,12 +972,17 @@ def create_order():
             ('billing_referencia', customer.get('billing_referencia', '')),
             ('_thwcfe_ship_to_billing', '1'),  # Copiar billing a shipping
 
-            # Attribution (rastreo de origen)
-            ('_wc_order_attribution_source_type', 'direct'),
+            # Attribution (rastreo de origen) - Compatibilidad con WooCommerce Order Attribution
+            ('_wc_order_attribution_source_type', 'admin'),  # Cambiado de 'direct' a 'admin'
             ('_wc_order_attribution_referrer', 'whatsapp'),
             ('_wc_order_attribution_utm_source', 'whatsapp'),
+            ('_wc_order_attribution_utm_medium', 'manual_order'),  # Agregar medium
+            ('_wc_order_attribution_utm_content', 'woocommerce-manager'),  # Agregar content
+            ('_wc_order_attribution_session_entry', 'https://www.izistoreperu.com/orders/create'),  # URL de entrada
+            ('_wc_order_attribution_session_start_time', get_gmt_time().strftime('%Y-%m-%d %H:%M:%S')),  # Timestamp
             ('_wc_order_attribution_session_pages', '1'),
             ('_wc_order_attribution_session_count', '1'),
+            ('_wc_order_attribution_device_type', 'Desktop'),  # Tipo de dispositivo
             ('_wc_order_attribution_user_agent', request.headers.get('User-Agent', '')[:200]),
         ]
 
