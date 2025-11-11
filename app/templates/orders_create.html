@@ -1333,14 +1333,22 @@ function showStep3Summary() {
 
     // Resumen de entrega
     const deliveryType = $('#delivery-type option:selected').text();
-    const deliveryHtml = `
-        <p><strong>Tipo:</strong> ${deliveryType}</p>
-        <p><strong>Dirección:</strong> ${$('#address').val()}</p>
-        ${$('#reference').val() ? `<p><strong>Referencia:</strong> ${$('#reference').val()}</p>` : ''}
-        <p><strong>Distrito:</strong> ${$('#city').val()}</p>
-        <p><strong>Departamento:</strong> ${$('#state').val()}</p>
-        <p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>
-    `;
+    const deliveryTypeValue = $('#delivery-type').val();
+
+    let deliveryHtml = `<p><strong>Tipo:</strong> ${deliveryType}</p>`;
+
+    // Solo mostrar campos de dirección si NO es "Recojo en Almacén"
+    if (deliveryTypeValue !== 'billing_recojo') {
+        deliveryHtml += `
+            <p><strong>Dirección:</strong> ${$('#address').val()}</p>
+            ${$('#reference').val() ? `<p><strong>Referencia:</strong> ${$('#reference').val()}</p>` : ''}
+            <p><strong>Distrito:</strong> ${$('#city').val()}</p>
+            <p><strong>Departamento:</strong> ${$('#state').val()}</p>
+        `;
+    }
+
+    deliveryHtml += `<p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>`;
+
     $('#delivery-summary').html(deliveryHtml);
 
     // Resumen de productos
@@ -1433,14 +1441,31 @@ function goToStep(step) {
 }
 
 function validateStep2() {
-    const required = ['first-name', 'last-name', 'email', 'phone', 'dni', 'address', 'city', 'state'];
+    // Campos siempre requeridos
+    const alwaysRequired = ['first-name', 'last-name', 'email', 'phone', 'dni'];
 
-    for (const field of required) {
+    // Validar campos siempre requeridos
+    for (const field of alwaysRequired) {
         const value = $(`#${field}`).val();
         if (!value || value.trim() === '') {
             showNotification('error', `Por favor completa todos los campos requeridos`);
             $(`#${field}`).focus();
             return false;
+        }
+    }
+
+    // Validar campos de dirección solo si NO es "Recojo en Almacén"
+    const deliveryType = $('#delivery-type').val();
+    if (deliveryType !== 'billing_recojo') {
+        const addressRequired = ['address', 'city', 'state'];
+
+        for (const field of addressRequired) {
+            const value = $(`#${field}`).val();
+            if (!value || value.trim() === '') {
+                showNotification('error', `Por favor completa todos los campos de dirección requeridos`);
+                $(`#${field}`).focus();
+                return false;
+            }
         }
     }
 
@@ -1462,6 +1487,10 @@ function submitOrder() {
     btn.prop('disabled', true);
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
 
+    // Verificar tipo de entrega
+    const deliveryType = $('#delivery-type').val();
+    const isPickup = deliveryType === 'billing_recojo';
+
     // Preparar datos
     const orderData = {
         customer: {
@@ -1470,15 +1499,16 @@ function submitOrder() {
             email: $('#email').val(),
             phone: $('#phone').val(),
             company: $('#dni').val(),  // DNI/CE
-            address_1: $('#address').val(),
-            city: $('#city').val(),
-            state: $('#state').val(),
+            // Si es recojo en almacén, usar valores por defecto; si no, usar los del formulario
+            address_1: isPickup ? 'Recojo en Almacén' : $('#address').val(),
+            city: isPickup ? 'Lima' : $('#city').val(),
+            state: isPickup ? 'LIMA' : $('#state').val(),
             postcode: '',
             country: 'PE',
             // Campos custom
             billing_ruc: $('#ruc').val() || '',
-            billing_entrega: $('#delivery-type').val(),
-            billing_referencia: $('#reference').val() || ''
+            billing_entrega: deliveryType,
+            billing_referencia: isPickup ? '' : ($('#reference').val() || '')
         },
         items: cart.map(item => ({
             product_id: item.product_id || 0,
