@@ -74,8 +74,9 @@ def trigger_woocommerce_email(order_id):
     """
     Dispara el envío de correo de WooCommerce usando la API REST
 
-    Actualiza el estado del pedido al mismo estado que ya tiene, lo cual
-    fuerza a WooCommerce a disparar el hook de notificación por correo.
+    ESTRATEGIA: Para forzar el envío de correo, cambiamos el estado del pedido
+    de 'pending' a 'processing'. Esta transición de estado dispara el hook
+    de email de WooCommerce automáticamente.
 
     Args:
         order_id (int): ID del pedido
@@ -85,6 +86,7 @@ def trigger_woocommerce_email(order_id):
     """
     import requests
     from requests.auth import HTTPBasicAuth
+    import time
 
     try:
         # Obtener credenciales de WooCommerce API
@@ -98,27 +100,49 @@ def trigger_woocommerce_email(order_id):
 
         # Endpoint de la API REST de WooCommerce
         api_url = f"{wc_url}/wp-json/wc/v3/orders/{order_id}"
+        auth = HTTPBasicAuth(consumer_key, consumer_secret)
 
-        # Actualizar el pedido al mismo estado para disparar el hook de correo
-        # IMPORTANTE: set_paid=true dispara el correo de "Processing order"
-        payload = {
+        # PASO 1: Cambiar a 'pending' (estado intermedio)
+        # Esto asegura que luego podamos hacer una transición real
+        payload_pending = {
+            'status': 'pending'
+        }
+
+        response_pending = requests.put(
+            api_url,
+            json=payload_pending,
+            auth=auth,
+            timeout=10
+        )
+
+        if response_pending.status_code != 200:
+            current_app.logger.error(f"Failed to set order {order_id} to pending: {response_pending.status_code}")
+            return False
+
+        current_app.logger.info(f"Order {order_id} set to pending")
+
+        # Pequeña pausa para asegurar que WooCommerce procese el cambio
+        time.sleep(0.5)
+
+        # PASO 2: Cambiar a 'processing' + set_paid
+        # Esta transición de estado dispara el correo de "Processing order"
+        payload_processing = {
             'status': 'processing',
             'set_paid': True
         }
 
-        # Hacer la petición PUT a la API de WooCommerce
-        response = requests.put(
+        response_processing = requests.put(
             api_url,
-            json=payload,
-            auth=HTTPBasicAuth(consumer_key, consumer_secret),
+            json=payload_processing,
+            auth=auth,
             timeout=10
         )
 
-        if response.status_code == 200:
-            current_app.logger.info(f"Successfully triggered email for order {order_id}")
+        if response_processing.status_code == 200:
+            current_app.logger.info(f"Successfully triggered email for order {order_id} via status transition")
             return True
         else:
-            current_app.logger.error(f"Failed to trigger email for order {order_id}: {response.status_code} - {response.text}")
+            current_app.logger.error(f"Failed to trigger email for order {order_id}: {response_processing.status_code} - {response_processing.text}")
             return False
 
     except Exception as e:
