@@ -1372,6 +1372,24 @@ def create_order():
 from config import get_local_time
 
 
+@bp.route('/debug-woocommerce-api')
+@login_required
+def debug_woocommerce_api():
+    """
+    Endpoint temporal para verificar configuración de WooCommerce API
+    """
+    wc_url = current_app.config.get('WC_API_URL')
+    consumer_key = current_app.config.get('WC_CONSUMER_KEY')
+    consumer_secret = current_app.config.get('WC_CONSUMER_SECRET')
+
+    return jsonify({
+        'wc_url': wc_url,
+        'consumer_key_configured': bool(consumer_key),
+        'consumer_secret_configured': bool(consumer_secret),
+        'consumer_key_preview': consumer_key[:10] + '...' if consumer_key else None
+    })
+
+
 @bp.route('/debug-last-order')
 @login_required
 def debug_last_order():
