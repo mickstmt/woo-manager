@@ -639,6 +639,21 @@ $(document).ready(function() {
     loadCategories();
     updateCartDisplay();
 
+    // Inicializar Select2 para departamento y distrito
+    $('#state').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar departamento...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#city').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar distrito...',
+        allowClear: true,
+        width: '100%'
+    });
+
     // Actualizar resumen cuando cambie el costo de envío
     $('#shipping-cost').on('input', function() {
         updateCartSummary();
