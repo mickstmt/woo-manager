@@ -1390,6 +1390,103 @@ def debug_woocommerce_api():
     })
 
 
+@bp.route('/test-email-trigger/<int:order_id>')
+@login_required
+def test_email_trigger(order_id):
+    """
+    Endpoint de prueba para disparar el correo de un pedido específico
+    Muestra el resultado completo de la petición a WooCommerce API
+
+    Uso: /orders/test-email-trigger/12345
+    """
+    import requests
+    from requests.auth import HTTPBasicAuth
+
+    result = {
+        'order_id': order_id,
+        'timestamp': get_gmt_time().isoformat(),
+        'config_check': {},
+        'api_request': {},
+        'result': 'unknown'
+    }
+
+    try:
+        # Verificar que el pedido existe
+        order = Order.query.get(order_id)
+        if not order:
+            result['result'] = 'error'
+            result['error'] = f'Order {order_id} not found in database'
+            return jsonify(result), 404
+
+        result['order_found'] = True
+        result['order_number'] = order.id
+
+        # Verificar configuración
+        wc_url = current_app.config.get('WC_API_URL')
+        consumer_key = current_app.config.get('WC_CONSUMER_KEY')
+        consumer_secret = current_app.config.get('WC_CONSUMER_SECRET')
+
+        result['config_check'] = {
+            'wc_url': wc_url,
+            'consumer_key_configured': bool(consumer_key),
+            'consumer_secret_configured': bool(consumer_secret),
+            'consumer_key_preview': consumer_key[:10] + '...' if consumer_key else None
+        }
+
+        if not all([wc_url, consumer_key, consumer_secret]):
+            result['result'] = 'error'
+            result['error'] = 'WooCommerce API credentials not configured'
+            return jsonify(result), 500
+
+        # Construir URL de API
+        api_url = f"{wc_url}/wp-json/wc/v3/orders/{order_id}"
+        result['api_request']['url'] = api_url
+
+        # Payload
+        payload = {
+            'status': 'processing',
+            'set_paid': True
+        }
+        result['api_request']['payload'] = payload
+
+        # Hacer petición a WooCommerce API
+        current_app.logger.info(f"TEST: Making API request to {api_url}")
+
+        response = requests.put(
+            api_url,
+            json=payload,
+            auth=HTTPBasicAuth(consumer_key, consumer_secret),
+            timeout=10
+        )
+
+        result['api_request']['status_code'] = response.status_code
+        result['api_request']['response_text'] = response.text[:500]  # Limitar a 500 chars
+
+        if response.status_code == 200:
+            result['result'] = 'success'
+            result['message'] = 'Email trigger successful'
+            current_app.logger.info(f"TEST: Successfully triggered email for order {order_id}")
+        else:
+            result['result'] = 'api_error'
+            result['message'] = f'API returned status {response.status_code}'
+            current_app.logger.error(f"TEST: API error for order {order_id}: {response.status_code}")
+
+        return jsonify(result), response.status_code
+
+    except requests.exceptions.RequestException as e:
+        result['result'] = 'network_error'
+        result['error'] = str(e)
+        current_app.logger.error(f"TEST: Network error for order {order_id}: {str(e)}")
+        return jsonify(result), 500
+
+    except Exception as e:
+        result['result'] = 'exception'
+        result['error'] = str(e)
+        result['error_type'] = type(e).__name__
+        current_app.logger.error(f"TEST: Exception for order {order_id}: {str(e)}")
+        return jsonify(result), 500
+
+
 @bp.route('/debug-last-order')
 @login_required
 def debug_last_order():
