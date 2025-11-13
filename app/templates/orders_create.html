@@ -451,6 +451,21 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label class="form-label">Método de Envío <span class="text-danger">*</span></label>
+                            <select class="form-select" id="shipping-method" required disabled>
+                                <option value="">Primero seleccione distrito</option>
+                            </select>
+                            <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos disponibles</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Costo de Envío (S/) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.01" required>
+                            <small class="text-muted">Se actualiza automáticamente al seleccionar método, pero puede editarlo</small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Método de Pago <span class="text-danger">*</span></label>
                             <select class="form-select" id="payment-method" required>
                                 <option value="cod">Yape</option>
@@ -460,21 +475,6 @@
                                 <option value="izipaypay">Paga con Yape y Plin</option>
                                 <option value="woo-mercado-pago-basic">Mercado Pago</option>
                             </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Método de Envío <span class="text-danger">*</span></label>
-                            <select class="form-select" id="shipping-method" required disabled>
-                                <option value="">Primero seleccione distrito</option>
-                            </select>
-                            <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos disponibles</small>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Costo de Envío (S/) <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.01" required>
-                            <small class="text-muted">Se actualiza automáticamente al seleccionar método, pero puede editarlo</small>
                         </div>
                     </div>
 
