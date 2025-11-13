@@ -466,8 +466,15 @@
                             <select class="form-select" id="shipping-method" required disabled>
                                 <option value="">Primero seleccione distrito</option>
                             </select>
-                            <input type="hidden" id="shipping-cost" value="0">
                             <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos disponibles</small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Costo de Envío (S/) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.01" required>
+                            <small class="text-muted">Se actualiza automáticamente al seleccionar método, pero puede editarlo</small>
                         </div>
                     </div>
 
@@ -744,8 +751,8 @@ function loadMetodosEnvio(distrito) {
 
                 response.metodos.forEach(function(metodo) {
                     $shippingSelect.append(
-                        `<option value="${metodo.cost}" data-method-id="${metodo.id}">
-                            ${metodo.title} - S/ ${metodo.cost.toFixed(2)}
+                        `<option value="${metodo.cost}" data-method-id="${metodo.id}" data-method-title="${metodo.title}">
+                            ${metodo.title}
                         </option>`
                     );
                 });
@@ -756,8 +763,13 @@ function loadMetodosEnvio(distrito) {
                 // Actualizar costo cuando se selecciona un método
                 $shippingSelect.off('change.cost').on('change.cost', function() {
                     const cost = $(this).val();
-                    $('#shipping-cost').val(cost || 0);
-                    updateCartSummary();
+                    const methodTitle = $(this).find(':selected').data('method-title');
+
+                    $('#shipping-cost').val(cost || 0).trigger('input');
+
+                    if (methodTitle) {
+                        showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
+                    }
                 });
             } else {
                 $shippingSelect.empty()
