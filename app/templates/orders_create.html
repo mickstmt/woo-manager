@@ -639,19 +639,19 @@ $(document).ready(function() {
     loadCategories();
     updateCartDisplay();
 
-    // Inicializar Select2 para departamento y distrito
-    $('#state').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Buscar departamento...',
-        allowClear: true,
-        width: '100%'
-    });
+    // Cargar departamentos desde API
+    loadDepartamentos();
 
-    $('#city').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Buscar distrito...',
-        allowClear: true,
-        width: '100%'
+    // Cuando cambie el departamento, cargar sus distritos
+    $('#state').on('change', function() {
+        const departamentoCode = $(this).val();
+        if (departamentoCode) {
+            loadDistritos(departamentoCode);
+        } else {
+            // Limpiar distrito si no hay departamento seleccionado
+            $('#city').empty().append('<option value="">Seleccione distrito</option>');
+            $('#city').trigger('change');
+        }
     });
 
     // Actualizar resumen cuando cambie el costo de envío
@@ -659,6 +659,80 @@ $(document).ready(function() {
         updateCartSummary();
     });
 });
+
+// ==================== UBIGEO: DEPARTAMENTOS Y DISTRITOS ====================
+
+function loadDepartamentos() {
+    $.ajax({
+        url: '/orders/api/departamentos',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const $select = $('#state');
+                $select.empty();
+                $select.append('<option value="">Seleccione departamento</option>');
+
+                response.departamentos.forEach(function(dep) {
+                    $select.append(`<option value="${dep.code}">${dep.name}</option>`);
+                });
+
+                // Inicializar Select2 después de cargar opciones
+                $select.select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Buscar departamento...',
+                    allowClear: true,
+                    width: '100%'
+                });
+            } else {
+                showNotification('error', 'Error al cargar departamentos: ' + response.error);
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión al cargar departamentos');
+        }
+    });
+}
+
+function loadDistritos(departamentoCode) {
+    const $citySelect = $('#city');
+
+    // Mostrar loading
+    $citySelect.empty().append('<option value="">Cargando...</option>');
+
+    $.ajax({
+        url: `/orders/api/distritos/${departamentoCode}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                $citySelect.empty();
+                $citySelect.append('<option value="">Seleccione distrito</option>');
+
+                response.distritos.forEach(function(distrito) {
+                    $citySelect.append(`<option value="${distrito}">${distrito}</option>`);
+                });
+
+                // Inicializar o reinicializar Select2 en distrito
+                if ($citySelect.hasClass('select2-hidden-accessible')) {
+                    $citySelect.select2('destroy');
+                }
+
+                $citySelect.select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Buscar distrito...',
+                    allowClear: true,
+                    width: '100%'
+                });
+            } else {
+                $citySelect.empty().append('<option value="">Error al cargar</option>');
+                showNotification('error', 'Error: ' + response.error);
+            }
+        },
+        error: function() {
+            $citySelect.empty().append('<option value="">Error de conexión</option>');
+            showNotification('error', 'Error de conexión al cargar distritos');
+        }
+    });
+}
 
 // ==================== PASO 1: PRODUCTOS ====================
 

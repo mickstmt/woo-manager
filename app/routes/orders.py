@@ -1,5 +1,5 @@
 # app/routes/orders.py
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
 from flask_login import login_required, current_user
 from app.models import Order, OrderAddress, OrderItem, OrderItemMeta, OrderMeta, Product, ProductMeta
 from app import db
@@ -8,6 +8,8 @@ from decimal import Decimal
 from sqlalchemy import or_, desc
 import pytz
 import hashlib
+import json
+import os
 
 bp = Blueprint('orders', __name__, url_prefix='/orders')
 
@@ -159,6 +161,85 @@ def index():
     URL: http://localhost:5000/orders/
     """
     return render_template('orders_list.html', title='Gestión de Pedidos')
+
+
+@bp.route('/api/departamentos')
+@login_required
+def get_departamentos():
+    """
+    Endpoint API para obtener lista de departamentos de Perú
+
+    Returns:
+        JSON con lista de departamentos [{code, name}, ...]
+    """
+    try:
+        # Leer archivo JSON estático
+        ubigeo_path = os.path.join(current_app.root_path, 'static', 'data', 'ubigeo.json')
+
+        with open(ubigeo_path, 'r', encoding='utf-8') as f:
+            ubigeo_data = json.load(f)
+
+        return jsonify({
+            'success': True,
+            'departamentos': ubigeo_data['departamentos']
+        })
+
+    except FileNotFoundError:
+        return jsonify({
+            'success': False,
+            'error': 'Archivo de ubigeo no encontrado'
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/api/distritos/<departamento_code>')
+@login_required
+def get_distritos(departamento_code):
+    """
+    Endpoint API para obtener distritos de un departamento específico
+
+    Args:
+        departamento_code: Código del departamento (ej: LIMA, CALL, AREQ)
+
+    Returns:
+        JSON con lista de distritos del departamento
+    """
+    try:
+        # Leer archivo JSON estático
+        ubigeo_path = os.path.join(current_app.root_path, 'static', 'data', 'ubigeo.json')
+
+        with open(ubigeo_path, 'r', encoding='utf-8') as f:
+            ubigeo_data = json.load(f)
+
+        # Validar que el departamento existe
+        departamento_code = departamento_code.upper()
+        if departamento_code not in ubigeo_data['distritos']:
+            return jsonify({
+                'success': False,
+                'error': f'Departamento {departamento_code} no encontrado'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'distritos': ubigeo_data['distritos'][departamento_code]
+        })
+
+    except FileNotFoundError:
+        return jsonify({
+            'success': False,
+            'error': 'Archivo de ubigeo no encontrado'
+        }), 404
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @bp.route('/create')
