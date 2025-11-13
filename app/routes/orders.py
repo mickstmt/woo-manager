@@ -242,6 +242,120 @@ def get_distritos(departamento_code):
         }), 500
 
 
+@bp.route('/api/metodos-envio/<distrito>')
+@login_required
+def get_metodos_envio(distrito):
+    """
+    Endpoint API para obtener métodos de envío disponibles para un distrito
+
+    Args:
+        distrito: Nombre del distrito (ej: "Miraflores", "Ate")
+
+    Returns:
+        JSON con lista de métodos de envío disponibles con sus tarifas
+    """
+    try:
+        import phpserialize
+        from sqlalchemy import text
+
+        # Obtener todos los métodos de envío activos (post_type = 'was')
+        query = text("""
+            SELECT p.ID, p.post_title
+            FROM wpyz_posts p
+            WHERE p.post_type = 'was'
+            AND p.post_status = 'publish'
+            ORDER BY p.ID
+        """)
+
+        shipping_methods = db.session.execute(query).fetchall()
+        available_methods = []
+
+        for method in shipping_methods:
+            method_id = method[0]
+            method_title = method[1]
+
+            # Obtener metadatos del método
+            meta_query = text("""
+                SELECT meta_key, meta_value
+                FROM wpyz_postmeta
+                WHERE post_id = :method_id
+                AND meta_key IN ('_was_shipping_method', '_was_shipping_method_conditions')
+            """)
+
+            meta_result = db.session.execute(meta_query, {'method_id': method_id}).fetchall()
+
+            shipping_data = {}
+            conditions_data = {}
+
+            for meta in meta_result:
+                meta_key = meta[0]
+                meta_value = meta[1]
+
+                if meta_key == '_was_shipping_method':
+                    # Deserializar datos PHP del método
+                    try:
+                        shipping_data = phpserialize.loads(meta_value.encode('utf-8'), decode_strings=True)
+                    except:
+                        continue
+
+                elif meta_key == '_was_shipping_method_conditions':
+                    # Deserializar condiciones (distritos)
+                    try:
+                        conditions_data = phpserialize.loads(meta_value.encode('utf-8'), decode_strings=True)
+                    except:
+                        continue
+
+            # Verificar si el distrito está en las condiciones
+            distrito_match = False
+
+            if conditions_data and isinstance(conditions_data, dict):
+                for group in conditions_data.values():
+                    if isinstance(group, dict):
+                        for condition in group.values():
+                            if isinstance(condition, dict):
+                                # Verificar condición de ciudad
+                                if condition.get('condition') == 'city':
+                                    cities_str = condition.get('value', '')
+                                    # Los distritos están separados por comas
+                                    cities_list = [city.strip() for city in cities_str.split(',')]
+
+                                    # Comparación case-insensitive
+                                    if any(distrito.lower() == city.lower() for city in cities_list):
+                                        distrito_match = True
+                                        break
+
+                    if distrito_match:
+                        break
+
+            # Si el distrito coincide, agregar método a la lista
+            if distrito_match and shipping_data:
+                method_info = {
+                    'id': method_id,
+                    'title': shipping_data.get('shipping_title', method_title),
+                    'cost': float(shipping_data.get('shipping_cost', 0)),
+                    'tax': shipping_data.get('tax', 'taxable')
+                }
+                available_methods.append(method_info)
+
+        # Ordenar por precio (menor a mayor)
+        available_methods.sort(key=lambda x: x['cost'])
+
+        return jsonify({
+            'success': True,
+            'distrito': distrito,
+            'metodos': available_methods,
+            'count': len(available_methods)
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/create')
 @login_required
 def create_page():

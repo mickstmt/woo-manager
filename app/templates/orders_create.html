@@ -431,40 +431,15 @@
 
                     <div class="row" id="location-container">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Distrito <span class="text-danger">*</span></label>
-                            <select class="form-select" id="city">
-                                <option value="">Seleccione distrito</option>
-                                <option value="Lima">Lima</option>
-                                <option value="Miraflores">Miraflores</option>
-                                <option value="San Isidro">San Isidro</option>
-                                <option value="Surco">Surco</option>
-                                <option value="La Molina">La Molina</option>
-                                <option value="San Borja">San Borja</option>
-                                <option value="Surquillo">Surquillo</option>
-                                <option value="Barranco">Barranco</option>
-                                <option value="Chorrillos">Chorrillos</option>
-                                <option value="San Miguel">San Miguel</option>
-                                <option value="Pueblo Libre">Pueblo Libre</option>
-                                <option value="Jesús María">Jesús María</option>
-                                <option value="Lince">Lince</option>
-                                <option value="Magdalena">Magdalena</option>
-                                <option value="San Martín de Porres">San Martín de Porres</option>
-                                <option value="Los Olivos">Los Olivos</option>
-                                <option value="Independencia">Independencia</option>
-                                <option value="Comas">Comas</option>
-                                <option value="Callao">Callao</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
                             <label class="form-label">Departamento <span class="text-danger">*</span></label>
                             <select class="form-select" id="state">
                                 <option value="">Seleccione departamento</option>
-                                <option value="LIMA" selected>Lima</option>
-                                <option value="CALL">Callao</option>
-                                <option value="AREQUIPA">Arequipa</option>
-                                <option value="CUSCO">Cusco</option>
-                                <option value="LA LIBERTAD">La Libertad</option>
-                                <option value="PIURA">Piura</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Distrito <span class="text-danger">*</span></label>
+                            <select class="form-select" id="city">
+                                <option value="">Seleccione distrito</option>
                             </select>
                         </div>
                     </div>
@@ -487,9 +462,12 @@
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Costo de Envío <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.1" required>
-                            <small class="text-muted">Ingrese S/ 0 si es recojo en tienda</small>
+                            <label class="form-label">Método de Envío <span class="text-danger">*</span></label>
+                            <select class="form-select" id="shipping-method" required disabled>
+                                <option value="">Primero seleccione distrito</option>
+                            </select>
+                            <input type="hidden" id="shipping-cost" value="0">
+                            <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos disponibles</small>
                         </div>
                     </div>
 
@@ -722,6 +700,20 @@ function loadDistritos(departamentoCode) {
                     allowClear: true,
                     width: '100%'
                 });
+
+                // Escuchar cambios en distrito para cargar métodos de envío
+                $citySelect.off('change.shipping').on('change.shipping', function() {
+                    const distrito = $(this).val();
+                    if (distrito) {
+                        loadMetodosEnvio(distrito);
+                    } else {
+                        // Limpiar métodos de envío si no hay distrito
+                        $('#shipping-method').prop('disabled', true).empty()
+                            .append('<option value="">Primero seleccione distrito</option>');
+                        $('#shipping-cost').val(0);
+                        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
+                    }
+                });
             } else {
                 $citySelect.empty().append('<option value="">Error al cargar</option>');
                 showNotification('error', 'Error: ' + response.error);
@@ -730,6 +722,55 @@ function loadDistritos(departamentoCode) {
         error: function() {
             $citySelect.empty().append('<option value="">Error de conexión</option>');
             showNotification('error', 'Error de conexión al cargar distritos');
+        }
+    });
+}
+
+function loadMetodosEnvio(distrito) {
+    const $shippingSelect = $('#shipping-method');
+    const $shippingHelp = $('#shipping-help');
+
+    // Mostrar loading
+    $shippingSelect.prop('disabled', true).empty()
+        .append('<option value="">Cargando métodos...</option>');
+    $shippingHelp.text('Buscando métodos de envío disponibles...');
+
+    $.ajax({
+        url: `/orders/api/metodos-envio/${encodeURIComponent(distrito)}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.metodos.length > 0) {
+                $shippingSelect.empty().append('<option value="">Seleccione método de envío</option>');
+
+                response.metodos.forEach(function(metodo) {
+                    $shippingSelect.append(
+                        `<option value="${metodo.cost}" data-method-id="${metodo.id}">
+                            ${metodo.title} - S/ ${metodo.cost.toFixed(2)}
+                        </option>`
+                    );
+                });
+
+                $shippingSelect.prop('disabled', false);
+                $shippingHelp.text(`${response.count} método(s) de envío disponible(s)`);
+
+                // Actualizar costo cuando se selecciona un método
+                $shippingSelect.off('change.cost').on('change.cost', function() {
+                    const cost = $(this).val();
+                    $('#shipping-cost').val(cost || 0);
+                    updateCartSummary();
+                });
+            } else {
+                $shippingSelect.empty()
+                    .append('<option value="">No hay métodos disponibles</option>');
+                $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío para este distrito</span>`);
+                $('#shipping-cost').val(0);
+                showNotification('warning', `No hay métodos de envío configurados para ${distrito}`);
+            }
+        },
+        error: function() {
+            $shippingSelect.empty().append('<option value="">Error al cargar</option>');
+            $shippingHelp.html('<span class="text-danger">Error de conexión</span>');
+            showNotification('error', 'Error al cargar métodos de envío');
         }
     });
 }
