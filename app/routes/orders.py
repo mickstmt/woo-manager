@@ -1309,8 +1309,9 @@ def create_order():
 
         # ===== ITEM DE ENVÍO =====
         if shipping_cost > 0:
-            shipping_subtotal = shipping_cost / Decimal('1.18')
-            shipping_tax = shipping_cost - shipping_subtotal
+            # El costo de envío NO incluye IGV (viene como precio final)
+            shipping_subtotal = shipping_cost
+            shipping_tax = Decimal('0')
 
             # Mapear billing_entrega a nombres legibles para WooCommerce
             billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
@@ -1331,10 +1332,10 @@ def create_order():
 
             shipping_metas = [
                 ('method_id', 'advanced_shipping'),  # Cambiado de 'flat_rate' a 'advanced_shipping'
-                ('cost', str(shipping_subtotal.quantize(Decimal('0.01')))),
+                ('cost', str(shipping_cost.quantize(Decimal('0.01')))),
                 ('instance_id', '0'),  # Agregar instance_id
-                ('total_tax', str(shipping_tax.quantize(Decimal('0.01')))),
-                ('taxes', 'a:1:{s:1:"1";s:4:"' + str(shipping_tax.quantize(Decimal('0.01'))) + '";}'),
+                ('total_tax', '0'),
+                ('taxes', 'a:0:{}'),  # Array vacío en PHP serializado
             ]
 
             for meta_key, meta_value in shipping_metas:
@@ -1351,8 +1352,11 @@ def create_order():
         # ===== ITEM DE DESCUENTO (FEE) =====
         # Si hay descuento, crear un line item de tipo 'fee' con valor negativo
         if discount_amount > 0:
+            # Formatear el porcentaje correctamente
+            discount_percentage_str = str(discount_percentage.quantize(Decimal('0.01')))
+
             discount_item = OrderItem(
-                order_item_name=f'Descuento ({discount_percentage}%)',
+                order_item_name=f'Descuento ({discount_percentage_str}%)',
                 order_item_type='fee',
                 order_id=order.id
             )
@@ -1360,12 +1364,16 @@ def create_order():
             db.session.flush()
 
             # Metadatos del descuento (valor negativo)
+            # WooCommerce usa _line_total para mostrar el monto en el resumen
+            discount_amount_str = str(discount_amount.quantize(Decimal('0.01')))
             discount_metas = [
-                ('_fee_amount', str(-discount_amount.quantize(Decimal('0.01')))),
-                ('_line_total', str(-discount_amount.quantize(Decimal('0.01')))),
+                ('_fee_amount', f'-{discount_amount_str}'),
+                ('_line_total', f'-{discount_amount_str}'),
                 ('_line_tax', '0'),
-                ('_line_subtotal', str(-discount_amount.quantize(Decimal('0.01')))),
+                ('_line_subtotal', f'-{discount_amount_str}'),
                 ('_line_subtotal_tax', '0'),
+                ('_tax_class', ''),
+                ('_line_tax_data', 'a:0:{}'),  # Array vacío de impuestos
             ]
 
             for meta_key, meta_value in discount_metas:
@@ -1375,6 +1383,8 @@ def create_order():
                     meta_value=str(meta_value)
                 )
                 db.session.add(discount_meta)
+
+            current_app.logger.info(f"Added discount line item: -{discount_amount_str} ({discount_percentage_str}%)")
 
         # ===== ITEM DE IMPUESTO (TAX) =====
         # WooCommerce requiere un item separado para los impuestos totales
