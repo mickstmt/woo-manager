@@ -1330,12 +1330,18 @@ def create_order():
             db.session.add(shipping_item)
             db.session.flush()
 
+            shipping_cost_str = str(shipping_cost.quantize(Decimal('0.01')))
             shipping_metas = [
-                ('method_id', 'advanced_shipping'),  # Cambiado de 'flat_rate' a 'advanced_shipping'
-                ('cost', str(shipping_cost.quantize(Decimal('0.01')))),
-                ('instance_id', '0'),  # Agregar instance_id
+                ('method_id', 'advanced_shipping'),
+                ('instance_id', '0'),
+                ('cost', shipping_cost_str),
                 ('total_tax', '0'),
-                ('taxes', 'a:0:{}'),  # Array vacío en PHP serializado
+                ('taxes', 'a:0:{}'),  # Array vacío en PHP serializado - sin impuestos
+                # Agregar metadatos adicionales para que WooCommerce no calcule impuestos
+                ('_line_total', shipping_cost_str),
+                ('_line_tax', '0'),
+                ('_line_subtotal', shipping_cost_str),
+                ('_line_subtotal_tax', '0'),
             ]
 
             for meta_key, meta_value in shipping_metas:
