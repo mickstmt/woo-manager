@@ -1046,25 +1046,36 @@ def create_order():
         customer = data['customer']
         items_data = data['items']
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
+        discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
 
         # DEBUG: Log customer data para verificar qué se está recibiendo
         current_app.logger.info(f"Creating order with customer data: {customer}")
+        current_app.logger.info(f"Discount percentage: {discount_percentage}%")
 
         # ===== CALCULAR TOTALES =====
         # Los precios INCLUYEN IGV (18%)
         # Fórmula: precio_sin_igv = precio_con_igv / 1.18
 
-        total_with_tax = Decimal('0')
+        products_total_with_tax = Decimal('0')
 
         # Sumar productos
         for item_data in items_data:
             item_price_with_tax = Decimal(str(item_data['price'])) * item_data['quantity']
-            total_with_tax += item_price_with_tax
+            products_total_with_tax += item_price_with_tax
 
-        # Sumar envío
-        total_with_tax += shipping_cost
+        # Aplicar descuento a los productos (NO al envío)
+        # Truncar en lugar de redondear
+        discount_amount = Decimal('0')
+        if discount_percentage > 0:
+            discount_amount = (products_total_with_tax * discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+            current_app.logger.info(f"Discount amount: S/ {discount_amount}")
 
-        # Calcular subtotal e IGV
+        products_after_discount = products_total_with_tax - discount_amount
+
+        # Total final = productos con descuento + envío
+        total_with_tax = products_after_discount + shipping_cost
+
+        # Calcular subtotal e IGV del total final
         subtotal = total_with_tax / Decimal('1.18')
         tax_amount = total_with_tax - subtotal
 
@@ -1337,6 +1348,34 @@ def create_order():
             shipping_subtotal = Decimal('0')
             shipping_tax = Decimal('0')
 
+        # ===== ITEM DE DESCUENTO (FEE) =====
+        # Si hay descuento, crear un line item de tipo 'fee' con valor negativo
+        if discount_amount > 0:
+            discount_item = OrderItem(
+                order_item_name=f'Descuento ({discount_percentage}%)',
+                order_item_type='fee',
+                order_id=order.id
+            )
+            db.session.add(discount_item)
+            db.session.flush()
+
+            # Metadatos del descuento (valor negativo)
+            discount_metas = [
+                ('_fee_amount', str(-discount_amount.quantize(Decimal('0.01')))),
+                ('_line_total', str(-discount_amount.quantize(Decimal('0.01')))),
+                ('_line_tax', '0'),
+                ('_line_subtotal', str(-discount_amount.quantize(Decimal('0.01')))),
+                ('_line_subtotal_tax', '0'),
+            ]
+
+            for meta_key, meta_value in discount_metas:
+                discount_meta = OrderItemMeta(
+                    order_item_id=discount_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(discount_meta)
+
         # ===== ITEM DE IMPUESTO (TAX) =====
         # WooCommerce requiere un item separado para los impuestos totales
         total_tax_amount = items_tax + shipping_tax
@@ -1413,6 +1452,10 @@ def create_order():
             ('_order_shipping_tax', str(shipping_tax.quantize(Decimal('0.01')))),
             ('_order_tax', str(tax_amount.quantize(Decimal('0.01')))),
             ('_order_total', str(total_with_tax.quantize(Decimal('0.01')))),
+
+            # Descuento personalizado (metadata para referencia)
+            ('_wc_discount_percentage', str(discount_percentage)),
+            ('_wc_discount_amount', str(discount_amount.quantize(Decimal('0.01')))),
 
             # Campos custom del plugin Checkout Field Editor
             ('_billing_ruc', customer.get('billing_ruc', '')),

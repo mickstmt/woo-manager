@@ -1963,6 +1963,7 @@ function submitOrder() {
             price: item.price
         })),
         shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
+        discount_percentage: parseFloat($('#discount-percentage').val()) || 0,
         payment_method: $('#payment-method').val(),
         payment_method_title: $('#payment-method option:selected').text(),
         customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
