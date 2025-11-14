@@ -1090,7 +1090,7 @@ function selectProduct(productId, hasVariations) {
                 hideLoadingOverlay();
                 if (response.success) {
                     const parent = response.parent;
-                    addToCart(parent.id, 0, parent.name, parent.price, parent.sku);
+                    addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock);
                     showNotification('success', 'Producto agregado al carrito');
                 }
             },
@@ -1239,6 +1239,7 @@ function findMatchingVariation() {
         $('#add-variation-btn').data('variation-price', matchingVariation.price);
         $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
         $('#add-variation-btn').data('in-stock', inStock);
+        $('#add-variation-btn').data('stock', matchingVariation.stock);
 
         // Usar CSS directo en lugar de .show() para forzar visibilidad
         $('#selected-variation-info').css('display', 'block');
@@ -1258,13 +1259,14 @@ $(document).on('click', '#add-variation-btn', function() {
     const variationPrice = $(this).data('variation-price');
     const variationSku = $(this).data('variation-sku');
     const inStock = $(this).data('in-stock');
+    const stock = $(this).data('stock');
 
     // Si no hay stock, mostrar modal de confirmación
     if (!inStock) {
         showOutOfStockConfirmation(currentParent.id, variationId, variationName, variationPrice, variationSku);
     } else {
-        // Hay stock, agregar directamente
-        addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku);
+        // Hay stock, agregar directamente con validación de stock
+        addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku, stock);
         $('#variationsModal').modal('hide');
     }
 });
@@ -1283,20 +1285,26 @@ $('#variationsModal').on('hidden.bs.modal', function() {
     $('#attribute-selectors').empty();
 });
 
-function addToCart(productId, variationId, name, price, sku) {
+function addToCart(productId, variationId, name, price, sku, stock = null) {
     const item = {
         product_id: productId,
         variation_id: variationId,
         name: name,
         price: parseFloat(price),
         quantity: 1,
-        sku: sku
+        sku: sku,
+        stock: stock // Guardar stock disponible
     };
 
     // Verificar si ya existe
     const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
 
     if (existing) {
+        // Verificar si hay stock suficiente
+        if (existing.stock !== null && existing.quantity >= existing.stock) {
+            showNotification('warning', `Stock máximo alcanzado: ${existing.stock} unidades disponibles`);
+            return;
+        }
         existing.quantity++;
     } else {
         cart.push(item);
@@ -1378,8 +1386,8 @@ function enableProductStock(productId, variationId, name, price, sku) {
                 // Cerrar modal de variaciones
                 $('#variationsModal').modal('hide');
 
-                // Agregar al carrito
-                addToCart(productId, variationId, name, price, sku);
+                // Agregar al carrito con stock habilitado
+                addToCart(productId, variationId, name, price, sku, response.stock);
 
                 // Notificar éxito
                 showNotification('success', `Stock habilitado: ${response.stock} unidades disponibles`);
@@ -1401,9 +1409,18 @@ function removeFromCart(index) {
 }
 
 function updateQuantity(index, change) {
-    cart[index].quantity += change;
+    const item = cart[index];
+    const newQuantity = item.quantity + change;
 
-    if (cart[index].quantity < 1) {
+    // Verificar si intenta exceder el stock disponible
+    if (change > 0 && item.stock !== null && newQuantity > item.stock) {
+        showNotification('warning', `Stock máximo alcanzado: ${item.stock} unidades disponibles`);
+        return;
+    }
+
+    item.quantity = newQuantity;
+
+    if (item.quantity < 1) {
         removeFromCart(index);
     } else {
         updateCartDisplay();
@@ -1592,8 +1609,9 @@ $(document).on('click', '.search-result-item', function() {
         const priceText = $(this).find('small').text();
         const price = parseFloat(priceText.split('S/')[1]);
         const sku = priceText.split('SKU: ')[1].split(' |')[0];
+        const stock = $(this).data('stock') || null;
 
-        addToCart(productId, productId, name, price, sku);
+        addToCart(productId, productId, name, price, sku, stock);
 
         // Limpiar búsqueda
         $('#product-search').val('');
@@ -1626,7 +1644,7 @@ function loadSingleProduct(productId) {
             } else {
                 // Producto simple, agregar directamente usando datos del response
                 const parent = response.parent;
-                addToCart(parent.id, 0, parent.name, parent.price, parent.sku);
+                addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock);
 
                 // Limpiar búsqueda
                 $('#product-search').val('');
