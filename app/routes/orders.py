@@ -1771,3 +1771,105 @@ def debug_last_order():
         })
 
     return jsonify(result)
+
+
+@bp.route('/enable-stock/<int:product_id>', methods=['POST'])
+@login_required
+def enable_stock(product_id):
+    """
+    Habilitar stock de un producto/variación específico
+    Actualiza el stock_status a 'instock' y opcionalmente establece una cantidad mínima
+    """
+    try:
+        data = request.json or {}
+        variation_id = data.get('variation_id', 0)
+        min_stock = data.get('min_stock', 1)  # Stock mínimo por defecto: 1 unidad
+
+        # Determinar si es variación o producto simple
+        target_id = variation_id if variation_id > 0 else product_id
+
+        # Actualizar stock_status en wpyz_postmeta
+        from sqlalchemy import text
+
+        # Verificar si existe el meta_key _stock_status
+        check_query = text("""
+            SELECT meta_id FROM wpyz_postmeta
+            WHERE post_id = :target_id AND meta_key = '_stock_status'
+        """)
+        existing = db.session.execute(check_query, {'target_id': target_id}).fetchone()
+
+        if existing:
+            # Actualizar existente
+            update_query = text("""
+                UPDATE wpyz_postmeta
+                SET meta_value = 'instock'
+                WHERE post_id = :target_id AND meta_key = '_stock_status'
+            """)
+            db.session.execute(update_query, {'target_id': target_id})
+        else:
+            # Insertar nuevo
+            insert_query = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:target_id, '_stock_status', 'instock')
+            """)
+            db.session.execute(insert_query, {'target_id': target_id})
+
+        # Actualizar stock quantity
+        check_stock_query = text("""
+            SELECT meta_id FROM wpyz_postmeta
+            WHERE post_id = :target_id AND meta_key = '_stock'
+        """)
+        existing_stock = db.session.execute(check_stock_query, {'target_id': target_id}).fetchone()
+
+        if existing_stock:
+            update_stock_query = text("""
+                UPDATE wpyz_postmeta
+                SET meta_value = :min_stock
+                WHERE post_id = :target_id AND meta_key = '_stock'
+            """)
+            db.session.execute(update_stock_query, {'target_id': target_id, 'min_stock': str(min_stock)})
+        else:
+            insert_stock_query = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:target_id, '_stock', :min_stock)
+            """)
+            db.session.execute(insert_stock_query, {'target_id': target_id, 'min_stock': str(min_stock)})
+
+        # Establecer manage_stock en 'yes'
+        check_manage_query = text("""
+            SELECT meta_id FROM wpyz_postmeta
+            WHERE post_id = :target_id AND meta_key = '_manage_stock'
+        """)
+        existing_manage = db.session.execute(check_manage_query, {'target_id': target_id}).fetchone()
+
+        if existing_manage:
+            update_manage_query = text("""
+                UPDATE wpyz_postmeta
+                SET meta_value = 'yes'
+                WHERE post_id = :target_id AND meta_key = '_manage_stock'
+            """)
+            db.session.execute(update_manage_query, {'target_id': target_id})
+        else:
+            insert_manage_query = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:target_id, '_manage_stock', 'yes')
+            """)
+            db.session.execute(insert_manage_query, {'target_id': target_id})
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Stock habilitado: {min_stock} unidades disponibles',
+            'product_id': product_id,
+            'variation_id': variation_id,
+            'stock': min_stock
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error enabling stock: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

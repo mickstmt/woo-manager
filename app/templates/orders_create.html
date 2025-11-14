@@ -289,40 +289,30 @@
             <!-- Sidebar de categorías -->
             <div class="col-md-3">
                 <h5>Categorías</h5>
-                <div class="categories-sidebar" id="categories-tree">
-                    <div class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-2">Cargando categorías...</p>
-                    </div>
+                <!-- Select2 de subcategorías -->
+                <div class="mb-3">
+                    <select class="form-select" id="categories-select" style="width: 100%;">
+                        <option value="">Cargando categorías...</option>
+                    </select>
+                    <small class="text-muted d-block mt-2">Subcategorías de Accesorios Smartwatch</small>
                 </div>
             </div>
 
             <!-- Grid de productos -->
             <div class="col-md-6">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Productos</h5>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="toggle-search">
-                        <i class="bi bi-search"></i> Buscar
-                    </button>
+                <h5 class="mb-3">Productos</h5>
+
+                <!-- Buscador contextual de productos -->
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="product-filter-search" placeholder="Buscar por nombre o SKU...">
+                    <small class="text-muted" id="product-search-context">Buscando en: Todos los productos</small>
                 </div>
 
-                <!-- Buscador de productos (inicialmente oculto) -->
-                <div class="mb-3" id="search-container" style="display: none;">
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="product-search" placeholder="Buscar por nombre o SKU...">
-                        <button class="btn btn-outline-secondary" type="button" id="clear-search">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-                    <div id="search-results" class="mt-2"></div>
-                </div>
-
+                <!-- Grid de productos con imágenes -->
                 <div class="products-grid" id="products-grid">
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-box" style="font-size: 3rem; color: #dee2e6;"></i>
-                        <p class="text-muted mt-3">Selecciona una categoría o usa el buscador</p>
+                        <p class="text-muted mt-3">Selecciona una categoría</p>
                     </div>
                 </div>
             </div>
@@ -490,6 +480,11 @@
                 <div class="form-section sticky-top" style="top: 80px;">
                     <h5><i class="bi bi-cart"></i> Resumen del Pedido</h5>
                     <div id="cart-summary"></div>
+                    <div class="mt-3 pt-3 border-top">
+                        <label class="form-label">Descuento (%)</label>
+                        <input type="number" class="form-control" id="discount-percentage" value="0" min="0" max="100" step="0.01">
+                        <small class="text-muted">Descuento aplicado al subtotal de productos (incluye IGV)</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -609,6 +604,8 @@ let currentStep = 1;
 let selectedCategory = null;
 let cart = [];
 let categories = [];
+let currentProducts = []; // Productos de la categoría actual o filtrados
+let allProducts = []; // Todos los productos cargados al inicio
 
 // Datos del pedido
 let orderData = {
@@ -622,6 +619,7 @@ let orderData = {
 
 $(document).ready(function() {
     loadCategories();
+    loadAllProducts(); // Cargar todos los productos al inicio
     updateCartDisplay();
 
     // Cargar departamentos desde API
@@ -641,6 +639,11 @@ $(document).ready(function() {
 
     // Actualizar resumen cuando cambie el costo de envío
     $('#shipping-cost').on('input', function() {
+        updateCartSummary();
+    });
+
+    // Actualizar resumen cuando cambie el descuento
+    $('#discount-percentage').on('input', function() {
         updateCartSummary();
     });
 });
@@ -747,30 +750,59 @@ function loadMetodosEnvio(distrito) {
         method: 'GET',
         success: function(response) {
             if (response.success && response.metodos.length > 0) {
-                $shippingSelect.empty().append('<option value="">Seleccione método de envío</option>');
+                // Obtener tipo de entrega seleccionado
+                const deliveryType = $('#delivery-type').val();
 
-                response.metodos.forEach(function(metodo) {
-                    $shippingSelect.append(
-                        `<option value="${metodo.cost}" data-method-id="${metodo.id}" data-method-title="${metodo.title}">
-                            ${metodo.title}
-                        </option>`
-                    );
-                });
+                // Filtrar métodos según tipo de entrega
+                let filteredMetodos = response.metodos;
 
-                $shippingSelect.prop('disabled', false);
-                $shippingHelp.text(`${response.count} método(s) de envío disponible(s)`);
+                if (deliveryType === 'billing_agencia') {
+                    // Solo Olva y Shalom
+                    filteredMetodos = response.metodos.filter(function(metodo) {
+                        const title = metodo.title.toLowerCase();
+                        return title.includes('olva') || title.includes('shalom');
+                    });
+                } else if (deliveryType === 'billing_domicilio') {
+                    // Solo Olva y envío 1 día hábil
+                    filteredMetodos = response.metodos.filter(function(metodo) {
+                        const title = metodo.title.toLowerCase();
+                        return title.includes('olva') || title.includes('1 hábil') || title.includes('1 día hábil') || title.includes('1 habíl');
+                    });
+                }
+                // billing_recojo: no filtra, muestra todos
 
-                // Actualizar costo cuando se selecciona un método
-                $shippingSelect.off('change.cost').on('change.cost', function() {
-                    const cost = $(this).val();
-                    const methodTitle = $(this).find(':selected').data('method-title');
+                if (filteredMetodos.length > 0) {
+                    $shippingSelect.empty().append('<option value="">Seleccione método de envío</option>');
 
-                    $('#shipping-cost').val(cost || 0).trigger('input');
+                    filteredMetodos.forEach(function(metodo) {
+                        $shippingSelect.append(
+                            `<option value="${metodo.cost}" data-method-id="${metodo.id}" data-method-title="${metodo.title}">
+                                ${metodo.title}
+                            </option>`
+                        );
+                    });
 
-                    if (methodTitle) {
-                        showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
-                    }
-                });
+                    $shippingSelect.prop('disabled', false);
+                    $shippingHelp.text(`${filteredMetodos.length} método(s) de envío disponible(s)`);
+
+                    // Actualizar costo cuando se selecciona un método
+                    $shippingSelect.off('change.cost').on('change.cost', function() {
+                        const cost = $(this).val();
+                        const methodTitle = $(this).find(':selected').data('method-title');
+
+                        $('#shipping-cost').val(cost || 0).trigger('input');
+
+                        if (methodTitle) {
+                            showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
+                        }
+                    });
+                } else {
+                    $shippingSelect.empty()
+                        .append('<option value="">No hay métodos disponibles para este tipo de entrega</option>');
+                    $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío disponibles para ${deliveryType}</span>`);
+                    $('#shipping-cost').val(0);
+                    showNotification('warning', `No hay métodos de envío para este tipo de entrega en ${distrito}`);
+                }
             } else {
                 $shippingSelect.empty()
                     .append('<option value="">No hay métodos disponibles</option>');
@@ -779,10 +811,27 @@ function loadMetodosEnvio(distrito) {
                 showNotification('warning', `No hay métodos de envío configurados para ${distrito}`);
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
+            console.error('Error cargando métodos de envío:', {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                responseText: xhr.responseText,
+                error: error
+            });
+
             $shippingSelect.empty().append('<option value="">Error al cargar</option>');
             $shippingHelp.html('<span class="text-danger">Error de conexión</span>');
-            showNotification('error', 'Error al cargar métodos de envío');
+
+            let errorMsg = 'Error al cargar métodos de envío';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.error) {
+                    errorMsg += ': ' + response.error;
+                    console.error('Error del servidor:', response.traceback);
+                }
+            } catch(e) {}
+
+            showNotification('error', errorMsg);
         }
     });
 }
@@ -796,7 +845,7 @@ function loadCategories() {
         success: function(response) {
             if (response.success) {
                 categories = response.categories;
-                renderCategories(response.categories);
+                renderCategoriesSelect(response.categories);
             } else {
                 showNotification('error', 'Error al cargar categorías');
             }
@@ -807,81 +856,133 @@ function loadCategories() {
     });
 }
 
-function renderCategories(cats, parentElement = null) {
-    const container = parentElement || $('#categories-tree');
+function renderCategoriesSelect(cats) {
+    const $select = $('#categories-select');
 
-    // Solo limpiar el contenedor principal, no los hijos
-    if (!parentElement) {
-        container.empty();
+    // Buscar la categoría "Accesorios Smartwatch" y obtener sus hijos
+    let subcategories = [];
+
+    function findSmartwatch(categories) {
+        categories.forEach(cat => {
+            if (cat.name.toLowerCase().includes('accesorios') &&
+                cat.name.toLowerCase().includes('smartwatch')) {
+                // Encontrada, usar sus hijos
+                if (cat.children && cat.children.length > 0) {
+                    subcategories = cat.children;
+                }
+            }
+            // Buscar recursivamente en hijos
+            if (cat.children && cat.children.length > 0) {
+                findSmartwatch(cat.children);
+            }
+        });
     }
 
-    cats.forEach(cat => {
-        const hasChildren = cat.children && cat.children.length > 0;
-        const toggleIcon = hasChildren ? '<i class="bi bi-chevron-right category-toggle" data-cat-id="' + cat.id + '"></i>' : '';
+    findSmartwatch(cats);
 
-        const catHtml = `
-            <div class="category-wrapper">
-                <div class="category-item ${hasChildren ? 'has-children' : ''}" data-cat-id="${cat.id}" data-cat-name="${cat.name}">
-                    ${toggleIcon}
-                    ${cat.name} <small class="text-muted">(${cat.product_count})</small>
-                </div>
-                ${hasChildren ? '<div class="category-children" id="cat-children-' + cat.id + '"></div>' : ''}
-            </div>
-        `;
+    // Destruir Select2 si existe
+    if ($select.hasClass('select2-hidden-accessible')) {
+        $select.select2('destroy');
+    }
 
-        container.append(catHtml);
+    // Limpiar y agregar opciones
+    $select.empty();
+    $select.append('<option value="">Todas las categorías</option>');
 
-        if (hasChildren) {
-            renderCategories(cat.children, $(`#cat-children-${cat.id}`));
+    if (subcategories.length > 0) {
+        subcategories.forEach(cat => {
+            $select.append(
+                `<option value="${cat.id}" data-name="${cat.name}">
+                    ${cat.name} (${cat.product_count} productos)
+                </option>`
+            );
+        });
+    }
+
+    // Inicializar Select2 con búsqueda flexible
+    $select.select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Selecciona una categoría...',
+        allowClear: true,
+        width: '100%',
+        matcher: function(params, data) {
+            // Si no hay término de búsqueda, mostrar todo
+            if ($.trim(params.term) === '') {
+                return data;
+            }
+
+            // No buscar en la opción por defecto
+            if (typeof data.text === 'undefined') {
+                return null;
+            }
+
+            // Convertir a minúsculas para búsqueda insensible a mayúsculas
+            const searchText = data.text.toLowerCase();
+            const searchTerms = params.term.toLowerCase().split(' ');
+
+            // Verificar que todas las palabras del término de búsqueda estén en el texto
+            const allWordsMatch = searchTerms.every(term => searchText.includes(term));
+
+            if (allWordsMatch) {
+                return data;
+            }
+
+            // Sin coincidencia
+            return null;
+        }
+    });
+
+    // Evento de selección
+    $select.on('change', function() {
+        const catId = $(this).val();
+        const catName = $(this).find(':selected').data('name') || 'Todas las categorías';
+
+        if (catId) {
+            selectCategory(catId, catName);
+        } else {
+            // Sin categoría seleccionada, cargar todos los productos
+            selectedCategory = null;
+            $('#product-search-context').text('Buscando en: Todos los productos');
+            renderProducts(allProducts);
         }
     });
 }
 
-// Event listener global para toggle de categorías (delegación de eventos)
-$(document).on('click', '.category-toggle', function(e) {
-    e.stopPropagation();
-    const catId = $(this).data('cat-id');
-    const children = $(`#cat-children-${catId}`);
-
-    if (children.hasClass('expanded')) {
-        children.removeClass('expanded');
-        $(this).removeClass('bi-chevron-down').addClass('bi-chevron-right');
-    } else {
-        children.addClass('expanded');
-        $(this).removeClass('bi-chevron-right').addClass('bi-chevron-down');
-    }
-});
-
-// Event listener global para selección de categoría
-$(document).on('click', '.category-item', function(e) {
-    // No hacer nada si se hizo clic en el toggle
-    if ($(e.target).hasClass('category-toggle')) {
-        return;
-    }
-
-    const catId = $(this).data('cat-id');
-    const catName = $(this).data('cat-name');
-    selectCategory(catId, catName);
-});
-
 function selectCategory(catId, catName) {
     selectedCategory = catId;
 
-    // Actualizar UI
-    $('.category-item').removeClass('active');
-    $(`.category-item[data-cat-id="${catId}"]`).addClass('active');
+    // Actualizar contexto de búsqueda
+    $('#product-search-context').text(`Buscando en: ${catName}`);
 
     // Cargar productos
     loadProductsByCategory(catId);
 }
 
+// Función para cargar todos los productos al inicio
+function loadAllProducts() {
+    $.ajax({
+        url: '/orders/search-products',
+        method: 'GET',
+        data: { q: '' }, // Enviar query vacío para obtener todos
+        success: function(response) {
+            if (response.success && response.products) {
+                allProducts = response.products;
+                renderProducts(response.products);
+                $('#product-search-context').text('Buscando en: Todos los productos');
+            }
+        },
+        error: function() {
+            console.error('Error al cargar productos');
+        }
+    });
+}
+
 function loadProductsByCategory(catId) {
-    $('#products-grid').html(`
-        <div class="col-12 text-center py-4">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2">Cargando productos...</p>
-        </div>
-    `);
+    const $select = $('#products-select');
+    $select.empty().append('<option value="">Cargando productos...</option>');
+    if ($select.hasClass('select2-hidden-accessible')) {
+        $select.select2('destroy');
+    }
 
     $.ajax({
         url: `/orders/get-products-by-category/${catId}`,
@@ -897,7 +998,51 @@ function loadProductsByCategory(catId) {
     });
 }
 
+// Buscador contextual de productos
+let productFilterTimeout = null;
+$('#product-filter-search').on('input', function() {
+    const searchTerm = $(this).val().trim().toLowerCase();
+
+    // Limpiar timeout anterior
+    if (productFilterTimeout) {
+        clearTimeout(productFilterTimeout);
+    }
+
+    // Esperar 300ms antes de filtrar
+    productFilterTimeout = setTimeout(() => {
+        if (searchTerm.length === 0) {
+            // Sin búsqueda, mostrar productos según contexto
+            if (selectedCategory) {
+                // Si hay categoría seleccionada, recargar productos de esa categoría
+                loadProductsByCategory(selectedCategory);
+            } else {
+                // Sin categoría, mostrar todos los productos
+                renderProducts(allProducts);
+            }
+            return;
+        }
+
+        // Determinar en qué conjunto buscar
+        const productsToSearch = selectedCategory ? currentProducts : allProducts;
+
+        // Filtrar productos
+        const filtered = productsToSearch.filter(product => {
+            const name = product.name.toLowerCase();
+            const sku = (product.sku || '').toLowerCase();
+            return name.includes(searchTerm) || sku.includes(searchTerm);
+        });
+
+        renderProducts(filtered);
+
+        // Actualizar contador
+        if (filtered.length === 0) {
+            showNotification('info', `No se encontraron productos que coincidan con "${searchTerm}"`);
+        }
+    }, 300);
+});
+
 function renderProducts(products) {
+    currentProducts = products;
     const container = $('#products-grid');
     container.empty();
 
@@ -1087,12 +1232,13 @@ function findMatchingVariation() {
             : `<span class="badge bg-danger">Sin Stock</span>`;
         $('#selected-variation-stock-badge').html(stockBadge);
 
-        // Habilitar/deshabilitar botón según stock
-        $('#add-variation-btn').prop('disabled', !inStock);
+        // NO deshabilitar el botón, solo cambiar su texto si no hay stock
+        $('#add-variation-btn').prop('disabled', false);
         $('#add-variation-btn').data('variation-id', matchingVariation.id);
         $('#add-variation-btn').data('variation-name', matchingVariation.name);
         $('#add-variation-btn').data('variation-price', matchingVariation.price);
         $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
+        $('#add-variation-btn').data('in-stock', inStock);
 
         // Usar CSS directo en lugar de .show() para forzar visibilidad
         $('#selected-variation-info').css('display', 'block');
@@ -1111,10 +1257,16 @@ $(document).on('click', '#add-variation-btn', function() {
     const variationName = $(this).data('variation-name');
     const variationPrice = $(this).data('variation-price');
     const variationSku = $(this).data('variation-sku');
+    const inStock = $(this).data('in-stock');
 
-    addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku);
-
-    $('#variationsModal').modal('hide');
+    // Si no hay stock, mostrar modal de confirmación
+    if (!inStock) {
+        showOutOfStockConfirmation(currentParent.id, variationId, variationName, variationPrice, variationSku);
+    } else {
+        // Hay stock, agregar directamente
+        addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku);
+        $('#variationsModal').modal('hide');
+    }
 });
 
 // Limpiar modal cuando se cierra
@@ -1152,6 +1304,95 @@ function addToCart(productId, variationId, name, price, sku) {
 
     updateCartDisplay();
     showNotification('success', 'Producto agregado al carrito');
+}
+
+// Función para mostrar confirmación cuando no hay stock
+function showOutOfStockConfirmation(productId, variationId, name, price, sku) {
+    const message = `
+        <div class="alert alert-warning">
+            <h5><i class="bi bi-exclamation-triangle"></i> Producto sin stock</h5>
+            <p><strong>${name}</strong> (SKU: ${sku})</p>
+            <p>Este producto no tiene stock disponible en la web.</p>
+            <p><strong>¿Desea habilitarlo para poder venderlo?</strong></p>
+            <p class="text-muted small">Se establecerá 1 unidad en stock automáticamente en WooCommerce.</p>
+        </div>
+    `;
+
+    // Crear modal de confirmación con Bootstrap
+    const modalHtml = `
+        <div class="modal fade" id="outOfStockModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">Confirmar Habilitación de Stock</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${message}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="confirm-enable-stock">
+                            <i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Eliminar modal si existe
+    $('#outOfStockModal').remove();
+
+    // Agregar modal al body
+    $('body').append(modalHtml);
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('outOfStockModal'));
+    modal.show();
+
+    // Event listener para confirmación
+    $('#confirm-enable-stock').off('click').on('click', function() {
+        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Habilitando...');
+
+        // Llamar al endpoint para habilitar stock
+        enableProductStock(productId, variationId, name, price, sku);
+    });
+}
+
+// Función para habilitar stock en WooCommerce
+function enableProductStock(productId, variationId, name, price, sku) {
+    $.ajax({
+        url: `/orders/enable-stock/${productId}`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            variation_id: variationId,
+            min_stock: 1
+        }),
+        success: function(response) {
+            if (response.success) {
+                // Cerrar modal de confirmación
+                $('#outOfStockModal').modal('hide');
+
+                // Cerrar modal de variaciones
+                $('#variationsModal').modal('hide');
+
+                // Agregar al carrito
+                addToCart(productId, variationId, name, price, sku);
+
+                // Notificar éxito
+                showNotification('success', `Stock habilitado: ${response.stock} unidades disponibles`);
+            } else {
+                showNotification('error', 'Error al habilitar stock: ' + response.error);
+                $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión al habilitar stock');
+            $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
+        }
+    });
 }
 
 function removeFromCart(index) {
@@ -1406,6 +1647,7 @@ function loadSingleProduct(productId) {
 
 function updateCartSummary() {
     const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+    const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
 
     // Los precios YA incluyen IGV
     let totalWithTax = 0;
@@ -1415,7 +1657,14 @@ function updateCartSummary() {
 
     const subtotal = totalWithTax / 1.18;
     const tax = totalWithTax - subtotal;
-    const grandTotal = totalWithTax + shippingCost;
+
+    // Aplicar descuento al total de productos (incluye IGV)
+    // Truncar a 2 decimales en lugar de redondear
+    const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
+    const totalAfterDiscount = totalWithTax - discountAmount;
+
+    // El gran total incluye el descuento y el envío
+    const grandTotal = totalAfterDiscount + shippingCost;
 
     // Generar lista de productos
     let productsHtml = '';
@@ -1434,6 +1683,17 @@ function updateCartSummary() {
         `;
     });
 
+    // Construir HTML del resumen
+    let discountHtml = '';
+    if (discountPercentage > 0) {
+        discountHtml = `
+            <div class="d-flex justify-content-between mb-1 text-danger">
+                <span>Descuento (${discountPercentage.toFixed(2)}%):</span>
+                <span>- S/ ${discountAmount.toFixed(2)}</span>
+            </div>
+        `;
+    }
+
     const html = `
         <div class="mb-3">
             <h6 class="mb-2">Productos (${cart.length})</h6>
@@ -1447,6 +1707,7 @@ function updateCartSummary() {
             <span>IGV (18%):</span>
             <span>S/ ${tax.toFixed(2)}</span>
         </div>
+        ${discountHtml}
         <div class="d-flex justify-content-between mb-1">
             <span>Envío:</span>
             <span>S/ ${shippingCost.toFixed(2)}</span>
@@ -1489,6 +1750,14 @@ function showStep3Summary() {
         `;
     }
 
+    // Obtener método de envío seleccionado
+    const shippingMethodSelect = $('#shipping-method');
+    const shippingMethodText = shippingMethodSelect.find('option:selected').data('method-title') || shippingMethodSelect.find('option:selected').text();
+
+    if (shippingMethodText && shippingMethodText !== 'Primero seleccione distrito' && shippingMethodText !== '') {
+        deliveryHtml += `<p><strong>Método de Envío:</strong> ${shippingMethodText}</p>`;
+    }
+
     deliveryHtml += `<p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>`;
 
     $('#delivery-summary').html(deliveryHtml);
@@ -1512,6 +1781,8 @@ function showStep3Summary() {
 
     // Totales
     const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+    const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
+
     let totalWithTax = 0;
     cart.forEach(item => {
         totalWithTax += item.price * item.quantity;
@@ -1519,7 +1790,21 @@ function showStep3Summary() {
 
     const subtotal = totalWithTax / 1.18;
     const tax = totalWithTax - subtotal;
-    const grandTotal = totalWithTax + shippingCost;
+
+    // Aplicar descuento
+    const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
+    const totalAfterDiscount = totalWithTax - discountAmount;
+    const grandTotal = totalAfterDiscount + shippingCost;
+
+    let discountHtml = '';
+    if (discountPercentage > 0) {
+        discountHtml = `
+            <div class="d-flex justify-content-between mb-2 text-danger">
+                <span>Descuento (${discountPercentage.toFixed(2)}%):</span>
+                <span>- S/ ${discountAmount.toFixed(2)}</span>
+            </div>
+        `;
+    }
 
     const totalsHtml = `
         <div class="d-flex justify-content-between mb-2">
@@ -1530,6 +1815,7 @@ function showStep3Summary() {
             <span>IGV (18%):</span>
             <span>S/ ${tax.toFixed(2)}</span>
         </div>
+        ${discountHtml}
         <div class="d-flex justify-content-between mb-2">
             <span>Costo de Envío:</span>
             <span>S/ ${shippingCost.toFixed(2)}</span>
@@ -1746,6 +2032,12 @@ function updateAddressFields() {
         addressInput.attr('required', 'required');
         $('#city').attr('required', 'required');
         $('#state').attr('required', 'required');
+    }
+
+    // Recargar métodos de envío si hay un distrito seleccionado
+    const distrito = $('#city').val();
+    if (distrito) {
+        loadMetodosEnvio(distrito);
     }
 }
 
