@@ -2031,6 +2031,12 @@ function updateAddressFields() {
         addressInput.removeAttr('required');
         $('#city').removeAttr('required');
         $('#state').removeAttr('required');
+
+        // Para Recojo en Almacén, habilitar método de envío sin necesidad de distrito
+        $('#shipping-method').prop('disabled', false).empty()
+            .append('<option value="0" data-method-id="recojo_almacen" data-method-title="Recojo en Almacén">Recojo en Almacén - S/0.00</option>');
+        $('#shipping-cost').val(0);
+        $('#shipping-help').text('No tiene costo de envío');
     } else if (deliveryType === 'billing_agencia') {
         // En Agencia Shalom/Olva Courier - Cambiar label
         addressContainer.show();
@@ -2041,6 +2047,12 @@ function updateAddressFields() {
         addressInput.attr('required', 'required');
         $('#city').attr('required', 'required');
         $('#state').attr('required', 'required');
+
+        // Resetear método de envío para que seleccione distrito
+        $('#shipping-method').prop('disabled', true).empty()
+            .append('<option value="">Primero seleccione distrito</option>');
+        $('#shipping-cost').val(0);
+        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
     } else {
         // Entrega a Domicilio - Mostrar todo normal
         addressContainer.show();
@@ -2051,12 +2063,20 @@ function updateAddressFields() {
         addressInput.attr('required', 'required');
         $('#city').attr('required', 'required');
         $('#state').attr('required', 'required');
+
+        // Resetear método de envío para que seleccione distrito
+        $('#shipping-method').prop('disabled', true).empty()
+            .append('<option value="">Primero seleccione distrito</option>');
+        $('#shipping-cost').val(0);
+        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
     }
 
-    // Recargar métodos de envío si hay un distrito seleccionado
-    const distrito = $('#city').val();
-    if (distrito) {
-        loadMetodosEnvio(distrito);
+    // Recargar métodos de envío si hay un distrito seleccionado (solo para agencia y domicilio)
+    if (deliveryType !== 'billing_recojo') {
+        const distrito = $('#city').val();
+        if (distrito) {
+            loadMetodosEnvio(distrito);
+        }
     }
 }
 
