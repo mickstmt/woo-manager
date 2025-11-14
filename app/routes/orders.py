@@ -1235,17 +1235,21 @@ def create_order():
         items_subtotal = Decimal('0')
         items_tax = Decimal('0')
 
+        # OPTIMIZACIÓN: Cargar todos los productos en una sola query (batch loading)
+        # Esto evita el problema N+1 de hacer una query por cada item
+        product_ids = [item.get('variation_id') or item['product_id'] for item in items_data]
+        products_list = Product.query.filter(Product.ID.in_(product_ids)).all()
+        products_dict = {p.ID: p for p in products_list}
+
         for item_data in items_data:
             product_id = item_data['product_id']
             variation_id = item_data.get('variation_id', 0)
             quantity = item_data['quantity']
             price_with_tax = Decimal(str(item_data['price']))
 
-            # Obtener producto
-            if variation_id:
-                product = Product.query.get(variation_id)
-            else:
-                product = Product.query.get(product_id)
+            # Obtener producto del diccionario (ya cargado en memoria)
+            target_product_id = variation_id if variation_id else product_id
+            product = products_dict.get(target_product_id)
 
             if not product:
                 raise Exception(f'Producto {product_id} no encontrado')
@@ -1293,9 +1297,9 @@ def create_order():
                 db.session.add(item_meta)
 
             # Reducir stock del producto correcto
-            target_product = Product.query.get(variation_id if variation_id else product_id)
-            if target_product:
-                stock_meta = target_product.product_meta.filter_by(meta_key='_stock').first()
+            # OPTIMIZACIÓN: Reutilizar el producto ya cargado en lugar de hacer otra query
+            if product:
+                stock_meta = product.product_meta.filter_by(meta_key='_stock').first()
                 if stock_meta:
                     current_stock = int(float(stock_meta.meta_value))
                     new_stock = max(0, current_stock - quantity)
@@ -1303,7 +1307,7 @@ def create_order():
 
                     # Actualizar estado de stock
                     if new_stock == 0:
-                        stock_status_meta = target_product.product_meta.filter_by(meta_key='_stock_status').first()
+                        stock_status_meta = product.product_meta.filter_by(meta_key='_stock_status').first()
                         if stock_status_meta:
                             stock_status_meta.meta_value = 'outofstock'
 
@@ -1610,16 +1614,30 @@ def create_order():
             # No fallar si la limpieza de cache falla
 
         # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
-        # Usar la API REST de WooCommerce para disparar el correo de "Processing order"
-        try:
-            email_sent = trigger_woocommerce_email(order.id)
-            if email_sent:
-                current_app.logger.info(f"Email notification triggered successfully for order {order.id}")
-            else:
-                current_app.logger.warning(f"Could not trigger email notification for order {order.id}")
-        except Exception as email_error:
-            current_app.logger.error(f"Exception triggering email for order {order.id}: {str(email_error)}")
-            # No fallar si el envío de correo falla, el pedido ya fue creado
+        # Enviar email en background para no bloquear la respuesta al usuario
+        import threading
+
+        def send_email_async(order_id, app):
+            """Enviar email en thread separado con contexto de Flask"""
+            with app.app_context():
+                try:
+                    email_sent = trigger_woocommerce_email(order_id)
+                    if email_sent:
+                        current_app.logger.info(f"Email notification triggered successfully for order {order_id}")
+                    else:
+                        current_app.logger.warning(f"Could not trigger email notification for order {order_id}")
+                except Exception as email_error:
+                    current_app.logger.error(f"Exception triggering email for order {order_id}: {str(email_error)}")
+
+        # Iniciar thread en background (no bloqueante)
+        email_thread = threading.Thread(
+            target=send_email_async,
+            args=(order.id, current_app._get_current_object())
+        )
+        email_thread.daemon = True  # Thread se cierra cuando la app se cierra
+        email_thread.start()
+
+        current_app.logger.info(f"Order {order.id} created successfully - Email being sent in background")
 
         return jsonify({
             'success': True,
