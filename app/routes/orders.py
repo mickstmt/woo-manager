@@ -1308,52 +1308,49 @@ def create_order():
                             stock_status_meta.meta_value = 'outofstock'
 
         # ===== ITEM DE ENVÍO =====
-        if shipping_cost > 0:
-            # El costo de envío NO incluye IGV (viene como precio final)
-            shipping_subtotal = shipping_cost
-            shipping_tax = Decimal('0')
+        # SIEMPRE crear item de envío, incluso si el costo es 0 (como en "Recojo en Almacén")
+        # El costo de envío NO incluye IGV (viene como precio final)
+        shipping_subtotal = shipping_cost
+        shipping_tax = Decimal('0')
 
-            # Mapear billing_entrega a nombres legibles para WooCommerce
-            billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
-            shipping_method_names = {
-                'billing_agencia': 'En Agencia Shalom/Olva Courier',
-                'billing_domicilio': 'Entrega a Domicilio',
-                'billing_recojo': 'Recojo en Almacén'
-            }
-            shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
+        # Mapear billing_entrega a nombres legibles para WooCommerce
+        billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
+        shipping_method_names = {
+            'billing_agencia': 'En Agencia Shalom/Olva Courier',
+            'billing_domicilio': 'Entrega a Domicilio',
+            'billing_recojo': 'Recojo en Almacén'
+        }
+        shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
 
-            shipping_item = OrderItem(
-                order_item_name=shipping_method_name,  # Usar nombre específico del método
-                order_item_type='shipping',
-                order_id=order.id
+        shipping_item = OrderItem(
+            order_item_name=shipping_method_name,  # Usar nombre específico del método
+            order_item_type='shipping',
+            order_id=order.id
+        )
+        db.session.add(shipping_item)
+        db.session.flush()
+
+        shipping_cost_str = str(shipping_cost.quantize(Decimal('0.01')))
+        shipping_metas = [
+            ('method_id', 'advanced_shipping'),
+            ('instance_id', '0'),
+            ('cost', shipping_cost_str),
+            ('total_tax', '0'),
+            ('taxes', 'a:0:{}'),  # Array vacío en PHP serializado - sin impuestos
+            # Agregar metadatos adicionales para que WooCommerce no calcule impuestos
+            ('_line_total', shipping_cost_str),
+            ('_line_tax', '0'),
+            ('_line_subtotal', shipping_cost_str),
+            ('_line_subtotal_tax', '0'),
+        ]
+
+        for meta_key, meta_value in shipping_metas:
+            shipping_meta = OrderItemMeta(
+                order_item_id=shipping_item.order_item_id,
+                meta_key=meta_key,
+                meta_value=str(meta_value)
             )
-            db.session.add(shipping_item)
-            db.session.flush()
-
-            shipping_cost_str = str(shipping_cost.quantize(Decimal('0.01')))
-            shipping_metas = [
-                ('method_id', 'advanced_shipping'),
-                ('instance_id', '0'),
-                ('cost', shipping_cost_str),
-                ('total_tax', '0'),
-                ('taxes', 'a:0:{}'),  # Array vacío en PHP serializado - sin impuestos
-                # Agregar metadatos adicionales para que WooCommerce no calcule impuestos
-                ('_line_total', shipping_cost_str),
-                ('_line_tax', '0'),
-                ('_line_subtotal', shipping_cost_str),
-                ('_line_subtotal_tax', '0'),
-            ]
-
-            for meta_key, meta_value in shipping_metas:
-                shipping_meta = OrderItemMeta(
-                    order_item_id=shipping_item.order_item_id,
-                    meta_key=meta_key,
-                    meta_value=str(meta_value)
-                )
-                db.session.add(shipping_meta)
-        else:
-            shipping_subtotal = Decimal('0')
-            shipping_tax = Decimal('0')
+            db.session.add(shipping_meta)
 
         # ===== ITEM DE DESCUENTO (FEE) =====
         # Si hay descuento, crear un line item de tipo 'fee' con valor negativo
