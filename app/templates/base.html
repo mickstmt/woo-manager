@@ -119,13 +119,11 @@
                                 <i class="bi bi-shield-check"></i> Panel Admin
                             </small>
                         </li>
-                        {# Módulo de usuarios pendiente de implementar
                         <li>
-                            <a class="dropdown-item" href="{{ url_for('users.index') }}">
+                            <a class="dropdown-item" href="{{ url_for('auth.admin_users') }}">
                                 <i class="bi bi-people"></i> Gestión de Usuarios
                             </a>
                         </li>
-                        #}
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li>

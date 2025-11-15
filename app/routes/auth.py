@@ -165,6 +165,42 @@ def profile():
     """Perfil de usuario"""
     return render_template('auth/profile.html')
 
+@bp.route('/admin/users', methods=['GET'])
+@login_required
+@admin_required
+def admin_users():
+    """Panel de administración de usuarios - Solo admins"""
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('auth/admin_users.html', users=users)
+
+@bp.route('/admin/change-user-password/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_change_password(user_id):
+    """Cambiar contraseña de cualquier usuario - Solo admins"""
+    user = User.query.get_or_404(user_id)
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+
+    if not new_password or not confirm_password:
+        flash('Por favor completa todos los campos.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    if new_password != confirm_password:
+        flash('Las contraseñas no coinciden.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    if len(new_password) < 6:
+        flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    # Cambiar contraseña
+    user.set_password(new_password)
+    db.session.commit()
+
+    flash(f'✅ Contraseña actualizada correctamente para {user.username}.', 'success')
+    return redirect(url_for('auth.admin_users'))
+
 @bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():

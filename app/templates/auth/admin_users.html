@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-card {
+        transition: all 0.3s ease;
+    }
+
+    .user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        font-weight: bold;
+    }
+
+    .change-password-form {
+        display: none;
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-0">
+            <i class="bi bi-people-fill"></i> Gestión de Usuarios
+        </h1>
+        <p class="text-muted">Administrar cuentas y cambiar contraseñas</p>
+    </div>
+</div>
+
+<!-- Estadísticas rápidas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Usuarios</h6>
+                <h2 class="mb-0">{{ users|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Activos</h6>
+                <h2 class="mb-0">{{ users|selectattr('is_active')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6 class="card-title">Administradores</h6>
+                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h6 class="card-title">Usuarios Regulares</h6>
+                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de usuarios -->
+<div class="row">
+    {% for user in users %}
+    <div class="col-md-6 mb-4">
+        <div class="card user-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="user-avatar me-3">
+                        {{ user.username[0]|upper }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            {{ user.full_name or user.username }}
+                            {% if user.id == current_user.id %}
+                                <span class="badge bg-info">Tú</span>
+                            {% endif %}
+                        </h5>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-at"></i> {{ user.email }}
+                        </p>
+                    </div>
+                    <div>
+                        {% if user.role == 'admin' %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-shield-fill-check"></i> Admin
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary">
+                                <i class="bi bi-person"></i> Usuario
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <small class="text-muted">Usuario</small>
+                        <p class="mb-0"><code>{{ user.username }}</code></p>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted">Estado</small>
+                        <p class="mb-0">
+                            {% if user.is_active %}
+                                <span class="badge bg-success">Activo</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactivo</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted">Último acceso</small>
+                        <p class="mb-0">
+                            {% if user.last_login %}
+                                {{ user.last_login.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                <small class="text-muted">Nunca</small>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button class="btn btn-warning btn-sm"
+                            onclick="togglePasswordForm({{ user.id }})">
+                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    </button>
+                </div>
+
+                <!-- Formulario de cambio de contraseña -->
+                <div id="password-form-{{ user.id }}" class="change-password-form">
+                    <form method="POST" action="{{ url_for('auth.admin_change_password', user_id=user.id) }}">
+                        <div class="mb-2">
+                            <label class="form-label small">Nueva Contraseña</label>
+                            <input type="password"
+                                   class="form-control form-control-sm"
+                                   name="new_password"
+                                   minlength="6"
+                                   required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">Confirmar Contraseña</label>
+                            <input type="password"
+                                   class="form-control form-control-sm"
+                                   name="confirm_password"
+                                   minlength="6"
+                                   required>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success btn-sm flex-grow-1">
+                                <i class="bi bi-check-circle"></i> Actualizar
+                            </button>
+                            <button type="button"
+                                    class="btn btn-secondary btn-sm"
+                                    onclick="togglePasswordForm({{ user.id }})">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not users %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No hay usuarios registrados.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePasswordForm(userId) {
+    const form = document.getElementById(`password-form-${userId}`);
+    if (form.style.display === 'none' || form.style.display === '') {
+        form.style.display = 'block';
+    } else {
+        form.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

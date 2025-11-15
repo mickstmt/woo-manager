@@ -108,7 +108,7 @@
                     {% if current_user.is_admin() %}
                     <hr>
                     <small class="text-muted">Panel de Administrador</small>
-                    <a href="#" class="btn btn-outline-danger">
+                    <a href="{{ url_for('auth.admin_users') }}" class="btn btn-outline-danger">
                         <i class="bi bi-people"></i> Usuarios
                     </a>
                     {% endif %}
