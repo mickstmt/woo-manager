@@ -201,6 +201,52 @@ def admin_change_password(user_id):
     flash(f'✅ Contraseña actualizada correctamente para {user.username}.', 'success')
     return redirect(url_for('auth.admin_users'))
 
+@bp.route('/admin/toggle-user-status/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_user_status(user_id):
+    """Activar/Desactivar usuario - Solo admins"""
+    user = User.query.get_or_404(user_id)
+
+    # No permitir que el admin se desactive a sí mismo
+    if user.id == current_user.id:
+        flash('❌ No puedes desactivar tu propia cuenta.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    # Cambiar estado
+    user.is_active = not user.is_active
+    db.session.commit()
+
+    status_text = 'activado' if user.is_active else 'desactivado'
+    flash(f'✅ Usuario {user.username} {status_text} correctamente.', 'success')
+    return redirect(url_for('auth.admin_users'))
+
+@bp.route('/admin/change-user-role/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_change_user_role(user_id):
+    """Cambiar rol de usuario - Solo admins"""
+    user = User.query.get_or_404(user_id)
+    new_role = request.form.get('role')
+
+    # Validar rol
+    if new_role not in ['user', 'admin']:
+        flash('❌ Rol inválido.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    # No permitir que el admin se quite su propio rol de admin
+    if user.id == current_user.id and new_role != 'admin':
+        flash('❌ No puedes quitarte tu propio rol de administrador.', 'danger')
+        return redirect(url_for('auth.admin_users'))
+
+    # Cambiar rol
+    user.role = new_role
+    db.session.commit()
+
+    role_text = 'Administrador' if new_role == 'admin' else 'Usuario'
+    flash(f'✅ Rol actualizado a {role_text} para {user.username}.', 'success')
+    return redirect(url_for('auth.admin_users'))
+
 @bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():

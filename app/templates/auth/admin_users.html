@@ -145,6 +145,30 @@
                     </div>
                 </div>
 
+                <!-- Controles de administración -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}" class="d-inline">
+                            <select name="role" class="form-select form-select-sm"
+                                    onchange="this.form.submit()"
+                                    {% if user.id == current_user.id %}disabled{% endif %}>
+                                <option value="user" {% if user.role == 'user' %}selected{% endif %}>Usuario</option>
+                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                        </form>
+                    </div>
+                    <div class="col-6">
+                        <form method="POST" action="{{ url_for('auth.admin_toggle_user_status', user_id=user.id) }}" class="d-inline">
+                            <button type="submit"
+                                    class="btn btn-sm w-100 {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                    {% if user.id == current_user.id %}disabled{% endif %}>
+                                <i class="bi bi-{% if user.is_active %}x-circle{% else %}check-circle{% endif %}"></i>
+                                {% if user.is_active %}Desactivar{% else %}Activar{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <div class="d-grid">
                     <button class="btn btn-warning btn-sm"
                             onclick="togglePasswordForm({{ user.id }})">
