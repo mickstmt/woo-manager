@@ -65,6 +65,8 @@ def create_app(config_name=None):
         public_endpoints = [
             'auth.login',
             'auth.register',
+            'auth.forgot_password',
+            'auth.reset_password',
             'static'
         ]
         
