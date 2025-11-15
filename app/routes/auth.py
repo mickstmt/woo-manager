@@ -215,7 +215,7 @@ def forgot_password():
 
             # Enviar email con el link de reseteo
             try:
-                from flask import current_app, url_for
+                from flask import current_app
                 import smtplib
                 from email.mime.text import MIMEText
                 from email.mime.multipart import MIMEMultipart
