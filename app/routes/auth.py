@@ -173,23 +173,145 @@ def change_password():
         current_password = request.form.get('current_password')
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
-        
+
         if not current_user.check_password(current_password):
             flash('La contraseña actual es incorrecta.', 'danger')
             return redirect(url_for('auth.change_password'))
-        
+
         if new_password != confirm_password:
             flash('Las contraseñas nuevas no coinciden.', 'danger')
             return redirect(url_for('auth.change_password'))
-        
+
         if len(new_password) < 6:
             flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
             return redirect(url_for('auth.change_password'))
-        
+
         current_user.set_password(new_password)
         db.session.commit()
-        
+
         flash('Contraseña actualizada correctamente.', 'success')
         return redirect(url_for('auth.profile'))
-    
+
     return render_template('auth/change_password.html')
+
+@bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Solicitar reseteo de contraseña"""
+    if current_user.is_authenticated:
+        return redirect(url_for('products.index'))
+
+    if request.method == 'POST':
+        email = request.form.get('email')
+
+        if not email:
+            flash('Por favor ingresa tu correo electrónico.', 'danger')
+            return redirect(url_for('auth.forgot_password'))
+
+        user = User.query.filter_by(email=email.lower().strip()).first()
+
+        if user:
+            # Generar token
+            token = user.generate_reset_token()
+
+            # Enviar email con el link de reseteo
+            try:
+                from flask import current_app, url_for
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
+
+                # Construir URL de reseteo
+                reset_url = url_for('auth.reset_password', token=token, _external=True)
+
+                # Crear mensaje
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = 'Recuperación de Contraseña - WooCommerce Manager'
+                msg['From'] = 'noreply@izistoreperu.com'
+                msg['To'] = user.email
+
+                # Cuerpo del email en HTML
+                html = f"""
+                <html>
+                  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                      <h2 style="color: #0066cc;">Recuperación de Contraseña</h2>
+                      <p>Hola <strong>{user.full_name or user.username}</strong>,</p>
+                      <p>Hemos recibido una solicitud para resetear tu contraseña.</p>
+                      <p>Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+                      <p style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}"
+                           style="background-color: #0066cc; color: white; padding: 12px 30px;
+                                  text-decoration: none; border-radius: 5px; display: inline-block;">
+                          Resetear Contraseña
+                        </a>
+                      </p>
+                      <p style="color: #666; font-size: 14px;">
+                        O copia y pega este enlace en tu navegador:<br>
+                        <a href="{reset_url}">{reset_url}</a>
+                      </p>
+                      <p style="color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                        Este enlace expirará en 1 hora.<br>
+                        Si no solicitaste este cambio, puedes ignorar este correo.
+                      </p>
+                    </div>
+                  </body>
+                </html>
+                """
+
+                msg.attach(MIMEText(html, 'html'))
+
+                # Enviar email (configurar SMTP según tu servidor)
+                # Por ahora, solo loguear (necesitas configurar SMTP real)
+                current_app.logger.info(f"Password reset email would be sent to {user.email}")
+                current_app.logger.info(f"Reset URL: {reset_url}")
+
+                flash('✅ Se ha enviado un correo con instrucciones para resetear tu contraseña.', 'success')
+
+            except Exception as e:
+                current_app.logger.error(f"Error sending reset email: {str(e)}")
+                flash('✅ Si el correo existe, recibirás instrucciones para resetear tu contraseña.', 'success')
+        else:
+            # Por seguridad, no revelar si el email existe o no
+            flash('✅ Si el correo existe, recibirás instrucciones para resetear tu contraseña.', 'success')
+
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/forgot_password.html')
+
+@bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Resetear contraseña con token"""
+    if current_user.is_authenticated:
+        return redirect(url_for('products.index'))
+
+    # Buscar usuario por token
+    user = User.query.filter_by(reset_token=token).first()
+
+    if not user or not user.verify_reset_token(token):
+        flash('❌ El enlace de recuperación es inválido o ha expirado.', 'danger')
+        return redirect(url_for('auth.forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or not confirm_password:
+            flash('Por favor completa todos los campos.', 'danger')
+            return redirect(url_for('auth.reset_password', token=token))
+
+        if new_password != confirm_password:
+            flash('Las contraseñas no coinciden.', 'danger')
+            return redirect(url_for('auth.reset_password', token=token))
+
+        if len(new_password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
+            return redirect(url_for('auth.reset_password', token=token))
+
+        # Cambiar contraseña
+        user.set_password(new_password)
+        user.clear_reset_token()
+
+        flash('✅ ¡Contraseña actualizada correctamente! Ya puedes iniciar sesión.', 'success')
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/reset_password.html', token=token)

@@ -327,6 +327,8 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=get_local_time)
     updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
     last_login = db.Column(db.DateTime)
+    reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    reset_token_expires = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
         """Hashear contraseña"""
@@ -343,6 +345,37 @@ class User(UserMixin, db.Model):
     def update_last_login(self):
         """Actualizar último login"""
         self.last_login = get_local_time()
+        db.session.commit()
+
+    def generate_reset_token(self):
+        """Generar token de reseteo de contraseña"""
+        import secrets
+        from datetime import datetime, timedelta
+
+        self.reset_token = secrets.token_urlsafe(32)
+        self.reset_token_expires = datetime.utcnow() + timedelta(hours=1)  # Expira en 1 hora
+        db.session.commit()
+        return self.reset_token
+
+    def verify_reset_token(self, token):
+        """Verificar si el token es válido y no ha expirado"""
+        from datetime import datetime
+
+        if self.reset_token != token:
+            return False
+
+        if self.reset_token_expires is None:
+            return False
+
+        if datetime.utcnow() > self.reset_token_expires:
+            return False
+
+        return True
+
+    def clear_reset_token(self):
+        """Limpiar token de reseteo después de usar"""
+        self.reset_token = None
+        self.reset_token_expires = None
         db.session.commit()
 
     def __repr__(self):
