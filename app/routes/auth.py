@@ -18,11 +18,29 @@ def admin_required(f):
         if not current_user.is_authenticated:
             flash('Debes iniciar sesión para acceder a esta página.', 'warning')
             return redirect(url_for('auth.login'))
-        
+
         if not current_user.is_admin():
             flash('Necesitas permisos de administrador para acceder a esta página.', 'danger')
             return redirect(url_for('products.index'))
-        
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def advisor_or_admin_required(f):
+    """
+    Decorador para rutas que requieren permisos de asesor o administrador.
+    Uso: @advisor_or_admin_required
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Debes iniciar sesión para acceder a esta página.', 'warning')
+            return redirect(url_for('auth.login'))
+
+        if not current_user.is_admin_or_advisor():
+            flash('No tienes permisos para acceder a esta funcionalidad.', 'danger')
+            return redirect(url_for('products.index'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -230,7 +248,7 @@ def admin_change_user_role(user_id):
     new_role = request.form.get('role')
 
     # Validar rol
-    if new_role not in ['user', 'admin']:
+    if new_role not in ['user', 'advisor', 'admin']:
         flash('❌ Rol inválido.', 'danger')
         return redirect(url_for('auth.admin_users'))
 
@@ -243,7 +261,7 @@ def admin_change_user_role(user_id):
     user.role = new_role
     db.session.commit()
 
-    role_text = 'Administrador' if new_role == 'admin' else 'Usuario'
+    role_text = {'admin': 'Administrador', 'advisor': 'Asesor', 'user': 'Usuario'}.get(new_role, 'Usuario')
     flash(f'✅ Rol actualizado a {role_text} para {user.username}.', 'success')
     return redirect(url_for('auth.admin_users'))
 

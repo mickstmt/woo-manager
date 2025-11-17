@@ -72,10 +72,18 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-white">
+    <div class="col-md-2">
+        <div class="card bg-warning text-dark">
             <div class="card-body">
-                <h6 class="card-title">Usuarios Regulares</h6>
+                <h6 class="card-title">Asesores</h6>
+                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title">Usuarios</h6>
                 <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h2>
             </div>
         </div>
@@ -107,6 +115,10 @@
                         {% if user.role == 'admin' %}
                             <span class="badge bg-danger">
                                 <i class="bi bi-shield-fill-check"></i> Admin
+                            </span>
+                        {% elif user.role == 'advisor' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-headset"></i> Asesor
                             </span>
                         {% else %}
                             <span class="badge bg-primary">
@@ -153,6 +165,7 @@
                                     onchange="this.form.submit()"
                                     {% if user.id == current_user.id %}disabled{% endif %}>
                                 <option value="user" {% if user.role == 'user' %}selected{% endif %}>Usuario</option>
+                                <option value="advisor" {% if user.role == 'advisor' %}selected{% endif %}>Asesor</option>
                                 <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                             </select>
                         </form>

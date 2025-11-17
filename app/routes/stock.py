@@ -1,7 +1,7 @@
 # app/routes/stock.py
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
-from app.routes.auth import admin_required
+from app.routes.auth import admin_required, advisor_or_admin_required
 from app.models import Product, ProductMeta
 from app import db, cache
 from datetime import datetime
@@ -415,11 +415,11 @@ def update_stock(product_id):
 
 
 @bp.route('/update-multiple', methods=['POST'])
-@admin_required
+@advisor_or_admin_required
 def update_multiple_stock():
     """
     Actualizar stock de múltiples productos a la vez
-    SOLO ADMINS
+    ADMINS Y ASESORES
     """
     try:
         # Invalidar caché al actualizar stock masivo

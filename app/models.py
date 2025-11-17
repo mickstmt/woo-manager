@@ -322,7 +322,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100))
-    role = db.Column(db.Enum('admin', 'user'), default='user')
+    role = db.Column(db.Enum('admin', 'advisor', 'user'), default='user')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=get_local_time)
     updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
@@ -341,6 +341,14 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         """Verificar si es admin"""
         return self.role == 'admin'
+
+    def is_advisor(self):
+        """Verificar si es asesor"""
+        return self.role == 'advisor'
+
+    def is_admin_or_advisor(self):
+        """Verificar si es admin o asesor"""
+        return self.role in ('admin', 'advisor')
 
     def update_last_login(self):
         """Actualizar último login"""
