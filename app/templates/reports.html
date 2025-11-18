@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .table-container {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-0">
+            <i class="bi bi-graph-up"></i> Reportes y Estadísticas
+        </h1>
+        <p class="text-muted">Análisis de ventas y rendimiento</p>
+    </div>
+</div>
+
+<!-- Filtro de fechas -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Inicio</label>
+                        <input type="date" id="start-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Fin</label>
+                        <input type="date" id="end-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary w-100" onclick="loadReports()">
+                            <i class="bi bi-search"></i> Aplicar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métricas principales -->
+<div class="row mb-4" id="metrics-container">
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Pedidos</h6>
+                <div class="metric-value" id="total-orders">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Ventas Totales</h6>
+                <div class="metric-value" id="total-sales">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title">Ticket Promedio</h6>
+                <div class="metric-value" id="avg-order-value">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">Descuentos</h6>
+                <div class="metric-value" id="total-discounts">-</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estados de pedidos -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Completados</h6>
+                <h2 class="text-success" id="completed-orders">-</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">En Proceso</h6>
+                <h2 class="text-primary" id="processing-orders">-</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Cancelados</h6>
+                <h2 class="text-danger" id="cancelled-orders">-</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <div class="col-md-8 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Tendencia de Ventas</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="sales-trend-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Estados</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="status-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tablas de datos -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Productos Más Vendidos</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-center">Pedidos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-products-table">
+                            <tr><td colspan="3" class="text-center">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-person-badge"></i> Ventas por Usuario</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th class="text-center">Pedidos</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-by-user-table">
+                            <tr><td colspan="3" class="text-center">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let salesTrendChart = null;
+let statusChart = null;
+
+// Inicializar fechas por defecto (últimos 30 días)
+document.addEventListener('DOMContentLoaded', function() {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    document.getElementById('end-date').valueAsDate = endDate;
+    document.getElementById('start-date').valueAsDate = startDate;
+
+    loadReports();
+});
+
+function loadReports() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+
+    loadSummary(startDate, endDate);
+    loadSalesByDay(startDate, endDate);
+    loadTopProducts(startDate, endDate);
+    loadSalesByUser(startDate, endDate);
+    loadStatusDistribution(startDate, endDate);
+}
+
+function loadSummary(startDate, endDate) {
+    fetch(`/reports/api/summary?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+                document.getElementById('total-orders').textContent = data.total_orders;
+                document.getElementById('total-sales').textContent = 'S/' + data.total_sales.toFixed(2);
+                document.getElementById('avg-order-value').textContent = 'S/' + data.avg_order_value.toFixed(2);
+                document.getElementById('total-discounts').textContent = 'S/' + data.total_discounts.toFixed(2);
+                document.getElementById('completed-orders').textContent = data.completed_orders;
+                document.getElementById('processing-orders').textContent = data.processing_orders;
+                document.getElementById('cancelled-orders').textContent = data.cancelled_orders;
+            }
+        })
+        .catch(error => console.error('Error loading summary:', error));
+}
+
+function loadSalesByDay(startDate, endDate) {
+    fetch(`/reports/api/sales-by-day?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+                const labels = data.map(row => row.date);
+                const sales = data.map(row => row.total);
+                const orders = data.map(row => row.orders);
+
+                if (salesTrendChart) {
+                    salesTrendChart.destroy();
+                }
+
+                const ctx = document.getElementById('sales-trend-chart').getContext('2d');
+                salesTrendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Ventas (S/)',
+                            data: sales,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.1,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Pedidos',
+                            data: orders,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.1,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left'
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => console.error('Error loading sales by day:', error));
+}
+
+function loadTopProducts(startDate, endDate) {
+    fetch(`/reports/api/top-products?start_date=${startDate}&end_date=${endDate}&limit=10`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const tbody = document.getElementById('top-products-table');
+                tbody.innerHTML = '';
+
+                if (result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
+                    return;
+                }
+
+                result.data.forEach(product => {
+                    const row = `
+                        <tr>
+                            <td>${product.product_name}</td>
+                            <td class="text-center"><span class="badge bg-primary">${product.quantity_sold}</span></td>
+                            <td class="text-center"><span class="badge bg-info">${product.times_ordered}</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            }
+        })
+        .catch(error => console.error('Error loading top products:', error));
+}
+
+function loadSalesByUser(startDate, endDate) {
+    fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const tbody = document.getElementById('sales-by-user-table');
+                tbody.innerHTML = '';
+
+                if (result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
+                    return;
+                }
+
+                result.data.forEach(user => {
+                    const row = `
+                        <tr>
+                            <td>${user.full_name}</td>
+                            <td class="text-center"><span class="badge bg-primary">${user.total_orders}</span></td>
+                            <td class="text-end">S/${user.total_sales.toFixed(2)}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            }
+        })
+        .catch(error => console.error('Error loading sales by user:', error));
+}
+
+function loadStatusDistribution(startDate, endDate) {
+    fetch(`/reports/api/status-distribution?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+                const labels = data.map(row => row.status.replace('wc-', ''));
+                const counts = data.map(row => row.count);
+
+                if (statusChart) {
+                    statusChart.destroy();
+                }
+
+                const ctx = document.getElementById('status-chart').getContext('2d');
+                statusChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: counts,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.8)',
+                                'rgba(54, 162, 235, 0.8)',
+                                'rgba(255, 206, 86, 0.8)',
+                                'rgba(75, 192, 192, 0.8)',
+                                'rgba(153, 102, 255, 0.8)',
+                                'rgba(255, 159, 64, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => console.error('Error loading status distribution:', error));
+}
+</script>
+{% endblock %}
