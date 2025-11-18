@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from app.models import Order, OrderAddress, OrderItem, OrderItemMeta, OrderMeta, Product, ProductMeta
 from app import db
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from sqlalchemy import or_, desc
 import pytz
 import hashlib
@@ -1064,10 +1064,10 @@ def create_order():
             products_total_with_tax += item_price_with_tax
 
         # Aplicar descuento a los productos (NO al envío)
-        # Truncar en lugar de redondear
+        # Truncar en lugar de redondear usando ROUND_DOWN
         discount_amount = Decimal('0')
         if discount_percentage > 0:
-            discount_amount = (products_total_with_tax * discount_percentage / Decimal('100')).quantize(Decimal('0.01'))
+            discount_amount = (products_total_with_tax * discount_percentage / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
             current_app.logger.info(f"Discount amount: S/ {discount_amount}")
 
         products_after_discount = products_total_with_tax - discount_amount
