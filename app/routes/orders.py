@@ -1079,26 +1079,56 @@ def create_order():
         subtotal = total_with_tax / Decimal('1.18')
         tax_amount = total_with_tax - subtotal
 
-        # ===== CREAR PEDIDO =====
-        order = Order(
-            status='wc-processing',  # Estado inicial
-            currency='PEN',
-            type='shop_order',
-            tax_amount=tax_amount,
-            total_amount=total_with_tax,
-            customer_id=0,  # Sin cuenta de usuario
-            billing_email=customer.get('email'),
-            date_created_gmt=get_gmt_time(),
-            date_updated_gmt=get_gmt_time(),
-            payment_method=data.get('payment_method', 'cod'),
-            payment_method_title=data.get('payment_method_title', 'Pago manual'),
-            customer_note=data.get('customer_note', ''),
-            ip_address=request.remote_addr,
-            user_agent=request.headers.get('User-Agent', '')[:200]
-        )
+        # ===== CREAR PEDIDO CON PROTECCIÓN CONTRA RACE CONDITIONS =====
+        # Intentar crear pedido hasta 3 veces en caso de colisión de ID
+        from sqlalchemy import text
+        max_retries = 3
+        order = None
 
-        db.session.add(order)
-        db.session.flush()  # Para obtener el ID del pedido
+        for attempt in range(max_retries):
+            # Crear pedido
+            order = Order(
+                status='wc-processing',  # Estado inicial
+                currency='PEN',
+                type='shop_order',
+                tax_amount=tax_amount,
+                total_amount=total_with_tax,
+                customer_id=0,  # Sin cuenta de usuario
+                billing_email=customer.get('email'),
+                date_created_gmt=get_gmt_time(),
+                date_updated_gmt=get_gmt_time(),
+                payment_method=data.get('payment_method', 'cod'),
+                payment_method_title=data.get('payment_method_title', 'Pago manual'),
+                customer_note=data.get('customer_note', ''),
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', '')[:200]
+            )
+
+            db.session.add(order)
+            db.session.flush()  # Para obtener el ID del pedido
+
+            # Verificar si el ID ya existe en wpyz_posts (race condition)
+            check_post_exists = text("""
+                SELECT ID FROM wpyz_posts WHERE ID = :order_id
+            """)
+            existing_post = db.session.execute(check_post_exists, {'order_id': order.id}).fetchone()
+
+            if not existing_post:
+                # ID disponible, continuar con la creación
+                current_app.logger.info(f"Order ID {order.id} is available, proceeding with creation")
+                break
+            else:
+                # ID ya existe, hacer rollback y reintentar
+                current_app.logger.warning(f"Order ID {order.id} already exists in wpyz_posts (attempt {attempt + 1}/{max_retries}). Rolling back and retrying...")
+                db.session.rollback()
+
+                if attempt == max_retries - 1:
+                    # Último intento falló
+                    raise Exception(f"Failed to create order after {max_retries} attempts due to ID collisions")
+
+                # Forzar nuevo ID incrementando el autoincrement
+                # Esto asegura que el próximo ID sea diferente
+                continue
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
@@ -1108,17 +1138,8 @@ def create_order():
 
         # ===== REGISTRO EN WPYZ_POSTS (CRÍTICO para compatibilidad HPOS) =====
         # WooCommerce HPOS requiere sincronización con wpyz_posts para plugins antiguos
-        # IMPORTANTE: Verificar si el ID ya existe antes de insertar para evitar
-        # duplicados por race conditions con pedidos naturales del sitio
-        from sqlalchemy import text
-
-        # Verificar si el ID ya existe en wpyz_posts
-        check_post_exists = text("""
-            SELECT ID FROM wpyz_posts WHERE ID = :order_id
-        """)
-        existing_post = db.session.execute(check_post_exists, {'order_id': order.id}).fetchone()
-
-        if not existing_post:
+        # En este punto sabemos que el ID no existe (verificado arriba)
+        if True:  # Siempre ejecutar porque ya verificamos
             # El ID no existe, podemos insertar de manera segura
             insert_post = text("""
                 INSERT INTO wpyz_posts (
@@ -1150,10 +1171,6 @@ def create_order():
                 'post_modified_gmt': current_time
             })
             current_app.logger.info(f"Inserted order {order.id} into wpyz_posts with title: {post_title}")
-        else:
-            # El ID ya existe (race condition con pedido natural)
-            # No insertamos en wpyz_posts, pero el pedido seguirá funcionando con postmeta
-            current_app.logger.warning(f"Order ID {order.id} already exists in wpyz_posts (race condition detected). Skipping wpyz_posts insert. Order will rely on postmeta only.")
 
         # ===== DIRECCIONES =====
         # IMPORTANTE: WooCommerce NO tiene HPOS habilitado, usa el sistema antiguo (postmeta)
