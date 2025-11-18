@@ -536,15 +536,15 @@ def list_orders():
 @login_required
 def get_users():
     """
-    Obtener lista de TODOS los usuarios del sistema para filtrar pedidos
+    Obtener lista de usuarios ACTIVOS del sistema para filtrar pedidos
 
-    Retorna lista de todos los usuarios con username y nombre completo
+    Retorna lista de usuarios activos con username y nombre completo
     """
     try:
         from app.models import User
 
-        # Obtener TODOS los usuarios del sistema
-        users = User.query.order_by(User.full_name, User.username).all()
+        # Obtener solo usuarios ACTIVOS
+        users = User.query.filter_by(is_active=True).order_by(User.full_name, User.username).all()
 
         users_list = [{
             'username': user.username,
