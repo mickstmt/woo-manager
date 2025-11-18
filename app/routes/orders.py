@@ -1259,6 +1259,9 @@ def create_order():
             line_subtotal = line_total_with_tax / Decimal('1.18')
             line_tax = line_total_with_tax - line_subtotal
 
+            # Calcular precio unitario sin impuestos
+            unit_price_without_tax = price_with_tax / Decimal('1.18')
+
             items_subtotal += line_subtotal
             items_tax += line_tax
 
@@ -1287,6 +1290,8 @@ def create_order():
                 ('_line_tax_data', line_tax_data),  # Desglose de impuestos serializado
                 ('_tax_class', ''),
                 ('_reduced_stock', quantity),  # Cantidad de stock reducida
+                # Agregar precio unitario para que aparezca en emails
+                ('cost', str(unit_price_without_tax.quantize(Decimal('0.01')))),
             ]
 
             for meta_key, meta_value in item_metas:
