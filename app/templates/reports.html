@@ -152,6 +152,22 @@
     </div>
 </div>
 
+<!-- Gráfico comparativo de ventas por usuario -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Comparativa de Ventas por Usuario</h5>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 400px;">
+                    <canvas id="sales-by-user-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tablas de datos -->
 <div class="row mb-4">
     <div class="col-md-6 mb-3">
@@ -208,6 +224,7 @@
 <script>
 let salesTrendChart = null;
 let statusChart = null;
+let salesByUserChart = null;
 
 // Inicializar fechas por defecto (últimos 30 días)
 document.addEventListener('DOMContentLoaded', function() {
@@ -229,6 +246,7 @@ function loadReports() {
     loadSalesByDay(startDate, endDate);
     loadTopProducts(startDate, endDate);
     loadSalesByUser(startDate, endDate);
+    loadSalesByUserChart(startDate, endDate);
     loadStatusDistribution(startDate, endDate);
 }
 
@@ -368,6 +386,111 @@ function loadSalesByUser(startDate, endDate) {
             }
         })
         .catch(error => console.error('Error loading sales by user:', error));
+}
+
+function loadSalesByUserChart(startDate, endDate) {
+    fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+
+                // Ordenar por ventas descendente y tomar top 10
+                const sortedData = data.sort((a, b) => b.total_sales - a.total_sales).slice(0, 10);
+
+                const labels = sortedData.map(user => user.full_name);
+                const sales = sortedData.map(user => user.total_sales);
+                const orders = sortedData.map(user => user.total_orders);
+
+                if (salesByUserChart) {
+                    salesByUserChart.destroy();
+                }
+
+                const ctx = document.getElementById('sales-by-user-chart').getContext('2d');
+                salesByUserChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Ventas (S/)',
+                            data: sales,
+                            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Pedidos',
+                            data: orders,
+                            backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                display: true,
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: 'Ventas (S/)'
+                                }
+                            },
+                            x1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'top',
+                                grid: {
+                                    drawOnChartArea: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Pedidos'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true
+                            },
+                            y1: {
+                                display: false
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.datasetIndex === 0) {
+                                            label += 'S/' + context.parsed.x.toFixed(2);
+                                        } else {
+                                            label += context.parsed.x + ' pedidos';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => console.error('Error loading sales by user chart:', error));
 }
 
 function loadStatusDistribution(startDate, endDate) {
