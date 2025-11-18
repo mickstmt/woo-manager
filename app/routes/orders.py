@@ -1259,9 +1259,6 @@ def create_order():
             line_subtotal = line_total_with_tax / Decimal('1.18')
             line_tax = line_total_with_tax - line_subtotal
 
-            # Calcular precio unitario sin impuestos
-            unit_price_without_tax = price_with_tax / Decimal('1.18')
-
             items_subtotal += line_subtotal
             items_tax += line_tax
 
@@ -1272,8 +1269,8 @@ def create_order():
                 order_id=order.id
             )
             db.session.add(order_item)
-            # OPTIMIZACIÓN: Remover flush() - SQLAlchemy asignará el ID automáticamente
-            # db.session.flush()  # Removido - ganancia de ~1 segundo por item
+            # IMPORTANTE: flush() necesario para obtener order_item_id antes de crear metadatos
+            db.session.flush()
 
             # Agregar metadatos del item
             # Crear estructura de _line_tax_data (serializado PHP)
@@ -1290,8 +1287,6 @@ def create_order():
                 ('_line_tax_data', line_tax_data),  # Desglose de impuestos serializado
                 ('_tax_class', ''),
                 ('_reduced_stock', quantity),  # Cantidad de stock reducida
-                # Agregar precio unitario para que aparezca en emails
-                ('cost', str(unit_price_without_tax.quantize(Decimal('0.01')))),
             ]
 
             for meta_key, meta_value in item_metas:
@@ -1338,8 +1333,7 @@ def create_order():
             order_id=order.id
         )
         db.session.add(shipping_item)
-        # OPTIMIZACIÓN: Remover flush()
-        # db.session.flush()
+        db.session.flush()
 
         shipping_cost_str = str(shipping_cost.quantize(Decimal('0.01')))
         shipping_metas = [
@@ -1375,8 +1369,7 @@ def create_order():
                 order_id=order.id
             )
             db.session.add(discount_item)
-            # OPTIMIZACIÓN: Remover flush()
-            # db.session.flush()
+            db.session.flush()
 
             # Metadatos del descuento (valor negativo)
             # WooCommerce usa _line_total para mostrar el monto en el resumen
@@ -1411,8 +1404,7 @@ def create_order():
                 order_id=order.id
             )
             db.session.add(tax_item)
-            # OPTIMIZACIÓN: Remover flush()
-            # db.session.flush()
+            db.session.flush()
 
             # Metadatos del item de impuesto (coinciden con estructura de WooCommerce)
             tax_metas = [
