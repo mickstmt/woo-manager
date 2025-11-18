@@ -82,13 +82,23 @@
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <select class="form-select" id="user-filter">
                             <option value="">Todos los usuarios</option>
                             <!-- Se llenará dinámicamente con JavaScript -->
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <select class="form-select" id="status-filter">
+                            <option value="">Todos los estados</option>
+                            <option value="wc-processing">Procesando</option>
+                            <option value="wc-on-hold">En espera</option>
+                            <option value="wc-completed">Completado</option>
+                            <option value="wc-cancelled">Cancelado</option>
+                            <option value="trash">Papelera</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
                         <select class="form-select" id="per-page-select">
                             <option value="20">20 por página</option>
                             <option value="50">50 por página</option>
@@ -266,6 +276,7 @@ let currentPage = 1;
 let perPage = 20;
 let searchTerm = '';
 let userFilter = '';
+let statusFilter = '';
 let selectedProducts = [];
 
 $(document).ready(function() {
@@ -276,6 +287,12 @@ $(document).ready(function() {
     // Eventos
     $('#user-filter').on('change', function() {
         userFilter = $(this).val();
+        currentPage = 1;
+        loadOrders();
+    });
+
+    $('#status-filter').on('change', function() {
+        statusFilter = $(this).val();
         currentPage = 1;
         loadOrders();
     });
@@ -318,7 +335,8 @@ function loadUsers() {
             if (response.success && response.users.length > 0) {
                 const select = $('#user-filter');
                 response.users.forEach(user => {
-                    select.append(`<option value="${user.username}">${user.username}</option>`);
+                    // Mostrar nombre completo, no username
+                    select.append(`<option value="${user.username}">${user.full_name}</option>`);
                 });
             }
         },
@@ -346,7 +364,8 @@ function loadOrders(page = 1) {
             page: currentPage,
             per_page: perPage,
             search: searchTerm,
-            created_by: userFilter
+            created_by: userFilter,
+            status: statusFilter
         },
         success: function(response) {
             if (response.success) {
@@ -381,11 +400,13 @@ function renderOrders(orders) {
 
     let html = '';
     orders.forEach(order => {
-        const statusClass = order.status.includes('delivered') ? 'success' :
+        const statusClass = order.status.includes('trash') ? 'secondary' :
+                           order.status.includes('delivered') ? 'success' :
                            order.status.includes('completed') ? 'info' :
                            order.status.includes('cancelled') ? 'danger' : 'warning';
 
-        const statusText = order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
+        const statusText = order.status === 'trash' ? 'PAPELERA' :
+                          order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
 
         html += `
             <div class="order-card">

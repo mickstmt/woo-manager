@@ -378,6 +378,7 @@ def list_orders():
     - per_page: items por página
     - search: búsqueda por ID, email, nombre, W-XXXXX
     - created_by: filtrar por usuario creador
+    - status: filtrar por estado del pedido
     """
     try:
         from sqlalchemy import text
@@ -387,6 +388,7 @@ def list_orders():
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '', type=str)
         created_by_filter = request.args.get('created_by', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
 
         # Limitar per_page
         per_page = min(per_page, 100)
@@ -416,6 +418,7 @@ def list_orders():
             WHERE 1=1
             {search_filter}
             {created_by_filter}
+            {status_filter}
             ORDER BY o.date_created_gmt DESC
             LIMIT :limit OFFSET :offset
         """)
@@ -430,11 +433,13 @@ def list_orders():
             WHERE 1=1
             {search_filter}
             {created_by_filter}
+            {status_filter}
         """)
 
         # Construir filtros dinámicos
         search_filter = ""
         created_by_filter_clause = ""
+        status_filter_clause = ""
         params = {
             'limit': per_page,
             'offset': (page - 1) * per_page
@@ -458,14 +463,20 @@ def list_orders():
             created_by_filter_clause = "AND om_created_by.meta_value = :created_by"
             params['created_by'] = created_by_filter
 
+        if status_filter:
+            status_filter_clause = "AND o.status = :status"
+            params['status'] = status_filter
+
         # Formatear queries con filtros
         final_query = query.text.format(
             search_filter=search_filter,
-            created_by_filter=created_by_filter_clause
+            created_by_filter=created_by_filter_clause,
+            status_filter=status_filter_clause
         )
         final_count_query = count_query.text.format(
             search_filter=search_filter,
-            created_by_filter=created_by_filter_clause
+            created_by_filter=created_by_filter_clause,
+            status_filter=status_filter_clause
         )
 
         # Ejecutar queries
@@ -525,26 +536,20 @@ def list_orders():
 @login_required
 def get_users():
     """
-    Obtener lista de usuarios que han creado pedidos en el manager
+    Obtener lista de TODOS los usuarios del sistema para filtrar pedidos
 
-    Retorna lista de usuarios únicos que aparecen en _created_by
+    Retorna lista de todos los usuarios con username y nombre completo
     """
     try:
-        from sqlalchemy import text
+        from app.models import User
 
-        # Query para obtener usuarios únicos que han creado pedidos
-        query = text("""
-            SELECT DISTINCT meta_value as username
-            FROM wpyz_wc_orders_meta
-            WHERE meta_key = '_created_by'
-            AND meta_value IS NOT NULL
-            AND meta_value != ''
-            ORDER BY meta_value
-        """)
+        # Obtener TODOS los usuarios del sistema
+        users = User.query.order_by(User.full_name, User.username).all()
 
-        results = db.session.execute(query).fetchall()
-
-        users_list = [{'username': row[0]} for row in results]
+        users_list = [{
+            'username': user.username,
+            'full_name': user.full_name or user.username  # Usar username si no tiene nombre completo
+        } for user in users]
 
         return jsonify({
             'success': True,
