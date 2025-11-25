@@ -410,7 +410,11 @@ def list_orders():
                 ba.phone,
                 om_order_number.meta_value as order_number,
                 om_created_by.meta_value as created_by,
-                (SELECT COUNT(*) FROM wpyz_woocommerce_order_items WHERE order_id = o.id AND order_item_type = 'line_item') as items_count
+                (SELECT COUNT(*) FROM wpyz_woocommerce_order_items WHERE order_id = o.id AND order_item_type = 'line_item') as items_count,
+                (SELECT oi.order_item_name
+                 FROM wpyz_woocommerce_order_items oi
+                 WHERE oi.order_id = o.id AND oi.order_item_type = 'shipping'
+                 LIMIT 1) as shipping_method
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
@@ -505,6 +509,7 @@ def list_orders():
                 'order_number': row[11] or '',  # W-XXXXX
                 'created_by': row[12] or 'N/A',  # Usuario que creó el pedido
                 'items_count': row[13] or 0,
+                'shipping_method': row[14] or 'N/A',  # Método de envío
                 'date_created': row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else ''
             })
 

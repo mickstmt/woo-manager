@@ -430,7 +430,8 @@ function renderOrders(orders) {
                     </div>
                     <div class="col-md-2">
                         <small class="text-muted">${order.date_created}</small><br>
-                        <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small>
+                        <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small><br>
+                        <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method}</small>
                     </div>
                     <div class="col-md-2 text-end">
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
