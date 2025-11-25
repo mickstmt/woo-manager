@@ -1038,6 +1038,7 @@ def create_order():
             }
         ],
         "shipping_cost": 15.00,  # Costo de envío
+        "shipping_method_title": "Envío Olva Courier 3 a 4 días",  # Opcional: nombre del método
         "payment_method": "cod",
         "payment_method_title": "Yape",
         "customer_note": "Cliente contactó por WhatsApp"
@@ -1057,6 +1058,7 @@ def create_order():
         items_data = data['items']
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
         discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
+        shipping_method_title = data.get('shipping_method_title', '')  # Título del método de envío
 
         # DEBUG: Log customer data para verificar qué se está recibiendo
         current_app.logger.info(f"Creating order with customer data: {customer}")
@@ -1345,17 +1347,21 @@ def create_order():
         shipping_subtotal = shipping_cost
         shipping_tax = Decimal('0')
 
-        # Mapear billing_entrega a nombres legibles para WooCommerce
-        billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
-        shipping_method_names = {
-            'billing_agencia': 'En Agencia Shalom/Olva Courier',
-            'billing_domicilio': 'Entrega a Domicilio',
-            'billing_recojo': 'Recojo en Almacén'
-        }
-        shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
+        # Usar shipping_method_title si viene en el request, sino mapear desde billing_entrega
+        if shipping_method_title:
+            shipping_method_name = shipping_method_title
+        else:
+            # Fallback: mapear billing_entrega a nombres legibles
+            billing_entrega = customer.get('billing_entrega', 'billing_domicilio')
+            shipping_method_names = {
+                'billing_agencia': 'En Agencia Shalom/Olva Courier',
+                'billing_domicilio': 'Entrega a Domicilio',
+                'billing_recojo': 'Recojo en Almacén'
+            }
+            shipping_method_name = shipping_method_names.get(billing_entrega, 'Envío')
 
         shipping_item = OrderItem(
-            order_item_name=shipping_method_name,  # Usar nombre específico del método
+            order_item_name=shipping_method_name,  # Usar nombre del método de envío
             order_item_type='shipping',
             order_id=order.id
         )
