@@ -595,6 +595,40 @@
     </div>
 </div>
 
+<!-- Modal de Pedido Creado -->
+<div class="modal fade" id="orderCreatedModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <span id="modal-icon">
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    </span>
+                    <span id="modal-title-text">Creando tu pedido...</span>
+                </h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p id="modal-message" class="mb-4">Por favor espera mientras procesamos tu pedido</p>
+
+                <!-- Botones (inicialmente ocultos) -->
+                <div id="modal-actions" style="display: none;">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
+                            <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
+                            <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="btn-view-woo" onclick="viewInWooCommerce()">
+                            <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1928,10 +1962,16 @@ function validateStep2() {
 
 // ==================== ENVÍO DE PEDIDO ====================
 
+let createdOrderId = null;
+
 function submitOrder() {
     const btn = $('#btn-submit');
     btn.prop('disabled', true);
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
+
+    // Mostrar modal inmediatamente
+    const modal = new bootstrap.Modal(document.getElementById('orderCreatedModal'));
+    modal.show();
 
     // Verificar tipo de entrega
     const deliveryType = $('#delivery-type').val();
@@ -1978,22 +2018,72 @@ function submitOrder() {
         data: JSON.stringify(orderData),
         success: function(response) {
             if (response.success) {
-                // Mostrar mensaje de éxito
-                showNotification('success', response.message);
+                // Guardar ID del pedido
+                createdOrderId = response.order_id;
 
-                // Redirigir después de 2 segundos
-                setTimeout(function() {
-                    window.location.href = '/orders/';
-                }, 2000);
+                // Actualizar modal con éxito
+                $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
+                $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
+                $('#modal-message').html(`
+                    <div class="alert alert-success">
+                        <strong>Pedido #${response.order_number || response.order_id}</strong> creado correctamente
+                    </div>
+                    <p class="text-muted">¿Qué deseas hacer ahora?</p>
+                `);
+
+                // Mostrar botones de acción
+                $('#modal-actions').show();
+
+                // Cambiar color del header a éxito
+                $('.modal-header').removeClass('bg-primary').addClass('bg-success');
             } else {
-                showNotification('error', response.error || 'Error al crear pedido');
+                // Actualizar modal con error
+                $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
+                $('#modal-title-text').text('Error al Crear Pedido');
+                $('#modal-message').html(`
+                    <div class="alert alert-danger">
+                        ${response.error || 'Error desconocido'}
+                    </div>
+                `);
+
+                // Cambiar color del header a error
+                $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
+
+                // Mostrar solo opción de cerrar
+                $('#modal-actions').html(`
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cerrar
+                    </button>
+                `).show();
+
+                // Re-habilitar botón
                 btn.prop('disabled', false);
                 btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
             }
         },
         error: function(xhr) {
             const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-            showNotification('error', error);
+
+            // Actualizar modal con error
+            $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
+            $('#modal-title-text').text('Error de Conexión');
+            $('#modal-message').html(`
+                <div class="alert alert-danger">
+                    ${error}
+                </div>
+            `);
+
+            // Cambiar color del header a error
+            $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
+
+            // Mostrar solo opción de cerrar
+            $('#modal-actions').html(`
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cerrar
+                </button>
+            `).show();
+
+            // Re-habilitar botón
             btn.prop('disabled', false);
             btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
         }
@@ -2111,6 +2201,37 @@ function showLoadingOverlay(message = 'Cargando...') {
 function hideLoadingOverlay() {
     $('#loading-overlay').fadeOut(300, function() {
         $(this).remove();
+    });
+}
+
+// ==================== FUNCIONES DEL MODAL DE PEDIDO CREADO ====================
+
+function createNewOrder() {
+    // Recargar la página para limpiar todo el formulario
+    window.location.reload();
+}
+
+function goToOrdersList() {
+    window.location.href = '/orders/';
+}
+
+function viewInWooCommerce() {
+    // Obtener la URL base de WooCommerce del servidor
+    $.ajax({
+        url: '/orders/get-woo-orders-url',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.url) {
+                window.open(response.url, '_blank');
+            } else {
+                // Fallback: construir URL manualmente si el backend no responde correctamente
+                alert('No se pudo obtener la URL de WooCommerce. Intenta acceder manualmente desde el panel de administración.');
+            }
+        },
+        error: function() {
+            // Fallback en caso de error
+            alert('No se pudo obtener la URL de WooCommerce. Por favor, accede manualmente al panel de administración.');
+        }
     });
 }
 </script>

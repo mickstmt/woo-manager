@@ -1649,6 +1649,36 @@ def create_order():
 from config import get_local_time
 
 
+@bp.route('/get-woo-orders-url')
+@login_required
+def get_woo_orders_url():
+    """
+    Devuelve la URL de WooCommerce para ver el listado general de pedidos
+    """
+    try:
+        woo_url = current_app.config.get('WC_API_URL', '')
+
+        if not woo_url:
+            return jsonify({
+                'success': False,
+                'error': 'URL de WooCommerce no configurada'
+            }), 500
+
+        # Construir URL completa del listado de pedidos
+        full_url = f"{woo_url}/wp-admin/edit.php?post_type=shop_order"
+
+        return jsonify({
+            'success': True,
+            'url': full_url
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting WooCommerce URL: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @bp.route('/debug-woocommerce-api')
 @login_required
 def debug_woocommerce_api():
