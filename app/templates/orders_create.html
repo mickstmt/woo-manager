@@ -1969,8 +1969,17 @@ function submitOrder() {
     btn.prop('disabled', true);
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
 
-    // Mostrar modal inmediatamente
+    // **MOSTRAR MODAL INMEDIATAMENTE** antes de hacer la petición AJAX
     const modal = new bootstrap.Modal(document.getElementById('orderCreatedModal'));
+
+    // Resetear el modal al estado inicial de "cargando"
+    $('#modal-icon').html('<span class="spinner-border spinner-border-sm me-2"></span>');
+    $('#modal-title-text').text('Creando tu pedido...');
+    $('#modal-message').html('<p class="mb-4">Por favor espera mientras procesamos tu pedido. Puedes continuar trabajando en otra pestaña si lo deseas.</p>');
+    $('#modal-actions').hide();
+    $('.modal-header').removeClass('bg-success bg-danger').addClass('bg-primary');
+
+    // Mostrar el modal ANTES de enviar
     modal.show();
 
     // Verificar tipo de entrega
