@@ -34,13 +34,14 @@ def api_summary():
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
 
-        # Si no se especifican, usar últimos 30 días
+        # Si no se especifican, usar hoy
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = datetime.now().strftime('%Y-%m-%d')
 
         # Query para métricas generales
+        # IMPORTANTE: Convertir UTC a hora Perú (UTC-5) antes de comparar fechas
         query = text("""
             SELECT
                 COUNT(DISTINCT o.id) as total_orders,
@@ -51,7 +52,7 @@ def api_summary():
                 COUNT(DISTINCT CASE WHEN o.status = 'wc-processing' THEN o.id END) as processing_orders
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
-            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
         """)
 
         result = db.session.execute(query, {
@@ -65,7 +66,7 @@ def api_summary():
             FROM wpyz_wc_orders_meta om
             INNER JOIN wpyz_wc_orders o ON om.order_id = o.id
             WHERE om.meta_key = '_wc_discount_amount'
-            AND DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
         """)
 
         discount_result = db.session.execute(discount_query, {
@@ -112,17 +113,17 @@ def api_sales_by_day():
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = datetime.now().strftime('%Y-%m-%d')
 
         query = text("""
             SELECT
-                DATE(o.date_created_gmt) as date,
+                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as date,
                 COUNT(o.id) as orders,
                 COALESCE(SUM(o.total_amount), 0) as total
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
-            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
-            GROUP BY DATE(o.date_created_gmt)
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+            GROUP BY DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
             ORDER BY date ASC
         """)
 
@@ -165,7 +166,7 @@ def api_top_products():
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = datetime.now().strftime('%Y-%m-%d')
 
         query = text("""
             SELECT
@@ -178,7 +179,7 @@ def api_top_products():
             INNER JOIN wpyz_woocommerce_order_itemmeta oim_product ON oi.order_item_id = oim_product.order_item_id AND oim_product.meta_key = '_product_id'
             INNER JOIN wpyz_posts p ON CAST(oim_product.meta_value AS SIGNED) = p.ID
             WHERE oi.order_item_type = 'line_item'
-            AND DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
             GROUP BY p.ID, p.post_title
             ORDER BY quantity_sold DESC
             LIMIT :limit
@@ -223,7 +224,7 @@ def api_sales_by_user():
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = datetime.now().strftime('%Y-%m-%d')
 
         query = text("""
             SELECT
@@ -233,7 +234,7 @@ def api_sales_by_user():
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om_number ON o.id = om_number.order_id AND om_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created ON o.id = om_created.order_id AND om_created.meta_key = '_created_by'
-            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
             GROUP BY om_created.meta_value
             ORDER BY total_sales DESC
         """)
@@ -284,7 +285,7 @@ def api_status_distribution():
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            start_date = datetime.now().strftime('%Y-%m-%d')
 
         query = text("""
             SELECT
@@ -292,7 +293,7 @@ def api_status_distribution():
                 COUNT(o.id) as count
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
-            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
             GROUP BY o.status
             ORDER BY count DESC
         """)
