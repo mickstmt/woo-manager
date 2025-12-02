@@ -15,8 +15,29 @@ bp = Blueprint('orders', __name__, url_prefix='/orders')
 
 
 def get_gmt_time():
-    """Obtener la hora actual en GMT/UTC como espera WooCommerce"""
-    return datetime.utcnow()
+    """
+    Obtener la hora actual de Perú (America/Lima, UTC-5) convertida a GMT/UTC
+
+    WooCommerce guarda las fechas en UTC en la base de datos.
+    Esta función toma la hora actual de Perú y la convierte a UTC.
+
+    Ejemplo:
+    - Hora Perú: 2025-12-01 18:30:00 (UTC-5)
+    - Hora UTC: 2025-12-01 23:30:00
+
+    Returns:
+        datetime: Hora actual en UTC (sin timezone info)
+    """
+    from config import get_local_time
+
+    # Obtener hora actual de Perú con timezone
+    peru_time = get_local_time()
+
+    # Convertir a UTC
+    utc_time = peru_time.astimezone(pytz.UTC)
+
+    # Retornar sin timezone info (naive datetime) como espera WooCommerce
+    return utc_time.replace(tzinfo=None)
 
 
 def get_next_manager_order_number():

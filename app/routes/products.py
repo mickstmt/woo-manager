@@ -485,6 +485,207 @@ def view_product(product_id):
         return redirect(url_for('products.index'))
 
 
+@bp.route('/create')
+@login_required
+def create():
+    """
+    Formulario para crear un nuevo producto
+
+    URL: /products/create
+    """
+    return render_template('products/create.html', title='Crear Producto')
+
+
+@bp.route('/create-variable-wizard')
+@login_required
+def create_variable_wizard():
+    """
+    Wizard para crear producto variable
+
+    URL: /products/create-variable-wizard
+    """
+    return render_template('products/create_variable.html', title='Crear Producto Variable')
+
+
+@bp.route('/create', methods=['POST'])
+@login_required
+def store_product():
+    """
+    Guardar nuevo producto en WooCommerce mediante API REST
+
+    Campos esperados:
+    - Información básica: title, slug, description, short_description, status
+    - Precios: regular_price, sale_price, cost_price
+    - Inventario: sku, stock_quantity, stock_status, low_stock_threshold, manage_stock
+    - Peso y dimensiones: weight, length, width, height
+    - Imágenes: image_url, gallery_images[]
+    - Taxonomías: categories[], tags[], brands[]
+    - SEO: seo_title, seo_description, focus_keyphrase, seo_keywords
+    - Tipo: product_type (simple/variable)
+    - Atributos (si es variable): attributes[]
+    - Variaciones (si es variable): variations[]
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+        import re
+
+        # Conectar con API de WooCommerce
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=30
+        )
+
+        # Obtener datos del formulario
+        data = request.get_json() if request.is_json else request.form.to_dict()
+
+        # Construir objeto de producto para WooCommerce API
+        product_data = {
+            "name": data.get('title', '').strip(),
+            "type": data.get('product_type', 'simple'),  # simple o variable
+            "status": data.get('status', 'draft'),  # draft, publish, private
+            "description": data.get('description', '').strip(),
+            "short_description": data.get('short_description', '').strip(),
+            "sku": data.get('sku', '').strip(),
+            "regular_price": data.get('regular_price', ''),
+            "sale_price": data.get('sale_price', '') if data.get('sale_price') else '',
+            "manage_stock": data.get('manage_stock', 'yes') == 'yes',
+            "stock_quantity": int(data.get('stock_quantity', 0)) if data.get('stock_quantity') else None,
+            "stock_status": data.get('stock_status', 'instock'),
+            "low_stock_amount": int(data.get('low_stock_threshold', '')) if data.get('low_stock_threshold') else None,
+            "weight": data.get('weight', '').strip(),
+            "dimensions": {
+                "length": data.get('length', '').strip(),
+                "width": data.get('width', '').strip(),
+                "height": data.get('height', '').strip()
+            }
+        }
+
+        # Generar slug automáticamente si no se proporcionó
+        if data.get('slug'):
+            product_data['slug'] = data.get('slug').strip()
+        else:
+            # Generar slug desde el título
+            slug = re.sub(r'[^a-z0-9]+', '-', data.get('title', '').lower().strip())
+            slug = slug.strip('-')
+            product_data['slug'] = slug
+
+        # Imagen principal
+        if data.get('image_url'):
+            product_data['images'] = [{"src": data.get('image_url').strip()}]
+
+            # Agregar galería de imágenes si existen
+            gallery_images = request.form.getlist('gallery_images[]') if not request.is_json else data.get('gallery_images', [])
+            if gallery_images:
+                for img_url in gallery_images:
+                    if img_url and img_url.strip():
+                        product_data['images'].append({"src": img_url.strip()})
+
+        # Categorías
+        categories = request.form.getlist('categories[]') if not request.is_json else data.get('categories', [])
+        if categories:
+            product_data['categories'] = [{"id": int(cat_id)} for cat_id in categories if cat_id]
+
+        # Tags
+        tags = request.form.getlist('tags[]') if not request.is_json else data.get('tags', [])
+        if tags:
+            product_data['tags'] = [{"id": int(tag_id)} for tag_id in tags if tag_id]
+
+        # Brands (taxonomía personalizada)
+        brands = request.form.getlist('brands[]') if not request.is_json else data.get('brands', [])
+
+        # Meta data para campos personalizados
+        meta_data = []
+
+        # Precio de costo (campo personalizado)
+        if data.get('cost_price'):
+            meta_data.append({
+                "key": "_cost_price",
+                "value": data.get('cost_price').strip()
+            })
+
+        # Yoast SEO fields
+        if data.get('seo_title'):
+            meta_data.append({
+                "key": "_yoast_wpseo_title",
+                "value": data.get('seo_title').strip()
+            })
+
+        if data.get('seo_description'):
+            meta_data.append({
+                "key": "_yoast_wpseo_metadesc",
+                "value": data.get('seo_description').strip()
+            })
+
+        if data.get('focus_keyphrase'):
+            meta_data.append({
+                "key": "_yoast_wpseo_focuskw",
+                "value": data.get('focus_keyphrase').strip()
+            })
+            meta_data.append({
+                "key": "_yoast_wpseo_focuskw_text_input",
+                "value": data.get('focus_keyphrase').strip()
+            })
+
+        if data.get('seo_keywords'):
+            meta_data.append({
+                "key": "_yoast_wpseo_keywordsynonyms",
+                "value": data.get('seo_keywords').strip()
+            })
+
+        if meta_data:
+            product_data['meta_data'] = meta_data
+
+        # Crear producto en WooCommerce
+        response = wcapi.post("products", product_data)
+
+        if response.status_code == 201:
+            product_created = response.json()
+            product_id = product_created['id']
+
+            # Si tiene brands, agregar mediante API de términos
+            if brands:
+                from sqlalchemy import text
+                for brand_id in brands:
+                    if brand_id:
+                        # Insertar relación en wpyz_term_relationships
+                        query = text("""
+                            INSERT INTO wpyz_term_relationships (object_id, term_taxonomy_id)
+                            SELECT :product_id, term_taxonomy_id
+                            FROM wpyz_term_taxonomy
+                            WHERE term_id = :brand_id AND taxonomy = 'product_brand'
+                            ON DUPLICATE KEY UPDATE term_taxonomy_id=term_taxonomy_id
+                        """)
+                        db.session.execute(query, {'product_id': product_id, 'brand_id': int(brand_id)})
+                db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Producto creado exitosamente',
+                'product_id': product_id,
+                'product': product_created
+            }), 201
+        else:
+            error_message = response.json().get('message', 'Error desconocido')
+            return jsonify({
+                'success': False,
+                'error': f'Error al crear producto: {error_message}',
+                'status_code': response.status_code,
+                'response': response.json()
+            }), response.status_code
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/export-excel')
 @login_required
 def export_excel():
@@ -767,6 +968,334 @@ def export_excel():
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
 
         return response
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/get-categories')
+@login_required
+def get_categories():
+    """
+    Obtener todas las categorías de productos
+    URL: /products/get-categories
+    """
+    try:
+        from sqlalchemy import text
+        query = text("""
+            SELECT t.term_id, t.name, t.slug, tt.parent
+            FROM wpyz_terms t
+            INNER JOIN wpyz_term_taxonomy tt ON t.term_id = tt.term_id
+            WHERE tt.taxonomy = 'product_cat'
+            ORDER BY t.name ASC
+        """)
+        result = db.session.execute(query)
+        categories = []
+        for row in result:
+            categories.append({'id': row[0], 'name': row[1], 'slug': row[2], 'parent_id': row[3]})
+        return jsonify({'success': True, 'categories': categories})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/get-tags')
+@login_required
+def get_tags():
+    """
+    Obtener todos los tags de productos
+    URL: /products/get-tags
+    """
+    try:
+        from sqlalchemy import text
+        query = text("""
+            SELECT t.term_id, t.name, t.slug
+            FROM wpyz_terms t
+            INNER JOIN wpyz_term_taxonomy tt ON t.term_id = tt.term_id
+            WHERE tt.taxonomy = 'product_tag'
+            ORDER BY t.name ASC
+        """)
+        result = db.session.execute(query)
+        tags = []
+        for row in result:
+            tags.append({'id': row[0], 'name': row[1], 'slug': row[2]})
+        return jsonify({'success': True, 'tags': tags})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/get-brands')
+@login_required
+def get_brands():
+    """
+    Obtener todas las marcas de productos
+    URL: /products/get-brands
+    """
+    try:
+        from sqlalchemy import text
+        query = text("""
+            SELECT t.term_id, t.name, t.slug
+            FROM wpyz_terms t
+            INNER JOIN wpyz_term_taxonomy tt ON t.term_id = tt.term_id
+            WHERE tt.taxonomy = 'product_brand'
+            ORDER BY t.name ASC
+        """)
+        result = db.session.execute(query)
+        brands = []
+        for row in result:
+            brands.append({'id': row[0], 'name': row[1], 'slug': row[2]})
+        return jsonify({'success': True, 'brands': brands})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/get-attributes')
+@login_required
+def get_attributes():
+    """
+    Obtener todos los atributos de productos globales
+    URL: /products/get-attributes
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=30
+        )
+
+        response = wcapi.get("products/attributes")
+
+        if response.status_code == 200:
+            attributes = response.json()
+            return jsonify({'success': True, 'attributes': attributes})
+        else:
+            return jsonify({'success': False, 'error': 'Error al obtener atributos'}), 500
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/get-attribute-terms/<int:attribute_id>')
+@login_required
+def get_attribute_terms(attribute_id):
+    """
+    Obtener términos de un atributo específico
+    URL: /products/get-attribute-terms/1
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=30
+        )
+
+        response = wcapi.get(f"products/attributes/{attribute_id}/terms", params={"per_page": 100})
+
+        if response.status_code == 200:
+            terms = response.json()
+            return jsonify({'success': True, 'terms': terms})
+        else:
+            return jsonify({'success': False, 'error': 'Error al obtener términos'}), 500
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/create-variable', methods=['POST'])
+@login_required
+def create_variable_product():
+    """
+    Crear producto variable con todas sus variaciones
+
+    Recibe:
+    - Información del producto padre (paso 1)
+    - Atributos y términos seleccionados (paso 2)
+    - Variaciones generadas con precios/stock (paso 3)
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+        import re
+        import itertools
+
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=60
+        )
+
+        data = request.get_json()
+
+        # PASO 1: Crear producto padre (variable)
+        product_data = {
+            "name": data.get('title', '').strip(),
+            "type": "variable",
+            "status": data.get('status', 'draft'),
+            "description": data.get('description', '').strip(),
+            "short_description": data.get('short_description', '').strip(),
+            "weight": data.get('weight', '').strip(),
+            "dimensions": {
+                "length": data.get('length', '').strip(),
+                "width": data.get('width', '').strip(),
+                "height": data.get('height', '').strip()
+            }
+        }
+
+        # Slug
+        if data.get('slug'):
+            product_data['slug'] = data.get('slug').strip()
+        else:
+            slug = re.sub(r'[^a-z0-9]+', '-', data.get('title', '').lower().strip())
+            product_data['slug'] = slug.strip('-')
+
+        # Imagen principal
+        if data.get('image_url'):
+            product_data['images'] = [{"src": data.get('image_url').strip()}]
+            gallery_images = data.get('gallery_images', [])
+            if gallery_images:
+                for img_url in gallery_images:
+                    if img_url and img_url.strip():
+                        product_data['images'].append({"src": img_url.strip()})
+
+        # Categorías
+        categories = data.get('categories', [])
+        if categories:
+            product_data['categories'] = [{"id": int(cat_id)} for cat_id in categories if cat_id]
+
+        # Tags
+        tags = data.get('tags', [])
+        if tags:
+            product_data['tags'] = [{"id": int(tag_id)} for tag_id in tags if tag_id]
+
+        # Brands
+        brands = data.get('brands', [])
+
+        # Atributos del producto
+        attributes_data = []
+        for attr in data.get('attributes', []):
+            attributes_data.append({
+                "id": attr['id'],
+                "name": attr['name'],
+                "visible": True,
+                "variation": True,
+                "options": attr['terms']
+            })
+
+        product_data['attributes'] = attributes_data
+
+        # Meta data (SEO, costo)
+        meta_data = []
+        if data.get('cost_price'):
+            meta_data.append({"key": "_cost_price", "value": data.get('cost_price').strip()})
+        if data.get('seo_title'):
+            meta_data.append({"key": "_yoast_wpseo_title", "value": data.get('seo_title').strip()})
+        if data.get('seo_description'):
+            meta_data.append({"key": "_yoast_wpseo_metadesc", "value": data.get('seo_description').strip()})
+        if data.get('focus_keyphrase'):
+            meta_data.append({"key": "_yoast_wpseo_focuskw", "value": data.get('focus_keyphrase').strip()})
+            meta_data.append({"key": "_yoast_wpseo_focuskw_text_input", "value": data.get('focus_keyphrase').strip()})
+        if data.get('seo_keywords'):
+            meta_data.append({"key": "_yoast_wpseo_keywordsynonyms", "value": data.get('seo_keywords').strip()})
+
+        if meta_data:
+            product_data['meta_data'] = meta_data
+
+        # Crear producto padre
+        response = wcapi.post("products", product_data)
+
+        if response.status_code != 201:
+            error_message = response.json().get('message', 'Error desconocido')
+            return jsonify({
+                'success': False,
+                'error': f'Error al crear producto: {error_message}',
+                'response': response.json()
+            }), response.status_code
+
+        product_created = response.json()
+        product_id = product_created['id']
+
+        # Agregar brands si existen
+        if brands:
+            from sqlalchemy import text
+            for brand_id in brands:
+                if brand_id:
+                    query = text("""
+                        INSERT INTO wpyz_term_relationships (object_id, term_taxonomy_id)
+                        SELECT :product_id, term_taxonomy_id
+                        FROM wpyz_term_taxonomy
+                        WHERE term_id = :brand_id AND taxonomy = 'product_brand'
+                        ON DUPLICATE KEY UPDATE term_taxonomy_id=term_taxonomy_id
+                    """)
+                    db.session.execute(query, {'product_id': product_id, 'brand_id': int(brand_id)})
+            db.session.commit()
+
+        # PASO 2: Crear variaciones
+        variations = data.get('variations', [])
+        created_variations = []
+        failed_variations = []
+
+        for variation in variations:
+            variation_data = {
+                "regular_price": variation.get('regular_price', ''),
+                "sale_price": variation.get('sale_price', '') if variation.get('sale_price') else '',
+                "sku": variation.get('sku', '').strip(),
+                "manage_stock": variation.get('manage_stock', True),
+                "stock_quantity": int(variation.get('stock_quantity', 0)) if variation.get('stock_quantity') else 0,
+                "stock_status": variation.get('stock_status', 'instock'),
+                "attributes": []
+            }
+
+            # Atributos de la variación
+            for attr_slug, term_slug in variation.get('attributes', {}).items():
+                variation_data['attributes'].append({
+                    "id": int(attr_slug.replace('attr_', '')),
+                    "option": term_slug
+                })
+
+            # Imagen de variación
+            if variation.get('image_url'):
+                variation_data['image'] = {"src": variation.get('image_url').strip()}
+
+            # Precio de costo de variación
+            if variation.get('cost_price'):
+                variation_data['meta_data'] = [{"key": "_cost_price", "value": variation.get('cost_price').strip()}]
+
+            # Crear variación
+            var_response = wcapi.post(f"products/{product_id}/variations", variation_data)
+
+            if var_response.status_code == 201:
+                created_variations.append(var_response.json())
+            else:
+                failed_variations.append({
+                    'variation': variation,
+                    'error': var_response.json()
+                })
+
+        return jsonify({
+            'success': True,
+            'message': 'Producto variable creado exitosamente',
+            'product_id': product_id,
+            'product': product_created,
+            'variations_created': len(created_variations),
+            'variations_failed': len(failed_variations),
+            'failed_details': failed_variations
+        }), 201
 
     except Exception as e:
         import traceback
