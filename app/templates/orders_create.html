@@ -1969,14 +1969,32 @@ function submitOrder() {
     btn.prop('disabled', true);
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
 
-    // **MOSTRAR MODAL INMEDIATAMENTE** antes de hacer la petición AJAX
+    // **MOSTRAR MODAL INMEDIATAMENTE** con opciones de acción
     const modal = new bootstrap.Modal(document.getElementById('orderCreatedModal'));
 
-    // Resetear el modal al estado inicial de "cargando"
+    // Resetear el modal al estado inicial de "procesando en segundo plano"
     $('#modal-icon').html('<span class="spinner-border spinner-border-sm me-2"></span>');
-    $('#modal-title-text').text('Creando tu pedido...');
-    $('#modal-message').html('<p class="mb-4">Por favor espera mientras procesamos tu pedido. Puedes continuar trabajando en otra pestaña si lo deseas.</p>');
-    $('#modal-actions').hide();
+    $('#modal-title-text').text('Procesando pedido en segundo plano...');
+    $('#modal-message').html(`
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Tu pedido se está creando en segundo plano.
+            Puedes continuar con tus tareas mientras tanto.
+        </div>
+        <p class="text-muted">¿Qué deseas hacer ahora?</p>
+    `);
+
+    // **MOSTRAR BOTONES DE ACCIÓN INMEDIATAMENTE**
+    $('#modal-actions').html(`
+        <div class="d-grid gap-2">
+            <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
+                <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
+                <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
+            </button>
+        </div>
+    `).show();
+
     $('.modal-header').removeClass('bg-success bg-danger').addClass('bg-primary');
 
     // Mostrar el modal ANTES de enviar
@@ -2030,21 +2048,38 @@ function submitOrder() {
                 // Guardar ID del pedido
                 createdOrderId = response.order_id;
 
-                // Actualizar modal con éxito
-                $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
-                $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
-                $('#modal-message').html(`
-                    <div class="alert alert-success">
-                        <strong>Pedido #${response.order_number || response.order_id}</strong> creado correctamente
-                    </div>
-                    <p class="text-muted">¿Qué deseas hacer ahora?</p>
-                `);
+                // Si el modal aún está visible, actualizar con éxito
+                if ($('#orderCreatedModal').hasClass('show')) {
+                    $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
+                    $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
+                    $('#modal-message').html(`
+                        <div class="alert alert-success">
+                            <strong>Pedido #${response.order_number || response.order_id}</strong> creado correctamente
+                        </div>
+                        <p class="text-muted">¿Qué deseas hacer ahora?</p>
+                    `);
 
-                // Mostrar botones de acción
-                $('#modal-actions').show();
+                    // Actualizar botones para incluir opción de ver en WooCommerce
+                    $('#modal-actions').html(`
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
+                                <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
+                                <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
+                            </button>
+                            <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
+                                <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
+                            </button>
+                        </div>
+                    `);
 
-                // Cambiar color del header a éxito
-                $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                    // Cambiar color del header a éxito
+                    $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                } else {
+                    // Si el modal ya se cerró, mostrar notificación
+                    showNotification('success', `Pedido #${response.order_number || response.order_id} creado exitosamente`);
+                }
             } else {
                 // Actualizar modal con error
                 $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
