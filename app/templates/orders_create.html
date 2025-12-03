@@ -637,6 +637,10 @@
 let currentStep = 1;
 let selectedCategory = null;
 let cart = [];
+
+// Detectar tipo de pedido desde URL
+const urlParams = new URLSearchParams(window.location.search);
+const orderType = urlParams.get('type') || 'whatsapp'; // 'whatsapp' o 'external'
 let categories = [];
 let currentProducts = []; // Productos de la categoría actual o filtrados
 let allProducts = []; // Todos los productos cargados al inicio
@@ -2037,9 +2041,19 @@ function submitOrder() {
         customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
     };
 
+    // Determinar endpoint según tipo de pedido
+    const endpoint = orderType === 'external' ? '/orders/save-order-external' : '/orders/save-order';
+
+    // Si es pedido externo, agregar campo de fuente
+    if (orderType === 'external') {
+        orderData.external_source = $('#external-source').val() || 'otro';
+        // Actualizar customer_note para reflejar que es externo
+        orderData.customer_note = $('#customer-note').val() || 'Pedido externo creado desde WooCommerce Manager';
+    }
+
     // Enviar
     $.ajax({
-        url: '/orders/save-order',
+        url: endpoint,
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(orderData),
@@ -2059,7 +2073,13 @@ function submitOrder() {
                         <p class="text-muted">¿Qué deseas hacer ahora?</p>
                     `);
 
-                    // Actualizar botones para incluir opción de ver en WooCommerce
+                    // Actualizar botones (NO mostrar "Ver en WooCommerce" si es pedido externo)
+                    const viewWooButton = orderType === 'external' ? '' : `
+                        <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
+                            <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
+                        </button>
+                    `;
+
                     $('#modal-actions').html(`
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
@@ -2068,9 +2088,7 @@ function submitOrder() {
                             <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
                                 <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
                             </button>
-                            <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
-                                <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
-                            </button>
+                            ${viewWooButton}
                         </div>
                     `);
 
