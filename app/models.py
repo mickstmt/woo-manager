@@ -535,3 +535,96 @@ class OrderMeta(db.Model):
 
     def __repr__(self):
         return f'<OrderMeta {self.meta_key}: {self.meta_value[:50]}>'
+
+
+class OrderExternal(db.Model):
+    """
+    Modelo para pedidos externos (no WooCommerce)
+
+    Tabla: woo_orders_ext
+    Propósito: Registrar pedidos de fuentes externas para tracking interno
+    NO se sincronizan con WooCommerce, solo para reportes consolidados
+    """
+    __tablename__ = 'woo_orders_ext'
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    order_number = db.Column(db.String(50), nullable=False, unique=True)
+
+    # Fechas
+    date_created_gmt = db.Column(db.DateTime, nullable=False)
+    date_updated_gmt = db.Column(db.DateTime, nullable=False)
+
+    # Estado (siempre 'wc-completed' para externos)
+    status = db.Column(db.String(50), nullable=False, default='wc-completed')
+
+    # Cliente
+    customer_first_name = db.Column(db.String(255), nullable=False)
+    customer_last_name = db.Column(db.String(255), nullable=False)
+    customer_email = db.Column(db.String(255), nullable=False)
+    customer_phone = db.Column(db.String(50), nullable=False)
+    customer_dni = db.Column(db.String(20))
+    customer_ruc = db.Column(db.String(20))
+
+    # Dirección
+    shipping_address_1 = db.Column(db.String(255))
+    shipping_city = db.Column(db.String(100))
+    shipping_state = db.Column(db.String(100))
+    shipping_postcode = db.Column(db.String(20))
+    shipping_country = db.Column(db.String(2), default='PE')
+    shipping_reference = db.Column(db.Text)
+    delivery_type = db.Column(db.String(50))
+
+    # Envío
+    shipping_method_title = db.Column(db.String(255))
+    shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
+
+    # Pago
+    payment_method = db.Column(db.String(100))
+    payment_method_title = db.Column(db.String(255))
+
+    # Totales
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    tax_total = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    discount_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    discount_percentage = db.Column(db.Numeric(5, 2), nullable=False, default=0.00)
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+
+    # Metadatos
+    customer_note = db.Column(db.Text)
+    created_by = db.Column(db.String(100))
+    external_source = db.Column(db.String(100))  # marketplace, tienda física, etc.
+
+    # Relaciones
+    items = db.relationship('OrderExternalItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<OrderExternal {self.order_number}: {self.total_amount}>'
+
+
+class OrderExternalItem(db.Model):
+    """
+    Modelo para items de pedidos externos
+
+    Tabla: woo_orders_ext_items
+    Representa los productos dentro de un pedido externo
+    """
+    __tablename__ = 'woo_orders_ext_items'
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    order_ext_id = db.Column(db.BigInteger, db.ForeignKey('woo_orders_ext.id'), nullable=False)
+
+    # Producto
+    product_id = db.Column(db.BigInteger, nullable=False)
+    variation_id = db.Column(db.BigInteger, default=0)
+    product_name = db.Column(db.String(255), nullable=False)
+    product_sku = db.Column(db.String(100))
+
+    # Cantidades y precios
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
+    tax = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    total = db.Column(db.Numeric(10, 2), nullable=False)
+
+    def __repr__(self):
+        return f'<OrderExternalItem {self.product_name} x{self.quantity}>'
