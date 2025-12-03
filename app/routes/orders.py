@@ -2089,8 +2089,14 @@ def count_orders():
         if channel == 'external':
             count = OrderExternal.query.count()
         else:
-            # Contar pedidos de WooCommerce (WhatsApp)
-            count = Order.query.count()
+            # Contar pedidos de WhatsApp (W-XXXXX) excluyendo trash
+            count = db.session.query(Order).join(
+                OrderMeta,
+                (OrderMeta.order_id == Order.id) & (OrderMeta.meta_key == '_order_number_formatted')
+            ).filter(
+                OrderMeta.meta_value.like('W-%'),
+                Order.status != 'trash'
+            ).count()
 
         return jsonify({
             'success': True,
