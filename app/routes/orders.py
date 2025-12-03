@@ -1,7 +1,7 @@
 # app/routes/orders.py
 from flask import Blueprint, render_template, request, jsonify, current_app, send_from_directory
 from flask_login import login_required, current_user
-from app.models import Order, OrderAddress, OrderItem, OrderItemMeta, OrderMeta, Product, ProductMeta
+from app.models import Order, OrderAddress, OrderItem, OrderItemMeta, OrderMeta, Product, ProductMeta, OrderExternal, OrderExternalItem
 from app import db
 from datetime import datetime
 from decimal import Decimal, ROUND_DOWN
@@ -1978,6 +1978,346 @@ def enable_stock(product_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Error enabling stock: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== ENDPOINTS PARA PEDIDOS EXTERNOS ====================
+
+@bp.route('/list-external')
+@login_required
+def list_external():
+    """
+    Listar pedidos externos con paginación y filtros
+
+    Query params:
+    - page: número de página (default: 1)
+    - per_page: registros por página (default: 20)
+    - search: búsqueda por ID, email, nombre o teléfono
+    - source: filtrar por fuente (marketplace, tienda_fisica, otro)
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '', type=str).strip()
+        source = request.args.get('source', '', type=str).strip()
+
+        # Query base
+        query = OrderExternal.query
+
+        # Filtro de búsqueda
+        if search:
+            query = query.filter(
+                or_(
+                    OrderExternal.order_number.ilike(f'%{search}%'),
+                    OrderExternal.customer_email.ilike(f'%{search}%'),
+                    OrderExternal.customer_first_name.ilike(f'%{search}%'),
+                    OrderExternal.customer_last_name.ilike(f'%{search}%'),
+                    OrderExternal.customer_phone.ilike(f'%{search}%')
+                )
+            )
+
+        # Filtro por fuente
+        if source:
+            query = query.filter(OrderExternal.external_source == source)
+
+        # Ordenar por fecha descendente
+        query = query.order_by(desc(OrderExternal.date_created_gmt))
+
+        # Paginación
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        # Construir respuesta
+        peru_tz = pytz.timezone('America/Lima')
+        orders = []
+        for order in pagination.items:
+            # Convertir fecha UTC a hora de Perú para mostrar
+            date_created_utc = pytz.UTC.localize(order.date_created_gmt)
+            date_created_peru = date_created_utc.astimezone(peru_tz)
+
+            orders.append({
+                'id': order.id,
+                'order_number': order.order_number,
+                'customer_first_name': order.customer_first_name,
+                'customer_last_name': order.customer_last_name,
+                'customer_email': order.customer_email,
+                'customer_phone': order.customer_phone,
+                'total_amount': float(order.total_amount),
+                'status': order.status,
+                'external_source': order.external_source,
+                'created_by': order.created_by,
+                'date_created': date_created_peru.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify({
+            'success': True,
+            'orders': orders,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next,
+                'prev_num': pagination.prev_num,
+                'next_num': pagination.next_num
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f'Error listing external orders: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/count')
+@login_required
+def count_orders():
+    """
+    Contar pedidos por canal (whatsapp o external)
+
+    Query params:
+    - channel: 'whatsapp' o 'external'
+    """
+    try:
+        channel = request.args.get('channel', 'whatsapp', type=str)
+
+        if channel == 'external':
+            count = OrderExternal.query.count()
+        else:
+            # Contar pedidos de WooCommerce (WhatsApp)
+            count = Order.query.count()
+
+        return jsonify({
+            'success': True,
+            'count': count,
+            'channel': channel
+        })
+
+    except Exception as e:
+        current_app.logger.error(f'Error counting orders: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def get_next_external_order_number():
+    """
+    Obtener el siguiente número de pedido externo (formato EXT-XXXXX)
+
+    Returns:
+        str: Número de pedido en formato EXT-00001
+    """
+    from sqlalchemy import text
+
+    try:
+        # Buscar el último número de pedido externo
+        last_order = OrderExternal.query.order_by(desc(OrderExternal.id)).first()
+
+        if last_order and last_order.order_number.startswith('EXT-'):
+            # Extraer el número del último pedido
+            last_num = int(last_order.order_number.split('-')[1])
+            next_num = last_num + 1
+        else:
+            # Primer pedido externo
+            next_num = 1
+
+        return f'EXT-{next_num:05d}'
+
+    except Exception as e:
+        current_app.logger.error(f'Error getting next external order number: {str(e)}')
+        # Fallback: usar timestamp
+        import time
+        return f'EXT-{int(time.time())}'
+
+
+@bp.route('/save-order-external', methods=['POST'])
+@login_required
+def save_order_external():
+    """
+    Crear un nuevo pedido externo
+
+    Este endpoint guarda pedidos de fuentes externas (no WooCommerce)
+    para tracking interno. Los pedidos externos:
+    - Se guardan en woo_orders_ext (NO en tablas de WooCommerce)
+    - Estado siempre 'wc-completed'
+    - SÍ afectan el stock de productos
+    - NO tienen integración con WooCommerce
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No se recibieron datos'
+            }), 400
+
+        # Validar datos requeridos
+        customer = data.get('customer', {})
+        items = data.get('items', [])
+
+        if not customer.get('first_name') or not customer.get('email'):
+            return jsonify({
+                'success': False,
+                'error': 'Nombre y email son requeridos'
+            }), 400
+
+        if not items or len(items) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Debe agregar al menos un producto'
+            }), 400
+
+        # Obtener número de pedido
+        order_number = get_next_external_order_number()
+
+        # Calcular totales
+        subtotal = Decimal('0.00')
+        for item in items:
+            item_subtotal = Decimal(str(item.get('price', 0))) * int(item.get('quantity', 1))
+            subtotal += item_subtotal
+
+        # Descuentos
+        discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
+        discount_amount = Decimal('0.00')
+        if discount_percentage > 0:
+            discount_amount = (subtotal * discount_percentage / 100).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+        # Envío
+        shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
+
+        # Total
+        total_amount = subtotal - discount_amount + shipping_cost
+
+        # Crear pedido externo
+        current_time_utc = get_gmt_time()
+
+        order_ext = OrderExternal(
+            order_number=order_number,
+            date_created_gmt=current_time_utc,
+            date_updated_gmt=current_time_utc,
+            status='wc-completed',  # Siempre completed para externos
+            customer_first_name=customer.get('first_name', ''),
+            customer_last_name=customer.get('last_name', ''),
+            customer_email=customer.get('email', ''),
+            customer_phone=customer.get('phone', ''),
+            customer_dni=customer.get('dni', ''),
+            customer_ruc=customer.get('ruc', ''),
+            shipping_address_1=customer.get('address_1', ''),
+            shipping_city=customer.get('city', ''),
+            shipping_state=customer.get('state', ''),
+            shipping_postcode=customer.get('postcode', ''),
+            shipping_country=customer.get('country', 'PE'),
+            shipping_reference=customer.get('reference', ''),
+            delivery_type=customer.get('delivery_type', ''),
+            shipping_method_title=data.get('shipping_method', ''),
+            shipping_cost=shipping_cost,
+            payment_method=data.get('payment_method', ''),
+            payment_method_title=data.get('payment_method_title', ''),
+            subtotal=subtotal,
+            tax_total=Decimal('0.00'),
+            discount_amount=discount_amount,
+            discount_percentage=discount_percentage,
+            total_amount=total_amount,
+            customer_note=data.get('customer_note', ''),
+            created_by=current_user.username,
+            external_source=data.get('external_source', 'otro')  # marketplace, tienda_fisica, otro
+        )
+
+        db.session.add(order_ext)
+        db.session.flush()  # Para obtener el ID
+
+        # Crear items del pedido
+        for item_data in items:
+            product_id = item_data.get('product_id')
+            variation_id = item_data.get('variation_id', 0)
+            quantity = int(item_data.get('quantity', 1))
+            price = Decimal(str(item_data.get('price', 0)))
+
+            # Obtener info del producto
+            product = Product.query.get(product_id)
+            if not product:
+                raise Exception(f'Producto {product_id} no encontrado')
+
+            product_name = product.post_title
+            product_sku = product.get_meta('_sku') or ''
+
+            # Si es variación, obtener nombre de la variación
+            if variation_id:
+                variation = Product.query.get(variation_id)
+                if variation:
+                    product_name = variation.post_title
+
+            item_subtotal = price * quantity
+            item_total = item_subtotal
+
+            # Crear item
+            order_item = OrderExternalItem(
+                order_ext_id=order_ext.id,
+                product_id=product_id,
+                variation_id=variation_id,
+                product_name=product_name,
+                product_sku=product_sku,
+                quantity=quantity,
+                unit_price=price,
+                subtotal=item_subtotal,
+                tax=Decimal('0.00'),
+                total=item_total
+            )
+
+            db.session.add(order_item)
+
+            # **IMPORTANTE: RESTAR STOCK DEL INVENTARIO**
+            target_product_id = variation_id if variation_id else product_id
+            target_product = Product.query.get(target_product_id)
+
+            if target_product:
+                current_stock_str = target_product.get_meta('_stock')
+                if current_stock_str:
+                    current_stock = int(float(current_stock_str))
+                    new_stock = current_stock - quantity
+
+                    # Actualizar stock
+                    target_product.set_meta('_stock', str(new_stock))
+
+                    # Registrar en historial de stock
+                    from app.models import StockHistory
+                    from config import get_local_time
+
+                    stock_history = StockHistory(
+                        product_id=target_product_id,
+                        product_title=target_product.post_title,
+                        sku=product_sku,
+                        old_stock=current_stock,
+                        new_stock=new_stock,
+                        change_amount=-quantity,
+                        changed_by=current_user.username,
+                        change_reason=f'Pedido externo {order_number}',
+                        created_at=get_local_time()
+                    )
+                    db.session.add(stock_history)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Pedido externo creado exitosamente',
+            'order_id': order_ext.id,
+            'order_number': order_number,
+            'total': float(total_amount)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error creating external order: {str(e)}')
+        import traceback
+        current_app.logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)
