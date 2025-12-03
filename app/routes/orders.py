@@ -2264,11 +2264,13 @@ def save_order_external():
             product_name = product.post_title
             product_sku = product.get_meta('_sku') or ''
 
-            # Si es variación, obtener nombre de la variación
+            # Si es variación, obtener nombre y SKU de la variación
             if variation_id:
                 variation = Product.query.get(variation_id)
                 if variation:
                     product_name = variation.post_title
+                    # IMPORTANTE: Obtener SKU de la variación, no del producto padre
+                    product_sku = variation.get_meta('_sku') or product_sku
 
             item_subtotal = price * quantity
             item_total = item_subtotal
