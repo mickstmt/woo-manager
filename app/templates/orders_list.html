@@ -59,12 +59,42 @@
             <h1>
                 <i class="bi bi-cart-check"></i> Gestión de Pedidos
             </h1>
-            <a href="/orders/create" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Nuevo Pedido (WhatsApp)
-            </a>
+            <div>
+                <a href="/orders/create?type=whatsapp" class="btn btn-success me-2">
+                    <i class="bi bi-whatsapp"></i> Nuevo Pedido WhatsApp
+                </a>
+                <a href="/orders/create?type=external" class="btn btn-primary">
+                    <i class="bi bi-shop"></i> Nuevo Pedido Externo
+                </a>
+            </div>
         </div>
 
-        <!-- Filtros -->
+        <!-- Pestañas de canales -->
+        <ul class="nav nav-tabs mb-3" id="orderChannelTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="whatsapp-tab" data-bs-toggle="tab"
+                        data-bs-target="#whatsapp-orders" type="button" role="tab"
+                        aria-controls="whatsapp-orders" aria-selected="true"
+                        onclick="switchChannel('whatsapp')">
+                    <i class="bi bi-whatsapp"></i> Pedidos WhatsApp
+                    <span class="badge bg-success ms-2" id="whatsapp-count">0</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="external-tab" data-bs-toggle="tab"
+                        data-bs-target="#external-orders" type="button" role="tab"
+                        aria-controls="external-orders" aria-selected="false"
+                        onclick="switchChannel('external')">
+                    <i class="bi bi-shop"></i> Pedidos Externos
+                    <span class="badge bg-primary ms-2" id="external-count">0</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="orderChannelTabsContent">
+            <!-- Tab WhatsApp -->
+            <div class="tab-pane fade show active" id="whatsapp-orders" role="tabpanel" aria-labelledby="whatsapp-tab">
+                <!-- Filtros para WhatsApp -->
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row g-3">
@@ -117,11 +147,70 @@
             <p class="mt-2">Cargando pedidos...</p>
         </div>
 
-        <!-- Lista de pedidos -->
-        <div id="orders-container"></div>
+                <!-- Lista de pedidos WhatsApp -->
+                <div id="orders-container"></div>
 
-        <!-- Paginación -->
-        <div id="pagination-container" class="mt-3"></div>
+                <!-- Paginación WhatsApp -->
+                <div id="pagination-container" class="mt-3"></div>
+            </div>
+            <!-- Fin Tab WhatsApp -->
+
+            <!-- Tab Externos -->
+            <div class="tab-pane fade" id="external-orders" role="tabpanel" aria-labelledby="external-tab">
+                <!-- Filtros para Externos -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="search-input-external"
+                                           placeholder="Buscar por ID, email, nombre o teléfono...">
+                                    <button class="btn btn-primary" onclick="searchOrdersExternal()">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="source-filter">
+                                    <option value="">Todas las fuentes</option>
+                                    <option value="marketplace">Marketplace</option>
+                                    <option value="tienda_fisica">Tienda Física</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="per-page-select-external">
+                                    <option value="20">20 por página</option>
+                                    <option value="50">50 por página</option>
+                                    <option value="100">100 por página</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Externos -->
+                <div id="loading-external" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando pedidos externos...</p>
+                </div>
+
+                <!-- Lista de pedidos externos -->
+                <div id="orders-container-external"></div>
+
+                <!-- Paginación Externos -->
+                <div id="pagination-container-external" class="mt-3"></div>
+            </div>
+            <!-- Fin Tab Externos -->
+        </div>
+        <!-- Fin Tab Content -->
     </div>
 </div>
 
@@ -272,17 +361,27 @@
 {% block extra_js %}
 <script>
 // Variables globales
+let currentChannel = 'whatsapp'; // 'whatsapp' o 'external'
 let currentPage = 1;
 let perPage = 20;
 let searchTerm = '';
 let userFilter = '';
 let statusFilter = '';
+let sourceFilter = ''; // Para pedidos externos
 let selectedProducts = [];
+
+// Variables para externos
+let currentPageExternal = 1;
+let perPageExternal = 20;
+let searchTermExternal = '';
 
 $(document).ready(function() {
     // Cargar usuarios y pedidos
     loadUsers();
     loadOrders();
+
+    // Cargar contadores
+    updateOrderCounts();
 
     // Eventos
     $('#user-filter').on('change', function() {
@@ -730,5 +829,213 @@ function showNotification(type, message) {
     $('body').append(html);
     setTimeout(() => $('.alert').fadeOut(), 3000);
 }
+
+// ==================== FUNCIONES PARA PEDIDOS EXTERNOS ====================
+
+function switchChannel(channel) {
+    currentChannel = channel;
+    if (channel === 'external') {
+        loadOrdersExternal();
+    } else {
+        loadOrders();
+    }
+}
+
+function loadOrdersExternal() {
+    $('#loading-external').show();
+    $('#orders-container-external').hide();
+
+    $.ajax({
+        url: '/orders/list-external',
+        method: 'GET',
+        data: {
+            page: currentPageExternal,
+            per_page: perPageExternal,
+            search: searchTermExternal,
+            source: sourceFilter
+        },
+        success: function(response) {
+            $('#loading-external').hide();
+            $('#orders-container-external').show();
+
+            if (response.success) {
+                renderOrdersExternal(response.orders);
+                renderPaginationExternal(response.pagination);
+            } else {
+                $('#orders-container-external').html(`
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> ${response.error || 'Error al cargar pedidos'}
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr) {
+            $('#loading-external').hide();
+            $('#orders-container-external').show().html(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i> Error de conexión
+                </div>
+            `);
+        }
+    });
+}
+
+function renderOrdersExternal(orders) {
+    if (orders.length === 0) {
+        $('#orders-container-external').html(`
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No se encontraron pedidos externos
+            </div>
+        `);
+        return;
+    }
+
+    let html = '';
+    orders.forEach(order => {
+        const badgeClass = 'bg-success'; // Siempre completed
+        const statusText = 'Completado';
+
+        html += `
+            <div class="order-card">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="mb-2">
+                            <span class="badge ${badgeClass}">${statusText}</span>
+                            Pedido #${order.order_number}
+                            <span class="badge bg-secondary">${order.external_source || 'Externo'}</span>
+                        </h5>
+                        <p class="mb-1">
+                            <strong><i class="bi bi-person"></i> ${order.customer_first_name} ${order.customer_last_name}</strong>
+                        </p>
+                        <p class="mb-1 text-muted">
+                            <i class="bi bi-envelope"></i> ${order.customer_email} |
+                            <i class="bi bi-telephone"></i> ${order.customer_phone}
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            <i class="bi bi-calendar"></i> ${order.date_created}
+                            ${order.created_by ? `| <i class="bi bi-person-badge"></i> ${order.created_by}` : ''}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <h4 class="text-success mb-3">S/ ${parseFloat(order.total_amount).toFixed(2)}</h4>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="viewOrderExternal(${order.id})">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    $('#orders-container-external').html(html);
+}
+
+function renderPaginationExternal(pagination) {
+    if (!pagination || pagination.pages <= 1) {
+        $('#pagination-container-external').html('');
+        return;
+    }
+
+    let html = '<nav><ul class="pagination justify-content-center">';
+
+    // Botón anterior
+    html += `
+        <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPageExternal(${pagination.prev_num}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // Páginas
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `
+                <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPageExternal(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+
+    // Botón siguiente
+    html += `
+        <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPageExternal(${pagination.next_num}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    html += '</ul></nav>';
+    $('#pagination-container-external').html(html);
+}
+
+function goToPageExternal(page) {
+    if (page) {
+        currentPageExternal = page;
+        loadOrdersExternal();
+    }
+}
+
+function searchOrdersExternal() {
+    searchTermExternal = $('#search-input-external').val().trim();
+    currentPageExternal = 1;
+    loadOrdersExternal();
+}
+
+function viewOrderExternal(orderId) {
+    // TODO: Implementar vista de detalles de pedido externo
+    alert('Ver detalles del pedido externo #' + orderId);
+}
+
+function updateOrderCounts() {
+    // Actualizar contador de WhatsApp
+    $.ajax({
+        url: '/orders/count',
+        method: 'GET',
+        data: { channel: 'whatsapp' },
+        success: function(response) {
+            if (response.success) {
+                $('#whatsapp-count').text(response.count);
+            }
+        }
+    });
+
+    // Actualizar contador de Externos
+    $.ajax({
+        url: '/orders/count',
+        method: 'GET',
+        data: { channel: 'external' },
+        success: function(response) {
+            if (response.success) {
+                $('#external-count').text(response.count);
+            }
+        }
+    });
+}
+
+// Eventos para filtros externos
+$('#source-filter').on('change', function() {
+    sourceFilter = $(this).val();
+    currentPageExternal = 1;
+    loadOrdersExternal();
+});
+
+$('#per-page-select-external').on('change', function() {
+    perPageExternal = parseInt($(this).val());
+    currentPageExternal = 1;
+    loadOrdersExternal();
+});
+
+$('#search-input-external').on('keypress', function(e) {
+    if (e.which === 13) {
+        searchOrdersExternal();
+    }
+});
 </script>
 {% endblock %}
