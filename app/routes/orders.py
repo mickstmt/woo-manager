@@ -440,7 +440,7 @@ def list_orders():
             INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
-            WHERE 1=1
+            WHERE o.status != 'trash'
             {search_filter}
             {created_by_filter}
             {status_filter}
@@ -455,7 +455,7 @@ def list_orders():
             INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
-            WHERE 1=1
+            WHERE o.status != 'trash'
             {search_filter}
             {created_by_filter}
             {status_filter}
