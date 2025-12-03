@@ -2084,31 +2084,64 @@ def count_orders():
     - channel: 'whatsapp' o 'external'
     """
     try:
+        from sqlalchemy import text
         channel = request.args.get('channel', 'whatsapp', type=str)
 
         if channel == 'external':
             count = OrderExternal.query.count()
         else:
-            # Contar pedidos de WhatsApp (W-XXXXX) excluyendo trash
-            count = db.session.query(Order).join(
-                OrderMeta,
-                (OrderMeta.order_id == Order.id) & (OrderMeta.meta_key == '_order_number')
-            ).filter(
-                OrderMeta.meta_value.like('W-%'),
-                Order.status != 'trash'
-            ).count()
+            # DEBUG: Obtener varios conteos para diagnosticar el problema
+            debug_query = text("""
+                SELECT
+                    'total_pedidos' as tipo,
+                    COUNT(*) as cantidad
+                FROM wpyz_wc_orders
+                WHERE status != 'trash'
+
+                UNION ALL
+
+                SELECT
+                    'con_order_number_meta' as tipo,
+                    COUNT(DISTINCT o.id) as cantidad
+                FROM wpyz_wc_orders o
+                INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id
+                WHERE om.meta_key = '_order_number'
+                    AND o.status != 'trash'
+
+                UNION ALL
+
+                SELECT
+                    'con_formato_w' as tipo,
+                    COUNT(DISTINCT o.id) as cantidad
+                FROM wpyz_wc_orders o
+                INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id
+                WHERE om.meta_key = '_order_number'
+                    AND om.meta_value LIKE 'W-%'
+                    AND o.status != 'trash'
+            """)
+
+            debug_results = db.session.execute(debug_query).fetchall()
+            debug_info = {row[0]: row[1] for row in debug_results}
+
+            # Usar el conteo con formato W-
+            count = debug_info.get('con_formato_w', 0)
+
+            current_app.logger.info(f'Count debug: {debug_info}')
 
         return jsonify({
             'success': True,
             'count': count,
-            'channel': channel
+            'channel': channel,
+            'debug': debug_info if channel == 'whatsapp' else None
         })
 
     except Exception as e:
         current_app.logger.error(f'Error counting orders: {str(e)}')
+        import traceback
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc()
         }), 500
 
 
