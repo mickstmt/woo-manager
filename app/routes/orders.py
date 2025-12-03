@@ -2090,49 +2090,26 @@ def count_orders():
         if channel == 'external':
             count = OrderExternal.query.count()
         else:
-            # DEBUG: Obtener varios conteos para diagnosticar el problema
-            debug_query = text("""
-                SELECT
-                    'total_pedidos' as tipo,
-                    COUNT(*) as cantidad
-                FROM wpyz_wc_orders
-                WHERE status != 'trash'
-
-                UNION ALL
-
-                SELECT
-                    'con_order_number_meta' as tipo,
-                    COUNT(DISTINCT o.id) as cantidad
+            # Contar pedidos de WhatsApp (creados por el manager)
+            # Los pedidos del manager tienen meta_key '_created_by' con el username
+            # y meta_key '_order_number' (sin formato W-, ese es solo visual en frontend)
+            count_query = text("""
+                SELECT COUNT(DISTINCT o.id)
                 FROM wpyz_wc_orders o
-                INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id
-                WHERE om.meta_key = '_order_number'
-                    AND o.status != 'trash'
-
-                UNION ALL
-
-                SELECT
-                    'con_formato_w' as tipo,
-                    COUNT(DISTINCT o.id) as cantidad
-                FROM wpyz_wc_orders o
-                INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id
-                WHERE om.meta_key = '_order_number'
-                    AND om.meta_value LIKE 'W-%'
-                    AND o.status != 'trash'
+                INNER JOIN wpyz_wc_orders_meta om_number ON o.id = om_number.order_id
+                    AND om_number.meta_key = '_order_number'
+                INNER JOIN wpyz_wc_orders_meta om_created ON o.id = om_created.order_id
+                    AND om_created.meta_key = '_created_by'
+                WHERE o.status != 'trash'
             """)
 
-            debug_results = db.session.execute(debug_query).fetchall()
-            debug_info = {row[0]: row[1] for row in debug_results}
-
-            # Usar el conteo con formato W-
-            count = debug_info.get('con_formato_w', 0)
-
-            current_app.logger.info(f'Count debug: {debug_info}')
+            result = db.session.execute(count_query).fetchone()
+            count = result[0] if result else 0
 
         return jsonify({
             'success': True,
             'count': count,
-            'channel': channel,
-            'debug': debug_info if channel == 'whatsapp' else None
+            'channel': channel
         })
 
     except Exception as e:
