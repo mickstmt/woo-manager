@@ -2015,14 +2015,18 @@ function submitOrder() {
             last_name: $('#last-name').val(),
             email: $('#email').val(),
             phone: $('#phone').val(),
-            company: $('#dni').val(),  // DNI/CE
+            dni: $('#dni').val(),  // DNI/CE
+            ruc: $('#ruc').val() || '',
+            company: $('#dni').val(),  // Para compatibilidad con WooCommerce (billing_company)
             // Si es recojo en almacén, usar valores por defecto; si no, usar los del formulario
             address_1: isPickup ? 'Recojo en Almacén' : $('#address').val(),
             city: isPickup ? 'Lima' : $('#city').val(),
             state: isPickup ? 'LIMA' : $('#state').val(),
             postcode: '',
             country: 'PE',
-            // Campos custom
+            delivery_type: deliveryType,
+            reference: isPickup ? '' : ($('#reference').val() || ''),
+            // Campos custom para WooCommerce
             billing_ruc: $('#ruc').val() || '',
             billing_entrega: deliveryType,
             billing_referencia: isPickup ? '' : ($('#reference').val() || '')
