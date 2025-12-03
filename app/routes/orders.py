@@ -2092,7 +2092,7 @@ def count_orders():
             # Contar pedidos de WhatsApp (W-XXXXX) excluyendo trash
             count = db.session.query(Order).join(
                 OrderMeta,
-                (OrderMeta.order_id == Order.id) & (OrderMeta.meta_key == '_order_number_formatted')
+                (OrderMeta.order_id == Order.id) & (OrderMeta.meta_key == '_order_number')
             ).filter(
                 OrderMeta.meta_value.like('W-%'),
                 Order.status != 'trash'
