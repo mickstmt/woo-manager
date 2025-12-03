@@ -1,0 +1,814 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Producto Variable - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Wizard Steps */
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    .wizard-steps::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 0;
+    }
+
+    .wizard-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .wizard-step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+    }
+
+    .wizard-step.active .wizard-step-circle {
+        background: #0d6efd;
+        color: white;
+    }
+
+    .wizard-step.completed .wizard-step-circle {
+        background: #198754;
+        color: white;
+    }
+
+    .wizard-step-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .wizard-step.active .wizard-step-label {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .wizard-content {
+        display: none;
+    }
+
+    .wizard-content.active {
+        display: block;
+    }
+
+    .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #0d6efd;
+    }
+
+    .attribute-item {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .attribute-item .remove-btn {
+        float: right;
+    }
+
+    .term-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .term-tag {
+        background: #0d6efd;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .term-tag .remove {
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .variations-table {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .variation-row {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+
+    .variation-row .variation-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .variation-fields {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .loading-overlay.active {
+        display: flex;
+    }
+
+    .loading-spinner {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+</style>
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0">
+                <i class="bi bi-plus-circle"></i> Crear Producto Variable
+            </h1>
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="/products/">Productos</a></li>
+                    <li class="breadcrumb-item active">Crear Variable</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Wizard Steps -->
+    <div class="wizard-steps">
+        <div class="wizard-step active" data-step="1">
+            <div class="wizard-step-circle">1</div>
+            <div class="wizard-step-label">Información Básica</div>
+        </div>
+        <div class="wizard-step" data-step="2">
+            <div class="wizard-step-circle">2</div>
+            <div class="wizard-step-label">Atributos</div>
+        </div>
+        <div class="wizard-step" data-step="3">
+            <div class="wizard-step-circle">3</div>
+            <div class="wizard-step-label">Variaciones</div>
+        </div>
+    </div>
+
+    <!-- Step 1: Información Básica -->
+    <div class="wizard-content active" id="step1">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="form-section">
+                    <h2 class="form-section-title">Información del Producto</h2>
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Título <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="slug" class="form-label">Slug</label>
+                        <input type="text" class="form-control" id="slug">
+                        <div class="form-text">Dejar vacío para generar automáticamente</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descripción Larga</label>
+                        <textarea class="form-control" id="description" rows="6"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="short_description" class="form-label">Descripción Corta</label>
+                        <textarea class="form-control" id="short_description" rows="3"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="weight" class="form-label">Peso (kg)</label>
+                            <input type="number" step="0.01" class="form-control" id="weight">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="length" class="form-label">Largo (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="length">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="width" class="form-label">Ancho (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="width">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="height" class="form-label">Alto (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="height">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">Imágenes</h2>
+                    <div class="mb-3">
+                        <label for="image_url" class="form-label">URL Imagen Principal</label>
+                        <input type="url" class="form-control" id="image_url">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">SEO</h2>
+                    <div class="mb-3">
+                        <label for="seo_title" class="form-label">Título SEO</label>
+                        <input type="text" class="form-control" id="seo_title">
+                    </div>
+                    <div class="mb-3">
+                        <label for="seo_description" class="form-label">Meta Descripción</label>
+                        <textarea class="form-control" id="seo_description" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="form-section">
+                    <h2 class="form-section-title">Estado</h2>
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Estado</label>
+                        <select class="form-select" id="status">
+                            <option value="draft" selected>Borrador</option>
+                            <option value="publish">Publicado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">Categorías</h2>
+                    <select class="form-select" id="categories" multiple></select>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">Tags</h2>
+                    <select class="form-select" id="tags" multiple></select>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="form-section-title">Marcas</h2>
+                    <select class="form-select" id="brands" multiple></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end mt-3">
+            <button type="button" class="btn btn-primary btn-lg" onclick="goToStep(2)">
+                Siguiente: Atributos <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Atributos -->
+    <div class="wizard-content" id="step2">
+        <div class="form-section">
+            <h2 class="form-section-title">Definir Atributos del Producto</h2>
+            <p class="text-muted">Selecciona los atributos y términos que usarás para crear las variaciones (ej: Color, Talla)</p>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> <strong>Instrucciones:</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Haz clic en "Agregar Atributo" para comenzar</li>
+                    <li>Selecciona un atributo global (ej: Color, Talla)</li>
+                    <li>Elige los términos existentes o escribe nuevos (separados por comas)</li>
+                    <li>Puedes agregar múltiples atributos</li>
+                    <li>Usa el botón "Eliminar" para quitar un atributo</li>
+                </ul>
+            </div>
+
+            <div id="attributes-container"></div>
+
+            <button type="button" class="btn btn-outline-primary" onclick="addAttribute()">
+                <i class="bi bi-plus"></i> Agregar Atributo
+            </button>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="goToStep(1)">
+                <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button type="button" class="btn btn-primary btn-lg" onclick="generateVariations()">
+                Siguiente: Generar Variaciones <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: Variaciones -->
+    <div class="wizard-content" id="step3">
+        <div class="form-section">
+            <h2 class="form-section-title">Configurar Variaciones</h2>
+            <p class="text-muted">Define precio, SKU y stock para cada variación</p>
+
+            <div class="variations-table" id="variations-container">
+                <!-- Se generan dinámicamente -->
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="goToStep(2)">
+                <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button type="button" class="btn btn-success btn-lg" onclick="submitProduct()">
+                <i class="bi bi-check-circle"></i> Crear Producto y Variaciones
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <div class="h5" id="loadingText">Creando producto...</div>
+        <div class="text-muted">Por favor espera</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+let currentStep = 1;
+let allAttributes = [];
+let selectedAttributes = [];
+
+$(document).ready(function() {
+    // Inicializar Select2
+    $('#categories, #tags, #brands').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Seleccionar...'
+    });
+
+    // Cargar datos
+    loadCategories();
+    loadTags();
+    loadBrands();
+    loadAttributes();
+
+    // Auto-generar slug
+    $('#title').on('input', function() {
+        if ($('#slug').val() === '') {
+            const slug = $(this).val()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+            $('#slug').val(slug);
+        }
+    });
+});
+
+function loadCategories() {
+    $.get('/products/get-categories', function(response) {
+        if (response.success) {
+            response.categories.forEach(function(cat) {
+                $('#categories').append(new Option(cat.name, cat.id));
+            });
+        }
+    });
+}
+
+function loadTags() {
+    $.get('/products/get-tags', function(response) {
+        if (response.success) {
+            response.tags.forEach(function(tag) {
+                $('#tags').append(new Option(tag.name, tag.id));
+            });
+        }
+    });
+}
+
+function loadBrands() {
+    $.get('/products/get-brands', function(response) {
+        if (response.success) {
+            response.brands.forEach(function(brand) {
+                $('#brands').append(new Option(brand.name, brand.id));
+            });
+        }
+    });
+}
+
+function loadAttributes() {
+    $.get('/products/get-attributes', function(response) {
+        if (response.success) {
+            allAttributes = response.attributes;
+        }
+    });
+}
+
+function goToStep(step) {
+    // Validar paso actual antes de avanzar
+    if (step > currentStep) {
+        if (currentStep === 1 && !validateStep1()) return;
+        if (currentStep === 2 && !validateStep2()) return;
+    }
+
+    // Actualizar clases de wizard
+    $('.wizard-step').removeClass('active completed');
+    $('.wizard-step').each(function() {
+        const stepNum = $(this).data('step');
+        if (stepNum < step) {
+            $(this).addClass('completed');
+        } else if (stepNum === step) {
+            $(this).addClass('active');
+        }
+    });
+
+    // Mostrar contenido del paso
+    $('.wizard-content').removeClass('active');
+    $(`#step${step}`).addClass('active');
+
+    currentStep = step;
+}
+
+function validateStep1() {
+    if (!$('#title').val().trim()) {
+        alert('El título es obligatorio');
+        return false;
+    }
+    return true;
+}
+
+function validateStep2() {
+    if (selectedAttributes.length === 0) {
+        alert('Debes agregar al menos un atributo');
+        return false;
+    }
+
+    for (let attr of selectedAttributes) {
+        if (attr.terms.length === 0) {
+            alert(`El atributo "${attr.name}" no tiene términos seleccionados`);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function addAttribute() {
+    const attrId = `attr_${Date.now()}`;
+    const html = `
+        <div class="attribute-item" id="${attrId}">
+            <button type="button" class="btn btn-sm btn-danger remove-btn" onclick="removeAttribute('${attrId}')">
+                <i class="bi bi-x"></i> Eliminar
+            </button>
+
+            <div class="mb-3">
+                <label class="form-label">Seleccionar Atributo</label>
+                <select class="form-select attribute-select" id="attr_select_${attrId}">
+                    <option value="">-- Seleccionar --</option>
+                    ${allAttributes.map(attr => `<option value="${attr.id}" data-name="${attr.name}" data-slug="${attr.slug}">${attr.name}</option>`).join('')}
+                </select>
+            </div>
+
+            <div class="mb-3 terms-container" id="terms_${attrId}" style="display:none;">
+                <label class="form-label">Seleccionar Términos</label>
+                <select class="form-select terms-select" id="terms_select_${attrId}" multiple></select>
+                <div class="term-tags" id="tags_${attrId}"></div>
+            </div>
+        </div>
+    `;
+
+    $('#attributes-container').append(html);
+
+    // Evento change para cargar términos
+    $(`#attr_select_${attrId}`).on('change', function() {
+        loadTermsForAttribute(this, attrId);
+    });
+}
+
+function removeAttribute(attrId) {
+    $(`#${attrId}`).remove();
+    selectedAttributes = selectedAttributes.filter(a => a.id !== attrId);
+}
+
+function loadTermsForAttribute(selectElement, attrId) {
+    const attributeId = $(selectElement).val();
+    const attributeName = $(selectElement).find('option:selected').data('name');
+    const attributeSlug = $(selectElement).find('option:selected').data('slug');
+
+    if (!attributeId) {
+        $(`#terms_${attrId}`).hide();
+        return;
+    }
+
+    // Mostrar contenedor de términos
+    $(`#terms_${attrId}`).show();
+
+    // Destruir Select2 si existe
+    const termsSelect = $(`#terms_select_${attrId}`);
+    if (termsSelect.hasClass("select2-hidden-accessible")) {
+        termsSelect.select2('destroy');
+    }
+
+    // Limpiar opciones
+    termsSelect.empty();
+
+    // Cargar términos desde la API
+    $.get(`/products/get-attribute-terms/${attributeId}`, function(response) {
+        if (response.success) {
+            response.terms.forEach(function(term) {
+                termsSelect.append(new Option(term.name, term.slug, false, false));
+            });
+        }
+
+        // Reinicializar Select2 con tags habilitado
+        termsSelect.select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Seleccionar o escribir nuevos términos...',
+            tags: true,
+            tokenSeparators: [','],
+            allowClear: true
+        }).on('change', function() {
+            updateTermTags(attrId);
+        });
+
+        // Guardar en selectedAttributes
+        const existingIndex = selectedAttributes.findIndex(a => a.id === attrId);
+        if (existingIndex >= 0) {
+            selectedAttributes[existingIndex] = {
+                id: attrId,
+                attribute_id: attributeId,
+                name: attributeName,
+                slug: attributeSlug,
+                terms: [],
+                termSlugs: []
+            };
+        } else {
+            selectedAttributes.push({
+                id: attrId,
+                attribute_id: attributeId,
+                name: attributeName,
+                slug: attributeSlug,
+                terms: [],
+                termSlugs: []
+            });
+        }
+    }).fail(function() {
+        // Si falla la carga, al menos inicializar Select2 vacío con tags
+        termsSelect.select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Escribir términos...',
+            tags: true,
+            tokenSeparators: [','],
+            allowClear: true
+        }).on('change', function() {
+            updateTermTags(attrId);
+        });
+    });
+}
+
+function updateTermTags(attrId) {
+    const selectedValues = $(`#terms_select_${attrId}`).val() || [];
+
+    if (selectedValues.length === 0) {
+        $(`#tags_${attrId}`).empty();
+
+        // Actualizar selectedAttributes
+        const attrIndex = selectedAttributes.findIndex(a => a.id === attrId);
+        if (attrIndex >= 0) {
+            selectedAttributes[attrIndex].terms = [];
+            selectedAttributes[attrIndex].termSlugs = [];
+        }
+        return;
+    }
+
+    const selectedTermsData = selectedValues.map(function(value) {
+        const option = $(`#terms_select_${attrId} option[value="${value}"]`);
+        return {
+            slug: value,
+            name: option.text() || value // Si es un término nuevo, usar el valor como nombre
+        };
+    });
+
+    // Actualizar selectedAttributes
+    const attrIndex = selectedAttributes.findIndex(a => a.id === attrId);
+    if (attrIndex >= 0) {
+        selectedAttributes[attrIndex].terms = selectedTermsData.map(t => t.name);
+        selectedAttributes[attrIndex].termSlugs = selectedTermsData.map(t => t.slug);
+    }
+
+    // Mostrar tags visuales
+    const tagsContainer = $(`#tags_${attrId}`);
+    tagsContainer.empty();
+
+    selectedTermsData.forEach(function(term) {
+        tagsContainer.append(`
+            <span class="term-tag">
+                ${term.name}
+            </span>
+        `);
+    });
+}
+
+function generateVariations() {
+    if (!validateStep2()) return;
+
+    // Generar todas las combinaciones posibles
+    const combinations = cartesianProduct(selectedAttributes.map(a => a.termSlugs));
+
+    const variationsHtml = combinations.map((combo, index) => {
+        const comboNames = combo.map((termSlug, i) => {
+            const attr = selectedAttributes[i];
+            const termIndex = attr.termSlugs.indexOf(termSlug);
+            return attr.terms[termIndex];
+        });
+
+        const variationName = comboNames.join(' - ');
+        const variationId = `var_${index}`;
+
+        return `
+            <div class="variation-row" data-variation-id="${variationId}">
+                <div class="variation-title">${variationName}</div>
+                <div class="variation-fields">
+                    <div>
+                        <label class="form-label">SKU *</label>
+                        <input type="text" class="form-control" data-field="sku" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Precio Regular *</label>
+                        <input type="number" step="0.01" class="form-control" data-field="regular_price" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Precio Oferta</label>
+                        <input type="number" step="0.01" class="form-control" data-field="sale_price">
+                    </div>
+                    <div>
+                        <label class="form-label">Precio Costo</label>
+                        <input type="number" step="0.01" class="form-control" data-field="cost_price">
+                    </div>
+                    <div>
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-control" data-field="stock_quantity" value="0">
+                    </div>
+                    <div>
+                        <label class="form-label">Estado Stock</label>
+                        <select class="form-select" data-field="stock_status">
+                            <option value="instock">En Stock</option>
+                            <option value="outofstock">Agotado</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    $('#variations-container').html(variationsHtml);
+
+    // Guardar combinaciones para luego
+    window.variationCombinations = combinations;
+
+    goToStep(3);
+}
+
+function cartesianProduct(arrays) {
+    return arrays.reduce((acc, curr) => {
+        return acc.flatMap(a => curr.map(b => [...(Array.isArray(a) ? a : [a]), b]));
+    }, [[]]).filter(combo => combo.length > 0);
+}
+
+function submitProduct() {
+    $('#loadingOverlay').addClass('active');
+    $('#loadingText').text('Creando producto variable...');
+
+    // Recopilar datos del paso 1
+    const productData = {
+        title: $('#title').val().trim(),
+        slug: $('#slug').val().trim(),
+        description: $('#description').val(),
+        short_description: $('#short_description').val(),
+        status: $('#status').val(),
+        weight: $('#weight').val(),
+        length: $('#length').val(),
+        width: $('#width').val(),
+        height: $('#height').val(),
+        image_url: $('#image_url').val(),
+        seo_title: $('#seo_title').val(),
+        seo_description: $('#seo_description').val(),
+        categories: $('#categories').val() || [],
+        tags: $('#tags').val() || [],
+        brands: $('#brands').val() || [],
+        attributes: selectedAttributes.map(attr => ({
+            id: attr.attribute_id,
+            name: attr.name,
+            terms: attr.terms
+        })),
+        variations: []
+    };
+
+    // Recopilar datos de variaciones
+    $('.variation-row').each(function(index) {
+        const comboSlugs = window.variationCombinations[index];
+        const attributes = {};
+
+        comboSlugs.forEach((termSlug, i) => {
+            const attr = selectedAttributes[i];
+            attributes[`attr_${attr.attribute_id}`] = termSlug;
+        });
+
+        const variationData = {
+            sku: $(this).find('[data-field="sku"]').val().trim(),
+            regular_price: $(this).find('[data-field="regular_price"]').val(),
+            sale_price: $(this).find('[data-field="sale_price"]').val(),
+            cost_price: $(this).find('[data-field="cost_price"]').val(),
+            stock_quantity: $(this).find('[data-field="stock_quantity"]').val(),
+            stock_status: $(this).find('[data-field="stock_status"]').val(),
+            attributes: attributes
+        };
+
+        productData.variations.push(variationData);
+    });
+
+    // Enviar al servidor
+    $.ajax({
+        url: '/products/create-variable',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(productData),
+        success: function(response) {
+            $('#loadingOverlay').removeClass('active');
+
+            if (response.success) {
+                alert(`¡Producto creado exitosamente!\n\nID: ${response.product_id}\nVariaciones creadas: ${response.variations_created}\nVariaciones fallidas: ${response.variations_failed}`);
+                window.location.href = '/products/';
+            } else {
+                alert('Error: ' + response.error);
+            }
+        },
+        error: function(xhr) {
+            $('#loadingOverlay').removeClass('active');
+            let errorMsg = 'Error al crear el producto';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            alert(errorMsg);
+            console.error('Error completo:', xhr);
+        }
+    });
+}
+</script>
+{% endblock %}

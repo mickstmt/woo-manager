@@ -337,8 +337,17 @@ def get_variations(product_id):
             for meta in variation.product_meta:
                 if meta.meta_key.startswith('attribute_'):
                     # Limpiar el nombre del atributo
-                    attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '')
-                    attributes[attr_name] = meta.meta_value
+                    # IMPORTANTE: Usar if/else para evitar reemplazos múltiples incorrectos
+                    if meta.meta_key.startswith('attribute_pa_'):
+                        # Atributo global (product attribute)
+                        attr_name = meta.meta_key.replace('attribute_pa_', '')
+                    else:
+                        # Atributo personalizado
+                        attr_name = meta.meta_key.replace('attribute_', '')
+
+                    # Solo agregar si tiene valor (ignorar atributos vacíos)
+                    if meta.meta_value:
+                        attributes[attr_name] = meta.meta_value
             
             # Obtener datos importantes
             sku = variation.get_meta('_sku') or 'N/A'
