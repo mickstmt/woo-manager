@@ -53,6 +53,7 @@ def api_summary():
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
         """)
 
         result = db.session.execute(query, {
@@ -66,7 +67,8 @@ def api_summary():
             FROM wpyz_wc_orders_meta om
             INNER JOIN wpyz_wc_orders o ON om.order_id = o.id
             WHERE om.meta_key = '_wc_discount_amount'
-            AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
         """)
 
         discount_result = db.session.execute(discount_query, {
@@ -123,6 +125,7 @@ def api_sales_by_day():
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
             GROUP BY DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
             ORDER BY date ASC
         """)
@@ -179,7 +182,8 @@ def api_top_products():
             INNER JOIN wpyz_woocommerce_order_itemmeta oim_product ON oi.order_item_id = oim_product.order_item_id AND oim_product.meta_key = '_product_id'
             INNER JOIN wpyz_posts p ON CAST(oim_product.meta_value AS SIGNED) = p.ID
             WHERE oi.order_item_type = 'line_item'
-            AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
             GROUP BY p.ID, p.post_title
             ORDER BY quantity_sold DESC
             LIMIT :limit
@@ -235,6 +239,7 @@ def api_sales_by_user():
             INNER JOIN wpyz_wc_orders_meta om_number ON o.id = om_number.order_id AND om_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created ON o.id = om_created.order_id AND om_created.meta_key = '_created_by'
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
             GROUP BY om_created.meta_value
             ORDER BY total_sales DESC
         """)
@@ -294,6 +299,7 @@ def api_status_distribution():
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_order_number'
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
             GROUP BY o.status
             ORDER BY count DESC
         """)
