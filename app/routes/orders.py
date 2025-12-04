@@ -601,15 +601,9 @@ def search_products():
     - q: término de búsqueda (SKU o nombre)
     """
     try:
-        search_term = request.args.get('q', '', type=str)
+        search_term = request.args.get('q', '', type=str).strip()
 
-        if not search_term or len(search_term) < 2:
-            return jsonify({
-                'success': True,
-                'products': []
-            })
-
-        # Buscar productos simples y variaciones
+        # Query base para productos publicados
         products_query = Product.query.filter(
             Product.post_status == 'publish',
             or_(
@@ -618,27 +612,31 @@ def search_products():
             )
         )
 
-        # Buscar por título o SKU
-        from sqlalchemy import text
-        sku_search = text("""
-            SELECT DISTINCT post_id
-            FROM wpyz_postmeta
-            WHERE meta_key = '_sku'
-            AND meta_value LIKE :search
-        """)
+        # Si hay término de búsqueda, filtrar
+        if search_term and len(search_term) >= 2:
+            # Buscar por título o SKU
+            from sqlalchemy import text
+            sku_search = text("""
+                SELECT DISTINCT post_id
+                FROM wpyz_postmeta
+                WHERE meta_key = '_sku'
+                AND meta_value LIKE :search
+            """)
 
-        result = db.session.execute(sku_search, {'search': f'%{search_term}%'})
-        product_ids_by_sku = [row[0] for row in result]
+            result = db.session.execute(sku_search, {'search': f'%{search_term}%'})
+            product_ids_by_sku = [row[0] for row in result]
 
-        # Combinar búsqueda por título y SKU
-        products_query = products_query.filter(
-            or_(
-                Product.post_title.like(f'%{search_term}%'),
-                Product.ID.in_(product_ids_by_sku)
+            # Combinar búsqueda por título y SKU
+            products_query = products_query.filter(
+                or_(
+                    Product.post_title.like(f'%{search_term}%'),
+                    Product.ID.in_(product_ids_by_sku)
+                )
             )
-        )
-
-        products = products_query.limit(10).all()
+            products = products_query.limit(50).all()
+        else:
+            # Sin búsqueda, devolver primeros productos (para carga inicial)
+            products = products_query.order_by(Product.post_title.asc()).limit(50).all()
 
         # Preparar resultados
         products_list = []
