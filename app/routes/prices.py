@@ -256,6 +256,7 @@ def list_prices():
 
 @bp.route('/update/<int:product_id>', methods=['POST'])
 @login_required
+@advisor_or_admin_required
 def update_price(product_id):
     """
     Actualizar precios de un producto individual

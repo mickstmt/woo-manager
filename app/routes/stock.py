@@ -291,6 +291,7 @@ def stock_stats():
 
 @bp.route('/update/<int:product_id>', methods=['POST'])
 @login_required
+@advisor_or_admin_required
 def update_stock(product_id):
     """
     Actualizar stock de un producto individual
