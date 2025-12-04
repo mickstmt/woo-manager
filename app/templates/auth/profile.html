@@ -41,6 +41,10 @@
                                 <span class="badge bg-danger">
                                     <i class="bi bi-shield-fill-check"></i> Administrador
                                 </span>
+                            {% elif current_user.role == 'advisor' %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-headset"></i> Asesor
+                                </span>
                             {% else %}
                                 <span class="badge bg-primary">
                                     <i class="bi bi-person"></i> Usuario
