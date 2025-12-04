@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Tipo de Cambio USD/PEN - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .exchange-card {
+        transition: transform 0.2s;
+    }
+    .exchange-card:hover {
+        transform: translateY(-2px);
+    }
+    .current-rate {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .table-responsive {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-0">
+            <i class="bi bi-currency-exchange"></i> Tipo de Cambio USD/PEN
+        </h1>
+        <p class="text-muted">Gestión del tipo de cambio para cálculo de costos</p>
+    </div>
+</div>
+
+<!-- Tipo de cambio actual -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card exchange-card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <h6 class="text-muted mb-2">Tipo de Cambio Actual</h6>
+                        <div class="current-rate" id="current-rate">-</div>
+                        <small class="text-muted" id="current-date">Fecha: -</small>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h6 class="text-muted mb-2">Tasa Compra</h6>
+                        <div class="h3" id="current-compra">-</div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h6 class="text-muted mb-2">Tasa Venta</h6>
+                        <div class="h3" id="current-venta">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario para actualizar tipo de cambio -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Actualizar Tipo de Cambio</h5>
+            </div>
+            <div class="card-body">
+                <form id="exchange-rate-form">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha</label>
+                            <input type="date" id="fecha" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Tasa Compra (USD → PEN)</label>
+                            <input type="number" id="tasa-compra" class="form-control"
+                                   step="0.0001" min="0" placeholder="3.7500" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Tasa Venta (PEN → USD)</label>
+                            <input type="number" id="tasa-venta" class="form-control"
+                                   step="0.0001" min="0" placeholder="3.7800" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Promedio (calculado)</label>
+                            <input type="text" id="tasa-promedio" class="form-control" readonly>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-9">
+                            <label class="form-label">Notas (opcional)</label>
+                            <input type="text" id="notas" class="form-control"
+                                   placeholder="Ej: Tipo de cambio según SUNAT">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-save"></i> Guardar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Histórico -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Histórico de Tipo de Cambio</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th class="text-end">Tasa Compra</th>
+                                <th class="text-end">Tasa Venta</th>
+                                <th class="text-end">Promedio</th>
+                                <th>Actualizado por</th>
+                                <th>Notas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    Cargando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Establecer fecha de hoy por defecto
+    document.getElementById('fecha').valueAsDate = new Date();
+
+    // Calcular promedio automáticamente
+    document.getElementById('tasa-compra').addEventListener('input', calculateAverage);
+    document.getElementById('tasa-venta').addEventListener('input', calculateAverage);
+
+    function calculateAverage() {
+        const compra = parseFloat(document.getElementById('tasa-compra').value) || 0;
+        const venta = parseFloat(document.getElementById('tasa-venta').value) || 0;
+
+        if (compra > 0 && venta > 0) {
+            const promedio = (compra + venta) / 2;
+            document.getElementById('tasa-promedio').value = promedio.toFixed(4);
+        } else {
+            document.getElementById('tasa-promedio').value = '';
+        }
+    }
+
+    // Cargar datos al inicio
+    loadCurrentRate();
+    loadHistory();
+
+    // Manejar envío del formulario
+    document.getElementById('exchange-rate-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveExchangeRate();
+    });
+
+    function loadCurrentRate() {
+        fetch('/reports/api/exchange-rate?limit=1')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data.length > 0) {
+                    const current = data.data[0];
+                    document.getElementById('current-rate').textContent = current.tasa_promedio.toFixed(4);
+                    document.getElementById('current-compra').textContent = current.tasa_compra.toFixed(4);
+                    document.getElementById('current-venta').textContent = current.tasa_venta.toFixed(4);
+                    document.getElementById('current-date').textContent = 'Fecha: ' + formatDate(current.fecha);
+                } else {
+                    document.getElementById('current-rate').textContent = 'No configurado';
+                    document.getElementById('current-compra').textContent = '-';
+                    document.getElementById('current-venta').textContent = '-';
+                    document.getElementById('current-date').textContent = 'Configure el tipo de cambio';
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar tipo de cambio actual:', error);
+            });
+    }
+
+    function loadHistory() {
+        fetch('/reports/api/exchange-rate?limit=50')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateHistoryTable(data.data);
+                } else {
+                    showAlert('Error al cargar histórico: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function updateHistoryTable(history) {
+        const tbody = document.getElementById('history-table');
+
+        if (history.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        No hay registros de tipo de cambio
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = history.map(record => `
+            <tr>
+                <td>${formatDate(record.fecha)}</td>
+                <td class="text-end">${record.tasa_compra.toFixed(4)}</td>
+                <td class="text-end">${record.tasa_venta.toFixed(4)}</td>
+                <td class="text-end"><strong>${record.tasa_promedio.toFixed(4)}</strong></td>
+                <td>${record.actualizado_por || '-'}</td>
+                <td>${record.notas || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function saveExchangeRate() {
+        const data = {
+            fecha: document.getElementById('fecha').value,
+            tasa_compra: parseFloat(document.getElementById('tasa-compra').value),
+            tasa_venta: parseFloat(document.getElementById('tasa-venta').value),
+            notas: document.getElementById('notas').value
+        };
+
+        if (!data.fecha || !data.tasa_compra || !data.tasa_venta) {
+            showAlert('Por favor completa todos los campos requeridos', 'warning');
+            return;
+        }
+
+        fetch('/reports/api/exchange-rate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Tipo de cambio guardado exitosamente', 'success');
+                loadCurrentRate();
+                loadHistory();
+                // Limpiar notas
+                document.getElementById('notas').value = '';
+            } else {
+                showAlert('Error: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+    }
+
+    function formatDate(dateStr) {
+        const date = new Date(dateStr + 'T00:00:00');
+        return date.toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}

@@ -79,10 +79,22 @@
                             <i class="bi bi-clock-history"></i> Historial
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/reports/">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-graph-up"></i> Reportes
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
+                            <li><a class="dropdown-item" href="/reports/">
+                                <i class="bi bi-bar-chart"></i> Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="/reports/profits">
+                                <i class="bi bi-currency-dollar"></i> Ganancias
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/reports/exchange-rate">
+                                <i class="bi bi-currency-exchange"></i> Tipo de Cambio
+                            </a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/images/">

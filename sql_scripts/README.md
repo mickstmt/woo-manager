@@ -105,6 +105,30 @@ WHERE meta_value = '1007346-SGW7'
 
 ---
 
+### `calcular_ganancias_pedidos.sql`
+**Propósito:** Calcular ganancias de pedidos considerando costos en USD convertidos a PEN.
+
+**Uso:**
+```sql
+-- Configurar rango de fechas
+SET @fecha_inicio = '2024-12-01';
+SET @fecha_fin = '2024-12-04';
+```
+
+**Retorna:**
+- **Por pedido:** ID, número, fecha, ventas, costos (USD/PEN), ganancia, margen %
+- **Resumen:** Total de pedidos, ventas totales, costos totales, ganancias totales, margen promedio
+
+**Características:**
+- Usa tipo de cambio histórico del día del pedido
+- Calcula costos desde componentes FashionCloud (woo_products_fccost)
+- Excluye pedidos cancelados, reembolsados y en papelera
+- Solo incluye pedidos con costos calculables
+
+**Requisitos:** Tabla `woo_tipo_cambio` configurada con tasas históricas.
+
+---
+
 ## 🔧 MIGRACIONES
 
 Scripts para crear tablas, índices y estructuras.
@@ -154,6 +178,24 @@ Scripts para crear tablas, índices y estructuras.
 **Propósito:** Scripts de creación de tablas de productos (MySQL y PostgreSQL).
 
 **Uso:** Solo como referencia o para replicar estructura en otra DB.
+
+---
+
+### `create_tipo_cambio_table.sql`
+**Propósito:** Crear tabla para histórico de tipo de cambio USD/PEN.
+
+**Crea:**
+- `woo_tipo_cambio` - Registro de tasas de cambio por fecha
+- Campos: fecha, tasa_compra, tasa_venta, tasa_promedio, actualizado_por, activo
+
+**Características:**
+- Solo un registro activo por fecha (constraint único)
+- Tasa promedio calculada automáticamente: (compra + venta) / 2
+- Incluye registro inicial con tipo de cambio de ejemplo
+
+**Uso:** Ejecutar una vez para crear la estructura. Luego usar la UI web en `/reports/exchange-rate` para gestionar tasas.
+
+**Contexto:** Necesario para calcular ganancias con costos en USD convertidos a PEN.
 
 ---
 

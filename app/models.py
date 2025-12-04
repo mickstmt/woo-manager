@@ -628,3 +628,51 @@ class OrderExternalItem(db.Model):
 
     def __repr__(self):
         return f'<OrderExternalItem {self.product_name} x{self.quantity}>'
+
+
+class TipoCambio(db.Model):
+    """
+    Modelo para tipo de cambio USD/PEN
+
+    Tabla: woo_tipo_cambio
+    Propósito: Almacenar histórico de tipo de cambio para calcular ganancias
+    """
+    __tablename__ = 'woo_tipo_cambio'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    fecha = db.Column(db.Date, nullable=False)
+    tasa_compra = db.Column(db.Numeric(6, 4), nullable=False)
+    tasa_venta = db.Column(db.Numeric(6, 4), nullable=False)
+    tasa_promedio = db.Column(db.Numeric(6, 4), nullable=False)
+    actualizado_por = db.Column(db.String(100), nullable=False)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow)
+    activo = db.Column(db.Boolean, default=True)
+    notas = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<TipoCambio {self.fecha} - {self.tasa_promedio}>'
+
+    @staticmethod
+    def get_tasa_actual():
+        """Obtener tasa de cambio actual (más reciente activa)"""
+        return TipoCambio.query.filter_by(activo=True).order_by(TipoCambio.fecha.desc()).first()
+
+    @staticmethod
+    def get_tasa_por_fecha(fecha):
+        """Obtener tasa de cambio para una fecha específica"""
+        # Buscar tasa exacta de esa fecha
+        tasa = TipoCambio.query.filter(
+            TipoCambio.fecha == fecha,
+            TipoCambio.activo == True
+        ).first()
+
+        if tasa:
+            return tasa
+
+        # Si no existe, buscar la más cercana anterior
+        tasa = TipoCambio.query.filter(
+            TipoCambio.fecha <= fecha,
+            TipoCambio.activo == True
+        ).order_by(TipoCambio.fecha.desc()).first()
+
+        return tasa
