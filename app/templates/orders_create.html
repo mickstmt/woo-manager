@@ -287,14 +287,14 @@
     }
 
     .variation-swatch.out-of-stock {
-        opacity: 0.5;
-        cursor: not-allowed;
+        opacity: 0.6;
+        cursor: pointer; /* Permitir selección para lógica de agregar stock temporal */
     }
 
     .variation-swatch.out-of-stock:hover {
-        border-color: #dee2e6;
-        transform: none;
-        box-shadow: none;
+        border-color: #ffc107; /* Color ámbar para indicar "sin stock pero seleccionable" */
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
     }
 
     .variation-swatch-image {
@@ -1396,7 +1396,8 @@ function showVariationsModal(parent, variations, availableAttributes) {
 }
 
 // Event listener para clicks en las miniaturas visuales
-$(document).on('click', '.variation-swatch:not(.out-of-stock)', function() {
+// NOTA: Permitimos seleccionar incluso sin stock para que funcione la lógica de "agregar uno temporalmente"
+$(document).on('click', '.variation-swatch', function() {
     const $swatch = $(this);
     const attrName = $swatch.data('attr-name');
     const attrValue = $swatch.data('attr-value');
