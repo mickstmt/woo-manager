@@ -252,6 +252,103 @@
         margin-top: 20px;
     }
 
+    /* Selector Visual de Variaciones */
+    .variation-swatches {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+        margin-bottom: 20px;
+    }
+
+    .variation-swatch {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+        position: relative;
+    }
+
+    .variation-swatch:hover {
+        border-color: #0d6efd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(13, 110, 253, 0.2);
+    }
+
+    .variation-swatch.active {
+        border-color: #0d6efd;
+        border-width: 3px;
+        background: #e7f3ff;
+    }
+
+    .variation-swatch.out-of-stock {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .variation-swatch.out-of-stock:hover {
+        border-color: #dee2e6;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .variation-swatch-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+
+    .variation-swatch-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-align: center;
+        color: #495057;
+        word-break: break-word;
+    }
+
+    .variation-swatch.active .variation-swatch-label {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .variation-swatch-stock {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #28a745;
+        border: 2px solid white;
+    }
+
+    .variation-swatch.out-of-stock .variation-swatch-stock {
+        background: #dc3545;
+    }
+
+    @media (max-width: 768px) {
+        .variation-swatches {
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+        }
+
+        .variation-swatch-image {
+            width: 60px;
+            height: 60px;
+        }
+
+        .variation-swatch-label {
+            font-size: 0.75rem;
+        }
+    }
+
     /* Form styling */
     .form-section {
         background: #f8f9fa;
@@ -347,8 +444,8 @@
 
                 <!-- Buscador contextual de productos -->
                 <div class="mb-3">
-                    <input type="text" class="form-control" id="product-filter-search" placeholder="Buscar por nombre o SKU...">
-                    <small class="text-muted" id="product-search-context">Buscando en: Todos los productos</small>
+                    <input type="text" class="form-control" id="product-filter-search" placeholder="Buscar por nombre o SKU..." disabled>
+                    <small class="text-muted" id="product-search-context">Selecciona una categoría para ver productos</small>
                 </div>
 
                 <!-- Grid de productos con imágenes -->
@@ -700,7 +797,7 @@ let orderData = {
 
 $(document).ready(function() {
     loadCategories();
-    loadAllProducts(); // Cargar todos los productos al inicio
+    // NO cargar productos al inicio - esperar a que seleccione categoría
     updateCartDisplay();
 
     // Cargar departamentos desde API
@@ -1021,16 +1118,27 @@ function renderCategoriesSelect(cats) {
         if (catId) {
             selectCategory(catId, catName);
         } else {
-            // Sin categoría seleccionada, cargar todos los productos
+            // Sin categoría seleccionada, mostrar estado inicial
             selectedCategory = null;
-            $('#product-search-context').text('Buscando en: Todos los productos');
-            renderProducts(allProducts);
+            $('#product-filter-search').prop('disabled', true).val('');
+            $('#product-search-context').text('Selecciona una categoría para ver productos');
+
+            // Mostrar mensaje inicial vacío
+            $('#products-grid').html(`
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-box" style="font-size: 3rem; color: #dee2e6;"></i>
+                    <p class="text-muted mt-3">Selecciona una categoría</p>
+                </div>
+            `);
         }
     });
 }
 
 function selectCategory(catId, catName) {
     selectedCategory = catId;
+
+    // Habilitar buscador
+    $('#product-filter-search').prop('disabled', false);
 
     // Actualizar contexto de búsqueda
     $('#product-search-context').text(`Buscando en: ${catName}`);
@@ -1239,20 +1347,42 @@ function showVariationsModal(parent, variations, availableAttributes) {
         return;
     }
 
+    // Generar selector VISUAL para cada atributo
     for (const [attrName, values] of Object.entries(availableAttributes)) {
         const selectId = `attr-${attrName.toLowerCase().replace(/\s+/g, '-')}`;
 
-        const html = `
-            <div class="mb-3">
-                <label for="${selectId}" class="form-label fw-bold">${attrName}:</label>
-                <select class="form-select attribute-selector" id="${selectId}" data-attr-name="${attrName}">
-                    <option value="">-- Seleccionar ${attrName} --</option>
-                    ${values.map(value => `<option value="${value}">${value}</option>`).join('')}
-                </select>
+        // Crear contenedor del atributo
+        const attrHtml = `
+            <div class="mb-4">
+                <label class="form-label fw-bold">${attrName}:</label>
+                <div class="variation-swatches" id="swatches-${selectId}">
+                    ${values.map(value => {
+                        // Buscar variación con este valor de atributo para obtener imagen
+                        const matchingVar = variations.find(v => v.attributes[attrName] === value);
+                        const imageUrl = matchingVar?.image_url || parent.image_url || 'https://via.placeholder.com/80';
+                        const stock = matchingVar?.stock || 0;
+                        const inStock = stock > 0;
+                        const outOfStockClass = !inStock ? 'out-of-stock' : '';
+
+                        return `
+                            <div class="variation-swatch ${outOfStockClass}"
+                                 data-attr-name="${attrName}"
+                                 data-attr-value="${value}"
+                                 ${!inStock ? 'title="Sin stock"' : ''}>
+                                <span class="variation-swatch-stock"></span>
+                                <img src="${imageUrl}"
+                                     alt="${value}"
+                                     class="variation-swatch-image"
+                                     onerror="this.src='https://via.placeholder.com/80?text=Sin+imagen'">
+                                <span class="variation-swatch-label">${value}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
             </div>
         `;
 
-        container.append(html);
+        container.append(attrHtml);
     }
 
     // Mostrar modal
@@ -1265,17 +1395,20 @@ function showVariationsModal(parent, variations, availableAttributes) {
     }, 50);
 }
 
-// Event listener para cambios en los selectores
-$(document).on('change', '.attribute-selector', function() {
+// Event listener para clicks en las miniaturas visuales
+$(document).on('click', '.variation-swatch:not(.out-of-stock)', function() {
+    const $swatch = $(this);
+    const attrName = $swatch.data('attr-name');
+    const attrValue = $swatch.data('attr-value');
+
+    // Remover selección de otros swatches del mismo atributo
+    $swatch.siblings('.variation-swatch').removeClass('active');
+
+    // Marcar este como activo
+    $swatch.addClass('active');
+
     // Actualizar atributos seleccionados
-    selectedAttributes = {};
-    $('.attribute-selector').each(function() {
-        const attrName = $(this).data('attr-name');
-        const attrValue = $(this).val();
-        if (attrValue) {
-            selectedAttributes[attrName] = attrValue;
-        }
-    });
+    selectedAttributes[attrName] = attrValue;
 
     // Buscar variación que coincida
     findMatchingVariation();
@@ -1283,7 +1416,7 @@ $(document).on('change', '.attribute-selector', function() {
 
 function findMatchingVariation() {
     // Verificar si todos los atributos están seleccionados
-    const totalAttributes = $('.attribute-selector').length;
+    const totalAttributes = $('.variation-swatches').length;
     const selectedCount = Object.keys(selectedAttributes).length;
 
     if (selectedCount < totalAttributes) {
