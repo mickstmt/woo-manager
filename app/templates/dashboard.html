@@ -4,271 +4,410 @@
 
 {% block extra_css %}
 <style>
-    /* Mobile First - Estilos base para móvil */
+    :root {
+        --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        --card-bg: #ffffff;
+        --bg-hover: #f8fafc;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+        --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.025);
+        --radius-lg: 16px;
+        --radius-md: 12px;
+    }
 
-    /* Header de Bienvenida - Compacto en móvil */
+    /* Ajustes generales */
+    body {
+        background-color: #f1f5f9; /* Fondo gris muy suave para contraste */
+    }
+
+    /* 1. HEADER MODERNIZADO */
     .welcome-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--primary-gradient);
         color: white;
-        border-radius: 12px;
-        padding: 20px 16px;
-        margin-bottom: 20px;
+        border-radius: var(--radius-lg);
+        padding: 2rem 1.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.3);
+    }
+
+    /* Decoración de fondo sutil */
+    .welcome-header::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
     }
 
     .welcome-header h1 {
-        font-size: 1.5rem;
-        margin-bottom: 8px;
+        font-weight: 700;
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.025em;
     }
 
-    .welcome-header p {
-        font-size: 0.9rem;
-        margin-bottom: 0;
-        opacity: 0.9;
+    .welcome-header .badge {
+        backdrop-filter: blur(4px);
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        font-weight: 500;
+        padding: 0.5em 0.8em;
     }
 
-    /* Acciones Rápidas - PRINCIPAL */
-    .quick-actions-section {
-        margin-bottom: 24px;
-    }
-
-    .quick-actions-title {
-        font-size: 1.1rem;
+    /* 2. TARJETAS DE ACCIÓN (Modern Cards) */
+    .section-title {
+        font-size: 1rem;
         font-weight: 600;
-        margin-bottom: 12px;
-        color: #333;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .quick-action-card {
-        border-radius: 12px;
-        border: none;
-        padding: 20px;
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
         text-decoration: none;
-        display: block;
-        transition: all 0.3s;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(255,255,255,0.5);
+        box-shadow: var(--shadow-sm);
+        height: 100%;
+        position: relative;
+        overflow: hidden;
     }
 
     .quick-action-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .quick-action-card i {
-        font-size: 2rem;
-        margin-bottom: 8px;
-    }
-
-    .quick-action-card h5 {
-        font-size: 1.1rem;
-        margin: 8px 0 4px 0;
-        font-weight: 600;
-    }
-
-    .quick-action-card small {
-        font-size: 0.85rem;
-        opacity: 0.8;
-    }
-
-    /* Colores de acciones */
-    .action-productos {
-        background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
-        color: white;
-    }
-
-    .action-stock {
-        background: linear-gradient(135deg, #50C878 0%, #3EA563 100%);
-        color: white;
-    }
-
-    .action-pedidos-wa {
-        background: linear-gradient(135deg, #25D366 0%, #1DA851 100%);
-        color: white;
-    }
-
-    .action-pedidos-ext {
-        background: linear-gradient(135deg, #FF6B6B 0%, #E85555 100%);
-        color: white;
-    }
-
-    /* Stats Cards - Secundarias */
-    .stats-section {
-        margin-bottom: 24px;
-    }
-
-    .stats-title {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 12px;
-        color: #666;
-    }
-
-    .stat-card {
-        border-radius: 10px;
-        border: 1px solid #e0e0e0;
-        padding: 16px;
-        margin-bottom: 12px;
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
         background: white;
     }
 
-    .stat-card i {
-        font-size: 1.8rem;
-        opacity: 0.7;
-        margin-bottom: 8px;
+    /* Contenedor del icono con fondo suave */
+    .icon-box {
+        width: 50px;
+        height: 50px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        transition: transform 0.3s ease;
     }
 
-    .stat-number {
-        font-size: 1.8rem;
-        font-weight: bold;
-        margin: 8px 0;
+    .quick-action-card:hover .icon-box {
+        transform: scale(1.1);
+    }
+
+    .quick-action-card h5 {
+        color: var(--text-main);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .quick-action-card small {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    /* Temas de color para las tarjetas */
+    .theme-products .icon-box { background: #eff6ff; color: #3b82f6; } /* Azul */
+    .theme-stock .icon-box { background: #f0f9ff; color: #0ea5e9; } /* Celeste */
+    .theme-whatsapp .icon-box { background: #dcfce7; color: #22c55e; } /* Verde WA */
+    .theme-external .icon-box { background: #fff7ed; color: #f97316; } /* Naranja */
+
+    /* Indicador de flecha sutil */
+    .action-arrow {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        color: #cbd5e1;
+        transition: 0.3s;
+    }
+    .quick-action-card:hover .action-arrow {
+        color: var(--text-main);
+        transform: translateX(3px);
+    }
+
+    /* 3. ESTADÍSTICAS (Clean Stats) */
+    .stat-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: none;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+    }
+
+    .stat-info {
+        display: flex;
+        flex-direction: column;
     }
 
     .stat-label {
-        font-size: 0.9rem;
-        color: #666;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 4px;
     }
 
-    /* Tablet y Desktop */
-    @media (min-width: 768px) {
-        .welcome-header {
-            padding: 24px 28px;
-        }
-
-        .welcome-header h1 {
-            font-size: 1.8rem;
-        }
-
-        .quick-actions-title {
-            font-size: 1.3rem;
-        }
-
-        .quick-action-card {
-            margin-bottom: 0;
-        }
+    .stat-number {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1.2;
     }
 
-    /* Desktop grande */
+    .stat-icon-mini {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+
+    /* Variaciones de stats */
+    .stat-total .stat-icon-mini { background: #f1f5f9; color: #64748b; }
+    .stat-success .stat-icon-mini { background: #dcfce7; color: #16a34a; }
+    .stat-danger .stat-icon-mini { background: #fee2e2; color: #dc2626; }
+    .stat-warning .stat-icon-mini { background: #fef3c7; color: #d97706; }
+
+    /* Efecto de carga (Skeleton) */
+    .loading-pulse {
+        animation: pulse-bg 1.5s infinite;
+        background-color: #e2e8f0;
+        color: transparent !important;
+        border-radius: 4px;
+        width: fit-content;
+        min-width: 30px;
+    }
+
+    @keyframes pulse-bg {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+
+    /* Responsive adjustments */
     @media (min-width: 992px) {
-        .welcome-header {
-            padding: 28px 32px;
-        }
-
-        .welcome-header h1 {
-            font-size: 2rem;
-        }
+        .welcome-header { padding: 3rem; }
+        .welcome-header h1 { font-size: 2.25rem; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Header de Bienvenida - Compacto -->
 <div class="welcome-header">
-    <h1>
-        <i class="bi bi-speedometer2"></i>
-        ¡Hola, {{ current_user.full_name.split()[0] if current_user.full_name else current_user.username }}!
-    </h1>
-    <p>
-        Panel de control ·
-        {% if current_user.is_admin() %}
-        <span class="badge bg-warning text-dark">Admin</span>
-        {% elif current_user.is_advisor() %}
-        <span class="badge bg-light">Asesor</span>
-        {% else %}
-        <span class="badge bg-light">Usuario</span>
-        {% endif %}
-    </p>
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1>Hola, {{ current_user.full_name.split()[0] if current_user.full_name else current_user.username }} 👋</h1>
+            <p class="mb-0 opacity-75">
+                Aquí tienes el resumen de tu tienda hoy.
+                {% if current_user.is_admin() %}
+                <span class="badge ms-2">Administrador</span>
+                {% elif current_user.is_advisor() %}
+                <span class="badge ms-2">Asesor</span>
+                {% else %}
+                <span class="badge ms-2">Usuario</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
 </div>
 
-<!-- ACCIONES RÁPIDAS - PRINCIPAL -->
-<div class="quick-actions-section">
-    <h2 class="quick-actions-title">
-        <i class="bi bi-lightning-charge-fill"></i> Acciones Rápidas
+<div class="mb-5">
+    <h2 class="section-title">
+        <i class="bi bi-grid-fill"></i> Gestión Principal
     </h2>
 
-    <div class="row g-3">
-        <!-- Productos -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <a href="{{ url_for('products.index') }}" class="quick-action-card action-productos">
-                <div class="text-center">
+    <div class="row g-4">
+        <div class="col-12 col-md-6 col-xl-3">
+            <a href="{{ url_for('products.index') }}" class="quick-action-card theme-products">
+                <i class="bi bi-chevron-right action-arrow"></i>
+                <div class="icon-box">
                     <i class="bi bi-box-seam"></i>
-                    <h5>Productos</h5>
-                    <small>Gestionar catálogo</small>
                 </div>
+                <h5>Productos</h5>
+                <small>Catálogo y precios</small>
             </a>
         </div>
 
-        <!-- Stock -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <a href="{{ url_for('stock.index') }}" class="quick-action-card action-stock">
-                <div class="text-center">
-                    <i class="bi bi-boxes"></i>
-                    <h5>Stock</h5>
-                    <small>Control inventario</small>
+        <div class="col-12 col-md-6 col-xl-3">
+            <a href="{{ url_for('stock.index') }}" class="quick-action-card theme-stock">
+                <i class="bi bi-chevron-right action-arrow"></i>
+                <div class="icon-box">
+                    <i class="bi bi-clipboard-data"></i>
                 </div>
+                <h5>Inventario</h5>
+                <small>Control de stock</small>
             </a>
         </div>
 
-        <!-- Pedidos WhatsApp -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <a href="{{ url_for('orders.list_orders') }}" class="quick-action-card action-pedidos-wa">
-                <div class="text-center">
+        <div class="col-12 col-md-6 col-xl-3">
+            <a href="{{ url_for('orders.index') }}" class="quick-action-card theme-whatsapp">
+                <i class="bi bi-chevron-right action-arrow"></i>
+                <div class="icon-box">
                     <i class="bi bi-whatsapp"></i>
-                    <h5>Pedidos WhatsApp</h5>
-                    <small>Gestionar pedidos WA</small>
                 </div>
+                <h5>Pedidos WA</h5>
+                <small>Solicitudes directas</small>
             </a>
         </div>
 
-        <!-- Pedidos Externos -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <a href="{{ url_for('orders.list_external') }}" class="quick-action-card action-pedidos-ext">
-                <div class="text-center">
-                    <i class="bi bi-cart-check"></i>
-                    <h5>Pedidos Externos</h5>
-                    <small>Seguimiento externo</small>
+        <div class="col-12 col-md-6 col-xl-3">
+            <a href="{{ url_for('orders.list_external') }}" class="quick-action-card theme-external">
+                <i class="bi bi-chevron-right action-arrow"></i>
+                <div class="icon-box">
+                    <i class="bi bi-globe"></i>
                 </div>
+                <h5>Web / Externos</h5>
+                <small>Seguimiento online</small>
             </a>
         </div>
     </div>
 </div>
 
-<!-- Estadísticas - Secundarias -->
-<div class="stats-section">
-    <h3 class="stats-title">
-        <i class="bi bi-bar-chart-fill"></i> Resumen de Productos
+<div class="mb-4">
+    <h3 class="section-title">
+        <i class="bi bi-activity"></i> Estado del Inventario
     </h3>
 
-    <div class="row g-3">
-        <div class="col-6 col-md-3">
-            <div class="stat-card text-center">
-                <i class="bi bi-box-seam text-primary"></i>
-                <div class="stat-number text-primary" id="total-products">-</div>
-                <div class="stat-label">Total</div>
+    <div class="row g-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card stat-total">
+                <div class="stat-info">
+                    <span class="stat-label">Total Productos</span>
+                    <span class="stat-number loading-pulse" id="total-products">-</span>
+                </div>
+                <div class="stat-icon-mini">
+                    <i class="bi bi-layers"></i>
+                </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card text-center">
-                <i class="bi bi-check-circle text-success"></i>
-                <div class="stat-number text-success" id="in-stock">-</div>
-                <div class="stat-label">En Stock</div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card stat-success">
+                <div class="stat-info">
+                    <span class="stat-label">En Stock</span>
+                    <span class="stat-number loading-pulse" id="in-stock">-</span>
+                </div>
+                <div class="stat-icon-mini">
+                    <i class="bi bi-check-lg"></i>
+                </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card text-center">
-                <i class="bi bi-x-circle text-danger"></i>
-                <div class="stat-number text-danger" id="out-stock">-</div>
-                <div class="stat-label">Sin Stock</div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card stat-danger">
+                <div class="stat-info">
+                    <span class="stat-label">Sin Stock</span>
+                    <span class="stat-number loading-pulse" id="out-stock">-</span>
+                </div>
+                <div class="stat-icon-mini">
+                    <i class="bi bi-x-lg"></i>
+                </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card text-center">
-                <i class="bi bi-exclamation-triangle text-warning"></i>
-                <div class="stat-number text-warning" id="low-stock">-</div>
-                <div class="stat-label">Stock Bajo</div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card stat-warning">
+                <div class="stat-info">
+                    <span class="stat-label">Stock Bajo</span>
+                    <span class="stat-number loading-pulse" id="low-stock">-</span>
+                </div>
+                <div class="stat-icon-mini">
+                    <i class="bi bi-exclamation-lg"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información adicional -->
+<div class="row mt-4">
+    <div class="col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+                <div>
+                    <h5 class="mb-1" style="color: var(--text-main); font-weight: 600;">
+                        <i class="bi bi-info-circle text-primary"></i> Sistema
+                    </h5>
+                    <small class="text-muted">Información del entorno</small>
+                </div>
+            </div>
+            <table class="table table-sm table-borderless mb-0">
+                <tr>
+                    <td class="text-muted" style="width: 140px;">Entorno:</td>
+                    <td>
+                        {% if environment == 'production' %}
+                        <span class="badge bg-success">
+                            {{ environment|upper }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">
+                            {{ environment|upper }}
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Base de Datos:</td>
+                    <td><code style="color: var(--text-main);">{{ db_prefix }}</code></td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Usuario Actual:</td>
+                    <td style="color: var(--text-main);">{{ current_user.username }}</td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Email:</td>
+                    <td style="color: var(--text-main);">{{ current_user.email }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+                <div>
+                    <h5 class="mb-1" style="color: var(--text-main); font-weight: 600;">
+                        <i class="bi bi-person-circle text-primary"></i> Mi Cuenta
+                    </h5>
+                    <small class="text-muted">Gestión de perfil</small>
+                </div>
+            </div>
+            <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                Administra tu información personal y configuración de seguridad
+            </p>
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-person"></i> Ver Perfil Completo
+                </a>
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-key"></i> Cambiar Contraseña
+                </a>
             </div>
         </div>
     </div>
@@ -278,7 +417,6 @@
 
 {% block extra_js %}
 <script>
-// Cargar estadísticas al iniciar
 $(document).ready(function() {
     loadStats();
 });
@@ -289,16 +427,27 @@ function loadStats() {
         method: 'GET',
         success: function(response) {
             if (response.success) {
-                $('#total-products').text(response.stats.total);
-                $('#in-stock').text(response.stats.published || 0);
-                $('#out-stock').text(response.stats.draft || 0);
-                $('#low-stock').text(response.stats.pending || 0);
+                // Pequeño delay artificial para que se aprecie la animación de carga (opcional)
+                setTimeout(() => {
+                    updateStat('#total-products', response.stats.total);
+                    updateStat('#in-stock', response.stats.published || 0);
+                    updateStat('#out-stock', response.stats.draft || 0);
+                    updateStat('#low-stock', response.stats.pending || 0);
+                }, 300);
             }
         },
         error: function() {
             console.log('Error al cargar estadísticas');
+            $('.loading-pulse').removeClass('loading-pulse').text('Error');
         }
     });
+}
+
+function updateStat(selector, value) {
+    const el = $(selector);
+    el.removeClass('loading-pulse');
+    // Animación simple de conteo o fade
+    el.hide().text(value).fadeIn(400);
 }
 </script>
 {% endblock %}
