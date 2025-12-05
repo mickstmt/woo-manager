@@ -50,6 +50,27 @@
         background: #f8f9fa;
     }
 
+    /* Estilos para los botones de acción */
+    .action-buttons-orders {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .action-buttons-orders .btn {
+        padding: 0.65rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .action-buttons-orders .btn i {
+        font-size: 1.1rem;
+    }
+
     /* Responsive: Header de pedidos en mobile */
     @media (max-width: 768px) {
         .page-header-orders {
@@ -63,7 +84,6 @@
         }
 
         .action-buttons-orders {
-            display: flex;
             flex-direction: column;
             width: 100%;
             gap: 10px;
@@ -71,8 +91,15 @@
 
         .action-buttons-orders .btn {
             width: 100%;
-            margin-right: 0 !important;
             justify-content: center;
+            padding: 0.75rem 1rem;
+        }
+    }
+
+    /* Asegurar que los botones no se corten con el scroll */
+    @media (min-width: 769px) {
+        .page-header-orders {
+            margin-bottom: 1.5rem;
         }
     }
 </style>
@@ -86,7 +113,7 @@
                 <i class="bi bi-cart-check"></i> Gestión de Pedidos
             </h1>
             <div class="action-buttons-orders">
-                <a href="/orders/create?type=whatsapp" class="btn btn-success me-2">
+                <a href="/orders/create?type=whatsapp" class="btn btn-success">
                     <i class="bi bi-whatsapp"></i> Nuevo Pedido WhatsApp
                 </a>
                 <a href="/orders/create?type=external" class="btn btn-primary">

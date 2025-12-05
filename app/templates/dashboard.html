@@ -244,13 +244,13 @@
 
     <div class="row g-4">
         <div class="col-12 col-md-6 col-xl-3">
-            <a href="{{ url_for('products.index') }}" class="quick-action-card theme-products">
+            <a href="{{ url_for('orders.index') }}" class="quick-action-card theme-whatsapp">
                 <i class="bi bi-chevron-right action-arrow"></i>
                 <div class="icon-box">
-                    <i class="bi bi-box-seam"></i>
+                    <i class="bi bi-whatsapp"></i>
                 </div>
-                <h5>Productos</h5>
-                <small>Catálogo y precios</small>
+                <h5>Pedidos WA</h5>
+                <small>Solicitudes directas</small>
             </a>
         </div>
 
@@ -266,24 +266,24 @@
         </div>
 
         <div class="col-12 col-md-6 col-xl-3">
-            <a href="{{ url_for('orders.index') }}" class="quick-action-card theme-whatsapp">
+            <a href="{{ url_for('products.index') }}" class="quick-action-card theme-products">
                 <i class="bi bi-chevron-right action-arrow"></i>
                 <div class="icon-box">
-                    <i class="bi bi-whatsapp"></i>
+                    <i class="bi bi-box-seam"></i>
                 </div>
-                <h5>Pedidos WA</h5>
-                <small>Solicitudes directas</small>
+                <h5>Productos</h5>
+                <small>Gestión de catálogo</small>
             </a>
         </div>
 
         <div class="col-12 col-md-6 col-xl-3">
-            <a href="{{ url_for('orders.list_external') }}" class="quick-action-card theme-external">
+            <a href="{{ url_for('prices.index') }}" class="quick-action-card theme-external">
                 <i class="bi bi-chevron-right action-arrow"></i>
                 <div class="icon-box">
-                    <i class="bi bi-globe"></i>
+                    <i class="bi bi-currency-dollar"></i>
                 </div>
-                <h5>Web / Externos</h5>
-                <small>Seguimiento online</small>
+                <h5>Precios</h5>
+                <small>Actualización de precios</small>
             </a>
         </div>
     </div>
