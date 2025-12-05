@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from datetime import datetime
-from zoneinfo import ZoneInfo
+import pytz
 
 # Cargar variables de entorno
 load_dotenv()
@@ -15,7 +15,8 @@ def get_local_time():
     Retorna:
         datetime: Hora actual con timezone America/Lima
     """
-    return datetime.now(ZoneInfo('America/Lima'))
+    peru_tz = pytz.timezone('America/Lima')
+    return datetime.now(peru_tz)
 
 class Config:
     """Configuración base"""
