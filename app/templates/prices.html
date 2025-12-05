@@ -157,7 +157,7 @@
                 <strong><span id="selected-count">0</span> productos seleccionados</strong>
             </div>
             <div class="modal-action-buttons">
-                {% if current_user.is_admin() %}
+                {% if current_user.is_admin_or_advisor() %}
                 <button class="btn btn-sm btn-success" onclick="showPercentageModal('increment')">
                     <i class="bi bi-arrow-up-circle"></i> Incrementar %
                 </button>
@@ -172,7 +172,7 @@
                 </button>
                 {% else %}
                 <span class="text-muted">
-                    <i class="bi bi-info-circle"></i> Solo administradores pueden actualizar masivamente
+                    <i class="bi bi-info-circle"></i> Solo administradores y asesores pueden actualizar masivamente
                 </span>
                 {% endif %}
                 <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
@@ -548,7 +548,7 @@ function renderPricesTable(products) {
             <table class="table table-hover table-sm">
                 <thead class="table-light">
                     <tr>
-                        {% if current_user.is_admin() %}
+                        {% if current_user.is_admin_or_advisor() %}
                         <th width="40">
                             <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
                         </th>
@@ -580,7 +580,7 @@ function renderPricesTable(products) {
 
         html += `
             <tr data-product-id="${product.id}">
-                {% if current_user.is_admin() %}
+                {% if current_user.is_admin_or_advisor() %}
                 <td>
                     <input type="checkbox" class="form-check-input product-checkbox"
                            value="${product.id}" onchange="toggleProductSelection(${product.id})">

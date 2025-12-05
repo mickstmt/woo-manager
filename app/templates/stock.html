@@ -144,13 +144,13 @@
                 <strong><span id="selected-count">0</span> productos seleccionados</strong>
             </div>
             <div>
-                {% if current_user.is_admin() %}
+                {% if current_user.is_admin_or_advisor() %}
                 <button class="btn btn-sm btn-primary me-2" onclick="showBulkUpdateModal()">
                     <i class="bi bi-pencil-square"></i> Actualizar Stock
                 </button>
                 {% else %}
                 <span class="text-muted">
-                    <i class="bi bi-info-circle"></i> Solo administradores pueden actualizar masivamente
+                    <i class="bi bi-info-circle"></i> Solo administradores y asesores pueden actualizar masivamente
                 </span>
                 {% endif %}
                 <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
@@ -647,8 +647,8 @@ function showBulkUpdateModal() {
         return;
     }
     
-    {% if not current_user.is_admin() %}
-    showNotification('error', 'Solo los administradores pueden actualizar stock masivamente');
+    {% if not current_user.is_admin_or_advisor() %}
+    showNotification('error', 'Solo los administradores y asesores pueden actualizar stock masivamente');
     return;
     {% endif %}
     
