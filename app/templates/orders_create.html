@@ -1119,78 +1119,45 @@ function loadMetodosEnvio(distrito) {
 
 // ==================== LIGHTBOX PARA IMÁGENES DEL CARRITO ====================
 
-// Variables globales para el lightbox
-let lightboxTimer = null;
-let lightboxIsLongPress = false;
+let lastTapTime = 0;
 
 function openImageLightbox(imgSrc) {
-    const $lightbox = $('#imageLightbox');
-    $lightbox.find('img').attr('src', imgSrc);
-    $lightbox.addClass('active');
+    $('#imageLightbox').find('img').attr('src', imgSrc);
+    $('#imageLightbox').addClass('active');
     $('body').css('overflow', 'hidden');
 }
 
 function closeImageLightbox() {
-    const $lightbox = $('#imageLightbox');
-    $lightbox.removeClass('active');
+    $('#imageLightbox').removeClass('active');
     $('body').css('overflow', '');
 }
 
 function initImageLightbox() {
-    const LONG_PRESS_DURATION = 500; // ms
-
-    // Long press para móvil (touchstart/touchend)
-    $(document).on('touchstart', '.cart-item-image', function(e) {
-        const $img = $(this);
-        lightboxIsLongPress = false;
-
-        lightboxTimer = setTimeout(function() {
-            lightboxIsLongPress = true;
-            const imgSrc = $img.attr('src');
-            openImageLightbox(imgSrc);
-            // Vibración táctil si está disponible
-            if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
-        }, LONG_PRESS_DURATION);
-    });
-
+    // Doble toque para móvil
     $(document).on('touchend', '.cart-item-image', function(e) {
-        if (lightboxTimer) {
-            clearTimeout(lightboxTimer);
-            lightboxTimer = null;
+        const currentTime = new Date().getTime();
+        const tapInterval = currentTime - lastTapTime;
+
+        if (tapInterval < 300 && tapInterval > 0) {
+            e.preventDefault();
+            openImageLightbox($(this).attr('src'));
         }
+        lastTapTime = currentTime;
     });
 
-    $(document).on('touchmove', '.cart-item-image', function(e) {
-        // Cancelar si el usuario mueve el dedo
-        if (lightboxTimer) {
-            clearTimeout(lightboxTimer);
-            lightboxTimer = null;
-        }
+    // Doble click para escritorio
+    $(document).on('dblclick', '.cart-item-image', function() {
+        openImageLightbox($(this).attr('src'));
     });
 
-    // Para escritorio: click normal para abrir
-    $(document).on('click', '.cart-item-image', function(e) {
-        // Solo en escritorio (no touch)
-        if (!('ontouchstart' in window)) {
-            const imgSrc = $(this).attr('src');
-            openImageLightbox(imgSrc);
-        }
+    // Cerrar lightbox
+    $('#imageLightbox').on('click touchend', function() {
+        closeImageLightbox();
     });
 
-    // Cerrar lightbox al tocar/clickear
-    $('#imageLightbox').on('click touchend', function(e) {
-        if ($(this).hasClass('active')) {
-            closeImageLightbox();
-        }
-    });
-
-    // Cerrar con tecla Escape
+    // Cerrar con Escape
     $(document).on('keydown', function(e) {
-        if (e.key === 'Escape' && $('#imageLightbox').hasClass('active')) {
-            closeImageLightbox();
-        }
+        if (e.key === 'Escape') closeImageLightbox();
     });
 }
 
