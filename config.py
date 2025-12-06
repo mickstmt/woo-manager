@@ -35,7 +35,7 @@ class Config:
     # Configuración de sesión
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
-    PERMANENT_SESSION_LIFETIME = 5  # 1 hora
+    PERMANENT_SESSION_LIFETIME = 3600  # 1 hora
     
     # ========================================
     # CONFIGURACIÓN DEL POOL DE CONEXIONES

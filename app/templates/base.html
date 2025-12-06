@@ -164,27 +164,6 @@
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Modal de Sesión Expirada -->
-    <div class="modal fade" id="sessionExpiredModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-body text-center p-5">
-                    <div class="mb-4">
-                        <i class="bi bi-clock-history text-warning" style="font-size: 4rem;"></i>
-                    </div>
-                    <h4 class="mb-3">Sesión Expirada</h4>
-                    <p class="text-muted mb-4">
-                        Tu sesión ha expirado por inactividad.<br>
-                        Por favor, inicia sesión nuevamente para continuar.
-                    </p>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- jQuery (debe ir ANTES de Bootstrap para Select2) -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 
@@ -198,41 +177,73 @@
     <!-- Verificador de sesión -->
     <script>
     (function() {
-        const CHECK_INTERVAL = 30000; // Verificar cada 30 segundos
-        let sessionExpiredModalShown = false;
+        const CHECK_INTERVAL = 10000;
+        let sessionExpired = false;
 
         function checkSession() {
-            if (sessionExpiredModalShown) return;
+            if (sessionExpired) return;
 
             fetch('/auth/check-session', {
                 method: 'GET',
                 credentials: 'same-origin'
             })
             .then(response => {
-                if (response.status === 401 || response.redirected) {
+                // Si no es 200 OK, la sesión expiró
+                if (!response.ok || response.status === 401 || response.redirected) {
                     showSessionExpiredModal();
+                    return null;
                 }
                 return response.json();
             })
             .then(data => {
-                if (data && data.expired) {
+                if (data && data.expired === true) {
                     showSessionExpiredModal();
                 }
             })
             .catch(() => {
-                // Error de red, no hacer nada
+                // En caso de error de red, no hacer nada
             });
         }
 
         function showSessionExpiredModal() {
-            if (sessionExpiredModalShown) return;
-            sessionExpiredModalShown = true;
+            if (sessionExpired) return;
+            sessionExpired = true;
 
-            const modal = new bootstrap.Modal(document.getElementById('sessionExpiredModal'));
+            // Crear modal dinámicamente para asegurar que existe
+            let modalEl = document.getElementById('sessionExpiredModal');
+
+            if (!modalEl) {
+                // Si no existe, crearlo
+                const modalHTML = `
+                    <div class="modal fade" id="sessionExpiredModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow-lg">
+                                <div class="modal-body text-center p-5">
+                                    <div class="mb-4">
+                                        <i class="bi bi-clock-history text-warning" style="font-size: 4rem;"></i>
+                                    </div>
+                                    <h4 class="mb-3">Sesión Expirada</h4>
+                                    <p class="text-muted mb-4">
+                                        Tu sesión ha expirado por inactividad.<br>
+                                        Por favor, inicia sesión nuevamente para continuar.
+                                    </p>
+                                    <a href="/auth/login" class="btn btn-primary btn-lg px-5">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                modalEl = document.getElementById('sessionExpiredModal');
+            }
+
+            const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
 
-        // Verificar periódicamente
+        // Verificar cada 10 segundos
         setInterval(checkSession, CHECK_INTERVAL);
     })();
     </script>
