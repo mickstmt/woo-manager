@@ -276,6 +276,76 @@
         margin-top: 20px;
     }
 
+    /* Lightbox para zoom de imágenes (móvil) */
+    .image-lightbox {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .image-lightbox.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .image-lightbox img {
+        max-width: 90%;
+        max-height: 80%;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        transform: scale(0.9);
+        transition: transform 0.2s ease;
+    }
+
+    .image-lightbox.active img {
+        transform: scale(1);
+    }
+
+    .image-lightbox-hint {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-size: 0.9rem;
+        opacity: 0.7;
+    }
+
+    /* Indicador visual de que la imagen es expandible (solo móvil) */
+    @media (max-width: 768px) {
+        .cart-item-image {
+            cursor: zoom-in;
+            position: relative;
+        }
+
+        .cart-item-image::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 3px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z'/%3E%3C/svg%3E");
+            background-size: 10px;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+    }
+
     /* Selector Visual de Variaciones */
     .variation-swatches {
         display: grid;
@@ -712,6 +782,12 @@
     </div>
 </div>
 
+<!-- Lightbox para zoom de imágenes del carrito -->
+<div class="image-lightbox" id="imageLightbox">
+    <img src="" alt="Zoom de producto">
+    <span class="image-lightbox-hint">Toca para cerrar</span>
+</div>
+
 <!-- Modal para seleccionar variaciones -->
 <div class="modal fade" id="variationsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -823,6 +899,9 @@ $(document).ready(function() {
     loadCategories();
     // NO cargar productos al inicio - esperar a que seleccione categoría
     updateCartDisplay();
+
+    // Inicializar lightbox para imágenes del carrito
+    initImageLightbox();
 
     // Cargar departamentos desde API
     loadDepartamentos();
@@ -1036,6 +1115,74 @@ function loadMetodosEnvio(distrito) {
             showNotification('error', errorMsg);
         }
     });
+}
+
+// ==================== LIGHTBOX PARA IMÁGENES DEL CARRITO ====================
+
+function initImageLightbox() {
+    const $lightbox = $('#imageLightbox');
+    const $lightboxImg = $lightbox.find('img');
+    let longPressTimer = null;
+    let isLongPress = false;
+    const LONG_PRESS_DURATION = 400; // ms
+
+    // Detectar si es dispositivo táctil
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    if (isTouchDevice) {
+        // Long press para móvil (touchstart/touchend)
+        $(document).on('touchstart', '.cart-item-image', function(e) {
+            const $img = $(this);
+            isLongPress = false;
+
+            longPressTimer = setTimeout(function() {
+                isLongPress = true;
+                const imgSrc = $img.attr('src');
+                openLightbox(imgSrc);
+            }, LONG_PRESS_DURATION);
+        });
+
+        $(document).on('touchend touchmove', '.cart-item-image', function(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            // Prevenir click si fue long press
+            if (isLongPress) {
+                e.preventDefault();
+            }
+        });
+    } else {
+        // Para escritorio: click normal para abrir
+        $(document).on('click', '.cart-item-image', function() {
+            const imgSrc = $(this).attr('src');
+            openLightbox(imgSrc);
+        });
+    }
+
+    // Cerrar lightbox al tocar/clickear
+    $lightbox.on('click touchstart', function() {
+        closeLightbox();
+    });
+
+    // Cerrar con tecla Escape
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape' && $lightbox.hasClass('active')) {
+            closeLightbox();
+        }
+    });
+
+    function openLightbox(imgSrc) {
+        $lightboxImg.attr('src', imgSrc);
+        $lightbox.addClass('active');
+        // Prevenir scroll del body
+        $('body').css('overflow', 'hidden');
+    }
+
+    function closeLightbox() {
+        $lightbox.removeClass('active');
+        $('body').css('overflow', '');
+    }
 }
 
 // ==================== PASO 1: PRODUCTOS ====================
