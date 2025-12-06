@@ -61,23 +61,28 @@ def create_app(config_name=None):
     @app.before_request
     def require_login():
         """Middleware que requiere autenticación"""
-        
+        from flask import flash
+
         public_endpoints = [
             'auth.login',
             'auth.register',
             'auth.forgot_password',
             'auth.reset_password',
+            'auth.check_session',
             'static'
         ]
-        
+
         if request.endpoint and request.endpoint not in public_endpoints:
             try:
                 if not current_user.is_authenticated:
+                    # Usar el mensaje configurado en login_manager
+                    flash(login_manager.login_message, login_manager.login_message_category)
                     return redirect(url_for('auth.login', next=request.url))
             except Exception as e:
                 # Si hay error de BD, redirigir a login
                 import logging
                 logging.error(f"Error en require_login: {str(e)}")
+                flash('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'warning')
                 return redirect(url_for('auth.login'))
     
     # Registrar blueprints

@@ -163,7 +163,28 @@
     <div class="container-fluid mt-4">
         {% block content %}{% endblock %}
     </div>
-    
+
+    <!-- Modal de Sesión Expirada -->
+    <div class="modal fade" id="sessionExpiredModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="bi bi-clock-history text-warning" style="font-size: 4rem;"></i>
+                    </div>
+                    <h4 class="mb-3">Sesión Expirada</h4>
+                    <p class="text-muted mb-4">
+                        Tu sesión ha expirado por inactividad.<br>
+                        Por favor, inicia sesión nuevamente para continuar.
+                    </p>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- jQuery (debe ir ANTES de Bootstrap para Select2) -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 
@@ -172,6 +193,50 @@
 
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    {% if current_user.is_authenticated %}
+    <!-- Verificador de sesión -->
+    <script>
+    (function() {
+        const CHECK_INTERVAL = 30000; // Verificar cada 30 segundos
+        let sessionExpiredModalShown = false;
+
+        function checkSession() {
+            if (sessionExpiredModalShown) return;
+
+            fetch('/auth/check-session', {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (response.status === 401 || response.redirected) {
+                    showSessionExpiredModal();
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.expired) {
+                    showSessionExpiredModal();
+                }
+            })
+            .catch(() => {
+                // Error de red, no hacer nada
+            });
+        }
+
+        function showSessionExpiredModal() {
+            if (sessionExpiredModalShown) return;
+            sessionExpiredModalShown = true;
+
+            const modal = new bootstrap.Modal(document.getElementById('sessionExpiredModal'));
+            modal.show();
+        }
+
+        // Verificar periódicamente
+        setInterval(checkSession, CHECK_INTERVAL);
+    })();
+    </script>
+    {% endif %}
 
     {% block extra_js %}{% endblock %}
     

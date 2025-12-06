@@ -87,6 +87,15 @@ def logout():
     flash('Has cerrado sesión correctamente.', 'info')
     return redirect(url_for('auth.login'))
 
+@bp.route('/check-session')
+def check_session():
+    """Verificar si la sesión sigue activa (para AJAX)"""
+    from flask import jsonify
+    if current_user.is_authenticated:
+        return jsonify({'expired': False, 'user': current_user.username})
+    else:
+        return jsonify({'expired': True}), 401
+
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     """Página de registro - Solo correos autorizados en lista blanca"""
