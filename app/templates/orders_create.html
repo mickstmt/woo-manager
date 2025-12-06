@@ -1119,70 +1119,79 @@ function loadMetodosEnvio(distrito) {
 
 // ==================== LIGHTBOX PARA IMÁGENES DEL CARRITO ====================
 
-function initImageLightbox() {
+// Variables globales para el lightbox
+let lightboxTimer = null;
+let lightboxIsLongPress = false;
+
+function openImageLightbox(imgSrc) {
     const $lightbox = $('#imageLightbox');
-    const $lightboxImg = $lightbox.find('img');
-    let longPressTimer = null;
-    let isLongPress = false;
-    const LONG_PRESS_DURATION = 400; // ms
+    $lightbox.find('img').attr('src', imgSrc);
+    $lightbox.addClass('active');
+    $('body').css('overflow', 'hidden');
+}
 
-    // Detectar si es dispositivo táctil
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+function closeImageLightbox() {
+    const $lightbox = $('#imageLightbox');
+    $lightbox.removeClass('active');
+    $('body').css('overflow', '');
+}
 
-    if (isTouchDevice) {
-        // Long press para móvil (touchstart/touchend)
-        $(document).on('touchstart', '.cart-item-image', function(e) {
-            const $img = $(this);
-            isLongPress = false;
+function initImageLightbox() {
+    const LONG_PRESS_DURATION = 500; // ms
 
-            longPressTimer = setTimeout(function() {
-                isLongPress = true;
-                const imgSrc = $img.attr('src');
-                openLightbox(imgSrc);
-            }, LONG_PRESS_DURATION);
-        });
+    // Long press para móvil (touchstart/touchend)
+    $(document).on('touchstart', '.cart-item-image', function(e) {
+        const $img = $(this);
+        lightboxIsLongPress = false;
 
-        $(document).on('touchend touchmove', '.cart-item-image', function(e) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
+        lightboxTimer = setTimeout(function() {
+            lightboxIsLongPress = true;
+            const imgSrc = $img.attr('src');
+            openImageLightbox(imgSrc);
+            // Vibración táctil si está disponible
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
             }
-            // Prevenir click si fue long press
-            if (isLongPress) {
-                e.preventDefault();
-            }
-        });
-    } else {
-        // Para escritorio: click normal para abrir
-        $(document).on('click', '.cart-item-image', function() {
+        }, LONG_PRESS_DURATION);
+    });
+
+    $(document).on('touchend', '.cart-item-image', function(e) {
+        if (lightboxTimer) {
+            clearTimeout(lightboxTimer);
+            lightboxTimer = null;
+        }
+    });
+
+    $(document).on('touchmove', '.cart-item-image', function(e) {
+        // Cancelar si el usuario mueve el dedo
+        if (lightboxTimer) {
+            clearTimeout(lightboxTimer);
+            lightboxTimer = null;
+        }
+    });
+
+    // Para escritorio: click normal para abrir
+    $(document).on('click', '.cart-item-image', function(e) {
+        // Solo en escritorio (no touch)
+        if (!('ontouchstart' in window)) {
             const imgSrc = $(this).attr('src');
-            openLightbox(imgSrc);
-        });
-    }
+            openImageLightbox(imgSrc);
+        }
+    });
 
     // Cerrar lightbox al tocar/clickear
-    $lightbox.on('click touchstart', function() {
-        closeLightbox();
+    $('#imageLightbox').on('click touchend', function(e) {
+        if ($(this).hasClass('active')) {
+            closeImageLightbox();
+        }
     });
 
     // Cerrar con tecla Escape
     $(document).on('keydown', function(e) {
-        if (e.key === 'Escape' && $lightbox.hasClass('active')) {
-            closeLightbox();
+        if (e.key === 'Escape' && $('#imageLightbox').hasClass('active')) {
+            closeImageLightbox();
         }
     });
-
-    function openLightbox(imgSrc) {
-        $lightboxImg.attr('src', imgSrc);
-        $lightbox.addClass('active');
-        // Prevenir scroll del body
-        $('body').css('overflow', 'hidden');
-    }
-
-    function closeLightbox() {
-        $lightbox.removeClass('active');
-        $('body').css('overflow', '');
-    }
 }
 
 // ==================== PASO 1: PRODUCTOS ====================
