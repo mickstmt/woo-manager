@@ -1133,20 +1133,22 @@ function closeImageLightbox() {
 }
 
 function initImageLightbox() {
-    // Doble toque para móvil
-    $(document).on('touchend', '.cart-item-image', function(e) {
+    // Doble toque para móvil - imágenes de variantes y carrito
+    $(document).on('touchend', '.variation-swatch-image, .cart-item-image', function(e) {
         const currentTime = new Date().getTime();
         const tapInterval = currentTime - lastTapTime;
 
         if (tapInterval < 300 && tapInterval > 0) {
             e.preventDefault();
+            e.stopPropagation(); // Evitar que se seleccione la variante
             openImageLightbox($(this).attr('src'));
         }
         lastTapTime = currentTime;
     });
 
-    // Doble click para escritorio
-    $(document).on('dblclick', '.cart-item-image', function() {
+    // Doble click para escritorio - imágenes de variantes y carrito
+    $(document).on('dblclick', '.variation-swatch-image, .cart-item-image', function(e) {
+        e.stopPropagation(); // Evitar que se seleccione la variante
         openImageLightbox($(this).attr('src'));
     });
 
