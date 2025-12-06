@@ -39,8 +39,8 @@ def create_app(config_name=None):
     
     # Configurar Flask-Login
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
-    login_manager.login_message_category = 'info'
+    login_manager.login_message = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.'
+    login_manager.login_message_category = 'warning'
     
     # User loader callback
     from app.models import User
