@@ -8,9 +8,27 @@ from datetime import datetime
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+def master_required(f):
+    """
+    Decorador para rutas que requieren permisos de master (superusuario).
+    Uso: @master_required
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Debes iniciar sesión para acceder a esta página.', 'warning')
+            return redirect(url_for('auth.login'))
+
+        if not current_user.is_master():
+            flash('Necesitas permisos de superusuario para acceder a esta página.', 'danger')
+            return redirect(url_for('products.index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 def admin_required(f):
     """
-    Decorador para rutas que requieren permisos de administrador.
+    Decorador para rutas que requieren permisos de administrador (incluye master).
     Uso: @admin_required
     """
     @wraps(f)

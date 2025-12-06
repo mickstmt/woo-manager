@@ -37,7 +37,11 @@
                     <tr>
                         <th>Rol:</th>
                         <td>
-                            {% if current_user.role == 'admin' %}
+                            {% if current_user.role == 'master' %}
+                                <span class="badge bg-dark">
+                                    <i class="bi bi-star-fill"></i> Master
+                                </span>
+                            {% elif current_user.role == 'admin' %}
                                 <span class="badge bg-danger">
                                     <i class="bi bi-shield-fill-check"></i> Administrador
                                 </span>

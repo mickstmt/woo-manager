@@ -322,7 +322,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100))
-    role = db.Column(db.Enum('admin', 'advisor', 'user'), default='user')
+    role = db.Column(db.Enum('master', 'admin', 'advisor', 'user'), default='user')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=get_local_time)
     updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
@@ -338,17 +338,21 @@ class User(UserMixin, db.Model):
         """Verificar contraseña"""
         return check_password_hash(self.password_hash, password)
 
+    def is_master(self):
+        """Verificar si es master (superusuario)"""
+        return self.role == 'master'
+
     def is_admin(self):
-        """Verificar si es admin"""
-        return self.role == 'admin'
+        """Verificar si es admin o master"""
+        return self.role in ('master', 'admin')
 
     def is_advisor(self):
         """Verificar si es asesor"""
         return self.role == 'advisor'
 
     def is_admin_or_advisor(self):
-        """Verificar si es admin o asesor"""
-        return self.role in ('admin', 'advisor')
+        """Verificar si es admin, master o asesor"""
+        return self.role in ('master', 'admin', 'advisor')
 
     def update_last_login(self):
         """Actualizar último login"""

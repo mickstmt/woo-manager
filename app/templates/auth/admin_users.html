@@ -112,7 +112,11 @@
                         </p>
                     </div>
                     <div>
-                        {% if user.role == 'admin' %}
+                        {% if user.role == 'master' %}
+                            <span class="badge bg-dark">
+                                <i class="bi bi-star-fill"></i> Master
+                            </span>
+                        {% elif user.role == 'admin' %}
                             <span class="badge bg-danger">
                                 <i class="bi bi-shield-fill-check"></i> Admin
                             </span>
@@ -163,10 +167,14 @@
                         <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}" class="d-inline">
                             <select name="role" class="form-select form-select-sm"
                                     onchange="this.form.submit()"
-                                    {% if user.id == current_user.id %}disabled{% endif %}>
+                                    {% if user.id == current_user.id %}disabled{% endif %}
+                                    {% if user.role == 'master' and not current_user.is_master() %}disabled{% endif %}>
                                 <option value="user" {% if user.role == 'user' %}selected{% endif %}>Usuario</option>
                                 <option value="advisor" {% if user.role == 'advisor' %}selected{% endif %}>Asesor</option>
                                 <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                {% if current_user.is_master() %}
+                                <option value="master" {% if user.role == 'master' %}selected{% endif %}>Master</option>
+                                {% endif %}
                             </select>
                         </form>
                     </div>
