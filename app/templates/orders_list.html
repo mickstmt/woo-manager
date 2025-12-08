@@ -409,6 +409,160 @@
     </div>
 </div>
 
+<!-- Modal Ver Detalle de Pedido Externo -->
+<div class="modal fade" id="viewOrderExternalModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-eye"></i> Detalle de Pedido Externo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="viewOrderExternalContent">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Pedido Externo -->
+<div class="modal fade" id="editOrderExternalModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil"></i> Editar Pedido Externo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editOrderExternalForm">
+                    <input type="hidden" id="edit-order-id">
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Solo se pueden editar los datos del cliente y notas. Los productos no pueden ser modificados.
+                    </div>
+
+                    <h6 class="border-bottom pb-2 mb-3">Datos del Cliente</h6>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit-first-name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Apellido <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit-last-name" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="edit-email" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" id="edit-phone" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">DNI</label>
+                            <input type="text" class="form-control" id="edit-dni">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">RUC</label>
+                            <input type="text" class="form-control" id="edit-ruc">
+                        </div>
+                    </div>
+
+                    <h6 class="border-bottom pb-2 mb-3 mt-4">Dirección de Envío</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" class="form-control" id="edit-address">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ciudad</label>
+                            <input type="text" class="form-control" id="edit-city">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Departamento</label>
+                            <input type="text" class="form-control" id="edit-state">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Referencia</label>
+                        <textarea class="form-control" id="edit-reference" rows="2"></textarea>
+                    </div>
+
+                    <h6 class="border-bottom pb-2 mb-3 mt-4">Información Adicional</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label">Fuente del Pedido</label>
+                        <select class="form-select" id="edit-external-source">
+                            <option value="marketplace">Marketplace</option>
+                            <option value="tienda_fisica">Tienda Física</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas del Cliente</label>
+                        <textarea class="form-control" id="edit-customer-note" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="saveOrderExternal()">
+                    <i class="bi bi-save"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Eliminación -->
+<div class="modal fade" id="deleteOrderExternalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="delete-order-id">
+                <p class="mb-3">¿Estás seguro que deseas eliminar el pedido <strong id="delete-order-number"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle"></i> Esta acción restaurará el stock de los productos del pedido.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="deleteOrderExternal()">
+                    <i class="bi bi-trash"></i> Eliminar Pedido
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -975,6 +1129,12 @@ function renderOrdersExternal(orders) {
                             <button class="btn btn-outline-primary" onclick="viewOrderExternal(${order.id})">
                                 <i class="bi bi-eye"></i> Ver Detalles
                             </button>
+                            <button class="btn btn-outline-warning" onclick="editOrderExternal(${order.id})">
+                                <i class="bi bi-pencil"></i> Editar
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="confirmDeleteOrderExternal(${order.id}, '${order.order_number}')">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1042,8 +1202,337 @@ function searchOrdersExternal() {
 }
 
 function viewOrderExternal(orderId) {
-    // TODO: Implementar vista de detalles de pedido externo
-    alert('Ver detalles del pedido externo #' + orderId);
+    // Mostrar modal con loading
+    $('#viewOrderExternalContent').html(`
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    `);
+    $('#viewOrderExternalModal').modal('show');
+
+    // Obtener datos del pedido
+    $.ajax({
+        url: `/orders/external/${orderId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderOrderDetail(response.order);
+            } else {
+                $('#viewOrderExternalContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle"></i> ${response.error || 'Error al cargar el pedido'}
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr) {
+            $('#viewOrderExternalContent').html(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i> Error de conexión
+                </div>
+            `);
+        }
+    });
+}
+
+function renderOrderDetail(order) {
+    const sourceLabels = {
+        'marketplace': 'Marketplace',
+        'tienda_fisica': 'Tienda Física',
+        'otro': 'Otro'
+    };
+
+    let itemsHtml = '';
+    order.items.forEach(item => {
+        itemsHtml += `
+            <tr>
+                <td>${item.product_name}</td>
+                <td>${item.product_sku}</td>
+                <td class="text-center">${item.quantity}</td>
+                <td class="text-end">S/ ${item.unit_price.toFixed(2)}</td>
+                <td class="text-end">S/ ${item.total.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    const html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="border-bottom pb-2 mb-3">
+                    <i class="bi bi-info-circle"></i> Información del Pedido
+                </h6>
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Número de Pedido:</th>
+                        <td><strong>${order.order_number}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Fecha:</th>
+                        <td>${order.date_created}</td>
+                    </tr>
+                    <tr>
+                        <th>Estado:</th>
+                        <td><span class="badge bg-success">Completado</span></td>
+                    </tr>
+                    <tr>
+                        <th>Fuente:</th>
+                        <td>${sourceLabels[order.external_source] || order.external_source}</td>
+                    </tr>
+                    <tr>
+                        <th>Creado por:</th>
+                        <td>${order.created_by}</td>
+                    </tr>
+                </table>
+
+                <h6 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-person"></i> Datos del Cliente
+                </h6>
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Nombre:</th>
+                        <td>${order.customer_first_name} ${order.customer_last_name}</td>
+                    </tr>
+                    <tr>
+                        <th>Email:</th>
+                        <td>${order.customer_email}</td>
+                    </tr>
+                    <tr>
+                        <th>Teléfono:</th>
+                        <td>${order.customer_phone}</td>
+                    </tr>
+                    ${order.customer_dni ? `<tr><th>DNI:</th><td>${order.customer_dni}</td></tr>` : ''}
+                    ${order.customer_ruc ? `<tr><th>RUC:</th><td>${order.customer_ruc}</td></tr>` : ''}
+                </table>
+
+                ${order.shipping_address_1 ? `
+                <h6 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-geo-alt"></i> Dirección de Envío
+                </h6>
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Dirección:</th>
+                        <td>${order.shipping_address_1}</td>
+                    </tr>
+                    ${order.shipping_city ? `<tr><th>Ciudad:</th><td>${order.shipping_city}</td></tr>` : ''}
+                    ${order.shipping_state ? `<tr><th>Departamento:</th><td>${order.shipping_state}</td></tr>` : ''}
+                    ${order.shipping_reference ? `<tr><th>Referencia:</th><td>${order.shipping_reference}</td></tr>` : ''}
+                </table>
+                ` : ''}
+            </div>
+
+            <div class="col-md-6">
+                <h6 class="border-bottom pb-2 mb-3">
+                    <i class="bi bi-box"></i> Productos
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>SKU</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-calculator"></i> Totales
+                </h6>
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Subtotal:</th>
+                        <td class="text-end">S/ ${order.subtotal.toFixed(2)}</td>
+                    </tr>
+                    ${order.discount_amount > 0 ? `
+                    <tr>
+                        <th>Descuento (${order.discount_percentage}%):</th>
+                        <td class="text-end text-danger">- S/ ${order.discount_amount.toFixed(2)}</td>
+                    </tr>
+                    ` : ''}
+                    ${order.shipping_cost > 0 ? `
+                    <tr>
+                        <th>Envío:</th>
+                        <td class="text-end">S/ ${order.shipping_cost.toFixed(2)}</td>
+                    </tr>
+                    ` : ''}
+                    <tr class="table-success">
+                        <th><strong>TOTAL:</strong></th>
+                        <td class="text-end"><strong>S/ ${order.total_amount.toFixed(2)}</strong></td>
+                    </tr>
+                </table>
+
+                ${order.payment_method ? `
+                <h6 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-credit-card"></i> Pago
+                </h6>
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Método:</th>
+                        <td>${order.payment_method_title || order.payment_method}</td>
+                    </tr>
+                </table>
+                ` : ''}
+
+                ${order.customer_note ? `
+                <h6 class="border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-chat-left-text"></i> Notas
+                </h6>
+                <p class="text-muted">${order.customer_note}</p>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    $('#viewOrderExternalContent').html(html);
+}
+
+function editOrderExternal(orderId) {
+    // Obtener datos del pedido
+    $.ajax({
+        url: `/orders/external/${orderId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const order = response.order;
+
+                // Llenar formulario
+                $('#edit-order-id').val(order.id);
+                $('#edit-first-name').val(order.customer_first_name);
+                $('#edit-last-name').val(order.customer_last_name);
+                $('#edit-email').val(order.customer_email);
+                $('#edit-phone').val(order.customer_phone);
+                $('#edit-dni').val(order.customer_dni);
+                $('#edit-ruc').val(order.customer_ruc);
+                $('#edit-address').val(order.shipping_address_1);
+                $('#edit-city').val(order.shipping_city);
+                $('#edit-state').val(order.shipping_state);
+                $('#edit-reference').val(order.shipping_reference);
+                $('#edit-external-source').val(order.external_source);
+                $('#edit-customer-note').val(order.customer_note);
+
+                // Mostrar modal
+                $('#editOrderExternalModal').modal('show');
+            } else {
+                showNotification('error', response.error || 'Error al cargar el pedido');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+function saveOrderExternal() {
+    const orderId = $('#edit-order-id').val();
+
+    // Validaciones básicas
+    if (!$('#edit-first-name').val() || !$('#edit-last-name').val()) {
+        showNotification('error', 'Nombre y apellido son requeridos');
+        return;
+    }
+
+    if (!$('#edit-email').val() || !$('#edit-email').val().includes('@')) {
+        showNotification('error', 'Email válido es requerido');
+        return;
+    }
+
+    if (!$('#edit-phone').val()) {
+        showNotification('error', 'Teléfono es requerido');
+        return;
+    }
+
+    // Preparar datos
+    const data = {
+        customer_first_name: $('#edit-first-name').val().trim(),
+        customer_last_name: $('#edit-last-name').val().trim(),
+        customer_email: $('#edit-email').val().trim(),
+        customer_phone: $('#edit-phone').val().trim(),
+        customer_dni: $('#edit-dni').val().trim(),
+        customer_ruc: $('#edit-ruc').val().trim(),
+        shipping_address_1: $('#edit-address').val().trim(),
+        shipping_city: $('#edit-city').val().trim(),
+        shipping_state: $('#edit-state').val().trim(),
+        shipping_reference: $('#edit-reference').val().trim(),
+        external_source: $('#edit-external-source').val(),
+        customer_note: $('#edit-customer-note').val().trim()
+    };
+
+    // Deshabilitar botón
+    const btn = $('button[onclick="saveOrderExternal()"]');
+    btn.prop('disabled', true);
+    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando...');
+
+    // Enviar
+    $.ajax({
+        url: `/orders/external/${orderId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                $('#editOrderExternalModal').modal('hide');
+                loadOrdersExternal(); // Recargar lista
+            } else {
+                showNotification('error', response.error || 'Error al actualizar el pedido');
+            }
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-save"></i> Guardar Cambios');
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-save"></i> Guardar Cambios');
+        }
+    });
+}
+
+function confirmDeleteOrderExternal(orderId, orderNumber) {
+    $('#delete-order-id').val(orderId);
+    $('#delete-order-number').text(orderNumber);
+    $('#deleteOrderExternalModal').modal('show');
+}
+
+function deleteOrderExternal() {
+    const orderId = $('#delete-order-id').val();
+
+    // Deshabilitar botón
+    const btn = $('button[onclick="deleteOrderExternal()"]');
+    btn.prop('disabled', true);
+    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...');
+
+    // Enviar
+    $.ajax({
+        url: `/orders/external/${orderId}`,
+        method: 'DELETE',
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                $('#deleteOrderExternalModal').modal('hide');
+                loadOrdersExternal(); // Recargar lista
+                updateOrderCounts(); // Actualizar contador
+            } else {
+                showNotification('error', response.error || 'Error al eliminar el pedido');
+            }
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false);
+            btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
+        }
+    });
 }
 
 function updateOrderCounts() {

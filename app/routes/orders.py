@@ -2338,3 +2338,224 @@ def save_order_external():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@bp.route('/external/<int:order_id>', methods=['GET'])
+@login_required
+def get_order_external(order_id):
+    """
+    Obtener detalle de un pedido externo
+    """
+    try:
+        order = OrderExternal.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': 'Pedido no encontrado'
+            }), 404
+
+        # Convertir fecha UTC a hora de Perú
+        peru_tz = pytz.timezone('America/Lima')
+        date_created_utc = pytz.UTC.localize(order.date_created_gmt)
+        date_created_peru = date_created_utc.astimezone(peru_tz)
+
+        # Obtener items del pedido
+        items = OrderExternalItem.query.filter_by(order_ext_id=order_id).all()
+        items_data = []
+        for item in items:
+            items_data.append({
+                'id': item.id,
+                'product_id': item.product_id,
+                'variation_id': item.variation_id,
+                'product_name': item.product_name,
+                'product_sku': item.product_sku,
+                'quantity': item.quantity,
+                'unit_price': float(item.unit_price),
+                'subtotal': float(item.subtotal),
+                'tax': float(item.tax),
+                'total': float(item.total)
+            })
+
+        return jsonify({
+            'success': True,
+            'order': {
+                'id': order.id,
+                'order_number': order.order_number,
+                'date_created': date_created_peru.strftime('%Y-%m-%d %H:%M:%S'),
+                'status': order.status,
+                'customer_first_name': order.customer_first_name,
+                'customer_last_name': order.customer_last_name,
+                'customer_email': order.customer_email,
+                'customer_phone': order.customer_phone,
+                'customer_dni': order.customer_dni or '',
+                'customer_ruc': order.customer_ruc or '',
+                'shipping_address_1': order.shipping_address_1 or '',
+                'shipping_city': order.shipping_city or '',
+                'shipping_state': order.shipping_state or '',
+                'shipping_postcode': order.shipping_postcode or '',
+                'shipping_country': order.shipping_country or 'PE',
+                'shipping_reference': order.shipping_reference or '',
+                'delivery_type': order.delivery_type or '',
+                'shipping_method_title': order.shipping_method_title or '',
+                'shipping_cost': float(order.shipping_cost or 0),
+                'payment_method': order.payment_method or '',
+                'payment_method_title': order.payment_method_title or '',
+                'subtotal': float(order.subtotal),
+                'tax_total': float(order.tax_total),
+                'discount_amount': float(order.discount_amount),
+                'discount_percentage': float(order.discount_percentage),
+                'total_amount': float(order.total_amount),
+                'customer_note': order.customer_note or '',
+                'created_by': order.created_by or '',
+                'external_source': order.external_source or 'otro',
+                'items': items_data
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f'Error getting external order {order_id}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/external/<int:order_id>', methods=['PUT'])
+@login_required
+def update_order_external(order_id):
+    """
+    Actualizar un pedido externo (solo datos del cliente y notas)
+    No se permite modificar items por complejidad de stock
+    """
+    try:
+        order = OrderExternal.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': 'Pedido no encontrado'
+            }), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No se recibieron datos'
+            }), 400
+
+        # Actualizar campos permitidos
+        if 'customer_first_name' in data:
+            order.customer_first_name = data['customer_first_name']
+        if 'customer_last_name' in data:
+            order.customer_last_name = data['customer_last_name']
+        if 'customer_email' in data:
+            order.customer_email = data['customer_email']
+        if 'customer_phone' in data:
+            order.customer_phone = data['customer_phone']
+        if 'customer_dni' in data:
+            order.customer_dni = data['customer_dni']
+        if 'customer_ruc' in data:
+            order.customer_ruc = data['customer_ruc']
+        if 'shipping_address_1' in data:
+            order.shipping_address_1 = data['shipping_address_1']
+        if 'shipping_city' in data:
+            order.shipping_city = data['shipping_city']
+        if 'shipping_state' in data:
+            order.shipping_state = data['shipping_state']
+        if 'shipping_reference' in data:
+            order.shipping_reference = data['shipping_reference']
+        if 'customer_note' in data:
+            order.customer_note = data['customer_note']
+        if 'external_source' in data:
+            order.external_source = data['external_source']
+
+        # Actualizar fecha de modificación
+        order.date_updated_gmt = get_gmt_time()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Pedido actualizado correctamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error updating external order {order_id}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/external/<int:order_id>', methods=['DELETE'])
+@login_required
+def delete_order_external(order_id):
+    """
+    Eliminar un pedido externo y restaurar el stock de los productos
+    """
+    try:
+        order = OrderExternal.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': 'Pedido no encontrado'
+            }), 404
+
+        # Obtener items para restaurar stock
+        items = OrderExternalItem.query.filter_by(order_ext_id=order_id).all()
+
+        # Restaurar stock de cada item
+        for item in items:
+            target_product_id = item.variation_id if item.variation_id else item.product_id
+            target_product = Product.query.get(target_product_id)
+
+            if target_product:
+                current_stock_str = target_product.get_meta('_stock')
+                if current_stock_str:
+                    current_stock = int(float(current_stock_str))
+                    new_stock = current_stock + item.quantity
+
+                    # Restaurar stock
+                    target_product.set_meta('_stock', str(new_stock))
+
+                    # Registrar en historial de stock
+                    from app.models import StockHistory
+                    from config import get_local_time
+
+                    stock_history = StockHistory(
+                        product_id=target_product_id,
+                        product_title=target_product.post_title,
+                        sku=item.product_sku or '',
+                        old_stock=current_stock,
+                        new_stock=new_stock,
+                        change_amount=item.quantity,
+                        changed_by=current_user.username,
+                        change_reason=f'Eliminación pedido externo {order.order_number}',
+                        created_at=get_local_time()
+                    )
+                    db.session.add(stock_history)
+
+        # Eliminar items
+        for item in items:
+            db.session.delete(item)
+
+        # Eliminar pedido
+        order_number = order.order_number
+        db.session.delete(order)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Pedido {order_number} eliminado correctamente. El stock ha sido restaurado.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error deleting external order {order_id}: {str(e)}')
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
