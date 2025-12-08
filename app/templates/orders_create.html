@@ -637,9 +637,10 @@
                     <div class="mb-3">
                         <label class="form-label">Tipo de Entrega <span class="text-danger">*</span></label>
                         <select class="form-select" id="delivery-type" required onchange="updateAddressFields()">
+                            <option value="" selected disabled>Seleccione tipo de entrega</option>
                             <option value="billing_domicilio">Entrega a Domicilio</option>
                             <option value="billing_agencia">En Agencia Shalom/Olva Courier</option>
-                            <option value="billing_recojo" selected>Recojo en Almacén</option>
+                            <option value="billing_recojo">Recojo en Almacén</option>
                         </select>
                     </div>
 
@@ -911,6 +912,9 @@ $(document).ready(function() {
         $('#delivery-section').hide();
         // Asegurar que el delivery-type esté en "billing_recojo"
         $('#delivery-type').val('billing_recojo');
+    } else {
+        // Para pedidos WhatsApp, inicializar campos de dirección según el tipo seleccionado
+        updateAddressFields();
     }
 
     // Cuando cambie el departamento, cargar sus distritos
@@ -2525,7 +2529,21 @@ function updateAddressFields() {
     const referenceContainer = $('#reference-container');
     const locationContainer = $('#location-container');
 
-    if (deliveryType === 'billing_recojo') {
+    if (!deliveryType || deliveryType === '') {
+        // Placeholder seleccionado - Ocultar todos los campos
+        addressContainer.hide();
+        referenceContainer.hide();
+        locationContainer.hide();
+        addressInput.removeAttr('required');
+        $('#city').removeAttr('required');
+        $('#state').removeAttr('required');
+
+        // Deshabilitar método de envío
+        $('#shipping-method').prop('disabled', true).empty()
+            .append('<option value="">Seleccione tipo de entrega primero</option>');
+        $('#shipping-cost').val(0);
+        $('#shipping-help').text('Primero seleccione el tipo de entrega');
+    } else if (deliveryType === 'billing_recojo') {
         // Recojo en Almacén - Ocultar todos los campos de dirección
         addressContainer.hide();
         referenceContainer.hide();
