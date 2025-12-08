@@ -630,38 +630,36 @@
                     </div>
                 </div>
 
-                <!-- Dirección de entrega -->
-                <div class="form-section">
+                <!-- Dirección de entrega (OCULTO - todos los pedidos son Recojo en Almacén) -->
+                <div class="form-section" style="display: none;">
                     <h5><i class="bi bi-geo-alt"></i> Dirección de Entrega</h5>
 
                     <div class="mb-3">
                         <label class="form-label">Tipo de Entrega <span class="text-danger">*</span></label>
-                        <select class="form-select" id="delivery-type" required onchange="updateAddressFields()">
-                            <option value="billing_domicilio">Entrega a Domicilio</option>
-                            <option value="billing_agencia">En Agencia Shalom/Olva Courier</option>
-                            <option value="billing_recojo">Recojo en Almacén</option>
+                        <select class="form-select" id="delivery-type" onchange="updateAddressFields()">
+                            <option value="billing_recojo" selected>Recojo en Almacén</option>
                         </select>
                     </div>
 
-                    <div class="mb-3" id="address-container">
-                        <label class="form-label" id="address-label">Dirección <span class="text-danger">*</span></label>
+                    <div class="mb-3" id="address-container" style="display: none;">
+                        <label class="form-label" id="address-label">Dirección</label>
                         <input type="text" class="form-control" id="address">
                     </div>
 
-                    <div class="mb-3" id="reference-container">
+                    <div class="mb-3" id="reference-container" style="display: none;">
                         <label class="form-label">Referencia (Opcional)</label>
-                        <input type="text" class="form-control" id="reference" placeholder="Ej: Cerca del parque, frente al colegio...">
+                        <input type="text" class="form-control" id="reference">
                     </div>
 
-                    <div class="row" id="location-container">
+                    <div class="row" id="location-container" style="display: none;">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+                            <label class="form-label">Departamento</label>
                             <select class="form-select" id="state">
                                 <option value="">Seleccione departamento</option>
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Distrito <span class="text-danger">*</span></label>
+                            <label class="form-label">Distrito</label>
                             <select class="form-select" id="city">
                                 <option value="">Seleccione distrito</option>
                             </select>
