@@ -1,9 +1,10 @@
 # app/routes/prices.py
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.routes.auth import admin_required, advisor_or_admin_required
 from app.models import Product, ProductMeta, PriceHistory
 from app import db, cache
+from config import get_local_time
 from datetime import datetime
 from sqlalchemy import or_, func, text
 from decimal import Decimal, InvalidOperation
@@ -421,13 +422,16 @@ def update_price(product_id):
 @advisor_or_admin_required
 def update_multiple_prices():
     """
-    Actualizar precios de múltiples productos a la vez
+    Actualizar precios de múltiples productos a la vez - OPTIMIZADO CON BULK OPERATIONS
     ADMINS Y ASESORES
 
     Modos soportados:
     1. "percentage": Aplicar incremento/descuento porcentual
     2. "fixed": Establecer precios fijos
     3. "remove_sale": Eliminar precios de oferta
+
+    Optimización: Usa bulk_update_mappings y bulk_insert_mappings para reducir queries
+    De ~200-320 queries a solo 4-5 queries para 40 productos
     """
     try:
         # Invalidar caché al actualizar precios masivos
@@ -442,7 +446,7 @@ def update_multiple_prices():
         errors = []
 
         # ========================================
-        # MODO 1: Incremento/Descuento Porcentual
+        # MODO 1: Incremento/Descuento Porcentual - OPTIMIZADO
         # ========================================
         if mode == 'percentage':
             product_ids = data.get('products', [])
@@ -463,29 +467,49 @@ def update_multiple_prices():
                     'error': 'Porcentaje inválido'
                 }), 400
 
-            # Procesar cada producto
+            # PASO 1: Obtener todos los productos de una vez (1 query)
+            products = db.session.query(Product).filter(Product.ID.in_(product_ids)).all()
+            products_dict = {p.ID: p for p in products}
+
+            # PASO 2: Obtener todos los metas de una vez (1 query)
+            meta_keys = ['_regular_price', '_sale_price', '_price', '_sku']
+            existing_metas = db.session.query(ProductMeta).filter(
+                ProductMeta.post_id.in_(product_ids),
+                ProductMeta.meta_key.in_(meta_keys)
+            ).all()
+
+            # Crear diccionario de metas {product_id: {meta_key: ProductMeta}}
+            metas_dict = {}
+            for meta in existing_metas:
+                if meta.post_id not in metas_dict:
+                    metas_dict[meta.post_id] = {}
+                metas_dict[meta.post_id][meta.meta_key] = meta
+
+            # PASO 3: Procesar y preparar operaciones bulk
+            metas_to_update = []
+            metas_to_insert = []
+            history_records = []
+            multiplier = Decimal('1') + (percentage / Decimal('100'))
+
             for product_id in product_ids:
                 try:
-                    product = db.session.query(Product).filter_by(ID=product_id).first()
-
+                    product = products_dict.get(product_id)
                     if not product:
                         errors.append({'id': product_id, 'error': 'Producto no encontrado'})
                         continue
 
+                    product_metas = metas_dict.get(product_id, {})
+
                     # Obtener precios actuales
-                    regular_meta = db.session.query(ProductMeta).filter_by(
-                        post_id=product_id, meta_key='_regular_price'
-                    ).first()
-                    sale_meta = db.session.query(ProductMeta).filter_by(
-                        post_id=product_id, meta_key='_sale_price'
-                    ).first()
+                    regular_meta = product_metas.get('_regular_price')
+                    sale_meta = product_metas.get('_sale_price')
+                    price_meta = product_metas.get('_price')
+                    sku_meta = product_metas.get('_sku')
 
                     old_regular = Decimal(regular_meta.meta_value) if regular_meta else Decimal('0')
                     old_sale = Decimal(sale_meta.meta_value) if sale_meta and sale_meta.meta_value else None
 
                     # Calcular nuevos precios
-                    multiplier = Decimal('1') + (percentage / Decimal('100'))
-
                     new_regular = old_regular
                     new_sale = old_sale
 
@@ -504,52 +528,40 @@ def update_multiple_prices():
                         errors.append({'id': product_id, 'error': 'Precio de oferta >= precio regular'})
                         continue
 
-                    # Actualizar
+                    new_price = new_sale if new_sale else new_regular
+
+                    # Preparar updates/inserts
                     if regular_meta:
-                        regular_meta.meta_value = str(new_regular)
+                        metas_to_update.append({'meta_id': regular_meta.meta_id, 'meta_value': str(new_regular)})
                     else:
-                        db.session.add(ProductMeta(post_id=product_id, meta_key='_regular_price',
-                                                   meta_value=str(new_regular)))
+                        metas_to_insert.append({'post_id': product_id, 'meta_key': '_regular_price', 'meta_value': str(new_regular)})
 
                     if new_sale:
                         if sale_meta:
-                            sale_meta.meta_value = str(new_sale)
+                            metas_to_update.append({'meta_id': sale_meta.meta_id, 'meta_value': str(new_sale)})
                         else:
-                            db.session.add(ProductMeta(post_id=product_id, meta_key='_sale_price',
-                                                       meta_value=str(new_sale)))
+                            metas_to_insert.append({'post_id': product_id, 'meta_key': '_sale_price', 'meta_value': str(new_sale)})
 
-                    # Actualizar precio activo
-                    new_price = new_sale if new_sale else new_regular
-                    price_meta = db.session.query(ProductMeta).filter_by(
-                        post_id=product_id, meta_key='_price'
-                    ).first()
                     if price_meta:
-                        price_meta.meta_value = str(new_price)
+                        metas_to_update.append({'meta_id': price_meta.meta_id, 'meta_value': str(new_price)})
                     else:
-                        db.session.add(ProductMeta(post_id=product_id, meta_key='_price',
-                                                   meta_value=str(new_price)))
+                        metas_to_insert.append({'post_id': product_id, 'meta_key': '_price', 'meta_value': str(new_price)})
 
-                    db.session.commit()
-
-                    # Historial
-                    try:
-                        history = PriceHistory(
-                            product_id=product_id,
-                            product_title=product.post_title,
-                            sku=product.get_meta('_sku') or 'N/A',
-                            old_regular_price=old_regular,
-                            old_sale_price=old_sale,
-                            old_price=old_sale if old_sale else old_regular,
-                            new_regular_price=new_regular,
-                            new_sale_price=new_sale,
-                            new_price=new_price,
-                            changed_by=current_user.username,
-                            change_reason=reason
-                        )
-                        db.session.add(history)
-                        db.session.commit()
-                    except:
-                        pass
+                    # Preparar historial
+                    history_records.append({
+                        'product_id': product_id,
+                        'product_title': product.post_title,
+                        'sku': sku_meta.meta_value if sku_meta else 'N/A',
+                        'old_regular_price': old_regular,
+                        'old_sale_price': old_sale,
+                        'old_price': old_sale if old_sale else old_regular,
+                        'new_regular_price': new_regular,
+                        'new_sale_price': new_sale,
+                        'new_price': new_price,
+                        'changed_by': current_user.username,
+                        'change_reason': reason,
+                        'created_at': get_local_time()
+                    })
 
                     updated.append({
                         'id': product_id,
@@ -561,11 +573,28 @@ def update_multiple_prices():
                     })
 
                 except Exception as prod_error:
-                    db.session.rollback()
                     errors.append({'id': product_id, 'error': str(prod_error)})
 
+            # PASO 4: Ejecutar operaciones bulk
+            if metas_to_update:
+                db.session.bulk_update_mappings(ProductMeta, metas_to_update)
+
+            if metas_to_insert:
+                db.session.bulk_insert_mappings(ProductMeta, metas_to_insert)
+
+            db.session.commit()
+
+            # PASO 5: Insertar historial en bulk
+            try:
+                if history_records:
+                    db.session.bulk_insert_mappings(PriceHistory, history_records)
+                    db.session.commit()
+            except Exception as hist_error:
+                db.session.rollback()
+                current_app.logger.error(f"Error en historial bulk: {hist_error}")
+
         # ========================================
-        # MODO 2: Precios Fijos
+        # MODO 2: Precios Fijos - OPTIMIZADO
         # ========================================
         elif mode == 'fixed':
             products_data = data.get('products', [])
@@ -576,6 +605,8 @@ def update_multiple_prices():
                     'error': 'No se enviaron productos para actualizar'
                 }), 400
 
+            # Validar datos y preparar diccionario
+            valid_products = {}
             for item in products_data:
                 product_id = item.get('id')
                 new_regular = item.get('regular_price')
@@ -607,52 +638,102 @@ def update_multiple_prices():
                 else:
                     new_sale = None
 
-                # Procesar
+                valid_products[product_id] = {
+                    'new_regular': new_regular,
+                    'new_sale': new_sale
+                }
+
+            if not valid_products:
+                return jsonify({
+                    'success': False,
+                    'error': 'No hay productos válidos para actualizar',
+                    'errors': errors
+                }), 400
+
+            # PASO 1: Obtener todos los productos de una vez (1 query)
+            product_ids = list(valid_products.keys())
+            products = db.session.query(Product).filter(Product.ID.in_(product_ids)).all()
+            products_dict = {p.ID: p for p in products}
+
+            # PASO 2: Obtener todos los metas de una vez (1 query)
+            meta_keys = ['_regular_price', '_sale_price', '_price', '_sku']
+            existing_metas = db.session.query(ProductMeta).filter(
+                ProductMeta.post_id.in_(product_ids),
+                ProductMeta.meta_key.in_(meta_keys)
+            ).all()
+
+            # Crear diccionario de metas
+            metas_dict = {}
+            metas_to_delete = []
+            for meta in existing_metas:
+                if meta.post_id not in metas_dict:
+                    metas_dict[meta.post_id] = {}
+                metas_dict[meta.post_id][meta.meta_key] = meta
+
+            # PASO 3: Procesar y preparar operaciones bulk
+            metas_to_update = []
+            metas_to_insert = []
+            history_records = []
+
+            for product_id, price_data in valid_products.items():
                 try:
-                    product = db.session.query(Product).filter_by(ID=product_id).first()
+                    product = products_dict.get(product_id)
                     if not product:
                         errors.append({'id': product_id, 'error': 'Producto no encontrado'})
                         continue
 
+                    product_metas = metas_dict.get(product_id, {})
+                    new_regular = price_data['new_regular']
+                    new_sale = price_data['new_sale']
+
                     # Obtener precios actuales
-                    old_regular = Decimal(product.get_meta('_regular_price') or '0')
-                    old_sale_val = product.get_meta('_sale_price')
-                    old_sale = Decimal(old_sale_val) if old_sale_val else None
+                    regular_meta = product_metas.get('_regular_price')
+                    sale_meta = product_metas.get('_sale_price')
+                    price_meta = product_metas.get('_price')
+                    sku_meta = product_metas.get('_sku')
 
-                    # Actualizar
-                    product.set_meta('_regular_price', str(new_regular))
-
-                    if new_sale:
-                        product.set_meta('_sale_price', str(new_sale))
-                    else:
-                        sale_meta = product.product_meta.filter_by(meta_key='_sale_price').first()
-                        if sale_meta:
-                            db.session.delete(sale_meta)
+                    old_regular = Decimal(regular_meta.meta_value) if regular_meta else Decimal('0')
+                    old_sale = Decimal(sale_meta.meta_value) if sale_meta and sale_meta.meta_value else None
 
                     new_price = new_sale if new_sale else new_regular
-                    product.set_meta('_price', str(new_price))
 
-                    db.session.commit()
+                    # Preparar updates/inserts para _regular_price
+                    if regular_meta:
+                        metas_to_update.append({'meta_id': regular_meta.meta_id, 'meta_value': str(new_regular)})
+                    else:
+                        metas_to_insert.append({'post_id': product_id, 'meta_key': '_regular_price', 'meta_value': str(new_regular)})
 
-                    # Historial
-                    try:
-                        history = PriceHistory(
-                            product_id=product_id,
-                            product_title=product.post_title,
-                            sku=product.get_meta('_sku') or 'N/A',
-                            old_regular_price=old_regular,
-                            old_sale_price=old_sale,
-                            old_price=old_sale if old_sale else old_regular,
-                            new_regular_price=new_regular,
-                            new_sale_price=new_sale,
-                            new_price=new_price,
-                            changed_by=current_user.username,
-                            change_reason=reason
-                        )
-                        db.session.add(history)
-                        db.session.commit()
-                    except:
-                        pass
+                    # Preparar updates/inserts/deletes para _sale_price
+                    if new_sale:
+                        if sale_meta:
+                            metas_to_update.append({'meta_id': sale_meta.meta_id, 'meta_value': str(new_sale)})
+                        else:
+                            metas_to_insert.append({'post_id': product_id, 'meta_key': '_sale_price', 'meta_value': str(new_sale)})
+                    else:
+                        if sale_meta:
+                            metas_to_delete.append(sale_meta)
+
+                    # Preparar updates/inserts para _price
+                    if price_meta:
+                        metas_to_update.append({'meta_id': price_meta.meta_id, 'meta_value': str(new_price)})
+                    else:
+                        metas_to_insert.append({'post_id': product_id, 'meta_key': '_price', 'meta_value': str(new_price)})
+
+                    # Preparar historial
+                    history_records.append({
+                        'product_id': product_id,
+                        'product_title': product.post_title,
+                        'sku': sku_meta.meta_value if sku_meta else 'N/A',
+                        'old_regular_price': old_regular,
+                        'old_sale_price': old_sale,
+                        'old_price': old_sale if old_sale else old_regular,
+                        'new_regular_price': new_regular,
+                        'new_sale_price': new_sale,
+                        'new_price': new_price,
+                        'changed_by': current_user.username,
+                        'change_reason': reason,
+                        'created_at': get_local_time()
+                    })
 
                     updated.append({
                         'id': product_id,
@@ -662,11 +743,32 @@ def update_multiple_prices():
                     })
 
                 except Exception as prod_error:
-                    db.session.rollback()
                     errors.append({'id': product_id, 'error': str(prod_error)})
 
+            # PASO 4: Ejecutar operaciones bulk
+            if metas_to_update:
+                db.session.bulk_update_mappings(ProductMeta, metas_to_update)
+
+            if metas_to_insert:
+                db.session.bulk_insert_mappings(ProductMeta, metas_to_insert)
+
+            if metas_to_delete:
+                for meta in metas_to_delete:
+                    db.session.delete(meta)
+
+            db.session.commit()
+
+            # PASO 5: Insertar historial en bulk
+            try:
+                if history_records:
+                    db.session.bulk_insert_mappings(PriceHistory, history_records)
+                    db.session.commit()
+            except Exception as hist_error:
+                db.session.rollback()
+                current_app.logger.error(f"Error en historial bulk: {hist_error}")
+
         # ========================================
-        # MODO 3: Eliminar Ofertas
+        # MODO 3: Eliminar Ofertas - OPTIMIZADO
         # ========================================
         elif mode == 'remove_sale':
             product_ids = data.get('products', [])
@@ -677,47 +779,70 @@ def update_multiple_prices():
                     'error': 'No se enviaron productos para actualizar'
                 }), 400
 
+            # PASO 1: Obtener todos los productos de una vez (1 query)
+            products = db.session.query(Product).filter(Product.ID.in_(product_ids)).all()
+            products_dict = {p.ID: p for p in products}
+
+            # PASO 2: Obtener todos los metas de una vez (1 query)
+            meta_keys = ['_regular_price', '_sale_price', '_price', '_sku']
+            existing_metas = db.session.query(ProductMeta).filter(
+                ProductMeta.post_id.in_(product_ids),
+                ProductMeta.meta_key.in_(meta_keys)
+            ).all()
+
+            # Crear diccionario de metas
+            metas_dict = {}
+            for meta in existing_metas:
+                if meta.post_id not in metas_dict:
+                    metas_dict[meta.post_id] = {}
+                metas_dict[meta.post_id][meta.meta_key] = meta
+
+            # PASO 3: Procesar y preparar operaciones bulk
+            metas_to_update = []
+            metas_to_delete = []
+            history_records = []
+
             for product_id in product_ids:
                 try:
-                    product = db.session.query(Product).filter_by(ID=product_id).first()
+                    product = products_dict.get(product_id)
                     if not product:
                         errors.append({'id': product_id, 'error': 'Producto no encontrado'})
                         continue
 
+                    product_metas = metas_dict.get(product_id, {})
+
                     # Obtener precios actuales
-                    old_regular = Decimal(product.get_meta('_regular_price') or '0')
-                    old_sale_val = product.get_meta('_sale_price')
-                    old_sale = Decimal(old_sale_val) if old_sale_val else None
+                    regular_meta = product_metas.get('_regular_price')
+                    sale_meta = product_metas.get('_sale_price')
+                    price_meta = product_metas.get('_price')
+                    sku_meta = product_metas.get('_sku')
 
-                    # Eliminar precio de oferta
-                    sale_meta = product.product_meta.filter_by(meta_key='_sale_price').first()
+                    old_regular = Decimal(regular_meta.meta_value) if regular_meta else Decimal('0')
+                    old_sale = Decimal(sale_meta.meta_value) if sale_meta and sale_meta.meta_value else None
+
+                    # Marcar precio de oferta para eliminar
                     if sale_meta:
-                        db.session.delete(sale_meta)
+                        metas_to_delete.append(sale_meta)
 
-                    # Precio activo = regular
-                    product.set_meta('_price', str(old_regular))
+                    # Actualizar precio activo a precio regular
+                    if price_meta:
+                        metas_to_update.append({'meta_id': price_meta.meta_id, 'meta_value': str(old_regular)})
 
-                    db.session.commit()
-
-                    # Historial
-                    try:
-                        history = PriceHistory(
-                            product_id=product_id,
-                            product_title=product.post_title,
-                            sku=product.get_meta('_sku') or 'N/A',
-                            old_regular_price=old_regular,
-                            old_sale_price=old_sale,
-                            old_price=old_sale if old_sale else old_regular,
-                            new_regular_price=old_regular,
-                            new_sale_price=None,
-                            new_price=old_regular,
-                            changed_by=current_user.username,
-                            change_reason=reason
-                        )
-                        db.session.add(history)
-                        db.session.commit()
-                    except:
-                        pass
+                    # Preparar historial
+                    history_records.append({
+                        'product_id': product_id,
+                        'product_title': product.post_title,
+                        'sku': sku_meta.meta_value if sku_meta else 'N/A',
+                        'old_regular_price': old_regular,
+                        'old_sale_price': old_sale,
+                        'old_price': old_sale if old_sale else old_regular,
+                        'new_regular_price': old_regular,
+                        'new_sale_price': None,
+                        'new_price': old_regular,
+                        'changed_by': current_user.username,
+                        'change_reason': reason,
+                        'created_at': get_local_time()
+                    })
 
                     updated.append({
                         'id': product_id,
@@ -726,8 +851,26 @@ def update_multiple_prices():
                     })
 
                 except Exception as prod_error:
-                    db.session.rollback()
                     errors.append({'id': product_id, 'error': str(prod_error)})
+
+            # PASO 4: Ejecutar operaciones bulk
+            if metas_to_update:
+                db.session.bulk_update_mappings(ProductMeta, metas_to_update)
+
+            if metas_to_delete:
+                for meta in metas_to_delete:
+                    db.session.delete(meta)
+
+            db.session.commit()
+
+            # PASO 5: Insertar historial en bulk
+            try:
+                if history_records:
+                    db.session.bulk_insert_mappings(PriceHistory, history_records)
+                    db.session.commit()
+            except Exception as hist_error:
+                db.session.rollback()
+                current_app.logger.error(f"Error en historial bulk: {hist_error}")
 
         else:
             return jsonify({
