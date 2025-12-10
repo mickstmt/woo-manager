@@ -1,0 +1,730 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2><i class="bi bi-receipt"></i> Gastos Detallados</h2>
+            <p class="text-muted">Gestión completa de gastos - Solo Master</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <button class="btn btn-success" onclick="addNewRow()">
+                <i class="bi bi-plus-circle"></i> Agregar Gasto
+            </button>
+            <button class="btn btn-primary" onclick="saveAllChanges()">
+                <i class="bi bi-save"></i> Guardar Cambios
+            </button>
+            <button class="btn btn-info" onclick="showStats()">
+                <i class="bi bi-bar-chart"></i> Estadísticas
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de búsqueda -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="search-input" placeholder="Buscar por tipo, categoría o descripción...">
+                <button class="btn btn-outline-secondary" onclick="searchExpenses()">Buscar</button>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <span id="total-count" class="badge bg-secondary">0 gastos</span>
+            <span id="total-amount" class="badge bg-success">S/ 0.00</span>
+        </div>
+    </div>
+
+    <!-- Tabla editable tipo Excel -->
+    <div class="card shadow">
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover table-bordered mb-0" id="expenses-table">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th style="width: 120px;">Fecha</th>
+                            <th style="width: 150px;">Tipo de Gasto</th>
+                            <th style="width: 150px;">Categoría</th>
+                            <th>Descripción</th>
+                            <th style="width: 120px;">Monto (S/)</th>
+                            <th style="width: 100px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-tbody">
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando gastos...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <nav>
+                <ul class="pagination justify-content-center" id="pagination">
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Estadísticas -->
+<div class="modal fade" id="statsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-bar-chart"></i> Estadísticas de Gastos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="stats-content">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos para tabla editable tipo Excel */
+    #expenses-table {
+        font-size: 0.9rem;
+    }
+
+    #expenses-table tbody tr {
+        cursor: pointer;
+    }
+
+    #expenses-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    #expenses-table tbody tr.editing {
+        background-color: #fff3cd;
+    }
+
+    #expenses-table tbody tr.new-row {
+        background-color: #d1ecf1;
+    }
+
+    #expenses-table tbody tr.modified {
+        background-color: #fef9e7;
+    }
+
+    #expenses-table tbody tr.error {
+        background-color: #f8d7da;
+    }
+
+    #expenses-table input,
+    #expenses-table select {
+        border: 1px solid #ced4da;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    #expenses-table input:focus,
+    #expenses-table select:focus {
+        outline: 2px solid #0d6efd;
+    }
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .cell-value {
+        min-height: 30px;
+        padding: 0.5rem;
+    }
+
+    .cell-input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let expenses = [];
+let modifiedExpenses = new Set();
+let deletedExpenses = new Set();
+let currentPage = 1;
+let perPage = 50;
+let searchTerm = '';
+
+// Cargar gastos al inicio
+document.addEventListener('DOMContentLoaded', function() {
+    loadExpenses();
+});
+
+// Buscar con Enter
+document.getElementById('search-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchExpenses();
+    }
+});
+
+function searchExpenses() {
+    searchTerm = document.getElementById('search-input').value.trim();
+    currentPage = 1;
+    loadExpenses();
+}
+
+function loadExpenses() {
+    const tbody = document.getElementById('expenses-tbody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Cargando gastos...</p>
+            </td>
+        </tr>
+    `;
+
+    fetch(`/expenses/list?page=${currentPage}&per_page=${perPage}&search=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                expenses = data.expenses;
+                renderTable(expenses);
+                renderPagination(data.pagination);
+                updateTotals();
+            } else {
+                showNotification('error', data.error || 'Error al cargar gastos');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-triangle"></i> ${data.error || 'Error al cargar gastos'}
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('error', 'Error de conexión');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-danger py-4">
+                        <i class="bi bi-exclamation-triangle"></i> Error de conexión
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function renderTable(expenses) {
+    const tbody = document.getElementById('expenses-tbody');
+
+    if (expenses.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox"></i><br>
+                    No hay gastos registrados
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    expenses.forEach((expense, index) => {
+        const rowClass = modifiedExpenses.has(expense.id) ? 'modified' : '';
+        html += `
+            <tr id="row-${expense.id}" class="${rowClass}" data-id="${expense.id}">
+                <td onclick="makeEditable(this, ${expense.id}, 'fecha', 'date')">${expense.fecha || ''}</td>
+                <td onclick="makeEditable(this, ${expense.id}, 'tipo_gasto', 'text')">${expense.tipo_gasto || ''}</td>
+                <td onclick="makeEditable(this, ${expense.id}, 'categoria', 'text')">${expense.categoria || ''}</td>
+                <td onclick="makeEditable(this, ${expense.id}, 'descripcion', 'text')">${expense.descripcion || ''}</td>
+                <td onclick="makeEditable(this, ${expense.id}, 'monto', 'number')" class="text-end">${parseFloat(expense.monto).toFixed(2)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-danger" onclick="deleteExpense(${expense.id})" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function makeEditable(cell, expenseId, field, type) {
+    // Evitar editar si ya hay un input activo
+    if (cell.querySelector('input')) {
+        return;
+    }
+
+    const currentValue = cell.textContent.trim();
+    const input = document.createElement('input');
+    input.type = type;
+    input.className = 'cell-input form-control form-control-sm';
+    input.value = currentValue;
+
+    // Para el monto, remover formato
+    if (field === 'monto') {
+        input.value = parseFloat(currentValue.replace(/,/g, '')) || 0;
+        input.step = '0.01';
+    }
+
+    cell.innerHTML = '';
+    cell.appendChild(input);
+    input.focus();
+
+    // Seleccionar todo el texto
+    input.select();
+
+    // Guardar al presionar Enter o perder foco
+    const saveValue = () => {
+        const newValue = input.value.trim();
+
+        // Validaciones
+        if (!newValue && field !== 'descripcion') {
+            showNotification('error', 'El campo no puede estar vacío');
+            input.focus();
+            return;
+        }
+
+        if (field === 'monto') {
+            const amount = parseFloat(newValue);
+            if (isNaN(amount) || amount <= 0) {
+                showNotification('error', 'El monto debe ser un número mayor que 0');
+                input.focus();
+                return;
+            }
+        }
+
+        // Actualizar valor en el array
+        const expense = expenses.find(e => e.id === expenseId);
+        if (expense) {
+            expense[field] = newValue;
+            modifiedExpenses.add(expenseId);
+
+            // Marcar fila como modificada
+            const row = document.getElementById(`row-${expenseId}`);
+            if (row && !row.classList.contains('new-row')) {
+                row.classList.add('modified');
+            }
+        }
+
+        // Restaurar celda
+        if (field === 'monto') {
+            cell.textContent = parseFloat(newValue).toFixed(2);
+        } else {
+            cell.textContent = newValue;
+        }
+
+        updateTotals();
+    };
+
+    input.addEventListener('blur', saveValue);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveValue();
+        }
+    });
+}
+
+function addNewRow() {
+    const tbody = document.getElementById('expenses-tbody');
+    const newId = 'new-' + Date.now();
+    const today = new Date().toISOString().split('T')[0];
+
+    const newExpense = {
+        id: newId,
+        fecha: today,
+        tipo_gasto: '',
+        categoria: '',
+        descripcion: '',
+        monto: 0,
+        _isNew: true
+    };
+
+    expenses.unshift(newExpense);
+
+    const newRow = `
+        <tr id="row-${newId}" class="new-row" data-id="${newId}">
+            <td onclick="makeEditable(this, '${newId}', 'fecha', 'date')">${today}</td>
+            <td onclick="makeEditable(this, '${newId}', 'tipo_gasto', 'text')"></td>
+            <td onclick="makeEditable(this, '${newId}', 'categoria', 'text')"></td>
+            <td onclick="makeEditable(this, '${newId}', 'descripcion', 'text')"></td>
+            <td onclick="makeEditable(this, '${newId}', 'monto', 'number')" class="text-end">0.00</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-danger" onclick="cancelNewRow('${newId}')" title="Cancelar">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+
+    if (tbody.querySelector('tr td[colspan]')) {
+        tbody.innerHTML = newRow;
+    } else {
+        tbody.insertAdjacentHTML('afterbegin', newRow);
+    }
+
+    updateTotals();
+}
+
+function cancelNewRow(id) {
+    const index = expenses.findIndex(e => e.id === id);
+    if (index !== -1) {
+        expenses.splice(index, 1);
+    }
+
+    const row = document.getElementById(`row-${id}`);
+    if (row) {
+        row.remove();
+    }
+
+    if (expenses.length === 0) {
+        document.getElementById('expenses-tbody').innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox"></i><br>
+                    No hay gastos registrados
+                </td>
+            </tr>
+        `;
+    }
+
+    updateTotals();
+}
+
+function deleteExpense(id) {
+    if (!confirm('¿Estás seguro de eliminar este gasto?')) {
+        return;
+    }
+
+    const expense = expenses.find(e => e.id === id);
+    if (!expense) {
+        return;
+    }
+
+    // Si es nuevo, solo eliminarlo del array
+    if (expense._isNew) {
+        cancelNewRow(id);
+        return;
+    }
+
+    // Llamar al endpoint de eliminación
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch(`/expenses/delete/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('success', 'Gasto eliminado correctamente');
+
+            // Eliminar del array
+            const index = expenses.findIndex(e => e.id === id);
+            if (index !== -1) {
+                expenses.splice(index, 1);
+            }
+
+            // Eliminar de la tabla
+            const row = document.getElementById(`row-${id}`);
+            if (row) {
+                row.remove();
+            }
+
+            // Eliminar de modified
+            modifiedExpenses.delete(id);
+
+            updateTotals();
+
+            // Si no quedan gastos, recargar
+            if (expenses.length === 0) {
+                loadExpenses();
+            }
+        } else {
+            showNotification('error', data.error || 'Error al eliminar gasto');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('error', 'Error de conexión');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash"></i>';
+    });
+}
+
+function saveAllChanges() {
+    const newExpenses = expenses.filter(e => e._isNew);
+    const updatedExpenses = expenses.filter(e => modifiedExpenses.has(e.id) && !e._isNew);
+
+    if (newExpenses.length === 0 && updatedExpenses.length === 0) {
+        showNotification('info', 'No hay cambios para guardar');
+        return;
+    }
+
+    // Validar todos los nuevos gastos
+    for (const expense of newExpenses) {
+        if (!expense.tipo_gasto || !expense.categoria || !expense.descripcion) {
+            showNotification('error', 'Todos los campos son requeridos para nuevos gastos');
+            return;
+        }
+        if (!expense.monto || parseFloat(expense.monto) <= 0) {
+            showNotification('error', 'El monto debe ser mayor que 0');
+            return;
+        }
+    }
+
+    const savePromises = [];
+
+    // Crear nuevos gastos
+    newExpenses.forEach(expense => {
+        savePromises.push(
+            fetch('/expenses/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    fecha: expense.fecha,
+                    tipo_gasto: expense.tipo_gasto,
+                    categoria: expense.categoria,
+                    descripcion: expense.descripcion,
+                    monto: parseFloat(expense.monto)
+                })
+            })
+        );
+    });
+
+    // Actualizar gastos modificados
+    updatedExpenses.forEach(expense => {
+        savePromises.push(
+            fetch(`/expenses/update/${expense.id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    fecha: expense.fecha,
+                    tipo_gasto: expense.tipo_gasto,
+                    categoria: expense.categoria,
+                    descripcion: expense.descripcion,
+                    monto: parseFloat(expense.monto)
+                })
+            })
+        );
+    });
+
+    // Ejecutar todas las promesas
+    Promise.all(savePromises)
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(results => {
+            const errors = results.filter(r => !r.success);
+            if (errors.length > 0) {
+                showNotification('error', `${errors.length} error(es) al guardar`);
+            } else {
+                showNotification('success', 'Todos los cambios guardados correctamente');
+                modifiedExpenses.clear();
+                loadExpenses(); // Recargar tabla
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('error', 'Error al guardar cambios');
+        });
+}
+
+function updateTotals() {
+    const count = expenses.length;
+    const total = expenses.reduce((sum, e) => sum + (parseFloat(e.monto) || 0), 0);
+
+    document.getElementById('total-count').textContent = `${count} gasto${count !== 1 ? 's' : ''}`;
+    document.getElementById('total-amount').textContent = `S/ ${total.toFixed(2)}`;
+}
+
+function renderPagination(pagination) {
+    const paginationEl = document.getElementById('pagination');
+
+    if (pagination.pages <= 1) {
+        paginationEl.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // Prev
+    html += `
+        <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${pagination.prev_num}); return false;">Anterior</a>
+        </li>
+    `;
+
+    // Pages
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            html += `<li class="page-item active"><a class="page-link" href="#">${i}</a></li>`;
+        } else if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a></li>`;
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    // Next
+    html += `
+        <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${pagination.next_num}); return false;">Siguiente</a>
+        </li>
+    `;
+
+    paginationEl.innerHTML = html;
+}
+
+function changePage(page) {
+    if (page) {
+        currentPage = page;
+        loadExpenses();
+    }
+}
+
+function showStats() {
+    const modal = new bootstrap.Modal(document.getElementById('statsModal'));
+    modal.show();
+
+    const content = document.getElementById('stats-content');
+    content.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+
+    fetch('/expenses/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderStats(data.stats);
+            } else {
+                content.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            content.innerHTML = '<div class="alert alert-danger">Error al cargar estadísticas</div>';
+        });
+}
+
+function renderStats(stats) {
+    const content = document.getElementById('stats-content');
+
+    let html = `
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-success">
+                    <h4>Total General: S/ ${stats.total_general.toFixed(2)}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Por Tipo de Gasto</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stats.por_tipo.map(t => `
+                            <tr>
+                                <td>${t.tipo}</td>
+                                <td class="text-end">S/ ${t.total.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-md-6">
+                <h5>Por Categoría</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stats.por_categoria.map(c => `
+                            <tr>
+                                <td>${c.categoria}</td>
+                                <td class="text-end">S/ ${c.total.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <h5>Por Mes (Últimos 12 meses)</h5>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stats.por_mes.map(m => `
+                            <tr>
+                                <td>${m.mes}/${m.año}</td>
+                                <td class="text-end">S/ ${m.total.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    content.innerHTML = html;
+}
+
+function showNotification(type, message) {
+    // Usar la función global de notificaciones si existe
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(type, message);
+        return;
+    }
+
+    // Fallback simple
+    const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-info';
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 end-0 m-3" role="alert" style="z-index: 9999;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+
+    setTimeout(() => {
+        document.querySelectorAll('.alert').forEach(alert => {
+            if (alert.textContent.includes(message)) {
+                alert.remove();
+            }
+        });
+    }, 3000);
+}
+</script>
+{% endblock %}

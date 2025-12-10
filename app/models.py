@@ -680,3 +680,42 @@ class TipoCambio(db.Model):
         ).order_by(TipoCambio.fecha.desc()).first()
 
         return tasa
+
+
+class ExpenseDetail(db.Model):
+    """
+    Modelo para Gastos Detallados
+    Solo accesible para usuarios con rol Master
+    """
+    __tablename__ = 'expense_details'
+
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.Date, nullable=False)              # Fecha del gasto
+    tipo_gasto = db.Column(db.String(100), nullable=False)  # Tipo de gasto
+    categoria = db.Column(db.String(100), nullable=False)   # Categoría
+    descripcion = db.Column(db.Text, nullable=False)        # Descripción
+    monto = db.Column(db.Numeric(10, 2), nullable=False)    # Monto
+
+    # Auditoría
+    created_by = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_by = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, onupdate=get_local_time)
+
+    def __repr__(self):
+        return f'<ExpenseDetail {self.id}: {self.tipo_gasto} - {self.categoria}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'fecha': self.fecha.strftime('%Y-%m-%d') if self.fecha else None,
+            'tipo_gasto': self.tipo_gasto,
+            'categoria': self.categoria,
+            'descripcion': self.descripcion,
+            'monto': float(self.monto) if self.monto else 0,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_by': self.updated_by,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }

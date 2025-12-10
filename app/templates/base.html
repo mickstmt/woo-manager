@@ -148,6 +148,13 @@
                             </a>
                         </li>
                         {% endif %}
+                        {% if current_user.is_master() %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('expenses.index') }}">
+                                <i class="bi bi-receipt"></i> Gastos Detallados
+                            </a>
+                        </li>
+                        {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
