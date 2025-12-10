@@ -325,11 +325,14 @@ def get_stats():
         ).group_by(ExpenseDetail.categoria).all()
 
         # Total por mes (últimos 12 meses)
-        por_mes = db.session.query(
-            extract('year', ExpenseDetail.fecha).label('año'),
-            extract('month', ExpenseDetail.fecha).label('mes'),
-            func.sum(ExpenseDetail.monto).label('total')
-        ).group_by('año', 'mes').order_by('año desc', 'mes desc').limit(12).all()
+        año_col = extract('year', ExpenseDetail.fecha).label('año')
+        mes_col = extract('month', ExpenseDetail.fecha).label('mes')
+        total_col = func.sum(ExpenseDetail.monto).label('total')
+
+        por_mes = db.session.query(año_col, mes_col, total_col)\
+            .group_by(año_col, mes_col)\
+            .order_by(año_col.desc(), mes_col.desc())\
+            .limit(12).all()
 
         return jsonify({
             'success': True,
