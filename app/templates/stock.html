@@ -744,7 +744,7 @@ function executeBulkUpdate() {
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(requestData),
-        timeout: 60000, // Timeout de 60 segundos
+        timeout: 120000, // Timeout de 120 segundos (2 minutos) - optimizado con bulk operations
         success: function(response) {
             console.log('Respuesta recibida:', response);
             
