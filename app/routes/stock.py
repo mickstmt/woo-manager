@@ -1,9 +1,10 @@
 # app/routes/stock.py
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.routes.auth import admin_required, advisor_or_admin_required
-from app.models import Product, ProductMeta
+from app.models import Product, ProductMeta, StockHistory
 from app import db, cache
+from config import get_local_time
 from datetime import datetime
 from sqlalchemy import or_, func
 
@@ -614,7 +615,6 @@ def update_multiple_stock():
 
         # PASO 5: Insertar historial en bulk
         try:
-            from app.models import StockHistory
             if history_records:
                 db.session.bulk_insert_mappings(StockHistory, history_records)
                 db.session.commit()
