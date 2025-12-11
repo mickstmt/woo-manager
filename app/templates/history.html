@@ -353,6 +353,18 @@ function displayStockPagination(pagination) {
     }
 
     let html = '<nav><ul class="pagination justify-content-center">';
+    const currentPage = pagination.page;
+    const totalPages = pagination.pages;
+    const maxVisible = 5; // Número máximo de páginas visibles
+
+    // Botón Primera página
+    if (currentPage > 1) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadStockHistory(1); return false;">
+                &laquo; Primera
+            </a>
+        </li>`;
+    }
 
     // Botón anterior
     if (pagination.has_prev) {
@@ -363,13 +375,36 @@ function displayStockPagination(pagination) {
         </li>`;
     }
 
-    // Páginas
-    for (let i = 1; i <= pagination.pages; i++) {
-        let active = i === pagination.page ? 'active' : '';
+    // Calcular rango de páginas a mostrar
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+    // Ajustar si estamos cerca del final
+    if (endPage - startPage < maxVisible - 1) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    // Mostrar "..." si no empezamos en la página 1
+    if (startPage > 1) {
+        html += `<li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>`;
+    }
+
+    // Páginas visibles
+    for (let i = startPage; i <= endPage; i++) {
+        let active = i === currentPage ? 'active' : '';
         html += `<li class="page-item ${active}">
             <a class="page-link" href="#" onclick="loadStockHistory(${i}); return false;">
                 ${i}
             </a>
+        </li>`;
+    }
+
+    // Mostrar "..." si no terminamos en la última página
+    if (endPage < totalPages) {
+        html += `<li class="page-item disabled">
+            <span class="page-link">...</span>
         </li>`;
     }
 
@@ -378,6 +413,15 @@ function displayStockPagination(pagination) {
         html += `<li class="page-item">
             <a class="page-link" href="#" onclick="loadStockHistory(${pagination.next_num}); return false;">
                 Siguiente
+            </a>
+        </li>`;
+    }
+
+    // Botón Última página
+    if (currentPage < totalPages) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadStockHistory(${totalPages}); return false;">
+                Última &raquo;
             </a>
         </li>`;
     }
@@ -508,6 +552,18 @@ function displayPricesPagination(pagination) {
     }
 
     let html = '<nav><ul class="pagination justify-content-center">';
+    const currentPage = pagination.page;
+    const totalPages = pagination.pages;
+    const maxVisible = 5; // Número máximo de páginas visibles
+
+    // Botón Primera página
+    if (currentPage > 1) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadPricesHistory(1); return false;">
+                &laquo; Primera
+            </a>
+        </li>`;
+    }
 
     // Botón anterior
     if (pagination.has_prev) {
@@ -518,13 +574,36 @@ function displayPricesPagination(pagination) {
         </li>`;
     }
 
-    // Páginas
-    for (let i = 1; i <= pagination.pages; i++) {
-        let active = i === pagination.page ? 'active' : '';
+    // Calcular rango de páginas a mostrar
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+    // Ajustar si estamos cerca del final
+    if (endPage - startPage < maxVisible - 1) {
+        startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    // Mostrar "..." si no empezamos en la página 1
+    if (startPage > 1) {
+        html += `<li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>`;
+    }
+
+    // Páginas visibles
+    for (let i = startPage; i <= endPage; i++) {
+        let active = i === currentPage ? 'active' : '';
         html += `<li class="page-item ${active}">
             <a class="page-link" href="#" onclick="loadPricesHistory(${i}); return false;">
                 ${i}
             </a>
+        </li>`;
+    }
+
+    // Mostrar "..." si no terminamos en la última página
+    if (endPage < totalPages) {
+        html += `<li class="page-item disabled">
+            <span class="page-link">...</span>
         </li>`;
     }
 
@@ -533,6 +612,15 @@ function displayPricesPagination(pagination) {
         html += `<li class="page-item">
             <a class="page-link" href="#" onclick="loadPricesHistory(${pagination.next_num}); return false;">
                 Siguiente
+            </a>
+        </li>`;
+    }
+
+    // Botón Última página
+    if (currentPage < totalPages) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" onclick="loadPricesHistory(${totalPages}); return false;">
+                Última &raquo;
             </a>
         </li>`;
     }

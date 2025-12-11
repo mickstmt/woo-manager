@@ -258,6 +258,100 @@
     </script>
     {% endif %}
 
+    <!-- Función global de paginación inteligente -->
+    <script>
+    /**
+     * Genera HTML de paginación inteligente que muestra solo un rango de páginas
+     * @param {object} pagination - Objeto con: page, pages, has_prev, has_next, prev_num, next_num
+     * @param {function} loadFunction - Función a llamar cuando se cambia de página (ej: loadStockHistory)
+     * @returns {string} HTML de la paginación
+     */
+    function buildSmartPagination(pagination, loadFunction) {
+        if (pagination.pages <= 1) {
+            return '';
+        }
+
+        let html = '<nav><ul class="pagination justify-content-center">';
+        const currentPage = pagination.page;
+        const totalPages = pagination.pages;
+        const maxVisible = 5; // Número máximo de páginas visibles
+
+        const funcName = loadFunction.name;
+
+        // Botón Primera página
+        if (currentPage > 1) {
+            html += `<li class="page-item">
+                <a class="page-link" href="#" onclick="${funcName}(1); return false;">
+                    &laquo; Primera
+                </a>
+            </li>`;
+        }
+
+        // Botón anterior
+        if (pagination.has_prev) {
+            html += `<li class="page-item">
+                <a class="page-link" href="#" onclick="${funcName}(${pagination.prev_num}); return false;">
+                    Anterior
+                </a>
+            </li>`;
+        }
+
+        // Calcular rango de páginas a mostrar
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+        // Ajustar si estamos cerca del final
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        // Mostrar "..." si no empezamos en la página 1
+        if (startPage > 1) {
+            html += `<li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>`;
+        }
+
+        // Páginas visibles
+        for (let i = startPage; i <= endPage; i++) {
+            let active = i === currentPage ? 'active' : '';
+            html += `<li class="page-item ${active}">
+                <a class="page-link" href="#" onclick="${funcName}(${i}); return false;">
+                    ${i}
+                </a>
+            </li>`;
+        }
+
+        // Mostrar "..." si no terminamos en la última página
+        if (endPage < totalPages) {
+            html += `<li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>`;
+        }
+
+        // Botón siguiente
+        if (pagination.has_next) {
+            html += `<li class="page-item">
+                <a class="page-link" href="#" onclick="${funcName}(${pagination.next_num}); return false;">
+                    Siguiente
+                </a>
+            </li>`;
+        }
+
+        // Botón Última página
+        if (currentPage < totalPages) {
+            html += `<li class="page-item">
+                <a class="page-link" href="#" onclick="${funcName}(${totalPages}); return false;">
+                    Última &raquo;
+                </a>
+            </li>`;
+        }
+
+        html += '</ul></nav>';
+        return html;
+    }
+    </script>
+
     {% block extra_js %}{% endblock %}
     
 </body>
