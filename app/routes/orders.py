@@ -1182,7 +1182,7 @@ def create_order():
                 post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
             ) VALUES (
                 :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
-                '', :post_status, 'open', 'closed', '',
+                :post_excerpt, :post_status, 'open', 'closed', '',
                 :post_name, '', '', :post_modified, :post_modified_gmt,
                 '', 0, '', 0, 'shop_order', '', 0
             )
@@ -1198,6 +1198,7 @@ def create_order():
             'post_date': current_time,
             'post_date_gmt': current_time,
             'post_title': post_title,
+            'post_excerpt': data.get('customer_note', ''),  # Notas del cliente
             'post_status': order.status,  # wc-processing, wc-pending, etc.
             'post_name': post_name,
             'post_modified': current_time,
