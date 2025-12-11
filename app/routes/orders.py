@@ -1509,6 +1509,9 @@ def create_order():
             ('_created_by', current_user.username),
             ('_order_version', '9.0.0'),
 
+            # Notas del cliente (se muestran en el correo)
+            ('_customer_note', data.get('customer_note', '')),
+
             # Configuración de impuestos
             ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
             ('is_vat_exempt', 'no'),  # No está exento de impuestos
