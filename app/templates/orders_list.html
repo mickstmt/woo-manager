@@ -1125,15 +1125,15 @@ function renderOrdersExternal(orders) {
                     </div>
                     <div class="col-md-4 text-end">
                         <h4 class="text-success mb-3">S/ ${parseFloat(order.total_amount).toFixed(2)}</h4>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary" onclick="viewOrderExternal(${order.id})">
-                                <i class="bi bi-eye"></i> Ver Detalles
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-primary btn-sm" onclick="viewOrderExternal(${order.id})" title="Ver Detalles">
+                                <i class="bi bi-eye"></i>
                             </button>
-                            <button class="btn btn-outline-warning" onclick="editOrderExternal(${order.id})">
-                                <i class="bi bi-pencil"></i> Editar
+                            <button class="btn btn-outline-warning btn-sm" onclick="editOrderExternal(${order.id})" title="Editar">
+                                <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-outline-danger" onclick="confirmDeleteOrderExternal(${order.id}, '${order.order_number}')">
-                                <i class="bi bi-trash"></i> Eliminar
+                            <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteOrderExternal(${order.id}, '${order.order_number}')" title="Eliminar">
+                                <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </div>
