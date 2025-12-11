@@ -1110,56 +1110,60 @@ def create_order():
         subtotal = total_with_tax / Decimal('1.18')
         tax_amount = total_with_tax - subtotal
 
-        # ===== CREAR PEDIDO CON PROTECCIÓN CONTRA RACE CONDITIONS =====
-        # Intentar crear pedido hasta 3 veces en caso de colisión de ID
+        # ===== SINCRONIZAR AUTO_INCREMENT ANTES DE CREAR PEDIDO =====
+        # Prevenir colisiones de ID sincronizando AUTO_INCREMENT con wpyz_posts
         from sqlalchemy import text
-        max_retries = 3
-        order = None
 
-        for attempt in range(max_retries):
-            # Crear pedido
-            order = Order(
-                status='wc-processing',  # Estado inicial
-                currency='PEN',
-                type='shop_order',
-                tax_amount=tax_amount,
-                total_amount=total_with_tax,
-                customer_id=0,  # Sin cuenta de usuario
-                billing_email=customer.get('email'),
-                date_created_gmt=get_gmt_time(),
-                date_updated_gmt=get_gmt_time(),
-                payment_method=data.get('payment_method', 'cod'),
-                payment_method_title=data.get('payment_method_title', 'Pago manual'),
-                customer_note=data.get('customer_note', ''),
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent', '')[:200]
-            )
+        # Obtener el MAX ID de wpyz_posts para asegurar que no haya colisión
+        max_posts_id = db.session.execute(
+            text('SELECT COALESCE(MAX(ID), 0) FROM wpyz_posts')
+        ).scalar()
 
-            db.session.add(order)
-            db.session.flush()  # Para obtener el ID del pedido
-
-            # Verificar si el ID ya existe en wpyz_posts (race condition)
-            check_post_exists = text("""
-                SELECT ID FROM wpyz_posts WHERE ID = :order_id
+        # Obtener el AUTO_INCREMENT actual de wpyz_wc_orders
+        current_auto_inc = db.session.execute(
+            text("""
+                SELECT AUTO_INCREMENT
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'wpyz_wc_orders'
             """)
-            existing_post = db.session.execute(check_post_exists, {'order_id': order.id}).fetchone()
+        ).scalar()
 
-            if not existing_post:
-                # ID disponible, continuar con la creación
-                current_app.logger.info(f"Order ID {order.id} is available, proceeding with creation")
-                break
-            else:
-                # ID ya existe, hacer rollback y reintentar
-                current_app.logger.warning(f"Order ID {order.id} already exists in wpyz_posts (attempt {attempt + 1}/{max_retries}). Rolling back and retrying...")
-                db.session.rollback()
+        # Si el AUTO_INCREMENT es menor o igual al MAX ID de wpyz_posts, ajustarlo
+        if current_auto_inc <= max_posts_id:
+            new_auto_inc = max_posts_id + 1
+            current_app.logger.warning(
+                f"AUTO_INCREMENT collision detected! Current: {current_auto_inc}, "
+                f"MAX wpyz_posts ID: {max_posts_id}. Adjusting to {new_auto_inc}"
+            )
+            db.session.execute(
+                text(f'ALTER TABLE wpyz_wc_orders AUTO_INCREMENT = {new_auto_inc}')
+            )
+            db.session.commit()
+            current_app.logger.info(f"AUTO_INCREMENT adjusted to {new_auto_inc}")
 
-                if attempt == max_retries - 1:
-                    # Último intento falló
-                    raise Exception(f"Failed to create order after {max_retries} attempts due to ID collisions")
+        # ===== CREAR PEDIDO =====
+        # Ahora podemos crear el pedido de manera segura
+        order = Order(
+            status='wc-processing',  # Estado inicial
+            currency='PEN',
+            type='shop_order',
+            tax_amount=tax_amount,
+            total_amount=total_with_tax,
+            customer_id=0,  # Sin cuenta de usuario
+            billing_email=customer.get('email'),
+            date_created_gmt=get_gmt_time(),
+            date_updated_gmt=get_gmt_time(),
+            payment_method=data.get('payment_method', 'cod'),
+            payment_method_title=data.get('payment_method_title', 'Pago manual'),
+            customer_note=data.get('customer_note', ''),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent', '')[:200]
+        )
 
-                # Forzar nuevo ID incrementando el autoincrement
-                # Esto asegura que el próximo ID sea diferente
-                continue
+        db.session.add(order)
+        db.session.flush()  # Para obtener el ID del pedido
+        current_app.logger.info(f"Order created with ID {order.id}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
@@ -1169,39 +1173,37 @@ def create_order():
 
         # ===== REGISTRO EN WPYZ_POSTS (CRÍTICO para compatibilidad HPOS) =====
         # WooCommerce HPOS requiere sincronización con wpyz_posts para plugins antiguos
-        # En este punto sabemos que el ID no existe (verificado arriba)
-        if True:  # Siempre ejecutar porque ya verificamos
-            # El ID no existe, podemos insertar de manera segura
-            insert_post = text("""
-                INSERT INTO wpyz_posts (
-                    ID, post_author, post_date, post_date_gmt, post_content, post_title,
-                    post_excerpt, post_status, comment_status, ping_status, post_password,
-                    post_name, to_ping, pinged, post_modified, post_modified_gmt,
-                    post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
-                ) VALUES (
-                    :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
-                    '', :post_status, 'open', 'closed', '',
-                    :post_name, '', '', :post_modified, :post_modified_gmt,
-                    '', 0, '', 0, 'shop_order', '', 0
-                )
-            """)
+        # En este punto el ID es seguro (AUTO_INCREMENT sincronizado)
+        insert_post = text("""
+            INSERT INTO wpyz_posts (
+                ID, post_author, post_date, post_date_gmt, post_content, post_title,
+                post_excerpt, post_status, comment_status, ping_status, post_password,
+                post_name, to_ping, pinged, post_modified, post_modified_gmt,
+                post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
+            ) VALUES (
+                :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
+                '', :post_status, 'open', 'closed', '',
+                :post_name, '', '', :post_modified, :post_modified_gmt,
+                '', 0, '', 0, 'shop_order', '', 0
+            )
+        """)
 
-            current_time = get_gmt_time()
-            # Usar W-XXXXX en lugar del ID para identificar pedidos del manager
-            post_title = f"Pedido {manager_order_number} &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
-            post_name = f"order-{manager_order_number.lower()}-{current_time.strftime('%b-%d-%Y').lower()}"
+        current_time = get_gmt_time()
+        # Usar W-XXXXX en lugar del ID para identificar pedidos del manager
+        post_title = f"Pedido {manager_order_number} &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
+        post_name = f"order-{manager_order_number.lower()}-{current_time.strftime('%b-%d-%Y').lower()}"
 
-            db.session.execute(insert_post, {
-                'order_id': order.id,
-                'post_date': current_time,
-                'post_date_gmt': current_time,
-                'post_title': post_title,
-                'post_status': order.status,  # wc-processing, wc-pending, etc.
-                'post_name': post_name,
-                'post_modified': current_time,
-                'post_modified_gmt': current_time
-            })
-            current_app.logger.info(f"Inserted order {order.id} into wpyz_posts with title: {post_title}")
+        db.session.execute(insert_post, {
+            'order_id': order.id,
+            'post_date': current_time,
+            'post_date_gmt': current_time,
+            'post_title': post_title,
+            'post_status': order.status,  # wc-processing, wc-pending, etc.
+            'post_name': post_name,
+            'post_modified': current_time,
+            'post_modified_gmt': current_time
+        })
+        current_app.logger.info(f"Inserted order {order.id} into wpyz_posts with title: {post_title}")
 
         # ===== DIRECCIONES =====
         # IMPORTANTE: WooCommerce NO tiene HPOS habilitado, usa el sistema antiguo (postmeta)
