@@ -240,8 +240,21 @@
         const startDate = new Date();
         startDate.setDate(1); // Primer día del mes actual
 
-        document.getElementById('end-date').valueAsDate = endDate;
-        document.getElementById('start-date').valueAsDate = startDate;
+        const startInput = document.getElementById('start-date');
+        const endInput = document.getElementById('end-date');
+
+        // Verificar si Flatpickr está inicializado
+        if (startInput._flatpickr) {
+            startInput._flatpickr.setDate(startDate, true); // true dispara el evento onChange para setear data-iso-date
+        } else {
+            startInput.valueAsDate = startDate;
+        }
+
+        if (endInput._flatpickr) {
+            endInput._flatpickr.setDate(endDate, true);
+        } else {
+            endInput.valueAsDate = endDate;
+        }
 
         loadReports();
     });
