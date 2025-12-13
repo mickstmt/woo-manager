@@ -166,8 +166,8 @@
     // NO cargar reporte automáticamente
 
     function loadReport() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) {
             showAlert('Por favor selecciona ambas fechas para generar el reporte', 'warning');

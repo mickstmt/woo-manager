@@ -18,6 +18,9 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
+    <!-- Flatpickr CSS (date picker en español) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+
     <!-- CSS personalizado -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
@@ -181,6 +184,10 @@
 
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Flatpickr JS (date picker en español) -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
 
     {% if current_user.is_authenticated %}
     <!-- Verificador de sesión -->
@@ -350,6 +357,109 @@
         html += '</ul></nav>';
         return html;
     }
+
+    // ===================================================================
+    // CONFIGURACIÓN GLOBAL: Formato de fechas en español (dd/mm/yyyy)
+    // ===================================================================
+
+    /**
+     * Convierte una fecha del formato dd/mm/yyyy a yyyy-mm-dd
+     * @param {string} dateStr - Fecha en formato dd/mm/yyyy
+     * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
+     */
+    function convertDateToISO(dateStr) {
+        if (!dateStr) return '';
+
+        // Si ya está en formato ISO (yyyy-mm-dd), devolverla tal cual
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr;
+        }
+
+        // Si está en formato dd/mm/yyyy, convertir
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+            const parts = dateStr.split('/');
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            return `${year}-${month}-${day}`;
+        }
+
+        // Intentar parsear como fecha
+        try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        } catch (e) {
+            console.warn('Error converting date:', dateStr, e);
+        }
+
+        return dateStr;
+    }
+
+    /**
+     * Obtiene el valor de un input de fecha y lo convierte a formato ISO
+     * @param {string} elementId - ID del elemento input
+     * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
+     */
+    function getDateValue(elementId) {
+        const input = document.getElementById(elementId);
+        if (!input) return '';
+
+        // Si el input tiene el atributo data-iso-date (Flatpickr), usarlo
+        const isoDate = input.getAttribute('data-iso-date');
+        if (isoDate) return isoDate;
+
+        // Si no, intentar convertir el valor
+        return convertDateToISO(input.value);
+    }
+
+    function initSpanishDatePickers() {
+        // Configurar todos los inputs tipo date con Flatpickr en español
+        const dateInputs = document.querySelectorAll('input[type="date"]');
+
+        dateInputs.forEach(input => {
+            // Guardar el valor original si existe
+            const originalValue = input.value;
+
+            // Cambiar el tipo a text para que Flatpickr funcione correctamente
+            input.type = 'text';
+
+            // Inicializar Flatpickr con configuración en español
+            flatpickr(input, {
+                locale: 'es',               // Idioma español
+                dateFormat: 'd/m/Y',        // Formato dd/mm/yyyy
+                altInput: true,             // Usar input alternativo para mejor UX
+                altFormat: 'd/m/Y',         // Formato del input visible
+                allowInput: true,           // Permitir escritura manual
+                defaultDate: originalValue || null,  // Fecha inicial si existe
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Mantener compatibilidad: guardar también en formato ISO
+                    if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        input.setAttribute('data-iso-date', `${year}-${month}-${day}`);
+                    }
+                }
+            });
+
+            // Agregar clase de Bootstrap para mejor apariencia
+            input.classList.add('form-control');
+        });
+    }
+
+    // Ejecutar al cargar el DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        // Esperar a que Flatpickr esté disponible
+        if (typeof flatpickr !== 'undefined') {
+            initSpanishDatePickers();
+        }
+    });
     </script>
 
     {% block extra_js %}{% endblock %}

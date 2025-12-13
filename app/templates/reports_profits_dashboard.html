@@ -229,8 +229,8 @@
     // NO cargar dashboard automáticamente
 
     function loadDashboard() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) {
             showAlert('Por favor selecciona ambas fechas para generar el dashboard', 'warning');
@@ -246,8 +246,8 @@
     }
 
     function loadMonthlyData() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) {
             showAlert('Por favor selecciona ambas fechas', 'warning');
@@ -274,8 +274,8 @@
     }
 
     function loadTopProducts() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
         const limit = document.getElementById('top-limit').value;
 
         if (!startDate || !endDate) return;
@@ -496,8 +496,8 @@
     }
 
     function loadAdvisorData() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) return;
 
@@ -517,8 +517,8 @@
     }
 
     function loadStatusData() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) return;
 
@@ -538,8 +538,8 @@
     }
 
     function loadLowMarginProducts() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
         if (!startDate || !endDate) return;
 
