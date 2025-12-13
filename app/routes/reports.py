@@ -1232,10 +1232,10 @@ def api_profits_by_advisor():
                 'error': 'Se requieren start_date y end_date'
             }), 400
 
-        # Query para obtener datos por asesor
+        # Query para obtener datos por asesor (usuario que creó el pedido)
         query = text("""
             SELECT
-                COALESCE(pm_asesor.meta_value, 'Sin asesor') as asesor_nombre,
+                COALESCE(pm_created.meta_value, 'Sin asesor') as asesor_nombre,
                 COUNT(DISTINCT o.id) as total_pedidos,
                 COALESCE(SUM(o.total_amount), 0) as ventas_totales_pen,
                 COALESCE(SUM(
@@ -1256,8 +1256,8 @@ def api_profits_by_advisor():
                 ), 0) as costos_totales_usd,
                 COALESCE(tc.tasa_promedio, 3.75) as tipo_cambio_promedio
             FROM wpyz_wc_orders o
-            LEFT JOIN wpyz_wc_orders_meta pm_asesor ON o.id = pm_asesor.order_id
-                AND pm_asesor.meta_key = '_asesor_nombre'
+            LEFT JOIN wpyz_wc_orders_meta pm_created ON o.id = pm_created.order_id
+                AND pm_created.meta_key = '_created_by'
             LEFT JOIN woo_tipo_cambio tc ON DATE(o.date_created_gmt) = tc.fecha
                 AND tc.activo = 1
             WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
