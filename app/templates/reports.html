@@ -239,8 +239,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadReports() {
-    const startDate = document.getElementById('start-date').value;
-    const endDate = document.getElementById('end-date').value;
+    // IMPORTANTE: Usar getDateValue() para obtener el formato ISO (yyyy-mm-dd)
+    // .value devuelve el formato visual (dd/mm/yyyy) que no funciona con SQL
+    const startDate = getDateValue('start-date');
+    const endDate = getDateValue('end-date');
 
     loadSummary(startDate, endDate);
     loadSalesByDay(startDate, endDate);
