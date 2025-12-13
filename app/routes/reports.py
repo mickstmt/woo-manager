@@ -645,6 +645,50 @@ def api_profits():
         # Convertir resultados a formato JSON
         orders_data = []
         for order in orders:
+            # Obtener items del pedido
+            items_query = text("""
+                SELECT
+                    oi.order_item_name as producto,
+                    oim_qty.meta_value as cantidad,
+                    pm_sku.meta_value as sku,
+                    (
+                        SELECT SUM(fc.FCLastCost)
+                        FROM woo_products_fccost fc
+                        WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                            AND LENGTH(fc.sku) = 7
+                    ) as costo_unitario_usd
+                FROM wpyz_woocommerce_order_items oi
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid
+                    ON oi.order_item_id = oim_pid.order_item_id
+                    AND oim_pid.meta_key = '_product_id'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty
+                    ON oi.order_item_id = oim_qty.order_item_id
+                    AND oim_qty.meta_key = '_qty'
+                LEFT JOIN wpyz_postmeta pm_sku
+                    ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                    AND pm_sku.meta_key = '_sku'
+                WHERE oi.order_id = :order_id
+                    AND oi.order_item_type = 'line_item'
+            """)
+
+            items_result = db.session.execute(items_query, {'order_id': order[0]}).fetchall()
+
+            items_data = []
+            for item in items_result:
+                costo_unit = float(item[3] or 0)
+                cantidad = int(item[1] or 0)
+                costo_total_item = costo_unit * cantidad
+
+                items_data.append({
+                    'producto': item[0],
+                    'cantidad': cantidad,
+                    'sku': item[2] or 'Sin SKU',
+                    'tiene_sku': bool(item[2]),
+                    'costo_unitario_usd': costo_unit,
+                    'costo_total_usd': costo_total_item,
+                    'tiene_costo': costo_unit > 0
+                })
+
             orders_data.append({
                 'pedido_id': order[0],
                 'numero_pedido': order[1],
@@ -657,7 +701,9 @@ def api_profits():
                 'ganancia_pen': float(order[8] or 0),
                 'margen_porcentaje': float(order[9] or 0),
                 'cliente_nombre': order[10] or '',
-                'cliente_apellido': order[11] or ''
+                'cliente_apellido': order[11] or '',
+                'items': items_data,
+                'total_items': len(items_data)
             })
 
         return jsonify({

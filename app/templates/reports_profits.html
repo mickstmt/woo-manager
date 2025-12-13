@@ -117,10 +117,12 @@
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
+                                <th style="width: 30px;"></th>
                                 <th>Pedido</th>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th>Estado</th>
+                                <th class="text-center">Items</th>
                                 <th class="text-end">Venta (PEN)</th>
                                 <th class="text-end">Tipo Cambio</th>
                                 <th class="text-end">Costo (USD)</th>
@@ -131,7 +133,7 @@
                         </thead>
                         <tbody id="orders-table">
                             <tr>
-                                <td colspan="10" class="text-center text-muted">
+                                <td colspan="12" class="text-center text-muted">
                                     Selecciona un rango de fechas y genera el reporte
                                 </td>
                             </tr>
@@ -176,7 +178,7 @@
         // Mostrar loading
         document.getElementById('orders-table').innerHTML = `
             <tr>
-                <td colspan="10" class="text-center">
+                <td colspan="12" class="text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
@@ -216,7 +218,7 @@
         if (orders.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center text-muted">
+                    <td colspan="12" class="text-center text-muted">
                         No hay pedidos en el rango seleccionado
                     </td>
                 </tr>
@@ -224,19 +226,27 @@
             return;
         }
 
-        tbody.innerHTML = orders.map(order => {
+        tbody.innerHTML = orders.map((order, index) => {
             const profitClass = order.ganancia_pen >= 0 ? 'profit-positive' : 'profit-negative';
             const statusBadge = getStatusBadge(order.estado);
             const clienteNombre = order.cliente_nombre && order.cliente_apellido
                 ? `${order.cliente_nombre} ${order.cliente_apellido}`
                 : 'Sin nombre';
 
-            return `
-                <tr>
-                    <td><a href="/orders/${order.pedido_id}">${order.numero_pedido}</a></td>
+            const rowId = `order-${order.pedido_id}`;
+            const detailsId = `details-${order.pedido_id}`;
+
+            // Fila principal
+            let html = `
+                <tr class="order-row" style="cursor: pointer;" onclick="toggleDetails('${detailsId}', '${rowId}')">
+                    <td class="text-center">
+                        <i class="bi bi-chevron-right" id="icon-${rowId}"></i>
+                    </td>
+                    <td><a href="/orders/${order.pedido_id}" onclick="event.stopPropagation();">${order.numero_pedido}</a></td>
                     <td>${formatDate(order.fecha_pedido)}</td>
                     <td>${clienteNombre}</td>
                     <td>${statusBadge}</td>
+                    <td class="text-center"><span class="badge bg-secondary">${order.total_items}</span></td>
                     <td class="text-end">S/. ${formatNumber(order.total_venta_pen)}</td>
                     <td class="text-end">${formatNumber(order.tipo_cambio)}</td>
                     <td class="text-end">$ ${formatNumber(order.costo_total_usd)}</td>
@@ -249,7 +259,65 @@
                     </td>
                 </tr>
             `;
+
+            // Fila de detalles (oculta por defecto)
+            html += `
+                <tr id="${detailsId}" class="details-row" style="display: none;">
+                    <td colspan="12" style="background-color: #f8f9fa;">
+                        <div class="p-3">
+                            <h6 class="mb-3"><i class="bi bi-box-seam"></i> Productos del pedido</h6>
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-center">SKU</th>
+                                        <th class="text-end">Costo Unit. (USD)</th>
+                                        <th class="text-end">Costo Total (USD)</th>
+                                        <th class="text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${order.items.map(item => {
+                                        const statusClass = !item.tiene_sku ? 'text-danger' : (!item.tiene_costo ? 'text-warning' : 'text-success');
+                                        const statusText = !item.tiene_sku ? 'Sin SKU' : (!item.tiene_costo ? 'Sin costo en FC' : 'OK');
+                                        const statusIcon = !item.tiene_sku ? 'x-circle-fill' : (!item.tiene_costo ? 'exclamation-triangle-fill' : 'check-circle-fill');
+
+                                        return `
+                                            <tr>
+                                                <td>${item.producto}</td>
+                                                <td class="text-center">${item.cantidad}</td>
+                                                <td class="text-center"><code>${item.sku}</code></td>
+                                                <td class="text-end">$ ${formatNumber(item.costo_unitario_usd)}</td>
+                                                <td class="text-end">$ ${formatNumber(item.costo_total_usd)}</td>
+                                                <td class="text-center ${statusClass}">
+                                                    <i class="bi bi-${statusIcon}"></i> ${statusText}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
+            return html;
         }).join('');
+    }
+
+    function toggleDetails(detailsId, rowId) {
+        const detailsRow = document.getElementById(detailsId);
+        const icon = document.getElementById('icon-' + rowId);
+
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = 'table-row';
+            icon.className = 'bi bi-chevron-down';
+        } else {
+            detailsRow.style.display = 'none';
+            icon.className = 'bi bi-chevron-right';
+        }
     }
 
     function getStatusBadge(status) {
