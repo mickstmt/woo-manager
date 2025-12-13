@@ -1215,3 +1215,237 @@ def api_profits_top_products():
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+@bp.route('/api/profits/charts/by-advisor', methods=['GET'])
+@login_required
+def api_profits_by_advisor():
+    """
+    API para obtener ganancias por asesor
+    """
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren start_date y end_date'
+            }), 400
+
+        # Query para obtener datos por asesor
+        query = text("""
+            SELECT
+                COALESCE(pm_asesor.meta_value, 'Sin asesor') as asesor_nombre,
+                COUNT(DISTINCT o.id) as total_pedidos,
+                COALESCE(SUM(o.total_amount), 0) as ventas_totales_pen,
+                COALESCE(SUM(
+                    (SELECT SUM(fc.FCLastCost * CAST(oim_qty.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                        AND oim_pid.meta_key = '_product_id'
+                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                        AND oim_vid.meta_key = '_variation_id'
+                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                        AND pm_sku.meta_key = '_sku'
+                    INNER JOIN woo_products_fccost fc ON pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                        AND LENGTH(fc.sku) = 7
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                        AND oim_qty.meta_key = '_qty'
+                    WHERE oi.order_id = o.id
+                        AND oi.order_item_type = 'line_item')
+                ), 0) as costos_totales_usd,
+                COALESCE(tc.tasa_promedio, 3.75) as tipo_cambio_promedio
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta pm_asesor ON o.id = pm_asesor.order_id
+                AND pm_asesor.meta_key = '_asesor_nombre'
+            LEFT JOIN woo_tipo_cambio tc ON DATE(o.date_created_gmt) = tc.fecha
+                AND tc.activo = 1
+            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+                AND o.status IN ('wc-completed', 'wc-processing')
+            GROUP BY asesor_nombre
+            HAVING ventas_totales_pen > 0
+            ORDER BY ventas_totales_pen DESC
+        """)
+
+        result = db.session.execute(query, {
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+
+        advisors_data = []
+        for row in result:
+            costos_totales_pen = float(row[3] or 0) * float(row[4] or 3.75)
+            ventas_totales_pen = float(row[2] or 0)
+            ganancia_total_pen = ventas_totales_pen - costos_totales_pen
+            margen_porcentaje = (ganancia_total_pen / ventas_totales_pen * 100) if ventas_totales_pen > 0 else 0
+
+            advisors_data.append({
+                'asesor_nombre': row[0],
+                'total_pedidos': int(row[1] or 0),
+                'ventas_totales_pen': ventas_totales_pen,
+                'costos_totales_pen': costos_totales_pen,
+                'ganancia_total_pen': ganancia_total_pen,
+                'margen_porcentaje': margen_porcentaje
+            })
+
+        return jsonify({
+            'success': True,
+            'data': advisors_data
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/api/profits/charts/by-status', methods=['GET'])
+@login_required
+def api_profits_by_status():
+    """
+    API para obtener distribución de pedidos por estado
+    """
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren start_date y end_date'
+            }), 400
+
+        # Query para obtener datos por estado
+        query = text("""
+            SELECT
+                o.status,
+                COUNT(DISTINCT o.id) as total_pedidos,
+                COALESCE(SUM(o.total_amount), 0) as ventas_totales_pen
+            FROM wpyz_wc_orders o
+            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+            GROUP BY o.status
+            ORDER BY total_pedidos DESC
+        """)
+
+        result = db.session.execute(query, {
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+
+        status_data = []
+        for row in result:
+            status_data.append({
+                'status': row[0],
+                'total_pedidos': int(row[1] or 0),
+                'ventas_totales_pen': float(row[2] or 0)
+            })
+
+        return jsonify({
+            'success': True,
+            'data': status_data
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/api/profits/charts/low-margin-products', methods=['GET'])
+@login_required
+def api_profits_low_margin_products():
+    """
+    API para obtener productos con márgenes bajos o pérdidas
+    """
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        threshold = float(request.args.get('threshold', 15))  # Margen mínimo aceptable (%)
+        limit = int(request.args.get('limit', 10))
+
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren start_date y end_date'
+            }), 400
+
+        # Query para productos con margen bajo
+        query = text("""
+            SELECT
+                oi.order_item_name as producto,
+                COUNT(DISTINCT o.id) as total_pedidos,
+                SUM(CAST(oim_qty.meta_value AS DECIMAL(10,2))) as cantidad_total,
+                COALESCE(SUM(CAST(oim_total.meta_value AS DECIMAL(10,2))), 0) as ventas_totales_pen,
+                COALESCE(SUM(
+                    (SELECT SUM(fc.FCLastCost * CAST(oim_qty.meta_value AS DECIMAL(10,2)))
+                    FROM woo_products_fccost fc
+                    INNER JOIN wpyz_postmeta pm_sku ON pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                        AND LENGTH(fc.sku) = 7
+                    WHERE pm_sku.post_id = CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED)
+                        AND pm_sku.meta_key = '_sku')
+                ), 0) as costos_totales_usd,
+                AVG(COALESCE(tc.tasa_promedio, 3.75)) as tipo_cambio_promedio
+            FROM wpyz_wc_orders o
+            INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id
+                AND oi.order_item_type = 'line_item'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                AND oim_pid.meta_key = '_product_id'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                AND oim_vid.meta_key = '_variation_id'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                AND oim_qty.meta_key = '_qty'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id
+                AND oim_total.meta_key = '_line_total'
+            LEFT JOIN woo_tipo_cambio tc ON DATE(o.date_created_gmt) = tc.fecha
+                AND tc.activo = 1
+            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+                AND o.status IN ('wc-completed', 'wc-processing')
+            GROUP BY producto
+            HAVING ventas_totales_pen > 0
+            ORDER BY (ventas_totales_pen - (costos_totales_usd * tipo_cambio_promedio)) / ventas_totales_pen ASC
+            LIMIT :limit
+        """)
+
+        result = db.session.execute(query, {
+            'start_date': start_date,
+            'end_date': end_date,
+            'limit': limit
+        }).fetchall()
+
+        products_data = []
+        for row in result:
+            costos_totales_pen = float(row[4] or 0) * float(row[5] or 3.75)
+            ventas_totales_pen = float(row[3] or 0)
+            ganancia_total_pen = ventas_totales_pen - costos_totales_pen
+            margen_porcentaje = (ganancia_total_pen / ventas_totales_pen * 100) if ventas_totales_pen > 0 else 0
+
+            # Solo incluir si el margen es menor al umbral
+            if margen_porcentaje < threshold:
+                products_data.append({
+                    'producto': row[0],
+                    'total_pedidos': int(row[1] or 0),
+                    'cantidad_total': float(row[2] or 0),
+                    'ventas_totales_pen': ventas_totales_pen,
+                    'costos_totales_pen': costos_totales_pen,
+                    'ganancia_total_pen': ganancia_total_pen,
+                    'margen_porcentaje': margen_porcentaje
+                })
+
+        return jsonify({
+            'success': True,
+            'data': products_data
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500

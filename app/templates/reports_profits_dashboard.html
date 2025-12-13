@@ -129,6 +129,67 @@
     </div>
 </div>
 
+<!-- Sección: Rendimiento por Asesor -->
+<h4 class="section-title">Rendimiento por Asesor</h4>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Ganancias por Asesor</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="advisorProfitsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Margen % por Asesor</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="advisorMarginChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección: Análisis de Riesgo -->
+<h4 class="section-title">Análisis de Riesgo</h4>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Distribución por Estado</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Productos con Margen Bajo (&lt;15%)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="lowMarginChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Navegación rápida -->
 <div class="row">
     <div class="col-12">
@@ -162,6 +223,7 @@
 
 <script>
     let monthlyChart, marginChart, ordersChart, topProductsChart;
+    let advisorProfitsChart, advisorMarginChart, statusChart, lowMarginChart;
 
     // NO inicializar fechas por defecto - dejar vacío
     // NO cargar dashboard automáticamente
@@ -178,6 +240,9 @@
         showLoading();
         loadMonthlyData();
         loadTopProducts();
+        loadAdvisorData();
+        loadStatusData();
+        loadLowMarginProducts();
     }
 
     function loadMonthlyData() {
@@ -428,6 +493,308 @@
                 }
             }
         });
+    }
+
+    function loadAdvisorData() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) return;
+
+        fetch(`/reports/api/profits/charts/by-advisor?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderAdvisorCharts(data.data);
+                } else {
+                    showAlert('Error al cargar datos por asesor: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function loadStatusData() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) return;
+
+        fetch(`/reports/api/profits/charts/by-status?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderStatusChart(data.data);
+                } else {
+                    showAlert('Error al cargar datos por estado: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function loadLowMarginProducts() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) return;
+
+        fetch(`/reports/api/profits/charts/low-margin-products?start_date=${startDate}&end_date=${endDate}&threshold=15&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderLowMarginChart(data.data);
+                } else {
+                    showAlert('Error al cargar productos con margen bajo: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function renderAdvisorCharts(data) {
+        const labels = data.map(d => d.asesor_nombre);
+        const ganancias = data.map(d => d.ganancia_total_pen);
+        const margenes = data.map(d => d.margen_porcentaje);
+
+        // Gráfico de Ganancias por Asesor
+        if (advisorProfitsChart) advisorProfitsChart.destroy();
+        const ctx1 = document.getElementById('advisorProfitsChart').getContext('2d');
+        advisorProfitsChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ganancia (PEN)',
+                    data: ganancias,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Ganancia: S/. ' + formatNumber(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/. ' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de Margen por Asesor
+        if (advisorMarginChart) advisorMarginChart.destroy();
+        const ctx2 = document.getElementById('advisorMarginChart').getContext('2d');
+        advisorMarginChart = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Margen %',
+                    data: margenes,
+                    backgroundColor: margenes.map(m => m >= 20 ? 'rgba(40, 167, 69, 0.6)' :
+                                                          m >= 10 ? 'rgba(255, 193, 7, 0.6)' :
+                                                          'rgba(220, 53, 69, 0.6)'),
+                    borderColor: margenes.map(m => m >= 20 ? 'rgba(40, 167, 69, 1)' :
+                                                      m >= 10 ? 'rgba(255, 193, 7, 1)' :
+                                                      'rgba(220, 53, 69, 1)'),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Margen: ' + formatNumber(context.parsed.y) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderStatusChart(data) {
+        const labels = data.map(d => getStatusLabel(d.status));
+        const values = data.map(d => d.total_pedidos);
+        const colors = data.map(d => getStatusColor(d.status));
+
+        if (statusChart) statusChart.destroy();
+        const ctx = document.getElementById('statusChart').getContext('2d');
+        statusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderLowMarginChart(data) {
+        if (data.length === 0) {
+            // Si no hay productos con margen bajo, mostrar mensaje positivo
+            const ctx = document.getElementById('lowMarginChart').getContext('2d');
+            if (lowMarginChart) lowMarginChart.destroy();
+
+            // Crear un gráfico vacío con mensaje
+            lowMarginChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sin productos'],
+                    datasets: [{
+                        label: 'Margen %',
+                        data: [0],
+                        backgroundColor: 'rgba(40, 167, 69, 0.2)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                }
+            });
+            return;
+        }
+
+        const labels = data.map(d => truncate(d.producto, 30));
+        const margenes = data.map(d => d.margen_porcentaje);
+
+        if (lowMarginChart) lowMarginChart.destroy();
+        const ctx = document.getElementById('lowMarginChart').getContext('2d');
+        lowMarginChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Margen %',
+                    data: margenes,
+                    backgroundColor: margenes.map(m => m < 0 ? 'rgba(220, 53, 69, 0.6)' : 'rgba(255, 193, 7, 0.6)'),
+                    borderColor: margenes.map(m => m < 0 ? 'rgba(220, 53, 69, 1)' : 'rgba(255, 193, 7, 1)'),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                return [
+                                    'Margen: ' + formatNumber(margenes[index]) + '%',
+                                    'Ganancia: S/. ' + formatNumber(data[index].ganancia_total_pen)
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function getStatusLabel(status) {
+        const statusMap = {
+            'wc-completed': 'Completado',
+            'wc-processing': 'Procesando',
+            'wc-pending': 'Pendiente',
+            'wc-on-hold': 'En espera',
+            'wc-cancelled': 'Cancelado',
+            'wc-refunded': 'Reembolsado',
+            'wc-failed': 'Fallido'
+        };
+        return statusMap[status] || status;
+    }
+
+    function getStatusColor(status) {
+        const colorMap = {
+            'wc-completed': 'rgba(40, 167, 69, 0.8)',
+            'wc-processing': 'rgba(0, 123, 255, 0.8)',
+            'wc-pending': 'rgba(255, 193, 7, 0.8)',
+            'wc-on-hold': 'rgba(23, 162, 184, 0.8)',
+            'wc-cancelled': 'rgba(220, 53, 69, 0.8)',
+            'wc-refunded': 'rgba(108, 117, 125, 0.8)',
+            'wc-failed': 'rgba(52, 58, 64, 0.8)'
+        };
+        return colorMap[status] || 'rgba(108, 117, 125, 0.8)';
     }
 
     function formatMonth(mesStr) {
