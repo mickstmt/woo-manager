@@ -912,3 +912,306 @@ def api_create_exchange_rate():
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+
+# ============================================================================
+# DASHBOARD DE GRÁFICOS
+# ============================================================================
+
+@bp.route('/profits/dashboard')
+@login_required
+def profits_dashboard():
+    """
+    Dashboard de gráficos de ganancias
+    """
+    return render_template('reports_profits_dashboard.html', title='Dashboard de Ganancias')
+
+
+@bp.route('/api/profits/charts/monthly', methods=['GET'])
+@login_required
+def api_profits_monthly():
+    """
+    Obtener datos de ganancias agrupados por mes
+
+    Query params:
+    - start_date: fecha inicio (YYYY-MM-DD)
+    - end_date: fecha fin (YYYY-MM-DD)
+
+    Retorna datos mensuales de: ventas, costos, ganancias, margen
+    """
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren start_date y end_date'
+            }), 400
+
+        # Query para datos mensuales
+        monthly_query = text("""
+            SELECT
+                DATE_FORMAT(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR), '%Y-%m') as mes,
+                COUNT(DISTINCT o.id) as total_pedidos,
+                ROUND(SUM(o.total_amount), 2) as ventas_totales_pen,
+                ROUND(SUM(
+                    (
+                        SELECT SUM(
+                            (
+                                SELECT SUM(fc.FCLastCost)
+                                FROM woo_products_fccost fc
+                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                    AND LENGTH(fc.sku) = 7
+                            ) * oim_qty.meta_value
+                        )
+                        FROM wpyz_woocommerce_order_items oi
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                            AND oim_pid.meta_key = '_product_id'
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                            AND oim_qty.meta_key = '_qty'
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                            AND pm_sku.meta_key = '_sku'
+                        WHERE oi.order_id = o.id
+                            AND oi.order_item_type = 'line_item'
+                    ) * (
+                        SELECT tasa_promedio
+                        FROM woo_tipo_cambio tc
+                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                            AND tc.activo = TRUE
+                        ORDER BY tc.fecha DESC
+                        LIMIT 1
+                    )
+                ), 2) as costos_totales_pen,
+                ROUND(SUM(o.total_amount) - SUM(
+                    (
+                        SELECT SUM(
+                            (
+                                SELECT SUM(fc.FCLastCost)
+                                FROM woo_products_fccost fc
+                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                    AND LENGTH(fc.sku) = 7
+                            ) * oim_qty.meta_value
+                        )
+                        FROM wpyz_woocommerce_order_items oi
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                            AND oim_pid.meta_key = '_product_id'
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                            AND oim_qty.meta_key = '_qty'
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                            AND pm_sku.meta_key = '_sku'
+                        WHERE oi.order_id = o.id
+                            AND oi.order_item_type = 'line_item'
+                    ) * (
+                        SELECT tasa_promedio
+                        FROM woo_tipo_cambio tc
+                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                            AND tc.activo = TRUE
+                        ORDER BY tc.fecha DESC
+                        LIMIT 1
+                    )
+                ), 2) as ganancias_totales_pen,
+                ROUND(
+                    (SUM(o.total_amount) - SUM(
+                        (
+                            SELECT SUM(
+                                (
+                                    SELECT SUM(fc.FCLastCost)
+                                    FROM woo_products_fccost fc
+                                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                        AND LENGTH(fc.sku) = 7
+                                ) * oim_qty.meta_value
+                            )
+                            FROM wpyz_woocommerce_order_items oi
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                                AND oim_pid.meta_key = '_product_id'
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                                AND oim_qty.meta_key = '_qty'
+                            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                                AND oim_vid.meta_key = '_variation_id'
+                            INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                                AND pm_sku.meta_key = '_sku'
+                            WHERE oi.order_id = o.id
+                                AND oi.order_item_type = 'line_item'
+                        ) * (
+                            SELECT tasa_promedio
+                            FROM woo_tipo_cambio tc
+                            WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                                AND tc.activo = TRUE
+                            ORDER BY tc.fecha DESC
+                            LIMIT 1
+                        )
+                    )) / NULLIF(SUM(o.total_amount), 0) * 100
+                , 2) as margen_promedio_porcentaje
+            FROM wpyz_wc_orders o
+            INNER JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
+                AND om_numero.meta_key = '_order_number'
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
+                AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+            GROUP BY mes
+            ORDER BY mes
+        """)
+
+        results = db.session.execute(monthly_query, {
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+
+        monthly_data = []
+        for row in results:
+            monthly_data.append({
+                'mes': row[0],
+                'total_pedidos': row[1] or 0,
+                'ventas_totales_pen': float(row[2] or 0),
+                'costos_totales_pen': float(row[3] or 0),
+                'ganancias_totales_pen': float(row[4] or 0),
+                'margen_promedio_porcentaje': float(row[5] or 0)
+            })
+
+        return jsonify({
+            'success': True,
+            'data': monthly_data
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/api/profits/charts/top-products', methods=['GET'])
+@login_required
+def api_profits_top_products():
+    """
+    Obtener top productos más rentables
+
+    Query params:
+    - start_date: fecha inicio (YYYY-MM-DD)
+    - end_date: fecha fin (YYYY-MM-DD)
+    - limit: cantidad de productos a retornar (default: 10)
+
+    Retorna productos ordenados por ganancia total
+    """
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        limit = int(request.args.get('limit', 10))
+
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren start_date y end_date'
+            }), 400
+
+        # Query para top productos
+        top_products_query = text("""
+            SELECT
+                oi.order_item_name as producto,
+                SUM(oim_qty.meta_value) as cantidad_vendida,
+                ROUND(SUM(oim_subtotal.meta_value), 2) as ventas_totales_pen,
+                ROUND(SUM(
+                    (
+                        SELECT SUM(fc.FCLastCost)
+                        FROM woo_products_fccost fc
+                        WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                            AND LENGTH(fc.sku) = 7
+                    ) * oim_qty.meta_value * (
+                        SELECT tasa_promedio
+                        FROM woo_tipo_cambio tc
+                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                            AND tc.activo = TRUE
+                        ORDER BY tc.fecha DESC
+                        LIMIT 1
+                    )
+                ), 2) as costos_totales_pen,
+                ROUND(SUM(oim_subtotal.meta_value) - SUM(
+                    (
+                        SELECT SUM(fc.FCLastCost)
+                        FROM woo_products_fccost fc
+                        WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                            AND LENGTH(fc.sku) = 7
+                    ) * oim_qty.meta_value * (
+                        SELECT tasa_promedio
+                        FROM woo_tipo_cambio tc
+                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                            AND tc.activo = TRUE
+                        ORDER BY tc.fecha DESC
+                        LIMIT 1
+                    )
+                ), 2) as ganancia_total_pen,
+                ROUND(
+                    (SUM(oim_subtotal.meta_value) - SUM(
+                        (
+                            SELECT SUM(fc.FCLastCost)
+                            FROM woo_products_fccost fc
+                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                AND LENGTH(fc.sku) = 7
+                        ) * oim_qty.meta_value * (
+                            SELECT tasa_promedio
+                            FROM woo_tipo_cambio tc
+                            WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                                AND tc.activo = TRUE
+                            ORDER BY tc.fecha DESC
+                            LIMIT 1
+                        )
+                    )) / NULLIF(SUM(oim_subtotal.meta_value), 0) * 100
+                , 2) as margen_porcentaje
+            FROM wpyz_woocommerce_order_items oi
+            INNER JOIN wpyz_wc_orders o ON oi.order_id = o.id
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                AND oim_pid.meta_key = '_product_id'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                AND oim_qty.meta_key = '_qty'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_subtotal ON oi.order_item_id = oim_subtotal.order_item_id
+                AND oim_subtotal.meta_key = '_line_subtotal'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                AND oim_vid.meta_key = '_variation_id'
+            LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                AND pm_sku.meta_key = '_sku'
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND oi.order_item_type = 'line_item'
+                AND o.status != 'trash'
+                AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+            GROUP BY oi.order_item_name
+            HAVING ganancia_total_pen IS NOT NULL
+            ORDER BY ganancia_total_pen DESC
+            LIMIT :limit
+        """)
+
+        results = db.session.execute(top_products_query, {
+            'start_date': start_date,
+            'end_date': end_date,
+            'limit': limit
+        }).fetchall()
+
+        products_data = []
+        for row in results:
+            products_data.append({
+                'producto': row[0],
+                'cantidad_vendida': int(row[1] or 0),
+                'ventas_totales_pen': float(row[2] or 0),
+                'costos_totales_pen': float(row[3] or 0),
+                'ganancia_total_pen': float(row[4] or 0),
+                'margen_porcentaje': float(row[5] or 0)
+            })
+
+        return jsonify({
+            'success': True,
+            'data': products_data
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500

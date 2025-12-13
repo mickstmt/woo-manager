@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard de Ganancias - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin-bottom: 30px;
+    }
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .section-title {
+        border-left: 4px solid #0d6efd;
+        padding-left: 15px;
+        margin: 30px 0 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-0">
+            <i class="bi bi-bar-chart-line-fill"></i> Dashboard de Ganancias
+        </h1>
+        <p class="text-muted">Visualización de métricas y tendencias</p>
+    </div>
+</div>
+
+<!-- Filtro de fechas -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Inicio</label>
+                        <input type="date" id="start-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Fin</label>
+                        <input type="date" id="end-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary w-100" onclick="loadDashboard()">
+                            <i class="bi bi-arrow-clockwise"></i> Actualizar Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección: Evolución Mensual -->
+<h4 class="section-title">Evolución Mensual</h4>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Ventas, Costos y Ganancias</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Margen de Ganancia %</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="marginChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Pedidos por Mes</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="ordersChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección: Top Productos -->
+<h4 class="section-title">Top Productos Más Rentables</h4>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Top 10 Productos por Ganancia</h5>
+                <select id="top-limit" class="form-select w-auto" onchange="loadTopProducts()">
+                    <option value="5">Top 5</option>
+                    <option value="10" selected>Top 10</option>
+                    <option value="15">Top 15</option>
+                    <option value="20">Top 20</option>
+                </select>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 500px;">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navegación rápida -->
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <a href="/reports/profits" class="btn btn-outline-primary">
+                    <i class="bi bi-table"></i> Ver Reporte Detallado
+                </a>
+                <a href="/reports" class="btn btn-outline-secondary">
+                    <i class="bi bi-house"></i> Volver a Reportes
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+    let monthlyChart, marginChart, ordersChart, topProductsChart;
+
+    // Inicializar fechas (últimos 6 meses)
+    const today = new Date();
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+    document.getElementById('end-date').valueAsDate = today;
+    document.getElementById('start-date').valueAsDate = sixMonthsAgo;
+
+    // Cargar dashboard al inicio
+    loadDashboard();
+
+    function loadDashboard() {
+        showLoading();
+        loadMonthlyData();
+        loadTopProducts();
+    }
+
+    function loadMonthlyData() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) {
+            showAlert('Por favor selecciona ambas fechas', 'warning');
+            hideLoading();
+            return;
+        }
+
+        fetch(`/reports/api/profits/charts/monthly?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderMonthlyCharts(data.data);
+                } else {
+                    showAlert('Error al cargar datos mensuales: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            })
+            .finally(() => {
+                hideLoading();
+            });
+    }
+
+    function loadTopProducts() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const limit = document.getElementById('top-limit').value;
+
+        if (!startDate || !endDate) return;
+
+        fetch(`/reports/api/profits/charts/top-products?start_date=${startDate}&end_date=${endDate}&limit=${limit}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderTopProductsChart(data.data);
+                } else {
+                    showAlert('Error al cargar top productos: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function renderMonthlyCharts(data) {
+        const labels = data.map(d => formatMonth(d.mes));
+        const ventas = data.map(d => d.ventas_totales_pen);
+        const costos = data.map(d => d.costos_totales_pen);
+        const ganancias = data.map(d => d.ganancias_totales_pen);
+        const margenes = data.map(d => d.margen_promedio_porcentaje);
+        const pedidos = data.map(d => d.total_pedidos);
+
+        // Gráfico de Ventas, Costos y Ganancias
+        if (monthlyChart) monthlyChart.destroy();
+        const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+        monthlyChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Ventas (PEN)',
+                        data: ventas,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Costos (PEN)',
+                        data: costos,
+                        backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Ganancias (PEN)',
+                        data: ganancias,
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': S/. ' + formatNumber(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/. ' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de Margen %
+        if (marginChart) marginChart.destroy();
+        const ctx2 = document.getElementById('marginChart').getContext('2d');
+        marginChart = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Margen %',
+                    data: margenes,
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Margen: ' + formatNumber(context.parsed.y) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de Pedidos
+        if (ordersChart) ordersChart.destroy();
+        const ctx3 = document.getElementById('ordersChart').getContext('2d');
+        ordersChart = new Chart(ctx3, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pedidos',
+                    data: pedidos,
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTopProductsChart(data) {
+        const labels = data.map(d => truncate(d.producto, 40));
+        const ganancias = data.map(d => d.ganancia_total_pen);
+        const margenes = data.map(d => d.margen_porcentaje);
+
+        if (topProductsChart) topProductsChart.destroy();
+        const ctx = document.getElementById('topProductsChart').getContext('2d');
+        topProductsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ganancia (PEN)',
+                    data: ganancias,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                return [
+                                    'Ganancia: S/. ' + formatNumber(ganancias[index]),
+                                    'Margen: ' + formatNumber(margenes[index]) + '%'
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/. ' + formatNumber(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function formatMonth(mesStr) {
+        const [year, month] = mesStr.split('-');
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return months[parseInt(month) - 1] + ' ' + year;
+    }
+
+    function formatNumber(num) {
+        if (num === null || num === undefined) return '0.00';
+        return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function truncate(str, maxLength) {
+        if (str.length <= maxLength) return str;
+        return str.substring(0, maxLength - 3) + '...';
+    }
+
+    function showLoading() {
+        document.getElementById('loading-overlay').style.display = 'block';
+    }
+
+    function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.style.zIndex = '10000';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %}
