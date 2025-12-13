@@ -393,7 +393,9 @@ def api_profits():
                         AND oim_pid.meta_key = '_product_id'
                     INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                         AND oim_qty.meta_key = '_qty'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                        AND oim_vid.meta_key = '_variation_id'
+                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                         AND pm_sku.meta_key = '_sku'
                     WHERE oi.order_id = o.id
                         AND oi.order_item_type = 'line_item'
@@ -414,7 +416,9 @@ def api_profits():
                         AND oim_pid.meta_key = '_product_id'
                     INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                         AND oim_qty.meta_key = '_qty'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                        AND oim_vid.meta_key = '_variation_id'
+                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                         AND pm_sku.meta_key = '_sku'
                     WHERE oi.order_id = o.id
                         AND oi.order_item_type = 'line_item'
@@ -443,7 +447,9 @@ def api_profits():
                             AND oim_pid.meta_key = '_product_id'
                         INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                             AND oim_qty.meta_key = '_qty'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                             AND pm_sku.meta_key = '_sku'
                         WHERE oi.order_id = o.id
                             AND oi.order_item_type = 'line_item'
@@ -475,7 +481,9 @@ def api_profits():
                                     AND oim_pid.meta_key = '_product_id'
                                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                                     AND oim_qty.meta_key = '_qty'
-                                INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                                    AND oim_vid.meta_key = '_variation_id'
+                                INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                                     AND pm_sku.meta_key = '_sku'
                                 WHERE oi.order_id = o.id
                                     AND oi.order_item_type = 'line_item'
@@ -535,7 +543,9 @@ def api_profits():
                             AND oim_pid.meta_key = '_product_id'
                         INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                             AND oim_qty.meta_key = '_qty'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                             AND pm_sku.meta_key = '_sku'
                         WHERE oi.order_id = o.id
                             AND oi.order_item_type = 'line_item'
@@ -556,7 +566,9 @@ def api_profits():
                             AND oim_pid.meta_key = '_product_id'
                         INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                             AND oim_qty.meta_key = '_qty'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                             AND pm_sku.meta_key = '_sku'
                         WHERE oi.order_id = o.id
                             AND oi.order_item_type = 'line_item'
@@ -584,7 +596,9 @@ def api_profits():
                             AND oim_pid.meta_key = '_product_id'
                         INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                             AND oim_qty.meta_key = '_qty'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                             AND pm_sku.meta_key = '_sku'
                         WHERE oi.order_id = o.id
                             AND oi.order_item_type = 'line_item'
@@ -613,7 +627,9 @@ def api_profits():
                                 AND oim_pid.meta_key = '_product_id'
                             INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
                                 AND oim_qty.meta_key = '_qty'
-                            INNER JOIN wpyz_postmeta pm_sku ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                                AND oim_vid.meta_key = '_variation_id'
+                            INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                                 AND pm_sku.meta_key = '_sku'
                             WHERE oi.order_id = o.id
                                 AND oi.order_item_type = 'line_item'
@@ -664,8 +680,11 @@ def api_profits():
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty
                     ON oi.order_item_id = oim_qty.order_item_id
                     AND oim_qty.meta_key = '_qty'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid
+                    ON oi.order_item_id = oim_vid.order_item_id
+                    AND oim_vid.meta_key = '_variation_id'
                 LEFT JOIN wpyz_postmeta pm_sku
-                    ON CAST(oim_pid.meta_value AS UNSIGNED) = pm_sku.post_id
+                    ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
                     AND pm_sku.meta_key = '_sku'
                 WHERE oi.order_id = :order_id
                     AND oi.order_item_type = 'line_item'
