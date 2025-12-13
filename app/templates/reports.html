@@ -7,17 +7,21 @@
     .metric-card {
         transition: transform 0.2s;
     }
+
     .metric-card:hover {
         transform: translateY(-5px);
     }
+
     .metric-value {
         font-size: 2rem;
         font-weight: bold;
     }
+
     .chart-container {
         position: relative;
         height: 300px;
     }
+
     .table-container {
         max-height: 400px;
         overflow-y: auto;
@@ -186,7 +190,9 @@
                             </tr>
                         </thead>
                         <tbody id="top-products-table">
-                            <tr><td colspan="3" class="text-center">Cargando...</td></tr>
+                            <tr>
+                                <td colspan="3" class="text-center">Cargando...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -209,7 +215,9 @@
                             </tr>
                         </thead>
                         <tbody id="sales-by-user-table">
-                            <tr><td colspan="3" class="text-center">Cargando...</td></tr>
+                            <tr>
+                                <td colspan="3" class="text-center">Cargando...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -222,322 +230,322 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-let salesTrendChart = null;
-let statusChart = null;
-let salesByUserChart = null;
+    let salesTrendChart = null;
+    let statusChart = null;
+    let salesByUserChart = null;
 
-// Inicializar fechas por defecto (últimos 30 días)
-document.addEventListener('DOMContentLoaded', function() {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
+    // Inicializar fechas por defecto (1ro del mes actual hasta hoy)
+    document.addEventListener('DOMContentLoaded', function () {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(1); // Primer día del mes actual
 
-    document.getElementById('end-date').valueAsDate = endDate;
-    document.getElementById('start-date').valueAsDate = startDate;
+        document.getElementById('end-date').valueAsDate = endDate;
+        document.getElementById('start-date').valueAsDate = startDate;
 
-    loadReports();
-});
+        loadReports();
+    });
 
-function loadReports() {
-    // IMPORTANTE: Usar getDateValue() para obtener el formato ISO (yyyy-mm-dd)
-    // .value devuelve el formato visual (dd/mm/yyyy) que no funciona con SQL
-    const startDate = getDateValue('start-date');
-    const endDate = getDateValue('end-date');
+    function loadReports() {
+        // IMPORTANTE: Usar getDateValue() para obtener el formato ISO (yyyy-mm-dd)
+        // .value devuelve el formato visual (dd/mm/yyyy) que no funciona con SQL
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
 
-    loadSummary(startDate, endDate);
-    loadSalesByDay(startDate, endDate);
-    loadTopProducts(startDate, endDate);
-    loadSalesByUser(startDate, endDate);
-    loadSalesByUserChart(startDate, endDate);
-    loadStatusDistribution(startDate, endDate);
-}
+        loadSummary(startDate, endDate);
+        loadSalesByDay(startDate, endDate);
+        loadTopProducts(startDate, endDate);
+        loadSalesByUser(startDate, endDate);
+        loadSalesByUserChart(startDate, endDate);
+        loadStatusDistribution(startDate, endDate);
+    }
 
-function loadSummary(startDate, endDate) {
-    fetch(`/reports/api/summary?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const data = result.data;
-                document.getElementById('total-orders').textContent = data.total_orders;
-                document.getElementById('total-sales').textContent = 'S/' + data.total_sales.toFixed(2);
-                document.getElementById('avg-order-value').textContent = 'S/' + data.avg_order_value.toFixed(2);
-                document.getElementById('total-discounts').textContent = 'S/' + data.total_discounts.toFixed(2);
-                document.getElementById('completed-orders').textContent = data.completed_orders;
-                document.getElementById('processing-orders').textContent = data.processing_orders;
-                document.getElementById('cancelled-orders').textContent = data.cancelled_orders;
-            }
-        })
-        .catch(error => console.error('Error loading summary:', error));
-}
-
-function loadSalesByDay(startDate, endDate) {
-    fetch(`/reports/api/sales-by-day?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const data = result.data;
-                const labels = data.map(row => row.date);
-                const sales = data.map(row => row.total);
-                const orders = data.map(row => row.orders);
-
-                if (salesTrendChart) {
-                    salesTrendChart.destroy();
+    function loadSummary(startDate, endDate) {
+        fetch(`/reports/api/summary?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const data = result.data;
+                    document.getElementById('total-orders').textContent = data.total_orders;
+                    document.getElementById('total-sales').textContent = 'S/' + data.total_sales.toFixed(2);
+                    document.getElementById('avg-order-value').textContent = 'S/' + data.avg_order_value.toFixed(2);
+                    document.getElementById('total-discounts').textContent = 'S/' + data.total_discounts.toFixed(2);
+                    document.getElementById('completed-orders').textContent = data.completed_orders;
+                    document.getElementById('processing-orders').textContent = data.processing_orders;
+                    document.getElementById('cancelled-orders').textContent = data.cancelled_orders;
                 }
+            })
+            .catch(error => console.error('Error loading summary:', error));
+    }
 
-                const ctx = document.getElementById('sales-trend-chart').getContext('2d');
-                salesTrendChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Ventas (S/)',
-                            data: sales,
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            tension: 0.1,
-                            yAxisID: 'y'
-                        }, {
-                            label: 'Pedidos',
-                            data: orders,
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                            tension: 0.1,
-                            yAxisID: 'y1'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
+    function loadSalesByDay(startDate, endDate) {
+        fetch(`/reports/api/sales-by-day?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const data = result.data;
+                    const labels = data.map(row => row.date);
+                    const sales = data.map(row => row.total);
+                    const orders = data.map(row => row.orders);
+
+                    if (salesTrendChart) {
+                        salesTrendChart.destroy();
+                    }
+
+                    const ctx = document.getElementById('sales-trend-chart').getContext('2d');
+                    salesTrendChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Ventas (S/)',
+                                data: sales,
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.1,
+                                yAxisID: 'y'
+                            }, {
+                                label: 'Pedidos',
+                                data: orders,
+                                borderColor: 'rgb(255, 99, 132)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                tension: 0.1,
+                                yAxisID: 'y1'
+                            }]
                         },
-                        scales: {
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left'
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
                             },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                grid: {
-                                    drawOnChartArea: false
+                            scales: {
+                                y: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'left'
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    grid: {
+                                        drawOnChartArea: false
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error loading sales by day:', error));
-}
-
-function loadTopProducts(startDate, endDate) {
-    fetch(`/reports/api/top-products?start_date=${startDate}&end_date=${endDate}&limit=10`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const tbody = document.getElementById('top-products-table');
-                tbody.innerHTML = '';
-
-                if (result.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
-                    return;
+                    });
                 }
+            })
+            .catch(error => console.error('Error loading sales by day:', error));
+    }
 
-                result.data.forEach(product => {
-                    const row = `
+    function loadTopProducts(startDate, endDate) {
+        fetch(`/reports/api/top-products?start_date=${startDate}&end_date=${endDate}&limit=10`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const tbody = document.getElementById('top-products-table');
+                    tbody.innerHTML = '';
+
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
+                        return;
+                    }
+
+                    result.data.forEach(product => {
+                        const row = `
                         <tr>
                             <td>${product.product_name}</td>
                             <td class="text-center"><span class="badge bg-primary">${product.quantity_sold}</span></td>
                             <td class="text-center"><span class="badge bg-info">${product.times_ordered}</span></td>
                         </tr>
                     `;
-                    tbody.innerHTML += row;
-                });
-            }
-        })
-        .catch(error => console.error('Error loading top products:', error));
-}
-
-function loadSalesByUser(startDate, endDate) {
-    fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const tbody = document.getElementById('sales-by-user-table');
-                tbody.innerHTML = '';
-
-                if (result.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
-                    return;
+                        tbody.innerHTML += row;
+                    });
                 }
+            })
+            .catch(error => console.error('Error loading top products:', error));
+    }
 
-                result.data.forEach(user => {
-                    const row = `
+    function loadSalesByUser(startDate, endDate) {
+        fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const tbody = document.getElementById('sales-by-user-table');
+                    tbody.innerHTML = '';
+
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay datos</td></tr>';
+                        return;
+                    }
+
+                    result.data.forEach(user => {
+                        const row = `
                         <tr>
                             <td>${user.full_name}</td>
                             <td class="text-center"><span class="badge bg-primary">${user.total_orders}</span></td>
                             <td class="text-end">S/${user.total_sales.toFixed(2)}</td>
                         </tr>
                     `;
-                    tbody.innerHTML += row;
-                });
-            }
-        })
-        .catch(error => console.error('Error loading sales by user:', error));
-}
-
-function loadSalesByUserChart(startDate, endDate) {
-    fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const data = result.data;
-
-                // Ordenar por ventas descendente y tomar top 10
-                const sortedData = data.sort((a, b) => b.total_sales - a.total_sales).slice(0, 10);
-
-                const labels = sortedData.map(user => user.full_name);
-                const sales = sortedData.map(user => user.total_sales);
-                const orders = sortedData.map(user => user.total_orders);
-
-                if (salesByUserChart) {
-                    salesByUserChart.destroy();
+                        tbody.innerHTML += row;
+                    });
                 }
+            })
+            .catch(error => console.error('Error loading sales by user:', error));
+    }
 
-                const ctx = document.getElementById('sales-by-user-chart').getContext('2d');
-                salesByUserChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Ventas (S/)',
-                            data: sales,
-                            backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1,
-                            yAxisID: 'y'
-                        }, {
-                            label: 'Pedidos',
-                            data: orders,
-                            backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            borderWidth: 1,
-                            yAxisID: 'y1'
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
+    function loadSalesByUserChart(startDate, endDate) {
+        fetch(`/reports/api/sales-by-user?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const data = result.data;
+
+                    // Ordenar por ventas descendente y tomar top 10
+                    const sortedData = data.sort((a, b) => b.total_sales - a.total_sales).slice(0, 10);
+
+                    const labels = sortedData.map(user => user.full_name);
+                    const sales = sortedData.map(user => user.total_sales);
+                    const orders = sortedData.map(user => user.total_orders);
+
+                    if (salesByUserChart) {
+                        salesByUserChart.destroy();
+                    }
+
+                    const ctx = document.getElementById('sales-by-user-chart').getContext('2d');
+                    salesByUserChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Ventas (S/)',
+                                data: sales,
+                                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y'
+                            }, {
+                                label: 'Pedidos',
+                                data: orders,
+                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y1'
+                            }]
                         },
-                        scales: {
-                            x: {
-                                type: 'linear',
-                                display: true,
-                                position: 'bottom',
-                                title: {
-                                    display: true,
-                                    text: 'Ventas (S/)'
-                                }
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
                             },
-                            x1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'top',
-                                grid: {
-                                    drawOnChartArea: false
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'bottom',
+                                    title: {
+                                        display: true,
+                                        text: 'Ventas (S/)'
+                                    }
                                 },
-                                title: {
+                                x1: {
+                                    type: 'linear',
                                     display: true,
-                                    text: 'Pedidos'
+                                    position: 'top',
+                                    grid: {
+                                        drawOnChartArea: false
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Pedidos'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true
+                                },
+                                y1: {
+                                    display: false
                                 }
                             },
-                            y: {
-                                beginAtZero: true
-                            },
-                            y1: {
-                                display: false
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.datasetIndex === 0) {
+                                                label += 'S/' + context.parsed.x.toFixed(2);
+                                            } else {
+                                                label += context.parsed.x + ' pedidos';
+                                            }
+                                            return label;
                                         }
-                                        if (context.datasetIndex === 0) {
-                                            label += 'S/' + context.parsed.x.toFixed(2);
-                                        } else {
-                                            label += context.parsed.x + ' pedidos';
-                                        }
-                                        return label;
                                     }
                                 }
                             }
                         }
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error loading sales by user chart:', error));
-}
-
-function loadStatusDistribution(startDate, endDate) {
-    fetch(`/reports/api/status-distribution?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                const data = result.data;
-                const labels = data.map(row => row.status.replace('wc-', ''));
-                const counts = data.map(row => row.count);
-
-                if (statusChart) {
-                    statusChart.destroy();
+                    });
                 }
+            })
+            .catch(error => console.error('Error loading sales by user chart:', error));
+    }
 
-                const ctx = document.getElementById('status-chart').getContext('2d');
-                statusChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: counts,
-                            backgroundColor: [
-                                'rgba(255, 99, 132, 0.8)',
-                                'rgba(54, 162, 235, 0.8)',
-                                'rgba(255, 206, 86, 0.8)',
-                                'rgba(75, 192, 192, 0.8)',
-                                'rgba(153, 102, 255, 0.8)',
-                                'rgba(255, 159, 64, 0.8)'
-                            ]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
+    function loadStatusDistribution(startDate, endDate) {
+        fetch(`/reports/api/status-distribution?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const data = result.data;
+                    const labels = data.map(row => row.status.replace('wc-', ''));
+                    const counts = data.map(row => row.count);
+
+                    if (statusChart) {
+                        statusChart.destroy();
+                    }
+
+                    const ctx = document.getElementById('status-chart').getContext('2d');
+                    statusChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: counts,
+                                backgroundColor: [
+                                    'rgba(255, 99, 132, 0.8)',
+                                    'rgba(54, 162, 235, 0.8)',
+                                    'rgba(255, 206, 86, 0.8)',
+                                    'rgba(75, 192, 192, 0.8)',
+                                    'rgba(153, 102, 255, 0.8)',
+                                    'rgba(255, 159, 64, 0.8)'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
                             }
                         }
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error loading status distribution:', error));
-}
+                    });
+                }
+            })
+            .catch(error => console.error('Error loading status distribution:', error));
+    }
 </script>
 {% endblock %}
