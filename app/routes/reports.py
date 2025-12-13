@@ -1375,40 +1375,51 @@ def api_profits_low_margin_products():
                 'error': 'Se requieren start_date y end_date'
             }), 400
 
-        # Query para productos con margen bajo
+        # Query para productos con margen bajo (usando subconsulta para evitar error de MySQL)
         query = text("""
             SELECT
-                oi.order_item_name as producto,
-                COUNT(DISTINCT o.id) as total_pedidos,
-                SUM(CAST(oim_qty.meta_value AS DECIMAL(10,2))) as cantidad_total,
-                COALESCE(SUM(CAST(oim_total.meta_value AS DECIMAL(10,2))), 0) as ventas_totales_pen,
-                COALESCE(SUM(
-                    (SELECT SUM(fc.FCLastCost * CAST(oim_qty.meta_value AS DECIMAL(10,2)))
-                    FROM woo_products_fccost fc
-                    INNER JOIN wpyz_postmeta pm_sku ON pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                        AND LENGTH(fc.sku) = 7
-                    WHERE pm_sku.post_id = CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED)
-                        AND pm_sku.meta_key = '_sku')
-                ), 0) as costos_totales_usd,
-                AVG(COALESCE(tc.tasa_promedio, 3.75)) as tipo_cambio_promedio
-            FROM wpyz_wc_orders o
-            INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id
-                AND oi.order_item_type = 'line_item'
-            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                AND oim_pid.meta_key = '_product_id'
-            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                AND oim_vid.meta_key = '_variation_id'
-            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                AND oim_qty.meta_key = '_qty'
-            INNER JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id
-                AND oim_total.meta_key = '_line_total'
-            LEFT JOIN woo_tipo_cambio tc ON DATE(o.date_created_gmt) = tc.fecha
-                AND tc.activo = 1
-            WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
-                AND o.status IN ('wc-completed', 'wc-processing')
-            GROUP BY producto
-            HAVING ventas_totales_pen > 0
-            ORDER BY (ventas_totales_pen - (costos_totales_usd * tipo_cambio_promedio)) / ventas_totales_pen ASC
+                producto,
+                total_pedidos,
+                cantidad_total,
+                ventas_totales_pen,
+                costos_totales_usd,
+                tipo_cambio_promedio,
+                (ventas_totales_pen - (costos_totales_usd * tipo_cambio_promedio)) as ganancia_pen,
+                ((ventas_totales_pen - (costos_totales_usd * tipo_cambio_promedio)) / ventas_totales_pen * 100) as margen_porcentaje
+            FROM (
+                SELECT
+                    oi.order_item_name as producto,
+                    COUNT(DISTINCT o.id) as total_pedidos,
+                    SUM(CAST(oim_qty.meta_value AS DECIMAL(10,2))) as cantidad_total,
+                    COALESCE(SUM(CAST(oim_total.meta_value AS DECIMAL(10,2))), 0) as ventas_totales_pen,
+                    COALESCE(SUM(
+                        (SELECT SUM(fc.FCLastCost * CAST(oim_qty.meta_value AS DECIMAL(10,2)))
+                        FROM woo_products_fccost fc
+                        INNER JOIN wpyz_postmeta pm_sku ON pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                            AND LENGTH(fc.sku) = 7
+                        WHERE pm_sku.post_id = CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED)
+                            AND pm_sku.meta_key = '_sku')
+                    ), 0) as costos_totales_usd,
+                    AVG(COALESCE(tc.tasa_promedio, 3.75)) as tipo_cambio_promedio
+                FROM wpyz_wc_orders o
+                INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id
+                    AND oi.order_item_type = 'line_item'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                    AND oim_pid.meta_key = '_product_id'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                    AND oim_vid.meta_key = '_variation_id'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                    AND oim_qty.meta_key = '_qty'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id
+                    AND oim_total.meta_key = '_line_total'
+                LEFT JOIN woo_tipo_cambio tc ON DATE(o.date_created_gmt) = tc.fecha
+                    AND tc.activo = 1
+                WHERE DATE(o.date_created_gmt) BETWEEN :start_date AND :end_date
+                    AND o.status IN ('wc-completed', 'wc-processing')
+                GROUP BY producto
+            ) AS productos_agregados
+            WHERE ventas_totales_pen > 0
+            ORDER BY margen_porcentaje ASC
             LIMIT :limit
         """)
 
@@ -1420,10 +1431,11 @@ def api_profits_low_margin_products():
 
         products_data = []
         for row in result:
+            # La subconsulta ya calcula ganancia_pen y margen_porcentaje
             costos_totales_pen = float(row[4] or 0) * float(row[5] or 3.75)
             ventas_totales_pen = float(row[3] or 0)
-            ganancia_total_pen = ventas_totales_pen - costos_totales_pen
-            margen_porcentaje = (ganancia_total_pen / ventas_totales_pen * 100) if ventas_totales_pen > 0 else 0
+            ganancia_total_pen = float(row[6] or 0)  # Ya calculado en la query
+            margen_porcentaje = float(row[7] or 0)   # Ya calculado en la query
 
             # Solo incluir si el margen es menor al umbral
             if margen_porcentaje < threshold:
