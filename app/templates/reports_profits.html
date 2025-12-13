@@ -162,23 +162,15 @@
 
 {% block extra_js %}
 <script>
-    // Inicializar fechas (últimos 30 días)
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-
-    document.getElementById('end-date').valueAsDate = today;
-    document.getElementById('start-date').valueAsDate = thirtyDaysAgo;
-
-    // Cargar reporte automáticamente al inicio
-    loadReport();
+    // NO inicializar fechas por defecto - dejar vacío
+    // NO cargar reporte automáticamente
 
     function loadReport() {
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
 
         if (!startDate || !endDate) {
-            showAlert('Por favor selecciona ambas fechas', 'warning');
+            showAlert('Por favor selecciona ambas fechas para generar el reporte', 'warning');
             return;
         }
 

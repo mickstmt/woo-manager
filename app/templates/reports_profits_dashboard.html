@@ -163,18 +163,18 @@
 <script>
     let monthlyChart, marginChart, ordersChart, topProductsChart;
 
-    // Inicializar fechas (últimos 6 meses)
-    const today = new Date();
-    const sixMonthsAgo = new Date(today);
-    sixMonthsAgo.setMonth(today.getMonth() - 6);
-
-    document.getElementById('end-date').valueAsDate = today;
-    document.getElementById('start-date').valueAsDate = sixMonthsAgo;
-
-    // Cargar dashboard al inicio
-    loadDashboard();
+    // NO inicializar fechas por defecto - dejar vacío
+    // NO cargar dashboard automáticamente
 
     function loadDashboard() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        if (!startDate || !endDate) {
+            showAlert('Por favor selecciona ambas fechas para generar el dashboard', 'warning');
+            return;
+        }
+
         showLoading();
         loadMonthlyData();
         loadTopProducts();
