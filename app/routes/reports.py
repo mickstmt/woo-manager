@@ -1235,7 +1235,7 @@ def api_profits_by_advisor():
         # Query para obtener datos por asesor (usuario que creó el pedido)
         query = text("""
             SELECT
-                COALESCE(pm_created.meta_value, 'Sin asesor') as asesor_nombre,
+                COALESCE(pm_created.meta_value, 'WooCommerce') as asesor_nombre,
                 COUNT(DISTINCT o.id) as total_pedidos,
                 COALESCE(SUM(o.total_amount), 0) as ventas_totales_pen,
                 COALESCE(SUM(
