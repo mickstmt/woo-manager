@@ -516,6 +516,7 @@
                 locale: 'es',               // Idioma español
                 dateFormat: 'd/m/Y',        // Formato dd/mm/yyyy
                 allowInput: true,           // Permitir escritura manual
+                disableMobile: true,        // Forzar uso de Flatpickr en móviles también
                 defaultDate: originalValue || null,  // Fecha inicial si existe
                 onChange: function(selectedDates, dateStr, instance) {
                     // Mantener compatibilidad: guardar también en formato ISO
@@ -534,6 +535,11 @@
                     if (originalValue) {
                         instance.setDate(originalValue, false);
                     }
+                },
+                onOpen: function(selectedDates, dateStr, instance) {
+                    // Limpiar el valor del input al abrir para evitar sugerencias molestas
+                    // Esto previene que se muestren fechas antiguas en el dropdown
+                    instance.input.value = dateStr;
                 }
             });
 
