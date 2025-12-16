@@ -162,8 +162,31 @@
 
 {% block extra_js %}
 <script>
-    // NO inicializar fechas por defecto - dejar vacío
-    // NO cargar reporte automáticamente
+    // Inicializar fechas y cargar reporte automáticamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(1); // Primer día del mes actual
+
+        const startInput = document.getElementById('start-date');
+        const endInput = document.getElementById('end-date');
+
+        // Verificar si Flatpickr está inicializado
+        if (startInput._flatpickr) {
+            startInput._flatpickr.setDate(startDate, true);
+        } else {
+            startInput.valueAsDate = startDate;
+        }
+
+        if (endInput._flatpickr) {
+            endInput._flatpickr.setDate(endDate, true);
+        } else {
+            endInput.valueAsDate = endDate;
+        }
+
+        // Cargar reporte automáticamente
+        loadReport();
+    });
 
     function loadReport() {
         const startDate = getDateValue('start-date');
