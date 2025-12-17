@@ -298,6 +298,8 @@
                                         <th class="text-center">SKU</th>
                                         <th class="text-end">Costo Unit. (USD)</th>
                                         <th class="text-end">Costo Total (USD)</th>
+                                        <th class="text-end">Costo Unit. (PEN)</th>
+                                        <th class="text-end">Costo Total (PEN)</th>
                                         <th class="text-center">Estado</th>
                                     </tr>
                                 </thead>
@@ -307,6 +309,9 @@
                                         const statusText = !item.tiene_sku ? 'Sin SKU' : (!item.tiene_costo ? 'Sin costo en FC' : 'OK');
                                         const statusIcon = !item.tiene_sku ? 'x-circle-fill' : (!item.tiene_costo ? 'exclamation-triangle-fill' : 'check-circle-fill');
 
+                                        const costoUnitPen = item.costo_unitario_usd * order.tipo_cambio;
+                                        const costoTotalPen = item.costo_total_usd * order.tipo_cambio;
+
                                         return `
                                             <tr>
                                                 <td>${item.producto}</td>
@@ -314,6 +319,8 @@
                                                 <td class="text-center"><code>${item.sku}</code></td>
                                                 <td class="text-end">$ ${formatNumber(item.costo_unitario_usd)}</td>
                                                 <td class="text-end">$ ${formatNumber(item.costo_total_usd)}</td>
+                                                <td class="text-end">S/. ${formatNumber(costoUnitPen)}</td>
+                                                <td class="text-end">S/. ${formatNumber(costoTotalPen)}</td>
                                                 <td class="text-center ${statusClass}">
                                                     <i class="bi bi-${statusIcon}"></i> ${statusText}
                                                 </td>
