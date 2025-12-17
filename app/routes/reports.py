@@ -605,6 +605,16 @@ def api_profits():
                         LIMIT 1
                     )
                 ), 2) as costos_totales_pen,
+                ROUND(SUM(
+                    COALESCE((
+                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                        FROM wpyz_woocommerce_order_items oi_shipping
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                        WHERE oi_shipping.order_id = o.id
+                            AND oi_shipping.order_item_type = 'shipping'
+                            AND oim_shipping.meta_key = 'cost'
+                    ), 0)
+                ), 2) as costos_envio_totales_pen,
                 ROUND(SUM(o.total_amount) - SUM(
                     (
                         SELECT SUM(
@@ -634,6 +644,15 @@ def api_profits():
                         ORDER BY tc.fecha DESC
                         LIMIT 1
                     )
+                ) - SUM(
+                    COALESCE((
+                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                        FROM wpyz_woocommerce_order_items oi_shipping
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                        WHERE oi_shipping.order_id = o.id
+                            AND oi_shipping.order_item_type = 'shipping'
+                            AND oim_shipping.meta_key = 'cost'
+                    ), 0)
                 ), 2) as ganancias_totales_pen,
                 ROUND(
                     (SUM(o.total_amount) - SUM(
@@ -665,6 +684,15 @@ def api_profits():
                             ORDER BY tc.fecha DESC
                             LIMIT 1
                         )
+                    ) - SUM(
+                        COALESCE((
+                            SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                            FROM wpyz_woocommerce_order_items oi_shipping
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                            WHERE oi_shipping.order_id = o.id
+                                AND oi_shipping.order_item_type = 'shipping'
+                                AND oim_shipping.meta_key = 'cost'
+                        ), 0)
                     )) / NULLIF(SUM(o.total_amount), 0) * 100
                 , 2) as margen_promedio_porcentaje
 
@@ -1009,6 +1037,16 @@ def api_profits_monthly():
                         LIMIT 1
                     )
                 ), 2) as costos_totales_pen,
+                ROUND(SUM(
+                    COALESCE((
+                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                        FROM wpyz_woocommerce_order_items oi_shipping
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                        WHERE oi_shipping.order_id = o.id
+                            AND oi_shipping.order_item_type = 'shipping'
+                            AND oim_shipping.meta_key = 'cost'
+                    ), 0)
+                ), 2) as costos_envio_totales_pen,
                 ROUND(SUM(o.total_amount) - SUM(
                     (
                         SELECT SUM(
@@ -1038,6 +1076,15 @@ def api_profits_monthly():
                         ORDER BY tc.fecha DESC
                         LIMIT 1
                     )
+                ) - SUM(
+                    COALESCE((
+                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                        FROM wpyz_woocommerce_order_items oi_shipping
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                        WHERE oi_shipping.order_id = o.id
+                            AND oi_shipping.order_item_type = 'shipping'
+                            AND oim_shipping.meta_key = 'cost'
+                    ), 0)
                 ), 2) as ganancias_totales_pen,
                 ROUND(
                     (SUM(o.total_amount) - SUM(
@@ -1069,6 +1116,15 @@ def api_profits_monthly():
                             ORDER BY tc.fecha DESC
                             LIMIT 1
                         )
+                    ) - SUM(
+                        COALESCE((
+                            SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                            FROM wpyz_woocommerce_order_items oi_shipping
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                            WHERE oi_shipping.order_id = o.id
+                                AND oi_shipping.order_item_type = 'shipping'
+                                AND oim_shipping.meta_key = 'cost'
+                        ), 0)
                     )) / NULLIF(SUM(o.total_amount), 0) * 100
                 , 2) as margen_promedio_porcentaje
             FROM wpyz_wc_orders o
@@ -1278,7 +1334,15 @@ def api_profits_by_advisor():
                     WHERE oi.order_id = o.id
                         AND oi.order_item_type = 'line_item')
                 ), 0) as costos_totales_usd,
-                COALESCE(tc.tasa_promedio, 3.75) as tipo_cambio_promedio
+                COALESCE(tc.tasa_promedio, 3.75) as tipo_cambio_promedio,
+                COALESCE(SUM(
+                    (SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi_shipping
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                    WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_item_type = 'shipping'
+                        AND oim_shipping.meta_key = 'cost')
+                ), 0) as costos_envio_totales_pen
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta pm_created ON o.id = pm_created.order_id
                 AND pm_created.meta_key = '_created_by'
@@ -1299,8 +1363,9 @@ def api_profits_by_advisor():
         advisors_data = []
         for row in result:
             costos_totales_pen = float(row[3] or 0) * float(row[4] or 3.75)
+            costos_envio_totales_pen = float(row[5] or 0)
             ventas_totales_pen = float(row[2] or 0)
-            ganancia_total_pen = ventas_totales_pen - costos_totales_pen
+            ganancia_total_pen = ventas_totales_pen - costos_totales_pen - costos_envio_totales_pen
             margen_porcentaje = (ganancia_total_pen / ventas_totales_pen * 100) if ventas_totales_pen > 0 else 0
 
             advisors_data.append({
@@ -1308,6 +1373,7 @@ def api_profits_by_advisor():
                 'total_pedidos': int(row[1] or 0),
                 'ventas_totales_pen': ventas_totales_pen,
                 'costos_totales_pen': costos_totales_pen,
+                'costos_envio_totales_pen': costos_envio_totales_pen,
                 'ganancia_total_pen': ganancia_total_pen,
                 'margen_porcentaje': margen_porcentaje
             })
