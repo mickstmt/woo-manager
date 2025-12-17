@@ -769,10 +769,11 @@ def api_profits():
                 'tipo_cambio': float(order[5] or 0),
                 'costo_total_usd': float(order[6] or 0),
                 'costo_total_pen': float(order[7] or 0),
-                'ganancia_pen': float(order[8] or 0),
-                'margen_porcentaje': float(order[9] or 0),
-                'cliente_nombre': order[10] or '',
-                'cliente_apellido': order[11] or '',
+                'costo_envio_pen': float(order[8] or 0),
+                'ganancia_pen': float(order[9] or 0),
+                'margen_porcentaje': float(order[10] or 0),
+                'cliente_nombre': order[11] or '',
+                'cliente_apellido': order[12] or '',
                 'items': items_data,
                 'total_items': len(items_data)
             })
@@ -786,8 +787,9 @@ def api_profits():
                     'ventas_totales_pen': float(summary[1] or 0),
                     'costos_totales_usd': float(summary[2] or 0),
                     'costos_totales_pen': float(summary[3] or 0),
-                    'ganancias_totales_pen': float(summary[4] or 0),
-                    'margen_promedio_porcentaje': float(summary[5] or 0)
+                    'costos_envio_totales_pen': float(summary[4] or 0),
+                    'ganancias_totales_pen': float(summary[5] or 0),
+                    'margen_promedio_porcentaje': float(summary[6] or 0)
                 },
                 'period': {
                     'start': start_date,
