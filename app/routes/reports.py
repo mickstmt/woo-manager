@@ -431,7 +431,17 @@ def api_profits():
                     LIMIT 1
                 ) as costo_total_pen,
 
-                -- Ganancia
+                -- Costo de envío
+                COALESCE((
+                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi_shipping
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                    WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_item_type = 'shipping'
+                        AND oim_shipping.meta_key = 'cost'
+                ), 0) as costo_envio_pen,
+
+                -- Ganancia (restando costo de productos Y costo de envío)
                 o.total_amount - (
                     (
                         SELECT SUM(
@@ -461,7 +471,14 @@ def api_profits():
                         ORDER BY tc.fecha DESC
                         LIMIT 1
                     )
-                ) as ganancia_pen,
+                ) - COALESCE((
+                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi_shipping
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                    WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_item_type = 'shipping'
+                        AND oim_shipping.meta_key = 'cost'
+                ), 0) as ganancia_pen,
 
                 -- Margen porcentual
                 ROUND(
@@ -495,7 +512,14 @@ def api_profits():
                                 ORDER BY tc.fecha DESC
                                 LIMIT 1
                             )
-                        )) / NULLIF(o.total_amount, 0)
+                        ) - COALESCE((
+                            SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                            FROM wpyz_woocommerce_order_items oi_shipping
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                            WHERE oi_shipping.order_id = o.id
+                                AND oi_shipping.order_item_type = 'shipping'
+                                AND oim_shipping.meta_key = 'cost'
+                        ), 0)) / NULLIF(o.total_amount, 0)
                     ) * 100
                 , 2) as margen_porcentaje,
 
