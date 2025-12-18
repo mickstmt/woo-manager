@@ -1058,7 +1058,7 @@ function loadMetodosEnvio(distrito) {
                     // Solo Olva y envío 1 día hábil
                     filteredMetodos = response.metodos.filter(function(metodo) {
                         const title = metodo.title.toLowerCase();
-                        return title.includes('olva') || title.includes('1 hábil') || title.includes('1 día hábil') || title.includes('1 habíl');
+                        return title.includes('olva') || title.includes('1 hábil') || title.includes('1 día hábil') || title.includes('1 habíl') || title.includes('1 dia habil') || title.includes('1 día habil');
                     });
                 }
                 // billing_recojo: no filtra, muestra todos
