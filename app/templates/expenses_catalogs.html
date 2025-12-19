@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2><i class="bi bi-list-ul"></i> Administrar Catálogos de Gastos</h2>
+            <p class="text-muted">Gestión de Tipos y Categorías - Solo Master</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="/expenses/" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a Gastos
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" id="catalogTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="types-tab" data-bs-toggle="tab" data-bs-target="#types" type="button" role="tab">
+                <i class="bi bi-folder"></i> Tipos de Gasto
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">
+                <i class="bi bi-tag"></i> Categorías
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="catalogTabsContent">
+        <!-- TIPOS DE GASTO TAB -->
+        <div class="tab-pane fade show active" id="types" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-folder"></i> Tipos de Gasto</h5>
+                    <button class="btn btn-light btn-sm" onclick="showAddTypeModal()">
+                        <i class="bi bi-plus-circle"></i> Agregar Tipo
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="types-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">Orden</th>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                    <th style="width: 120px;">Categorías</th>
+                                    <th style="width: 150px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="types-tbody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-primary"></div>
+                                        <p class="mt-2">Cargando tipos...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CATEGORÍAS TAB -->
+        <div class="tab-pane fade" id="categories" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-tag"></i> Categorías</h5>
+                    <button class="btn btn-light btn-sm" onclick="showAddCategoryModal()">
+                        <i class="bi bi-plus-circle"></i> Agregar Categoría
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="categories-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">Orden</th>
+                                    <th style="width: 200px;">Tipo de Gasto</th>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                    <th style="width: 150px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="categories-tbody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-success"></div>
+                                        <p class="mt-2">Cargando categorías...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar/Editar Tipo -->
+<div class="modal fade" id="typeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="typeModalTitle">Agregar Tipo de Gasto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="typeId">
+                <div class="mb-3">
+                    <label for="typeName" class="form-label">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="typeName" placeholder="Ej: Tecnología">
+                    <div class="invalid-feedback" id="typeNameError"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="typeDescription" class="form-label">Descripción</label>
+                    <textarea class="form-control" id="typeDescription" rows="3" placeholder="Descripción opcional"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="typeOrder" class="form-label">Orden</label>
+                    <input type="number" class="form-control" id="typeOrder" value="0" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveType">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar/Editar Categoría -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="categoryModalTitle">Agregar Categoría</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="categoryId">
+                <div class="mb-3">
+                    <label for="categoryType" class="form-label">Tipo de Gasto <span class="text-danger">*</span></label>
+                    <select class="form-select" id="categoryType">
+                        <option value="">-- Seleccione un tipo --</option>
+                    </select>
+                    <div class="invalid-feedback" id="categoryTypeError"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="categoryName" class="form-label">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="categoryName" placeholder="Ej: Hosting">
+                    <div class="invalid-feedback" id="categoryNameError"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="categoryDescription" class="form-label">Descripción</label>
+                    <textarea class="form-control" id="categoryDescription" rows="3" placeholder="Descripción opcional"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="categoryOrder" class="form-label">Orden</label>
+                    <input type="number" class="form-control" id="categoryOrder" value="0" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnSaveCategory">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Eliminación -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteMessage">¿Está seguro de eliminar este elemento?</p>
+                <p class="text-muted mb-0">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmDelete">
+                    <i class="bi bi-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+    <div id="notificationToast" class="toast" role="alert">
+        <div class="toast-header" id="toastHeader">
+            <i class="bi me-2" id="toastIcon"></i>
+            <strong class="me-auto" id="toastTitle">Notificación</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toastBody">Mensaje</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables globales
+let types = [];
+let categories = [];
+let typeModal, categoryModal, confirmDeleteModal;
+let deleteAction = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar modales
+    typeModal = new bootstrap.Modal(document.getElementById('typeModal'));
+    categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+    confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+
+    // Cargar datos
+    loadTypes();
+    loadCategories();
+
+    // Event listeners
+    document.getElementById('btnSaveType').addEventListener('click', saveType);
+    document.getElementById('btnSaveCategory').addEventListener('click', saveCategory);
+    document.getElementById('btnConfirmDelete').addEventListener('click', executeDelete);
+});
+
+// === TIPOS DE GASTO ===
+
+async function loadTypes() {
+    try {
+        const response = await fetch('/expenses/types');
+        const data = await response.json();
+
+        if (data.success) {
+            types = data.types;
+            renderTypes();
+            populateTypeSelect();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Error al cargar tipos');
+    }
+}
+
+function renderTypes() {
+    const tbody = document.getElementById('types-tbody');
+
+    if (types.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4 text-muted">
+                    No hay tipos registrados
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = types.map(type => {
+        const catCount = categories.filter(c => c.expense_type_id === type.id).length;
+        return `
+            <tr>
+                <td class="text-center">${type.orden}</td>
+                <td><strong>${type.nombre}</strong></td>
+                <td>${type.descripcion || '-'}</td>
+                <td class="text-center">
+                    <span class="badge bg-info">${catCount}</span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editType(${type.id})" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteType(${type.id})" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function showAddTypeModal() {
+    document.getElementById('typeModalTitle').textContent = 'Agregar Tipo de Gasto';
+    document.getElementById('typeId').value = '';
+    document.getElementById('typeName').value = '';
+    document.getElementById('typeDescription').value = '';
+    document.getElementById('typeOrder').value = '0';
+    document.getElementById('typeName').classList.remove('is-invalid');
+    typeModal.show();
+}
+
+function editType(typeId) {
+    const type = types.find(t => t.id === typeId);
+    if (!type) return;
+
+    document.getElementById('typeModalTitle').textContent = 'Editar Tipo de Gasto';
+    document.getElementById('typeId').value = type.id;
+    document.getElementById('typeName').value = type.nombre;
+    document.getElementById('typeDescription').value = type.descripcion || '';
+    document.getElementById('typeOrder').value = type.orden;
+    document.getElementById('typeName').classList.remove('is-invalid');
+    typeModal.show();
+}
+
+async function saveType() {
+    const id = document.getElementById('typeId').value;
+    const nombre = document.getElementById('typeName').value.trim();
+    const descripcion = document.getElementById('typeDescription').value.trim();
+    const orden = parseInt(document.getElementById('typeOrder').value);
+
+    const nameInput = document.getElementById('typeName');
+    const errorDiv = document.getElementById('typeNameError');
+
+    if (!nombre) {
+        nameInput.classList.add('is-invalid');
+        errorDiv.textContent = 'El nombre es requerido';
+        return;
+    }
+
+    const btn = document.getElementById('btnSaveType');
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+    try {
+        const url = id ? `/expenses/types/${id}` : '/expenses/types/create';
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ nombre, descripcion, orden })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification('success', data.message);
+            typeModal.hide();
+            loadTypes();
+        } else {
+            nameInput.classList.add('is-invalid');
+            errorDiv.textContent = data.error;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Error de conexión');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+function confirmDeleteType(typeId) {
+    const type = types.find(t => t.id === typeId);
+    if (!type) return;
+
+    document.getElementById('deleteMessage').textContent =
+        `¿Está seguro de eliminar el tipo "${type.nombre}"?`;
+
+    deleteAction = async () => {
+        const btn = document.getElementById('btnConfirmDelete');
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+
+        try {
+            const response = await fetch(`/expenses/types/${typeId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('success', data.message);
+                confirmDeleteModal.hide();
+                loadTypes();
+                loadCategories();
+            } else {
+                showNotification('error', data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('error', 'Error de conexión');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    };
+
+    confirmDeleteModal.show();
+}
+
+// === CATEGORÍAS ===
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/expenses/categories');
+        const data = await response.json();
+
+        if (data.success) {
+            categories = data.categories;
+            renderCategories();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Error al cargar categorías');
+    }
+}
+
+function renderCategories() {
+    const tbody = document.getElementById('categories-tbody');
+
+    if (categories.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4 text-muted">
+                    No hay categorías registradas
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = categories.map(cat => `
+        <tr>
+            <td class="text-center">${cat.orden}</td>
+            <td><span class="badge bg-primary">${cat.expense_type_nombre || 'N/A'}</span></td>
+            <td><strong>${cat.nombre}</strong></td>
+            <td>${cat.descripcion || '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="editCategory(${cat.id})" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteCategory(${cat.id})" title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function populateTypeSelect() {
+    const select = document.getElementById('categoryType');
+    select.innerHTML = '<option value="">-- Seleccione un tipo --</option>' +
+        types.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+}
+
+function showAddCategoryModal() {
+    document.getElementById('categoryModalTitle').textContent = 'Agregar Categoría';
+    document.getElementById('categoryId').value = '';
+    document.getElementById('categoryType').value = '';
+    document.getElementById('categoryName').value = '';
+    document.getElementById('categoryDescription').value = '';
+    document.getElementById('categoryOrder').value = '0';
+    document.getElementById('categoryType').classList.remove('is-invalid');
+    document.getElementById('categoryName').classList.remove('is-invalid');
+    categoryModal.show();
+}
+
+function editCategory(categoryId) {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    document.getElementById('categoryModalTitle').textContent = 'Editar Categoría';
+    document.getElementById('categoryId').value = category.id;
+    document.getElementById('categoryType').value = category.expense_type_id;
+    document.getElementById('categoryName').value = category.nombre;
+    document.getElementById('categoryDescription').value = category.descripcion || '';
+    document.getElementById('categoryOrder').value = category.orden;
+    document.getElementById('categoryType').classList.remove('is-invalid');
+    document.getElementById('categoryName').classList.remove('is-invalid');
+    categoryModal.show();
+}
+
+async function saveCategory() {
+    const id = document.getElementById('categoryId').value;
+    const expense_type_id = parseInt(document.getElementById('categoryType').value);
+    const nombre = document.getElementById('categoryName').value.trim();
+    const descripcion = document.getElementById('categoryDescription').value.trim();
+    const orden = parseInt(document.getElementById('categoryOrder').value);
+
+    const typeInput = document.getElementById('categoryType');
+    const nameInput = document.getElementById('categoryName');
+    const typeError = document.getElementById('categoryTypeError');
+    const nameError = document.getElementById('categoryNameError');
+
+    let isValid = true;
+
+    if (!expense_type_id) {
+        typeInput.classList.add('is-invalid');
+        typeError.textContent = 'Debe seleccionar un tipo';
+        isValid = false;
+    }
+
+    if (!nombre) {
+        nameInput.classList.add('is-invalid');
+        nameError.textContent = 'El nombre es requerido';
+        isValid = false;
+    }
+
+    if (!isValid) return;
+
+    const btn = document.getElementById('btnSaveCategory');
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+    try {
+        const url = id ? `/expenses/categories/${id}` : '/expenses/categories/create';
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ expense_type_id, nombre, descripcion, orden })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification('success', data.message);
+            categoryModal.hide();
+            loadCategories();
+        } else {
+            nameInput.classList.add('is-invalid');
+            nameError.textContent = data.error;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Error de conexión');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+function confirmDeleteCategory(categoryId) {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    document.getElementById('deleteMessage').textContent =
+        `¿Está seguro de eliminar la categoría "${category.nombre}"?`;
+
+    deleteAction = async () => {
+        const btn = document.getElementById('btnConfirmDelete');
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+
+        try {
+            const response = await fetch(`/expenses/categories/${categoryId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('success', data.message);
+                confirmDeleteModal.hide();
+                loadCategories();
+                loadTypes(); // Recargar para actualizar contadores
+            } else {
+                showNotification('error', data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('error', 'Error de conexión');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    };
+
+    confirmDeleteModal.show();
+}
+
+async function executeDelete() {
+    if (deleteAction) {
+        await deleteAction();
+        deleteAction = null;
+    }
+}
+
+// Notificaciones
+function showNotification(type, message) {
+    const toastEl = document.getElementById('notificationToast');
+    const toastHeader = document.getElementById('toastHeader');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastBody = document.getElementById('toastBody');
+
+    let bgClass, iconClass, title;
+
+    switch (type) {
+        case 'success':
+            bgClass = 'bg-success text-white';
+            iconClass = 'bi-check-circle-fill text-white';
+            title = 'Éxito';
+            break;
+        case 'error':
+            bgClass = 'bg-danger text-white';
+            iconClass = 'bi-x-circle-fill text-white';
+            title = 'Error';
+            break;
+        default:
+            bgClass = 'bg-info text-white';
+            iconClass = 'bi-info-circle-fill text-white';
+            title = 'Información';
+            break;
+    }
+
+    toastHeader.className = `toast-header ${bgClass}`;
+    toastIcon.className = `bi me-2 ${iconClass}`;
+    toastTitle.textContent = title;
+    toastBody.textContent = message;
+
+    const closeBtn = toastHeader.querySelector('.btn-close');
+    if (bgClass.includes('text-white')) {
+        closeBtn.classList.add('btn-close-white');
+    } else {
+        closeBtn.classList.remove('btn-close-white');
+    }
+
+    const toast = new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: 4000
+    });
+    toast.show();
+}
+</script>
+{% endblock %}

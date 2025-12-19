@@ -491,6 +491,169 @@ def create_expense_category():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@bp.route('/types/<int:type_id>', methods=['PUT'])
+@login_required
+@master_required
+def update_expense_type(type_id):
+    """
+    Actualizar un tipo de gasto existente
+
+    JSON Body: {"nombre": "Nuevo Nombre", "descripcion": "...", "orden": 1}
+    """
+    try:
+        expense_type = ExpenseType.query.get(type_id)
+        if not expense_type:
+            return jsonify({'success': False, 'error': 'Tipo de gasto no encontrado'}), 404
+
+        data = request.get_json()
+
+        # Validar nombre único (excepto el actual)
+        if 'nombre' in data:
+            existing = ExpenseType.query.filter(
+                ExpenseType.nombre == data['nombre'].strip(),
+                ExpenseType.id != type_id
+            ).first()
+            if existing:
+                return jsonify({'success': False, 'error': 'Ya existe un tipo con ese nombre'}), 400
+            expense_type.nombre = data['nombre'].strip()
+
+        if 'descripcion' in data:
+            expense_type.descripcion = data['descripcion'].strip()
+
+        if 'orden' in data:
+            expense_type.orden = data['orden']
+
+        expense_type.updated_by = current_user.username
+        expense_type.updated_at = get_local_time()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Tipo actualizado correctamente',
+            'type': expense_type.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/types/<int:type_id>', methods=['DELETE'])
+@login_required
+@master_required
+def delete_expense_type(type_id):
+    """
+    Eliminar (desactivar) un tipo de gasto
+
+    Nota: No se elimina físicamente, solo se marca como inactivo
+    """
+    try:
+        expense_type = ExpenseType.query.get(type_id)
+        if not expense_type:
+            return jsonify({'success': False, 'error': 'Tipo de gasto no encontrado'}), 404
+
+        # Verificar si tiene categorías asociadas
+        categories_count = ExpenseCategory.query.filter_by(expense_type_id=type_id, activo=True).count()
+        if categories_count > 0:
+            return jsonify({
+                'success': False,
+                'error': f'No se puede eliminar. Tiene {categories_count} categoría(s) asociada(s). Elimine primero las categorías.'
+            }), 400
+
+        # Marcar como inactivo
+        expense_type.activo = False
+        expense_type.updated_by = current_user.username
+        expense_type.updated_at = get_local_time()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Tipo eliminado correctamente'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/categories/<int:category_id>', methods=['PUT'])
+@login_required
+@master_required
+def update_expense_category(category_id):
+    """
+    Actualizar una categoría existente
+
+    JSON Body: {"nombre": "Nuevo Nombre", "descripcion": "...", "orden": 1}
+    """
+    try:
+        category = ExpenseCategory.query.get(category_id)
+        if not category:
+            return jsonify({'success': False, 'error': 'Categoría no encontrada'}), 404
+
+        data = request.get_json()
+
+        # Validar nombre único para el mismo tipo (excepto la actual)
+        if 'nombre' in data:
+            existing = ExpenseCategory.query.filter(
+                ExpenseCategory.nombre == data['nombre'].strip(),
+                ExpenseCategory.expense_type_id == category.expense_type_id,
+                ExpenseCategory.id != category_id
+            ).first()
+            if existing:
+                return jsonify({'success': False, 'error': 'Ya existe una categoría con ese nombre para este tipo'}), 400
+            category.nombre = data['nombre'].strip()
+
+        if 'descripcion' in data:
+            category.descripcion = data['descripcion'].strip()
+
+        if 'orden' in data:
+            category.orden = data['orden']
+
+        category.updated_by = current_user.username
+        category.updated_at = get_local_time()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Categoría actualizada correctamente',
+            'category': category.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/categories/<int:category_id>', methods=['DELETE'])
+@login_required
+@master_required
+def delete_expense_category(category_id):
+    """
+    Eliminar (desactivar) una categoría
+
+    Nota: No se elimina físicamente, solo se marca como inactiva
+    """
+    try:
+        category = ExpenseCategory.query.get(category_id)
+        if not category:
+            return jsonify({'success': False, 'error': 'Categoría no encontrada'}), 404
+
+        # Marcar como inactiva
+        category.activo = False
+        category.updated_by = current_user.username
+        category.updated_at = get_local_time()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Categoría eliminada correctamente'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @bp.route('/descriptions', methods=['GET'])
 @login_required
 @master_required
@@ -516,3 +679,15 @@ def get_expense_descriptions():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/catalogs')
+@login_required
+@master_required
+def catalogs():
+    """
+    Vista de administración de catálogos (tipos y categorías)
+
+    URL: http://localhost:5000/expenses/catalogs
+    """
+    return render_template('expenses_catalogs.html', title='Administrar Catálogos de Gastos')
