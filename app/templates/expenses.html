@@ -93,6 +93,92 @@
     </div>
 </div>
 
+<!-- Modal para crear nuevo Tipo -->
+<div class="modal fade" id="newTypeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nuevo Tipo de Gasto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newTypeName" class="form-label">Nombre del Tipo <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newTypeName" placeholder="Ej: Tecnología">
+                    <div class="invalid-feedback" id="newTypeError"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnCreateType">
+                    <i class="bi bi-save"></i> Crear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear nueva Categoría -->
+<div class="modal fade" id="newCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nueva Categoría</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newCategoryName" class="form-label">Nombre de la Categoría <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newCategoryName" placeholder="Ej: Hosting">
+                    <div class="invalid-feedback" id="newCategoryError"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnCreateCategory">
+                    <i class="bi bi-save"></i> Crear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar este gasto?</p>
+                <p class="text-muted mb-0">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmDelete">
+                    <i class="bi bi-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container para notificaciones -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+    <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header" id="toastHeader">
+            <i class="bi me-2" id="toastIcon"></i>
+            <strong class="me-auto" id="toastTitle">Notificación</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastBody">
+            Mensaje de notificación
+        </div>
+    </div>
+</div>
+
 <style>
     /* Estilos para tabla editable tipo Excel */
     #expenses-table {
@@ -164,9 +250,33 @@ let currentPage = 1;
 let perPage = 50;
 let searchTerm = '';
 
-// Cargar gastos al inicio
+// Catálogos
+let expenseTypes = [];
+let expenseCategories = [];
+
+// Modales
+let newTypeModal, newCategoryModal, confirmDeleteModal;
+let currentSelectElement = null;
+let currentExpenseTypeId = null;
+let expenseToDelete = null;
+
+// Loading states
+let isSaving = false;
+
+// Cargar catálogos y gastos al inicio
 document.addEventListener('DOMContentLoaded', function() {
-    loadExpenses();
+    // Inicializar modales
+    newTypeModal = new bootstrap.Modal(document.getElementById('newTypeModal'));
+    newCategoryModal = new bootstrap.Modal(document.getElementById('newCategoryModal'));
+    confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+
+    // Event listeners para los modales
+    setupModalListeners();
+
+    // Cargar catálogos y gastos
+    loadCatalogs().then(() => {
+        loadExpenses();
+    });
 });
 
 // Buscar con Enter
@@ -180,6 +290,74 @@ function searchExpenses() {
     searchTerm = document.getElementById('search-input').value.trim();
     currentPage = 1;
     loadExpenses();
+}
+
+// Configurar listeners para los modales
+function setupModalListeners() {
+    // Modal de nuevo tipo
+    const btnCreateType = document.getElementById('btnCreateType');
+    const newTypeName = document.getElementById('newTypeName');
+
+    btnCreateType.addEventListener('click', () => handleCreateType());
+    newTypeName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleCreateType();
+        }
+    });
+
+    // Limpiar input al abrir modal
+    document.getElementById('newTypeModal').addEventListener('shown.bs.modal', () => {
+        newTypeName.value = '';
+        newTypeName.classList.remove('is-invalid');
+        newTypeName.focus();
+    });
+
+    // Modal de nueva categoría
+    const btnCreateCategory = document.getElementById('btnCreateCategory');
+    const newCategoryName = document.getElementById('newCategoryName');
+
+    btnCreateCategory.addEventListener('click', () => handleCreateCategory());
+    newCategoryName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleCreateCategory();
+        }
+    });
+
+    // Limpiar input al abrir modal
+    document.getElementById('newCategoryModal').addEventListener('shown.bs.modal', () => {
+        newCategoryName.value = '';
+        newCategoryName.classList.remove('is-invalid');
+        newCategoryName.focus();
+    });
+
+    // Modal de confirmación de eliminación
+    document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+        handleDeleteExpense();
+    });
+}
+
+// Cargar catálogos desde el backend
+async function loadCatalogs() {
+    try {
+        // Cargar tipos de gasto
+        const typesResponse = await fetch('/expenses/types');
+        const typesData = await typesResponse.json();
+        if (typesData.success) {
+            expenseTypes = typesData.types;
+        }
+
+        // Cargar todas las categorías
+        const categoriesResponse = await fetch('/expenses/categories');
+        const categoriesData = await categoriesResponse.json();
+        if (categoriesData.success) {
+            expenseCategories = categoriesData.categories;
+        }
+    } catch (error) {
+        console.error('Error al cargar catálogos:', error);
+        showNotification('error', 'Error al cargar catálogos');
+    }
 }
 
 function loadExpenses() {
@@ -263,12 +441,41 @@ function renderTable(expenses) {
 }
 
 function makeEditable(cell, expenseId, field, type) {
-    // Evitar editar si ya hay un input activo
-    if (cell.querySelector('input')) {
+    // Evitar editar si ya hay un input/select activo
+    if (cell.querySelector('input') || cell.querySelector('select')) {
         return;
     }
 
     const currentValue = cell.textContent.trim();
+
+    // Para tipo_gasto: mostrar select con botón "+ Nuevo"
+    if (field === 'tipo_gasto') {
+        makeEditableWithSelect(cell, expenseId, field, expenseTypes, 'nombre', 'createNewType');
+        return;
+    }
+
+    // Para categoria: mostrar select filtrado por tipo_gasto
+    if (field === 'categoria') {
+        const expense = expenses.find(e => e.id === expenseId);
+        if (!expense || !expense.tipo_gasto) {
+            showNotification('error', 'Primero seleccione un Tipo de Gasto');
+            return;
+        }
+
+        // Encontrar el tipo seleccionado
+        const selectedType = expenseTypes.find(t => t.nombre === expense.tipo_gasto);
+        if (!selectedType) {
+            showNotification('error', 'Tipo de gasto no válido');
+            return;
+        }
+
+        // Filtrar categorías por tipo
+        const filteredCategories = expenseCategories.filter(c => c.expense_type_id === selectedType.id);
+        makeEditableWithSelect(cell, expenseId, field, filteredCategories, 'nombre', 'createNewCategory', selectedType.id);
+        return;
+    }
+
+    // Para otros campos: input normal
     const input = document.createElement('input');
     input.type = type;
     input.className = 'cell-input form-control form-control-sm';
@@ -339,6 +546,115 @@ function makeEditable(cell, expenseId, field, type) {
     });
 }
 
+// Crear select con opciones y botón "+ Nuevo"
+function makeEditableWithSelect(cell, expenseId, field, options, labelField, createCallback, extraParam) {
+    const currentValue = cell.textContent.trim();
+
+    // Crear contenedor
+    const container = document.createElement('div');
+    container.className = 'd-flex gap-1';
+
+    // Crear select
+    const select = document.createElement('select');
+    select.className = 'cell-input form-control form-control-sm flex-grow-1';
+
+    // Opción vacía
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '-- Seleccionar --';
+    select.appendChild(emptyOption);
+
+    // Agregar opciones
+    options.forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option[labelField];
+        opt.textContent = option[labelField];
+        if (option[labelField] === currentValue) {
+            opt.selected = true;
+        }
+        select.appendChild(opt);
+    });
+
+    // Botón "+ Nuevo"
+    const btnNew = document.createElement('button');
+    btnNew.type = 'button';
+    btnNew.className = 'btn btn-sm btn-outline-primary';
+    btnNew.innerHTML = '<i class="bi bi-plus"></i>';
+    btnNew.title = 'Crear nuevo';
+
+    // Variable para controlar si se hizo clic en el botón +
+    let clickedNewButton = false;
+
+    // Usar mousedown para capturar antes del blur
+    btnNew.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clickedNewButton = true;
+    });
+
+    btnNew.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (createCallback === 'createNewType') {
+            createNewType(select);
+        } else if (createCallback === 'createNewCategory') {
+            createNewCategory(select, extraParam);
+        }
+    });
+
+    container.appendChild(select);
+    container.appendChild(btnNew);
+
+    cell.innerHTML = '';
+    cell.appendChild(container);
+    select.focus();
+
+    // Guardar valor al cambiar o perder foco
+    const saveValue = () => {
+        // Si se hizo clic en el botón +, no validar
+        if (clickedNewButton) {
+            clickedNewButton = false;
+            return;
+        }
+
+        const newValue = select.value.trim();
+
+        if (!newValue) {
+            // Si está vacío, restaurar valor original sin mostrar error
+            cell.textContent = currentValue;
+            return;
+        }
+
+        // Actualizar valor en el array
+        const expense = expenses.find(e => e.id === expenseId);
+        if (expense) {
+            // Si cambió el tipo_gasto, resetear la categoría
+            if (field === 'tipo_gasto' && expense.tipo_gasto !== newValue) {
+                expense.categoria = '';
+                const row = document.getElementById(`row-${expenseId}`);
+                if (row) {
+                    const categoriaCell = row.cells[2];
+                    categoriaCell.textContent = '';
+                }
+            }
+
+            expense[field] = newValue;
+            modifiedExpenses.add(expenseId);
+
+            // Marcar fila como modificada
+            const row = document.getElementById(`row-${expenseId}`);
+            if (row && !row.classList.contains('new-row')) {
+                row.classList.add('modified');
+            }
+        }
+
+        // Restaurar celda
+        cell.textContent = newValue;
+    };
+
+    select.addEventListener('blur', saveValue);
+    select.addEventListener('change', saveValue);
+}
+
 function addNewRow() {
     const tbody = document.getElementById('expenses-tbody');
     const newId = 'new-' + Date.now();
@@ -406,10 +722,6 @@ function cancelNewRow(id) {
 }
 
 function deleteExpense(id) {
-    if (!confirm('¿Estás seguro de eliminar este gasto?')) {
-        return;
-    }
-
     const expense = expenses.find(e => e.id === id);
     if (!expense) {
         return;
@@ -421,19 +733,31 @@ function deleteExpense(id) {
         return;
     }
 
-    // Llamar al endpoint de eliminación
-    const btn = event.target.closest('button');
+    // Guardar ID y mostrar modal de confirmación
+    expenseToDelete = id;
+    confirmDeleteModal.show();
+}
+
+// Manejar eliminación confirmada
+async function handleDeleteExpense() {
+    if (!expenseToDelete) return;
+
+    const id = expenseToDelete;
+    const btn = document.getElementById('btnConfirmDelete');
+
+    // Deshabilitar botón y mostrar loading
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
 
-    fetch(`/expenses/delete/${id}`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch(`/expenses/delete/${id}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
         if (data.success) {
-            showNotification('success', 'Gasto eliminado correctamente');
-
             // Eliminar del array
             const index = expenses.findIndex(e => e.id === id);
             if (index !== -1) {
@@ -455,21 +779,31 @@ function deleteExpense(id) {
             if (expenses.length === 0) {
                 loadExpenses();
             }
+
+            // Cerrar modal
+            confirmDeleteModal.hide();
+
+            // Mostrar notificación de éxito
+            showNotification('success', 'Gasto eliminado correctamente');
         } else {
             showNotification('error', data.error || 'Error al eliminar gasto');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-trash"></i>';
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
         showNotification('error', 'Error de conexión');
+    } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-trash"></i>';
-    });
+        btn.innerHTML = originalHtml;
+        expenseToDelete = null;
+    }
 }
 
-function saveAllChanges() {
+async function saveAllChanges() {
+    // Prevenir múltiples clics
+    if (isSaving) {
+        return;
+    }
+
     const newExpenses = expenses.filter(e => e._isNew);
     const updatedExpenses = expenses.filter(e => modifiedExpenses.has(e.id) && !e._isNew);
 
@@ -490,59 +824,70 @@ function saveAllChanges() {
         }
     }
 
-    const savePromises = [];
+    // Deshabilitar botón y mostrar loading
+    isSaving = true;
+    const saveBtn = event.target;
+    saveBtn.disabled = true;
+    const originalHtml = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
 
-    // Crear nuevos gastos
-    newExpenses.forEach(expense => {
-        savePromises.push(
-            fetch('/expenses/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    fecha: expense.fecha,
-                    tipo_gasto: expense.tipo_gasto,
-                    categoria: expense.categoria,
-                    descripcion: expense.descripcion,
-                    monto: parseFloat(expense.monto)
+    try {
+        const savePromises = [];
+
+        // Crear nuevos gastos
+        newExpenses.forEach(expense => {
+            savePromises.push(
+                fetch('/expenses/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        fecha: expense.fecha,
+                        tipo_gasto: expense.tipo_gasto,
+                        categoria: expense.categoria,
+                        descripcion: expense.descripcion,
+                        monto: parseFloat(expense.monto)
+                    })
                 })
-            })
-        );
-    });
-
-    // Actualizar gastos modificados
-    updatedExpenses.forEach(expense => {
-        savePromises.push(
-            fetch(`/expenses/update/${expense.id}`, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    fecha: expense.fecha,
-                    tipo_gasto: expense.tipo_gasto,
-                    categoria: expense.categoria,
-                    descripcion: expense.descripcion,
-                    monto: parseFloat(expense.monto)
-                })
-            })
-        );
-    });
-
-    // Ejecutar todas las promesas
-    Promise.all(savePromises)
-        .then(responses => Promise.all(responses.map(r => r.json())))
-        .then(results => {
-            const errors = results.filter(r => !r.success);
-            if (errors.length > 0) {
-                showNotification('error', `${errors.length} error(es) al guardar`);
-            } else {
-                showNotification('success', 'Todos los cambios guardados correctamente');
-                modifiedExpenses.clear();
-                loadExpenses(); // Recargar tabla
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('error', 'Error al guardar cambios');
+            );
         });
+
+        // Actualizar gastos modificados
+        updatedExpenses.forEach(expense => {
+            savePromises.push(
+                fetch(`/expenses/update/${expense.id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        fecha: expense.fecha,
+                        tipo_gasto: expense.tipo_gasto,
+                        categoria: expense.categoria,
+                        descripcion: expense.descripcion,
+                        monto: parseFloat(expense.monto)
+                    })
+                })
+            );
+        });
+
+        // Ejecutar todas las promesas
+        const responses = await Promise.all(savePromises);
+        const results = await Promise.all(responses.map(r => r.json()));
+
+        const errors = results.filter(r => !r.success);
+        if (errors.length > 0) {
+            showNotification('error', `${errors.length} error(es) al guardar`);
+        } else {
+            showNotification('success', `${results.length} cambio(s) guardado(s) correctamente`);
+            modifiedExpenses.clear();
+            loadExpenses(); // Recargar tabla
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Error al guardar cambios');
+    } finally {
+        isSaving = false;
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHtml;
+    }
 }
 
 function updateTotals() {
@@ -551,6 +896,148 @@ function updateTotals() {
 
     document.getElementById('total-count').textContent = `${count} gasto${count !== 1 ? 's' : ''}`;
     document.getElementById('total-amount').textContent = `S/ ${total.toFixed(2)}`;
+}
+
+// Crear nuevo tipo de gasto - Abrir modal
+function createNewType(selectElement) {
+    currentSelectElement = selectElement;
+    newTypeModal.show();
+}
+
+// Manejar creación de tipo desde el modal
+async function handleCreateType() {
+    const input = document.getElementById('newTypeName');
+    const nombre = input.value.trim();
+    const errorDiv = document.getElementById('newTypeError');
+    const btn = document.getElementById('btnCreateType');
+
+    // Validar
+    if (!nombre) {
+        input.classList.add('is-invalid');
+        errorDiv.textContent = 'El nombre es requerido';
+        return;
+    }
+
+    // Deshabilitar botón y mostrar loading
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando...';
+
+    try {
+        const response = await fetch('/expenses/types/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ nombre: nombre })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Agregar a la lista local
+            expenseTypes.push(data.type);
+
+            // Actualizar el select
+            if (currentSelectElement) {
+                const newOption = document.createElement('option');
+                newOption.value = data.type.nombre;
+                newOption.textContent = data.type.nombre;
+                newOption.selected = true;
+                currentSelectElement.appendChild(newOption);
+
+                // Trigger change event
+                currentSelectElement.dispatchEvent(new Event('change'));
+            }
+
+            // Cerrar modal
+            newTypeModal.hide();
+
+            // Mostrar notificación de éxito
+            showNotification('success', 'Tipo de gasto creado correctamente');
+        } else {
+            input.classList.add('is-invalid');
+            errorDiv.textContent = data.error || 'Error al crear tipo';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        input.classList.add('is-invalid');
+        errorDiv.textContent = 'Error de conexión';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// Crear nueva categoría - Abrir modal
+function createNewCategory(selectElement, expenseTypeId) {
+    currentSelectElement = selectElement;
+    currentExpenseTypeId = expenseTypeId;
+    newCategoryModal.show();
+}
+
+// Manejar creación de categoría desde el modal
+async function handleCreateCategory() {
+    const input = document.getElementById('newCategoryName');
+    const nombre = input.value.trim();
+    const errorDiv = document.getElementById('newCategoryError');
+    const btn = document.getElementById('btnCreateCategory');
+
+    // Validar
+    if (!nombre) {
+        input.classList.add('is-invalid');
+        errorDiv.textContent = 'El nombre es requerido';
+        return;
+    }
+
+    // Deshabilitar botón y mostrar loading
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando...';
+
+    try {
+        const response = await fetch('/expenses/categories/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                expense_type_id: currentExpenseTypeId,
+                nombre: nombre
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Agregar a la lista local
+            expenseCategories.push(data.category);
+
+            // Actualizar el select
+            if (currentSelectElement) {
+                const newOption = document.createElement('option');
+                newOption.value = data.category.nombre;
+                newOption.textContent = data.category.nombre;
+                newOption.selected = true;
+                currentSelectElement.appendChild(newOption);
+
+                // Trigger change event
+                currentSelectElement.dispatchEvent(new Event('change'));
+            }
+
+            // Cerrar modal
+            newCategoryModal.hide();
+
+            // Mostrar notificación de éxito
+            showNotification('success', 'Categoría creada correctamente');
+        } else {
+            input.classList.add('is-invalid');
+            errorDiv.textContent = data.error || 'Error al crear categoría';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        input.classList.add('is-invalid');
+        errorDiv.textContent = 'Error de conexión';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
 }
 
 function renderPagination(pagination) {
@@ -701,30 +1188,61 @@ function renderStats(stats) {
 }
 
 function showNotification(type, message) {
-    // Usar la función global de notificaciones si existe
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(type, message);
-        return;
+    const toastEl = document.getElementById('notificationToast');
+    const toastHeader = document.getElementById('toastHeader');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastBody = document.getElementById('toastBody');
+
+    // Configurar según el tipo
+    let bgClass, iconClass, title;
+
+    switch (type) {
+        case 'success':
+            bgClass = 'bg-success text-white';
+            iconClass = 'bi-check-circle-fill text-white';
+            title = 'Éxito';
+            break;
+        case 'error':
+            bgClass = 'bg-danger text-white';
+            iconClass = 'bi-x-circle-fill text-white';
+            title = 'Error';
+            break;
+        case 'warning':
+            bgClass = 'bg-warning text-dark';
+            iconClass = 'bi-exclamation-triangle-fill';
+            title = 'Advertencia';
+            break;
+        case 'info':
+        default:
+            bgClass = 'bg-info text-white';
+            iconClass = 'bi-info-circle-fill text-white';
+            title = 'Información';
+            break;
     }
 
-    // Fallback simple
-    const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-info';
-    const alertHtml = `
-        <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 end-0 m-3" role="alert" style="z-index: 9999;">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
+    // Limpiar clases anteriores
+    toastHeader.className = `toast-header ${bgClass}`;
+    toastIcon.className = `bi me-2 ${iconClass}`;
 
-    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    // Ajustar el botón de cerrar
+    const closeBtn = toastHeader.querySelector('.btn-close');
+    if (bgClass.includes('text-white')) {
+        closeBtn.classList.add('btn-close-white');
+    } else {
+        closeBtn.classList.remove('btn-close-white');
+    }
 
-    setTimeout(() => {
-        document.querySelectorAll('.alert').forEach(alert => {
-            if (alert.textContent.includes(message)) {
-                alert.remove();
-            }
-        });
-    }, 3000);
+    // Establecer contenido
+    toastTitle.textContent = title;
+    toastBody.textContent = message;
+
+    // Mostrar toast
+    const toast = new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: 4000
+    });
+    toast.show();
 }
 </script>
 {% endblock %}

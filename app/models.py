@@ -719,3 +719,114 @@ class ExpenseDetail(db.Model):
             'updated_by': self.updated_by,
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
+
+
+class ExpenseType(db.Model):
+    """
+    Modelo para Tipos de Gasto
+    Catálogo maestro de tipos (Operativo, Marketing, etc.)
+    """
+    __tablename__ = 'woo_expense_types'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), unique=True, nullable=False)
+    descripcion = db.Column(db.Text)
+    activo = db.Column(db.Boolean, default=True)
+    orden = db.Column(db.Integer, default=0)
+
+    # Auditoría
+    created_by = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_by = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, onupdate=get_local_time)
+
+    # Relación con categorías
+    categories = db.relationship('ExpenseCategory', backref='expense_type', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<ExpenseType {self.id}: {self.nombre}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'descripcion': self.descripcion,
+            'activo': self.activo,
+            'orden': self.orden,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }
+
+
+class ExpenseCategory(db.Model):
+    """
+    Modelo para Categorías de Gasto
+    Cada categoría pertenece a un Tipo de Gasto
+    """
+    __tablename__ = 'woo_expense_categories'
+
+    id = db.Column(db.Integer, primary_key=True)
+    expense_type_id = db.Column(db.Integer, db.ForeignKey('woo_expense_types.id', ondelete='CASCADE'), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.Text)
+    activo = db.Column(db.Boolean, default=True)
+    orden = db.Column(db.Integer, default=0)
+
+    # Auditoría
+    created_by = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_by = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, onupdate=get_local_time)
+
+    # Relación con descripciones
+    descriptions = db.relationship('ExpenseDescription', backref='category', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<ExpenseCategory {self.id}: {self.nombre}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'expense_type_id': self.expense_type_id,
+            'expense_type_nombre': self.expense_type.nombre if self.expense_type else None,
+            'nombre': self.nombre,
+            'descripcion': self.descripcion,
+            'activo': self.activo,
+            'orden': self.orden,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }
+
+
+class ExpenseDescription(db.Model):
+    """
+    Modelo para Descripciones Predefinidas
+    Sugerencias de descripciones para agilizar entrada de datos
+    """
+    __tablename__ = 'woo_expense_descriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    expense_category_id = db.Column(db.Integer, db.ForeignKey('woo_expense_categories.id', ondelete='SET NULL'))
+    descripcion = db.Column(db.Text, nullable=False)
+    activo = db.Column(db.Boolean, default=True)
+    uso_count = db.Column(db.Integer, default=0)
+
+    # Auditoría
+    created_by = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_by = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, onupdate=get_local_time)
+
+    def __repr__(self):
+        return f'<ExpenseDescription {self.id}: {self.descripcion[:50]}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'expense_category_id': self.expense_category_id,
+            'descripcion': self.descripcion,
+            'activo': self.activo,
+            'uso_count': self.uso_count,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }

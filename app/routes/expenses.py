@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.routes.auth import master_required
-from app.models import ExpenseDetail
+from app.models import ExpenseDetail, ExpenseType, ExpenseCategory, ExpenseDescription
 from app import db
 from config import get_local_time
 from datetime import datetime
@@ -351,3 +351,168 @@ def get_stats():
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+
+# ============================================================
+# ENDPOINTS PARA CATÁLOGOS (Tipos, Categorías, Descripciones)
+# ============================================================
+
+@bp.route('/types', methods=['GET'])
+@login_required
+@master_required
+def get_expense_types():
+    """
+    Obtener todos los tipos de gasto activos
+    """
+    try:
+        types = ExpenseType.query.filter_by(activo=True).order_by(ExpenseType.orden, ExpenseType.nombre).all()
+        return jsonify({
+            'success': True,
+            'types': [t.to_dict() for t in types]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/types/create', methods=['POST'])
+@login_required
+@master_required
+def create_expense_type():
+    """
+    Crear un nuevo tipo de gasto on-the-fly
+
+    JSON Body: {"nombre": "Nuevo Tipo", "descripcion": "...", "orden": 0}
+    """
+    try:
+        data = request.get_json()
+
+        if not data.get('nombre'):
+            return jsonify({'success': False, 'error': 'El nombre es requerido'}), 400
+
+        # Verificar que no exista
+        existing = ExpenseType.query.filter_by(nombre=data['nombre'].strip()).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Ya existe un tipo con ese nombre'}), 400
+
+        expense_type = ExpenseType(
+            nombre=data['nombre'].strip(),
+            descripcion=data.get('descripcion', '').strip(),
+            orden=data.get('orden', 0),
+            created_by=current_user.username
+        )
+
+        db.session.add(expense_type)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Tipo creado correctamente',
+            'type': expense_type.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/categories', methods=['GET'])
+@login_required
+@master_required
+def get_expense_categories():
+    """
+    Obtener categorías filtradas por tipo de gasto
+
+    Query params: ?expense_type_id=1
+    """
+    try:
+        expense_type_id = request.args.get('expense_type_id', type=int)
+
+        query = ExpenseCategory.query.filter_by(activo=True)
+
+        if expense_type_id:
+            query = query.filter_by(expense_type_id=expense_type_id)
+
+        categories = query.order_by(ExpenseCategory.orden, ExpenseCategory.nombre).all()
+
+        return jsonify({
+            'success': True,
+            'categories': [c.to_dict() for c in categories]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/categories/create', methods=['POST'])
+@login_required
+@master_required
+def create_expense_category():
+    """
+    Crear una nueva categoría on-the-fly
+
+    JSON Body: {"expense_type_id": 1, "nombre": "Nueva Categoría"}
+    """
+    try:
+        data = request.get_json()
+
+        if not data.get('expense_type_id') or not data.get('nombre'):
+            return jsonify({'success': False, 'error': 'expense_type_id y nombre son requeridos'}), 400
+
+        # Verificar que el tipo existe
+        expense_type = ExpenseType.query.get(data['expense_type_id'])
+        if not expense_type:
+            return jsonify({'success': False, 'error': 'Tipo de gasto no encontrado'}), 404
+
+        # Verificar que no exista la categoría para ese tipo
+        existing = ExpenseCategory.query.filter_by(
+            expense_type_id=data['expense_type_id'],
+            nombre=data['nombre'].strip()
+        ).first()
+
+        if existing:
+            return jsonify({'success': False, 'error': 'Ya existe una categoría con ese nombre para este tipo'}), 400
+
+        category = ExpenseCategory(
+            expense_type_id=data['expense_type_id'],
+            nombre=data['nombre'].strip(),
+            descripcion=data.get('descripcion', '').strip(),
+            orden=data.get('orden', 0),
+            created_by=current_user.username
+        )
+
+        db.session.add(category)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Categoría creada correctamente',
+            'category': category.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/descriptions', methods=['GET'])
+@login_required
+@master_required
+def get_expense_descriptions():
+    """
+    Obtener descripciones sugeridas filtradas por categoría
+
+    Query params: ?expense_category_id=1
+    """
+    try:
+        expense_category_id = request.args.get('expense_category_id', type=int)
+
+        query = ExpenseDescription.query.filter_by(activo=True)
+
+        if expense_category_id:
+            query = query.filter_by(expense_category_id=expense_category_id)
+
+        descriptions = query.order_by(ExpenseDescription.uso_count.desc()).limit(10).all()
+
+        return jsonify({
+            'success': True,
+            'descriptions': [d.to_dict() for d in descriptions]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
