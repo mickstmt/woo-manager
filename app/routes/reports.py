@@ -347,11 +347,13 @@ def api_profits():
     Query params:
     - start_date: fecha inicio (YYYY-MM-DD)
     - end_date: fecha fin (YYYY-MM-DD)
+    - source: filtro de origen ('all', 'whatsapp', 'woocommerce') - default: 'all'
     """
     try:
         # Obtener fechas de filtro
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
+        source = request.args.get('source', type=str, default='all')
 
         # Si no se especifican, usar últimos 30 días
         if not end_date:
@@ -359,8 +361,18 @@ def api_profits():
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
+        # Determinar filtro de origen
+        source_filter = ""
+        if source == 'whatsapp':
+            # Solo pedidos con _order_number (WhatsApp/Manager)
+            source_filter = "AND om_numero.meta_value IS NOT NULL"
+        elif source == 'woocommerce':
+            # Solo pedidos sin _order_number (WooCommerce natural)
+            source_filter = "AND om_numero.meta_value IS NULL"
+        # Si source == 'all', no agregar filtro adicional
+
         # Query principal: ganancias por pedido
-        orders_query = text("""
+        orders_query_template = """
             SELECT
                 o.id as pedido_id,
                 om_numero.meta_value as numero_pedido,
@@ -528,7 +540,7 @@ def api_profits():
                 ba.last_name as cliente_apellido
 
             FROM wpyz_wc_orders o
-            INNER JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
+            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
                 AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
@@ -536,11 +548,16 @@ def api_profits():
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+                {source_filter}
 
             HAVING costo_total_usd IS NOT NULL
 
             ORDER BY fecha_pedido DESC, o.id DESC
-        """)
+        """
+
+        # Reemplazar el placeholder con el filtro correspondiente
+        orders_query_str = orders_query_template.replace('{source_filter}', source_filter)
+        orders_query = text(orders_query_str)
 
         orders = db.session.execute(orders_query, {
             'start_date': start_date,
@@ -548,7 +565,7 @@ def api_profits():
         }).fetchall()
 
         # Query resumen del período
-        summary_query = text("""
+        summary_query_template = """
             SELECT
                 COUNT(DISTINCT o.id) as total_pedidos,
                 ROUND(SUM(o.total_amount), 2) as ventas_totales_pen,
@@ -697,13 +714,18 @@ def api_profits():
                 , 2) as margen_promedio_porcentaje
 
             FROM wpyz_wc_orders o
-            INNER JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
+            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
                 AND om_numero.meta_key = '_order_number'
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
-        """)
+                {source_filter}
+        """
+
+        # Reemplazar el placeholder con el filtro correspondiente
+        summary_query_str = summary_query_template.replace('{source_filter}', source_filter)
+        summary_query = text(summary_query_str)
 
         summary = db.session.execute(summary_query, {
             'start_date': start_date,

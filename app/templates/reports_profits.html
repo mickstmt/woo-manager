@@ -75,6 +75,29 @@
     </div>
 </div>
 
+<!-- Pestañas de filtro por origen -->
+<div class="row mb-3">
+    <div class="col-12">
+        <ul class="nav nav-tabs" id="sourceTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-source="all" type="button" role="tab" onclick="changeSource('all')">
+                    <i class="bi bi-globe"></i> Todos los Pedidos
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="whatsapp-tab" data-bs-toggle="tab" data-source="whatsapp" type="button" role="tab" onclick="changeSource('whatsapp')">
+                    <i class="bi bi-whatsapp"></i> WhatsApp
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="woocommerce-tab" data-bs-toggle="tab" data-source="woocommerce" type="button" role="tab" onclick="changeSource('woocommerce')">
+                    <i class="bi bi-shop"></i> WooCommerce
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
 <!-- Métricas principales -->
 <div class="row mb-4" id="metrics-container">
     <div class="col-md-3 mb-3">
@@ -189,6 +212,23 @@
         loadReport();
     });
 
+    // Variable global para almacenar el origen seleccionado
+    let currentSource = 'all';
+
+    // Función para cambiar el origen
+    function changeSource(source) {
+        currentSource = source;
+
+        // Actualizar las clases active de las pestañas
+        document.querySelectorAll('#sourceTabs .nav-link').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.getElementById(`${source}-tab`).classList.add('active');
+
+        // Recargar el reporte con el nuevo filtro
+        loadReport();
+    }
+
     function loadReport() {
         const startDate = getDateValue('start-date');
         const endDate = getDateValue('end-date');
@@ -209,8 +249,8 @@
             </tr>
         `;
 
-        // Llamar al API
-        fetch(`/reports/api/profits?start_date=${startDate}&end_date=${endDate}`)
+        // Llamar al API con el filtro de origen
+        fetch(`/reports/api/profits?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
