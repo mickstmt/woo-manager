@@ -64,9 +64,14 @@
                         <label class="form-label">Fecha Fin</label>
                         <input type="date" id="end-date" class="form-control">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <button class="btn btn-primary w-100" onclick="loadReport()">
                             <i class="bi bi-search"></i> Generar Reporte
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100" onclick="exportToExcel()">
+                            <i class="bi bi-file-earmark-excel"></i> Exportar Excel
                         </button>
                     </div>
                 </div>
@@ -265,6 +270,35 @@
                 showAlert('Error de conexión: ' + error, 'danger');
                 console.error(error);
             });
+    }
+
+    function exportToExcel() {
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
+
+        if (!startDate || !endDate) {
+            showAlert('Por favor selecciona ambas fechas antes de exportar', 'warning');
+            return;
+        }
+
+        // Mostrar mensaje de descarga
+        showAlert('Generando archivo Excel... Por favor espera', 'info');
+
+        // Crear URL con parámetros
+        const url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`;
+
+        // Crear elemento <a> temporal para descargar
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ganancias_${currentSource}_${startDate}_${endDate}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Mostrar mensaje de éxito después de un breve delay
+        setTimeout(() => {
+            showAlert('Archivo Excel descargado exitosamente', 'success');
+        }, 1000);
     }
 
     function updateMetrics(summary) {

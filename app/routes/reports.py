@@ -1,5 +1,5 @@
 # app/routes/reports.py
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.routes.auth import admin_required
 from app import db
@@ -7,6 +7,10 @@ from app.models import TipoCambio
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 from sqlalchemy import text, func
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+from io import BytesIO
 
 bp = Blueprint('reports', __name__, url_prefix='/reports')
 
@@ -819,6 +823,318 @@ def api_profits():
                 }
             }
         })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/api/profits/export')
+@login_required
+def export_profits_excel():
+    """
+    Exportar reporte de ganancias a Excel
+
+    Query params:
+    - start_date: fecha inicio (YYYY-MM-DD)
+    - end_date: fecha fin (YYYY-MM-DD)
+    - source: filtro de origen ('all', 'whatsapp', 'woocommerce') - default: 'all'
+    """
+    try:
+        # Obtener parámetros (mismo código que api_profits)
+        start_date = request.args.get('start_date', type=str)
+        end_date = request.args.get('end_date', type=str)
+        source = request.args.get('source', type=str, default='all')
+
+        if not end_date:
+            end_date = datetime.now().strftime('%Y-%m-%d')
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+
+        # Determinar filtro de origen
+        source_filter = ""
+        source_name = "Todos"
+        if source == 'whatsapp':
+            source_filter = "AND om_numero.meta_value IS NOT NULL"
+            source_name = "WhatsApp"
+        elif source == 'woocommerce':
+            source_filter = "AND om_numero.meta_value IS NULL"
+            source_name = "WooCommerce"
+
+        # Usar el mismo query que api_profits
+        orders_query_template = """
+            SELECT
+                o.id as pedido_id,
+                om_numero.meta_value as numero_pedido,
+                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
+                o.status as estado,
+                o.total_amount as total_venta_pen,
+                (
+                    SELECT tasa_promedio
+                    FROM woo_tipo_cambio tc
+                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                        AND tc.activo = TRUE
+                    ORDER BY tc.fecha DESC
+                    LIMIT 1
+                ) as tipo_cambio,
+                (
+                    SELECT SUM(
+                        (
+                            SELECT SUM(fc.FCLastCost)
+                            FROM woo_products_fccost fc
+                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                AND LENGTH(fc.sku) = 7
+                        ) * oim_qty.meta_value
+                    )
+                    FROM wpyz_woocommerce_order_items oi
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                        AND oim_pid.meta_key = '_product_id'
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                        AND oim_qty.meta_key = '_qty'
+                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                        AND oim_vid.meta_key = '_variation_id'
+                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                        AND pm_sku.meta_key = '_sku'
+                    WHERE oi.order_id = o.id
+                        AND oi.order_item_type = 'line_item'
+                ) as costo_total_usd,
+                ROUND((
+                    SELECT SUM(
+                        (
+                            SELECT SUM(fc.FCLastCost)
+                            FROM woo_products_fccost fc
+                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                AND LENGTH(fc.sku) = 7
+                        ) * oim_qty.meta_value
+                    )
+                    FROM wpyz_woocommerce_order_items oi
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                        AND oim_pid.meta_key = '_product_id'
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                        AND oim_qty.meta_key = '_qty'
+                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                        AND oim_vid.meta_key = '_variation_id'
+                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                        AND pm_sku.meta_key = '_sku'
+                    WHERE oi.order_id = o.id
+                        AND oi.order_item_type = 'line_item'
+                ) * (
+                    SELECT tasa_promedio
+                    FROM woo_tipo_cambio tc
+                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                        AND tc.activo = TRUE
+                    ORDER BY tc.fecha DESC
+                    LIMIT 1
+                ), 2) as costo_total_pen,
+                COALESCE((
+                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi_shipping
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                    WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_item_type = 'shipping'
+                        AND oim_shipping.meta_key = 'cost'
+                ), 0) as costo_envio_pen,
+                ROUND(o.total_amount - (
+                    (
+                        SELECT SUM(
+                            (
+                                SELECT SUM(fc.FCLastCost)
+                                FROM woo_products_fccost fc
+                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                    AND LENGTH(fc.sku) = 7
+                            ) * oim_qty.meta_value
+                        )
+                        FROM wpyz_woocommerce_order_items oi
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                            AND oim_pid.meta_key = '_product_id'
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                            AND oim_qty.meta_key = '_qty'
+                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                            AND oim_vid.meta_key = '_variation_id'
+                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                            AND pm_sku.meta_key = '_sku'
+                        WHERE oi.order_id = o.id
+                            AND oi.order_item_type = 'line_item'
+                    ) * (
+                        SELECT tasa_promedio
+                        FROM woo_tipo_cambio tc
+                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                            AND tc.activo = TRUE
+                        ORDER BY tc.fecha DESC
+                        LIMIT 1
+                    )
+                ) - COALESCE((
+                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                    FROM wpyz_woocommerce_order_items oi_shipping
+                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                    WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_item_type = 'shipping'
+                        AND oim_shipping.meta_key = 'cost'
+                ), 0), 2) as ganancia_pen,
+                ROUND((
+                    (o.total_amount - (
+                        (
+                            SELECT SUM(
+                                (
+                                    SELECT SUM(fc.FCLastCost)
+                                    FROM woo_products_fccost fc
+                                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                                        AND LENGTH(fc.sku) = 7
+                                ) * oim_qty.meta_value
+                            )
+                            FROM wpyz_woocommerce_order_items oi
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
+                                AND oim_pid.meta_key = '_product_id'
+                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
+                                AND oim_qty.meta_key = '_qty'
+                            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
+                                AND oim_vid.meta_key = '_variation_id'
+                            INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
+                                AND pm_sku.meta_key = '_sku'
+                            WHERE oi.order_id = o.id
+                                AND oi.order_item_type = 'line_item'
+                        ) * (
+                            SELECT tasa_promedio
+                            FROM woo_tipo_cambio tc
+                            WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
+                                AND tc.activo = TRUE
+                            ORDER BY tc.fecha DESC
+                            LIMIT 1
+                        )
+                    ) - COALESCE((
+                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
+                        FROM wpyz_woocommerce_order_items oi_shipping
+                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
+                        WHERE oi_shipping.order_id = o.id
+                            AND oi_shipping.order_item_type = 'shipping'
+                            AND oim_shipping.meta_key = 'cost'
+                    ), 0)) / NULLIF(o.total_amount, 0)
+                ) * 100, 2) as margen_porcentaje,
+                CONCAT(ba.first_name, ' ', ba.last_name) as cliente_nombre,
+                ba.email as cliente_email
+
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
+                AND om_numero.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
+                AND ba.address_type = 'billing'
+
+            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND o.status != 'trash'
+                AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+                {source_filter}
+
+            HAVING costo_total_usd IS NOT NULL
+
+            ORDER BY fecha_pedido DESC, o.id DESC
+        """
+
+        orders_query_str = orders_query_template.replace('{source_filter}', source_filter)
+        orders_query = text(orders_query_str)
+        orders = db.session.execute(orders_query, {
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+
+        # Crear workbook de Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Reporte de Ganancias"
+
+        # Estilos
+        header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True, size=11)
+        header_alignment = Alignment(horizontal="center", vertical="center")
+
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Título del reporte
+        ws.merge_cells('A1:L1')
+        title_cell = ws['A1']
+        title_cell.value = f"Reporte de Ganancias - {source_name}"
+        title_cell.font = Font(bold=True, size=14)
+        title_cell.alignment = Alignment(horizontal="center")
+
+        # Período
+        ws.merge_cells('A2:L2')
+        period_cell = ws['A2']
+        period_cell.value = f"Período: {start_date} a {end_date}"
+        period_cell.alignment = Alignment(horizontal="center")
+
+        # Headers (fila 4)
+        headers = [
+            'Pedido ID',
+            'Número',
+            'Fecha',
+            'Estado',
+            'Venta (PEN)',
+            'T.C.',
+            'Costo (USD)',
+            'Costo (PEN)',
+            'Envío (PEN)',
+            'Ganancia (PEN)',
+            'Margen %',
+            'Cliente'
+        ]
+
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = border
+
+        # Datos
+        row_num = 5
+        for order in orders:
+            ws.cell(row=row_num, column=1, value=order[0])  # ID
+            ws.cell(row=row_num, column=2, value=order[1] or order[0])  # Número
+            ws.cell(row=row_num, column=3, value=str(order[2]))  # Fecha
+            ws.cell(row=row_num, column=4, value=order[3])  # Estado
+            ws.cell(row=row_num, column=5, value=float(order[4] or 0))  # Venta
+            ws.cell(row=row_num, column=6, value=float(order[5] or 0))  # TC
+            ws.cell(row=row_num, column=7, value=float(order[6] or 0))  # Costo USD
+            ws.cell(row=row_num, column=8, value=float(order[7] or 0))  # Costo PEN
+            ws.cell(row=row_num, column=9, value=float(order[8] or 0))  # Envío
+            ws.cell(row=row_num, column=10, value=float(order[9] or 0))  # Ganancia
+            ws.cell(row=row_num, column=11, value=float(order[10] or 0))  # Margen %
+            ws.cell(row=row_num, column=12, value=order[11] or '')  # Cliente
+
+            # Aplicar bordes
+            for col in range(1, 13):
+                ws.cell(row=row_num, column=col).border = border
+
+            row_num += 1
+
+        # Ajustar anchos de columna
+        column_widths = [10, 15, 12, 12, 12, 8, 12, 12, 12, 14, 10, 30]
+        for i, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+
+        # Guardar en memoria
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+
+        # Nombre del archivo
+        filename = f"ganancias_{source_name.lower()}_{start_date}_{end_date}.xlsx"
+
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
 
     except Exception as e:
         import traceback
