@@ -368,11 +368,11 @@ def api_profits():
         # Determinar filtro de origen
         source_filter = ""
         if source == 'whatsapp':
-            # Solo pedidos con _order_number (WhatsApp/Manager)
-            source_filter = "AND om_numero.meta_value IS NOT NULL"
+            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla orders)
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR o.id IS NOT NULL)"
         elif source == 'woocommerce':
-            # Solo pedidos sin _order_number (WooCommerce natural)
-            source_filter = "AND om_numero.meta_value IS NULL"
+            # Solo pedidos sin _order_number y que NO estén en orders (WooCommerce puro)
+            source_filter = "AND om_numero.meta_value IS NULL AND o.id IS NULL"
         # Si source == 'all', no agregar filtro adicional
 
         # Query principal: ganancias por pedido
@@ -859,10 +859,12 @@ def export_profits_excel():
         source_filter = ""
         source_name = "Todos"
         if source == 'whatsapp':
-            source_filter = "AND om_numero.meta_value IS NOT NULL"
+            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla orders)
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR o.id IS NOT NULL)"
             source_name = "WhatsApp"
         elif source == 'woocommerce':
-            source_filter = "AND om_numero.meta_value IS NULL"
+            # Solo pedidos sin _order_number y que NO estén en orders (WooCommerce puro)
+            source_filter = "AND om_numero.meta_value IS NULL AND o.id IS NULL"
             source_name = "WooCommerce"
 
         # Usar el mismo query que api_profits
@@ -1489,8 +1491,9 @@ def api_profits_monthly():
                 'total_pedidos': row[1] or 0,
                 'ventas_totales_pen': float(row[2] or 0),
                 'costos_totales_pen': float(row[3] or 0),
-                'ganancias_totales_pen': float(row[4] or 0),
-                'margen_promedio_porcentaje': float(row[5] or 0)
+                'costos_envio_totales_pen': float(row[4] or 0),
+                'ganancias_totales_pen': float(row[5] or 0),
+                'margen_promedio_porcentaje': float(row[6] or 0)
             })
 
         return jsonify({
