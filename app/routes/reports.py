@@ -856,7 +856,7 @@ def api_profits_externos():
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-        # Query para pedidos externos
+        # Query simplificado - solo pedidos básicos
         orders_query = text("""
             SELECT
                 oext.id as pedido_id,
@@ -864,117 +864,15 @@ def api_profits_externos():
                 DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
                 oext.status as estado,
                 oext.total_amount as total_venta_pen,
-
-                -- Tipo de cambio del día
-                (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ) as tipo_cambio,
-
-                -- Costo total en USD
-                (
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oei.quantity
-                    )
-                    FROM woo_orders_ext_items oei
-                    WHERE oei.order_ext_id = oext.id
-                ) as costo_total_usd,
-
-                -- Costo total en PEN (USD * tipo cambio)
-                (
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oei.quantity
-                    )
-                    FROM woo_orders_ext_items oei
-                    WHERE oei.order_ext_id = oext.id
-                ) * (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ) as costo_total_pen,
-
-                -- Costo de envío
                 COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
-
-                -- Ganancia (ventas - costos productos - envío)
-                oext.total_amount - (
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oei.quantity
-                        )
-                        FROM woo_orders_ext_items oei
-                        WHERE oei.order_ext_id = oext.id
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ) - COALESCE(oext.shipping_cost, 0) as ganancia_pen,
-
-                -- Margen porcentual
-                ROUND(
-                    (
-                        (oext.total_amount - (
-                            (
-                                SELECT SUM(
-                                    (
-                                        SELECT SUM(fc.FCLastCost)
-                                        FROM woo_products_fccost fc
-                                        WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                            AND LENGTH(fc.sku) = 7
-                                    ) * oei.quantity
-                                )
-                                FROM woo_orders_ext_items oei
-                                WHERE oei.order_ext_id = oext.id
-                            ) * (
-                                SELECT tasa_promedio
-                                FROM woo_tipo_cambio tc
-                                WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                                    AND tc.activo = TRUE
-                                ORDER BY tc.fecha DESC
-                                LIMIT 1
-                            )
-                        ) - COALESCE(oext.shipping_cost, 0)) / NULLIF(oext.total_amount, 0)
-                    ) * 100
-                , 2) as margen_porcentaje,
-
-                -- Cliente
                 oext.customer_first_name as cliente_nombre,
                 oext.customer_last_name as cliente_apellido
-
             FROM woo_orders_ext oext
             WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND oext.status != 'trash'
                 AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
-
-            HAVING costo_total_usd IS NOT NULL
-
             ORDER BY fecha_pedido DESC, oext.id DESC
+            LIMIT 1000
         """)
 
         orders = db.session.execute(orders_query, {
@@ -982,133 +880,102 @@ def api_profits_externos():
             'end_date': end_date
         }).fetchall()
 
-        # Query resumen
-        summary_query = text("""
-            SELECT
-                COUNT(DISTINCT oext.id) as total_pedidos,
-                ROUND(SUM(oext.total_amount), 2) as ventas_totales_pen,
-                ROUND(SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oei.quantity
-                        )
-                        FROM woo_orders_ext_items oei
-                        WHERE oei.order_ext_id = oext.id
-                    )
-                ), 2) as costos_totales_usd,
-                ROUND(SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oei.quantity
-                        )
-                        FROM woo_orders_ext_items oei
-                        WHERE oei.order_ext_id = oext.id
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ), 2) as costos_totales_pen,
-                ROUND(SUM(COALESCE(oext.shipping_cost, 0)), 2) as costos_envio_totales_pen,
-                ROUND(SUM(oext.total_amount) - SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oei.quantity
-                        )
-                        FROM woo_orders_ext_items oei
-                        WHERE oei.order_ext_id = oext.id
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ) - SUM(COALESCE(oext.shipping_cost, 0)), 2) as ganancias_totales_pen,
-                ROUND(
-                    (SUM(oext.total_amount) - SUM(
-                        (
-                            SELECT SUM(
-                                (
-                                    SELECT SUM(fc.FCLastCost)
-                                    FROM woo_products_fccost fc
-                                    WHERE oei.product_sku COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                        AND LENGTH(fc.sku) = 7
-                                ) * oei.quantity
-                            )
-                            FROM woo_orders_ext_items oei
-                            WHERE oei.order_ext_id = oext.id
-                        ) * (
-                            SELECT tasa_promedio
-                            FROM woo_tipo_cambio tc
-                            WHERE tc.fecha <= DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR))
-                                AND tc.activo = TRUE
-                            ORDER BY tc.fecha DESC
-                            LIMIT 1
-                        )
-                    ) - SUM(COALESCE(oext.shipping_cost, 0))) / NULLIF(SUM(oext.total_amount), 0) * 100
-                , 2) as margen_promedio_porcentaje
-
-            FROM woo_orders_ext oext
-            WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                AND oext.status != 'trash'
-                AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
-        """)
-
-        summary = db.session.execute(summary_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchone()
-
-        # Formatear respuesta (mismo formato que api_profits)
+        # Calcular costos en Python (más rápido que subqueries anidadas)
         orders_list = []
+        total_ventas = 0
+        total_costos_usd = 0
+        total_costos_pen = 0
+        total_envios = 0
+        total_ganancias = 0
+
         for row in orders:
+            pedido_id = row[0]
+            numero_pedido = row[1]
+            fecha_pedido = row[2]
+            estado = row[3]
+            total_venta_pen = float(row[4] or 0)
+            costo_envio_pen = float(row[5] or 0)
+            cliente_nombre = row[6]
+            cliente_apellido = row[7]
+
+            # Obtener tipo de cambio del día
+            tc_query = text("""
+                SELECT tasa_promedio
+                FROM woo_tipo_cambio
+                WHERE fecha <= :fecha AND activo = TRUE
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            tc_result = db.session.execute(tc_query, {'fecha': fecha_pedido}).fetchone()
+            tipo_cambio = float(tc_result[0]) if tc_result else 3.8
+
+            # Obtener items y calcular costos
+            items_query = text("""
+                SELECT product_sku, quantity
+                FROM woo_orders_ext_items
+                WHERE order_ext_id = :order_id
+            """)
+            items = db.session.execute(items_query, {'order_id': pedido_id}).fetchall()
+
+            costo_total_usd = 0
+            for item in items:
+                sku = item[0]
+                qty = item[1]
+
+                if not sku:
+                    continue
+
+                # Buscar costo del SKU
+                cost_query = text("""
+                    SELECT SUM(FCLastCost)
+                    FROM woo_products_fccost
+                    WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
+                """)
+                cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
+                costo_unitario = float(cost_result[0]) if cost_result and cost_result[0] else 0
+                costo_total_usd += costo_unitario * qty
+
+            costo_total_pen = costo_total_usd * tipo_cambio
+            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
+            margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
+
             orders_list.append({
-                'pedido_id': row[0],
-                'numero_pedido': row[1],
-                'fecha_pedido': row[2].isoformat() if row[2] else None,
-                'estado': row[3],
-                'total_venta_pen': float(row[4] or 0),
-                'tipo_cambio': float(row[5] or 0),
-                'costo_total_usd': float(row[6] or 0),
-                'costo_total_pen': float(row[7] or 0),
-                'costo_envio_pen': float(row[8] or 0),
-                'ganancia_pen': float(row[9] or 0),
-                'margen_porcentaje': float(row[10] or 0),
-                'cliente_nombre': row[11],
-                'cliente_apellido': row[12]
+                'pedido_id': pedido_id,
+                'numero_pedido': numero_pedido,
+                'fecha_pedido': fecha_pedido.isoformat() if fecha_pedido else None,
+                'estado': estado,
+                'total_venta_pen': round(total_venta_pen, 2),
+                'tipo_cambio': round(tipo_cambio, 2),
+                'costo_total_usd': round(costo_total_usd, 2),
+                'costo_total_pen': round(costo_total_pen, 2),
+                'costo_envio_pen': round(costo_envio_pen, 2),
+                'ganancia_pen': round(ganancia_pen, 2),
+                'margen_porcentaje': round(margen_porcentaje, 2),
+                'cliente_nombre': cliente_nombre,
+                'cliente_apellido': cliente_apellido
             })
+
+            # Acumular para resumen
+            total_ventas += total_venta_pen
+            total_costos_usd += costo_total_usd
+            total_costos_pen += costo_total_pen
+            total_envios += costo_envio_pen
+            total_ganancias += ganancia_pen
+
+        # Calcular resumen
+        margen_promedio = (total_ganancias / total_ventas * 100) if total_ventas > 0 else 0
 
         return jsonify({
             'success': True,
             'orders': orders_list,
             'summary': {
-                'total_pedidos': summary[0] or 0,
-                'ventas_totales_pen': float(summary[1] or 0),
-                'costos_totales_usd': float(summary[2] or 0),
-                'costos_totales_pen': float(summary[3] or 0),
-                'costos_envio_totales_pen': float(summary[4] or 0),
-                'ganancias_totales_pen': float(summary[5] or 0),
-                'margen_promedio_porcentaje': float(summary[6] or 0)
+                'total_pedidos': len(orders_list),
+                'ventas_totales_pen': round(total_ventas, 2),
+                'costos_totales_usd': round(total_costos_usd, 2),
+                'costos_totales_pen': round(total_costos_pen, 2),
+                'costos_envio_totales_pen': round(total_envios, 2),
+                'ganancias_totales_pen': round(total_ganancias, 2),
+                'margen_promedio_porcentaje': round(margen_promedio, 2)
             }
         })
 
