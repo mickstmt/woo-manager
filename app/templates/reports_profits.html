@@ -99,6 +99,11 @@
                     <i class="bi bi-shop"></i> WooCommerce
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="externos-tab" data-bs-toggle="tab" data-source="externos" type="button" role="tab" onclick="changeSource('externos')">
+                    <i class="bi bi-file-earmark-text"></i> Externos
+                </button>
+            </li>
         </ul>
     </div>
 </div>
@@ -254,13 +259,27 @@
             </tr>
         `;
 
-        // Llamar al API con el filtro de origen
-        fetch(`/reports/api/profits?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`)
+        // Determinar el endpoint según el source
+        let apiUrl;
+        if (currentSource === 'externos') {
+            apiUrl = `/reports/api/profits/externos?start_date=${startDate}&end_date=${endDate}`;
+        } else {
+            apiUrl = `/reports/api/profits?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`;
+        }
+
+        // Llamar al API
+        fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    updateMetrics(data.data.summary);
-                    updateTable(data.data.orders);
+                    // Para pedidos externos, la estructura es diferente
+                    if (currentSource === 'externos') {
+                        updateMetrics(data.summary);
+                        updateTable(data.orders);
+                    } else {
+                        updateMetrics(data.data.summary);
+                        updateTable(data.data.orders);
+                    }
                 } else {
                     showAlert('Error al cargar el reporte: ' + data.error, 'danger');
                     console.error(data);
@@ -278,6 +297,12 @@
 
         if (!startDate || !endDate) {
             showAlert('Por favor selecciona ambas fechas antes de exportar', 'warning');
+            return;
+        }
+
+        // Para pedidos externos, mostrar alerta de que no está disponible
+        if (currentSource === 'externos') {
+            showAlert('La exportación a Excel de pedidos externos aún no está disponible', 'warning');
             return;
         }
 
