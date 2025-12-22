@@ -145,6 +145,26 @@
     </div>
 </div>
 
+<!-- Mensaje inicial cuando no hay reporte cargado -->
+<div class="row mb-4" id="initial-message" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-info border-0 shadow-sm" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-info-circle-fill fs-3 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">¡Bienvenido al Reporte de Ganancias!</h5>
+                    <p class="mb-0">
+                        Para comenzar, selecciona un <strong>rango de fechas</strong> y haz clic en el botón
+                        <strong class="text-primary">
+                            <i class="bi bi-search"></i> Generar Reporte
+                        </strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tabla de pedidos -->
 <div class="row">
     <div class="col-12">
@@ -174,8 +194,12 @@
                         </thead>
                         <tbody id="orders-table">
                             <tr>
-                                <td colspan="13" class="text-center text-muted">
-                                    Selecciona un rango de fechas y genera el reporte
+                                <td colspan="13" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="bi bi-file-earmark-bar-graph display-1 d-block mb-3 text-secondary opacity-25"></i>
+                                        <h5 class="text-muted">No hay datos para mostrar</h5>
+                                        <p class="mb-0">Selecciona un rango de fechas y haz clic en "Generar Reporte"</p>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -196,7 +220,7 @@
 
 {% block extra_js %}
 <script>
-    // Inicializar fechas y cargar reporte automáticamente
+    // Inicializar fechas (SIN cargar reporte automáticamente)
     document.addEventListener('DOMContentLoaded', function() {
         const endDate = new Date();
         const startDate = new Date();
@@ -218,9 +242,25 @@
             endInput.valueAsDate = endDate;
         }
 
-        // Cargar reporte automáticamente
-        loadReport();
+        // Mostrar mensaje inicial en lugar de cargar automáticamente
+        showInitialMessage();
     });
+
+    // Función para mostrar mensaje inicial
+    function showInitialMessage() {
+        const initialMessage = document.getElementById('initial-message');
+        if (initialMessage) {
+            initialMessage.style.display = 'block';
+        }
+    }
+
+    // Función para ocultar mensaje inicial
+    function hideInitialMessage() {
+        const initialMessage = document.getElementById('initial-message');
+        if (initialMessage) {
+            initialMessage.style.display = 'none';
+        }
+    }
 
     // Variable global para almacenar el origen seleccionado
     let currentSource = 'all';
@@ -247,6 +287,9 @@
             showAlert('Por favor selecciona ambas fechas para generar el reporte', 'warning');
             return;
         }
+
+        // Ocultar mensaje inicial si está visible
+        hideInitialMessage();
 
         // Mostrar loading
         document.getElementById('orders-table').innerHTML = `
