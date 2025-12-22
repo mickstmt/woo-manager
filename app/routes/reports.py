@@ -368,11 +368,11 @@ def api_profits():
         # Determinar filtro de origen
         source_filter = ""
         if source == 'whatsapp':
-            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla orders)
-            source_filter = "AND (om_numero.meta_value IS NOT NULL OR o.id IS NOT NULL)"
+            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla woo_orders_ext)
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
         elif source == 'woocommerce':
-            # Solo pedidos sin _order_number y que NO estén en orders (WooCommerce puro)
-            source_filter = "AND om_numero.meta_value IS NULL AND o.id IS NULL"
+            # Solo pedidos sin _order_number y que NO estén en woo_orders_ext (WooCommerce puro)
+            source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
         # Si source == 'all', no agregar filtro adicional
 
         # Query principal: ganancias por pedido
@@ -548,6 +548,7 @@ def api_profits():
                 AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
+            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value = oext.order_number
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -859,12 +860,12 @@ def export_profits_excel():
         source_filter = ""
         source_name = "Todos"
         if source == 'whatsapp':
-            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla orders)
-            source_filter = "AND (om_numero.meta_value IS NOT NULL OR o.id IS NOT NULL)"
+            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla woo_orders_ext)
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
             source_name = "WhatsApp"
         elif source == 'woocommerce':
-            # Solo pedidos sin _order_number y que NO estén en orders (WooCommerce puro)
-            source_filter = "AND om_numero.meta_value IS NULL AND o.id IS NULL"
+            # Solo pedidos sin _order_number y que NO estén en woo_orders_ext (WooCommerce puro)
+            source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
             source_name = "WooCommerce"
 
         # Usar el mismo query que api_profits
@@ -1024,6 +1025,7 @@ def export_profits_excel():
                 AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
+            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value = oext.order_number
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
