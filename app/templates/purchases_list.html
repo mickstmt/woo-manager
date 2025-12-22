@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+
+{% block title %}Productos Sin Stock - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quantity-input {
+        width: 80px;
+    }
+    .selected-row {
+        background-color: #e7f1ff !important;
+    }
+    .btn-create-order {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 1000;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .selection-summary {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        z-index: 999;
+        background: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        display: none;
+    }
+    .selection-summary.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-cart-plus"></i> Productos Sin Stock
+            </h1>
+            <p class="text-muted mb-0">Productos que necesitan reabastecimiento</p>
+        </div>
+        <div>
+            <a href="/purchases/orders" class="btn btn-outline-primary">
+                <i class="bi bi-list-ul"></i> Ver Órdenes de Compra
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros y búsqueda -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label">Buscar por SKU o Nombre</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text"
+                                   class="form-control"
+                                   id="search-input"
+                                   placeholder="Ej: SKU-12345 o Nombre del producto">
+                            <button class="btn btn-primary" onclick="loadProducts()">
+                                Buscar
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearSearch()">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ordenar por</label>
+                        <select class="form-select" id="sort-by" onchange="loadProducts()">
+                            <option value="dias_sin_stock">Días sin stock (mayor)</option>
+                            <option value="sku">SKU (A-Z)</option>
+                            <option value="nombre">Nombre (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="alert alert-info mb-0">
+                            <strong id="total-products">0</strong> productos sin stock
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de productos -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Lista de Productos</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleSelectAll()">
+                    <i class="bi bi-check-square"></i> Seleccionar Todo
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                                </th>
+                                <th>SKU</th>
+                                <th>Producto</th>
+                                <th class="text-center">Días sin Stock</th>
+                                <th class="text-center">Últ. Actualizado por</th>
+                                <th class="text-end">Costo Unit. (USD)</th>
+                                <th class="text-center">Cantidad a Ordenar</th>
+                                <th class="text-end">Total (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                    <p>Usa el buscador para encontrar productos sin stock</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de selección flotante -->
+<div class="selection-summary" id="selection-summary">
+    <h6 class="mb-2"><i class="bi bi-check-circle text-success"></i> Selección</h6>
+    <p class="mb-1"><strong id="selected-count">0</strong> productos seleccionados</p>
+    <p class="mb-0">Total: <strong id="selected-total">$0.00</strong> USD</p>
+</div>
+
+<!-- Botón flotante para crear orden -->
+<button class="btn btn-success btn-create-order" id="btn-create-order" onclick="showCreateOrderModal()" style="display: none;">
+    <i class="bi bi-plus-circle"></i> Crear Orden de Compra
+</button>
+
+<!-- Modal: Crear Orden de Compra -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle"></i> Nueva Orden de Compra
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Resumen de productos seleccionados -->
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Productos Seleccionados</h6>
+                    <div id="modal-products-summary"></div>
+                </div>
+
+                <!-- Formulario -->
+                <form id="create-order-form">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="supplier-name"
+                                   placeholder="Nombre del proveedor"
+                                   required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Estimada de Entrega</label>
+                            <input type="date" class="form-control" id="expected-delivery-date">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas / Observaciones</label>
+                        <textarea class="form-control"
+                                  id="order-notes"
+                                  rows="3"
+                                  placeholder="Ej: Orden urgente, coordinar entrega..."></textarea>
+                    </div>
+
+                    <!-- Totales -->
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="mb-1">Total en USD:</p>
+                                    <h4 class="mb-0" id="modal-total-usd">$0.00</h4>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-1">Total en PEN: <small class="text-muted">(T.C. <span id="modal-exchange-rate">-</span>)</small></p>
+                                    <h4 class="mb-0" id="modal-total-pen">S/. 0.00</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="createOrder()">
+                    <i class="bi bi-check-circle"></i> Crear Orden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allProducts = [];
+let selectedProducts = [];
+let exchangeRate = 3.75; // Default
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadProducts();
+    loadExchangeRate();
+});
+
+function loadExchangeRate() {
+    fetch('/reports/api/exchange-rate/latest')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.tasa_cambio) {
+                exchangeRate = parseFloat(data.tasa_cambio);
+            }
+        })
+        .catch(error => console.error('Error loading exchange rate:', error));
+}
+
+function loadProducts() {
+    const search = document.getElementById('search-input').value;
+    const sortBy = document.getElementById('sort-by').value;
+
+    // Mostrar loading
+    document.getElementById('products-table').innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+
+    fetch(`/purchases/api/products-out-of-stock?search=${encodeURIComponent(search)}&sort_by=${sortBy}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                allProducts = data.products;
+                renderProducts(data.products);
+                document.getElementById('total-products').textContent = data.total;
+            } else {
+                showAlert('Error al cargar productos: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function renderProducts(products) {
+    const tbody = document.getElementById('products-table');
+
+    if (products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p>No se encontraron productos sin stock</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = products.map(product => {
+        const isSelected = selectedProducts.some(p => p.product_id === product.product_id);
+        const rowClass = isSelected ? 'selected-row' : '';
+
+        return `
+            <tr class="${rowClass}" id="row-${product.product_id}">
+                <td>
+                    <input type="checkbox"
+                           class="product-checkbox"
+                           data-product-id="${product.product_id}"
+                           ${isSelected ? 'checked' : ''}
+                           onchange="toggleProductSelection(${product.product_id})">
+                </td>
+                <td><code>${product.sku}</code></td>
+                <td>${product.product_name}</td>
+                <td class="text-center">
+                    <span class="badge ${product.dias_sin_stock > 30 ? 'bg-danger' : product.dias_sin_stock > 14 ? 'bg-warning' : 'bg-info'}">
+                        ${product.dias_sin_stock} días
+                    </span>
+                </td>
+                <td class="text-center">
+                    <small class="text-muted">${product.last_updated_by}</small>
+                </td>
+                <td class="text-end">$${formatNumber(product.unit_cost_usd)}</td>
+                <td class="text-center">
+                    <input type="number"
+                           class="form-control form-control-sm quantity-input"
+                           id="qty-${product.product_id}"
+                           min="1"
+                           value="${isSelected ? getSelectedQuantity(product.product_id) : 10}"
+                           ${!isSelected ? 'disabled' : ''}
+                           onchange="updateQuantity(${product.product_id})">
+                </td>
+                <td class="text-end">
+                    <strong id="total-${product.product_id}">$${formatNumber(product.unit_cost_usd * 10)}</strong>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getSelectedQuantity(productId) {
+    const selected = selectedProducts.find(p => p.product_id === productId);
+    return selected ? selected.quantity : 10;
+}
+
+function toggleProductSelection(productId) {
+    const product = allProducts.find(p => p.product_id === productId);
+    const checkbox = document.querySelector(`input[data-product-id="${productId}"]`);
+    const qtyInput = document.getElementById(`qty-${productId}`);
+    const row = document.getElementById(`row-${productId}`);
+
+    if (checkbox.checked) {
+        // Agregar a selección
+        const quantity = parseInt(qtyInput.value) || 10;
+        selectedProducts.push({
+            ...product,
+            quantity: quantity
+        });
+        qtyInput.disabled = false;
+        row.classList.add('selected-row');
+    } else {
+        // Quitar de selección
+        selectedProducts = selectedProducts.filter(p => p.product_id !== productId);
+        qtyInput.disabled = true;
+        row.classList.remove('selected-row');
+    }
+
+    updateQuantity(productId);
+    updateSelectionSummary();
+}
+
+function updateQuantity(productId) {
+    const qtyInput = document.getElementById(`qty-${productId}`);
+    const quantity = parseInt(qtyInput.value) || 10;
+
+    // Actualizar en selectedProducts
+    const selected = selectedProducts.find(p => p.product_id === productId);
+    if (selected) {
+        selected.quantity = quantity;
+
+        // Actualizar total de la fila
+        const total = selected.unit_cost_usd * quantity;
+        document.getElementById(`total-${productId}`).textContent = `$${formatNumber(total)}`;
+    }
+
+    updateSelectionSummary();
+}
+
+function updateSelectionSummary() {
+    const count = selectedProducts.length;
+    const total = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
+
+    document.getElementById('selected-count').textContent = count;
+    document.getElementById('selected-total').textContent = `$${formatNumber(total)}`;
+
+    // Mostrar/ocultar elementos flotantes
+    if (count > 0) {
+        document.getElementById('selection-summary').classList.add('active');
+        document.getElementById('btn-create-order').style.display = 'block';
+    } else {
+        document.getElementById('selection-summary').classList.remove('active');
+        document.getElementById('btn-create-order').style.display = 'none';
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+
+    checkboxes.forEach(checkbox => {
+        const productId = parseInt(checkbox.getAttribute('data-product-id'));
+        if (checkbox.checked !== selectAllCheckbox.checked) {
+            checkbox.checked = selectAllCheckbox.checked;
+            toggleProductSelection(productId);
+        }
+    });
+}
+
+function clearSearch() {
+    document.getElementById('search-input').value = '';
+    loadProducts();
+}
+
+function showCreateOrderModal() {
+    if (selectedProducts.length === 0) {
+        showAlert('Por favor selecciona al menos un producto', 'warning');
+        return;
+    }
+
+    // Calcular totales
+    const totalUsd = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
+    const totalPen = totalUsd * exchangeRate;
+
+    // Actualizar resumen en modal
+    const summary = selectedProducts.map(p => {
+        return `
+            <div class="d-flex justify-content-between mb-1">
+                <span><code>${p.sku}</code> - ${p.product_name}</span>
+                <span><strong>${p.quantity} unidades</strong> × $${formatNumber(p.unit_cost_usd)} = $${formatNumber(p.unit_cost_usd * p.quantity)}</span>
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('modal-products-summary').innerHTML = summary;
+    document.getElementById('modal-total-usd').textContent = `$${formatNumber(totalUsd)}`;
+    document.getElementById('modal-total-pen').textContent = `S/. ${formatNumber(totalPen)}`;
+    document.getElementById('modal-exchange-rate').textContent = formatNumber(exchangeRate);
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('createOrderModal'));
+    modal.show();
+}
+
+function createOrder() {
+    const supplierName = document.getElementById('supplier-name').value.trim();
+    const expectedDeliveryDate = document.getElementById('expected-delivery-date').value;
+    const notes = document.getElementById('order-notes').value.trim();
+
+    if (!supplierName) {
+        showAlert('Por favor ingresa el nombre del proveedor', 'warning');
+        return;
+    }
+
+    if (selectedProducts.length === 0) {
+        showAlert('No hay productos seleccionados', 'warning');
+        return;
+    }
+
+    // Preparar datos
+    const orderData = {
+        supplier_name: supplierName,
+        expected_delivery_date: expectedDeliveryDate || null,
+        notes: notes || '',
+        items: selectedProducts.map(p => ({
+            product_id: p.product_id,
+            product_title: p.product_name,
+            sku: p.sku,
+            quantity: p.quantity,
+            unit_cost_usd: p.unit_cost_usd
+        }))
+    };
+
+    // Mostrar loading
+    showAlert('Creando orden de compra...', 'info');
+
+    fetch('/purchases/api/orders', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(`Orden ${data.order.order_number} creada exitosamente`, 'success');
+
+                // Cerrar modal
+                bootstrap.Modal.getInstance(document.getElementById('createOrderModal')).hide();
+
+                // Limpiar selección
+                selectedProducts = [];
+                updateSelectionSummary();
+
+                // Recargar productos
+                loadProducts();
+
+                // Preguntar si quiere ver la orden
+                setTimeout(() => {
+                    if (confirm('¿Deseas ver la orden creada?')) {
+                        window.location.href = `/purchases/orders/${data.order.id}`;
+                    }
+                }, 1000);
+            } else {
+                showAlert('Error al crear orden: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0.00';
+    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

@@ -830,3 +830,127 @@ class ExpenseDescription(db.Model):
             'created_by': self.created_by,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
+
+
+# =====================================================
+# MODELOS DE COMPRAS / REABASTECIMIENTO
+# =====================================================
+
+class PurchaseOrder(db.Model):
+    """
+    Modelo para órdenes de compra / reabastecimiento
+
+    Gestiona las órdenes de compra para reabastecer inventario
+    de productos que han llegado a stock 0
+    """
+    __tablename__ = 'woo_purchase_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True, nullable=False)
+    supplier_name = db.Column(db.String(200))
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    order_date = db.Column(db.DateTime, nullable=False)
+    expected_delivery_date = db.Column(db.Date)
+    actual_delivery_date = db.Column(db.Date)
+    total_cost_usd = db.Column(db.Numeric(10, 2))
+    exchange_rate = db.Column(db.Numeric(6, 4))
+    total_cost_pen = db.Column(db.Numeric(10, 2))
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
+
+    # Relaciones
+    items = db.relationship('PurchaseOrderItem', backref='purchase_order', lazy='dynamic', cascade='all, delete-orphan')
+    history = db.relationship('PurchaseOrderHistory', backref='purchase_order', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<PurchaseOrder {self.order_number}: {self.status}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'order_number': self.order_number,
+            'supplier_name': self.supplier_name,
+            'status': self.status,
+            'order_date': self.order_date.strftime('%Y-%m-%d %H:%M:%S') if self.order_date else None,
+            'expected_delivery_date': self.expected_delivery_date.strftime('%Y-%m-%d') if self.expected_delivery_date else None,
+            'actual_delivery_date': self.actual_delivery_date.strftime('%Y-%m-%d') if self.actual_delivery_date else None,
+            'total_cost_usd': float(self.total_cost_usd) if self.total_cost_usd else 0,
+            'exchange_rate': float(self.exchange_rate) if self.exchange_rate else 0,
+            'total_cost_pen': float(self.total_cost_pen) if self.total_cost_pen else 0,
+            'notes': self.notes,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None,
+            'items_count': self.items.count()
+        }
+
+
+class PurchaseOrderItem(db.Model):
+    """
+    Modelo para items/productos en una orden de compra
+
+    Cada fila representa un producto específico dentro de una orden
+    """
+    __tablename__ = 'woo_purchase_order_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey('woo_purchase_orders.id'), nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)
+    product_title = db.Column(db.String(200))
+    sku = db.Column(db.String(100))
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_cost_usd = db.Column(db.Numeric(10, 2))
+    total_cost_usd = db.Column(db.Numeric(10, 2))
+    notes = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<PurchaseOrderItem {self.sku}: {self.quantity} units>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'purchase_order_id': self.purchase_order_id,
+            'product_id': self.product_id,
+            'product_title': self.product_title,
+            'sku': self.sku,
+            'quantity': self.quantity,
+            'unit_cost_usd': float(self.unit_cost_usd) if self.unit_cost_usd else 0,
+            'total_cost_usd': float(self.total_cost_usd) if self.total_cost_usd else 0,
+            'notes': self.notes
+        }
+
+
+class PurchaseOrderHistory(db.Model):
+    """
+    Modelo para historial de cambios de estado de órdenes de compra
+
+    Auditoría de todos los cambios de estado de las órdenes
+    """
+    __tablename__ = 'woo_purchase_order_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey('woo_purchase_orders.id'), nullable=False)
+    old_status = db.Column(db.String(20))
+    new_status = db.Column(db.String(20))
+    changed_by = db.Column(db.String(100))
+    change_reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=get_local_time)
+
+    def __repr__(self):
+        return f'<PurchaseOrderHistory Order:{self.purchase_order_id} {self.old_status}→{self.new_status}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'purchase_order_id': self.purchase_order_id,
+            'old_status': self.old_status,
+            'new_status': self.new_status,
+            'changed_by': self.changed_by,
+            'change_reason': self.change_reason,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }

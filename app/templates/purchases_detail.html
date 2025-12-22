@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}{{ order.order_number }} - Detalle de Orden{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .status-pending { background-color: #ffc107; color: #000; }
+    .status-ordered { background-color: #0dcaf0; color: #000; }
+    .status-in_transit { background-color: #6610f2; color: #fff; }
+    .status-received { background-color: #198754; color: #fff; }
+    .status-cancelled { background-color: #dc3545; color: #fff; }
+
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 40px;
+        padding-bottom: 20px;
+    }
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        width: 2px;
+        height: 100%;
+        background: #dee2e6;
+    }
+    .timeline-item:last-child:before {
+        display: none;
+    }
+    .timeline-dot {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 2px #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-file-text"></i> {{ order.order_number }}
+            </h1>
+            <p class="text-muted mb-0">Detalle de Orden de Compra</p>
+        </div>
+        <div>
+            <a href="/purchases/orders" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Información general -->
+<div class="row mb-4">
+    <!-- Columna izquierda -->
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Información de la Orden</h5>
+                <span id="status-badge"></span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">Proveedor</label>
+                        <p class="mb-0"><strong id="supplier-name">{{ order.supplier_name }}</strong></p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">Creado por</label>
+                        <p class="mb-0" id="created-by">{{ order.created_by }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">Fecha de Orden</label>
+                        <p class="mb-0" id="order-date">{{ order.order_date.strftime('%d/%m/%Y %H:%M') }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">Fecha Estimada de Entrega</label>
+                        <p class="mb-0" id="expected-delivery">{{ order.expected_delivery_date.strftime('%d/%m/%Y') if order.expected_delivery_date else '-' }}</p>
+                    </div>
+                    {% if order.actual_delivery_date %}
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">Fecha Real de Entrega</label>
+                        <p class="mb-0 text-success"><strong>{{ order.actual_delivery_date.strftime('%d/%m/%Y') }}</strong></p>
+                    </div>
+                    {% endif %}
+                    <div class="col-12">
+                        <label class="text-muted small">Notas</label>
+                        <p class="mb-0" id="order-notes">{{ order.notes or 'Sin notas' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Productos</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>SKU</th>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Costo Unit. (USD)</th>
+                                <th class="text-end">Total (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-table">
+                            {% for item in order.items %}
+                            <tr>
+                                <td><code>{{ item.sku }}</code></td>
+                                <td>{{ item.product_title }}</td>
+                                <td class="text-center"><strong>{{ item.quantity }}</strong></td>
+                                <td class="text-end">${{ "%.2f"|format(item.unit_cost_usd) }}</td>
+                                <td class="text-end"><strong>${{ "%.2f"|format(item.total_cost_usd) }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="4" class="text-end">Total USD:</th>
+                                <th class="text-end">${{ "%.2f"|format(order.total_cost_usd) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="4" class="text-end">Tipo de Cambio:</th>
+                                <th class="text-end">{{ "%.4f"|format(order.exchange_rate) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="4" class="text-end">Total PEN:</th>
+                                <th class="text-end">S/. {{ "%.2f"|format(order.total_cost_pen) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha -->
+    <div class="col-md-4">
+        <!-- Acciones -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-gear"></i> Acciones</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2" id="actions-container">
+                    <!-- Se llenarán dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Totales -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-cash-stack"></i> Resumen</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Items:</span>
+                    <strong>{{ order.items.count() }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total USD:</span>
+                    <strong>${{ "%.2f"|format(order.total_cost_usd) }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total PEN:</span>
+                    <strong>S/. {{ "%.2f"|format(order.total_cost_pen) }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock-history"></i> Historial</h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline" id="history-timeline">
+                    {% for h in order.history.order_by(order.history.order(created_at='desc')) %}
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <small class="text-muted">{{ h.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                            <p class="mb-0">
+                                <strong>{{ h.changed_by }}</strong>
+                                {% if h.old_status %}
+                                cambió de <span class="badge bg-secondary">{{ h.old_status }}</span>
+                                a <span class="badge bg-primary">{{ h.new_status }}</span>
+                                {% else %}
+                                creó la orden
+                                {% endif %}
+                            </p>
+                            {% if h.change_reason %}
+                            <small class="text-muted">{{ h.change_reason }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cambiar Estado -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar Estado de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Nuevo Estado</label>
+                    <select class="form-select" id="new-status">
+                        <option value="pending">Pendiente</option>
+                        <option value="ordered">Ordenado</option>
+                        <option value="in_transit">En Tránsito</option>
+                        <option value="received">Recibido</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Motivo</label>
+                    <textarea class="form-control" id="change-reason" rows="3"></textarea>
+                </div>
+                <div class="alert alert-warning" id="received-warning" style="display: none;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>¡Atención!</strong> Al marcar como "Recibido", el stock de todos los productos se actualizará automáticamente.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="changeStatus()">Guardar Cambio</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="order-id" value="{{ order.id }}">
+<input type="hidden" id="current-status" value="{{ order.status }}">
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const orderId = parseInt(document.getElementById('order-id').value);
+let currentStatus = document.getElementById('current-status').value;
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateStatusBadge();
+    updateActions();
+
+    // Listener para mostrar advertencia al seleccionar "Recibido"
+    document.getElementById('new-status').addEventListener('change', function() {
+        const warning = document.getElementById('received-warning');
+        if (this.value === 'received') {
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+    });
+});
+
+function updateStatusBadge() {
+    const badge = getStatusBadge(currentStatus);
+    document.getElementById('status-badge').innerHTML = badge;
+}
+
+function updateActions() {
+    const container = document.getElementById('actions-container');
+    let buttons = '';
+
+    // Botón de descargar PDF (siempre disponible)
+    buttons += `
+        <button class="btn btn-outline-primary" onclick="downloadPDF()">
+            <i class="bi bi-file-pdf"></i> Descargar PDF
+        </button>
+    `;
+
+    // Botón cambiar estado (solo si no está recibido o cancelado)
+    if (currentStatus !== 'received' && currentStatus !== 'cancelled') {
+        buttons += `
+            <button class="btn btn-outline-success" onclick="showChangeStatusModal()">
+                <i class="bi bi-arrow-right-circle"></i> Cambiar Estado
+            </button>
+        `;
+    }
+
+    // Botón de recepción rápida (solo si está en tránsito)
+    if (currentStatus === 'in_transit') {
+        buttons += `
+            <button class="btn btn-success" onclick="quickReceive()">
+                <i class="bi bi-check-circle"></i> Marcar como Recibido
+            </button>
+        `;
+    }
+
+    container.innerHTML = buttons;
+}
+
+function showChangeStatusModal() {
+    document.getElementById('new-status').value = currentStatus;
+    const modal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
+    modal.show();
+}
+
+function changeStatus() {
+    const newStatus = document.getElementById('new-status').value;
+    const reason = document.getElementById('change-reason').value.trim() || `Cambio a ${newStatus}`;
+
+    if (newStatus === currentStatus) {
+        showAlert('El nuevo estado es igual al actual', 'warning');
+        return;
+    }
+
+    if (newStatus === 'received') {
+        if (!confirm('¿Confirmas marcar esta orden como recibida? Se actualizará el stock automáticamente.')) {
+            return;
+        }
+    }
+
+    fetch(`/purchases/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: newStatus,
+            reason: reason
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('changeStatusModal')).hide();
+
+                // Recargar página después de 1 segundo
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert('Error: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function quickReceive() {
+    if (!confirm('¿Marcar esta orden como recibida? Se actualizará el stock de todos los productos automáticamente.')) {
+        return;
+    }
+
+    const reason = prompt('Motivo (opcional):') || 'Mercancía recibida';
+
+    fetch(`/purchases/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: 'received',
+            reason: reason
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert('Error: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function downloadPDF() {
+    showAlert('Generando PDF...', 'info');
+    window.open(`/purchases/api/orders/${orderId}/pdf`, '_blank');
+}
+
+function getStatusBadge(status) {
+    const statusMap = {
+        'pending': '<span class="status-badge status-pending">Pendiente</span>',
+        'ordered': '<span class="status-badge status-ordered">Ordenado</span>',
+        'in_transit': '<span class="status-badge status-in_transit">En Tránsito</span>',
+        'received': '<span class="status-badge status-received">Recibido</span>',
+        'cancelled': '<span class="status-badge status-cancelled">Cancelado</span>'
+    };
+    return statusMap[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

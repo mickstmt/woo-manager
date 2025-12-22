@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Órdenes de Compra - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-pending { background-color: #ffc107; color: #000; }
+    .status-ordered { background-color: #0dcaf0; color: #000; }
+    .status-in_transit { background-color: #6610f2; color: #fff; }
+    .status-received { background-color: #198754; color: #fff; }
+    .status-cancelled { background-color: #dc3545; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-list-ul"></i> Órdenes de Compra
+            </h1>
+            <p class="text-muted mb-0">Gestión de órdenes de reabastecimiento</p>
+        </div>
+        <div>
+            <a href="/purchases/" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Volver a Productos
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="filter-status" onchange="loadOrders()">
+                            <option value="">Todos los estados</option>
+                            <option value="pending">Pendiente</option>
+                            <option value="ordered">Ordenado</option>
+                            <option value="in_transit">En Tránsito</option>
+                            <option value="received">Recibido</option>
+                            <option value="cancelled">Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha Inicio</label>
+                        <input type="date" class="form-control" id="filter-start-date">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha Fin</label>
+                        <input type="date" class="form-control" id="filter-end-date">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" onclick="loadOrders()">
+                            <i class="bi bi-funnel"></i> Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas rápidas -->
+<div class="row mb-4" id="stats-container">
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h6 class="text-muted">Pendientes</h6>
+                <h3 class="mb-0" id="stat-pending">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body">
+                <h6 class="text-muted">Ordenadas</h6>
+                <h3 class="mb-0" id="stat-ordered">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h6 class="text-muted">En Tránsito</h6>
+                <h3 class="mb-0" id="stat-in-transit">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body">
+                <h6 class="text-muted">Recibidas</h6>
+                <h3 class="mb-0" id="stat-received">0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de órdenes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Lista de Órdenes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Número de Orden</th>
+                                <th>Proveedor</th>
+                                <th class="text-center">Fecha Orden</th>
+                                <th class="text-center">Entrega Estimada</th>
+                                <th class="text-center">Items</th>
+                                <th class="text-end">Total (USD)</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table">
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar fechas (último mes)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 1);
+
+    document.getElementById('filter-start-date').valueAsDate = startDate;
+    document.getElementById('filter-end-date').valueAsDate = endDate;
+
+    loadOrders();
+    loadStats();
+});
+
+function loadOrders() {
+    const status = document.getElementById('filter-status').value;
+    const startDate = document.getElementById('filter-start-date').value;
+    const endDate = document.getElementById('filter-end-date').value;
+
+    let url = '/purchases/api/orders?';
+    if (status) url += `status=${status}&`;
+    if (startDate) url += `start_date=${startDate}&`;
+    if (endDate) url += `end_date=${endDate}&`;
+
+    document.getElementById('orders-table').innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderOrders(data.orders);
+            } else {
+                showAlert('Error al cargar órdenes: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function renderOrders(orders) {
+    const tbody = document.getElementById('orders-table');
+
+    if (orders.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p>No hay órdenes de compra en este período</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+        const statusBadge = getStatusBadge(order.status);
+        const orderDate = new Date(order.order_date).toLocaleDateString('es-PE');
+        const deliveryDate = order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString('es-PE') : '-';
+
+        return `
+            <tr>
+                <td>
+                    <a href="/purchases/orders/${order.id}" class="text-decoration-none">
+                        <strong>${order.order_number}</strong>
+                    </a>
+                </td>
+                <td>${order.supplier_name || 'Sin especificar'}</td>
+                <td class="text-center">${orderDate}</td>
+                <td class="text-center">${deliveryDate}</td>
+                <td class="text-center">
+                    <span class="badge bg-secondary">${order.items_count}</span>
+                </td>
+                <td class="text-end">$${formatNumber(order.total_cost_usd)}</td>
+                <td class="text-center">${statusBadge}</td>
+                <td class="text-center">
+                    <div class="btn-group btn-group-sm">
+                        <a href="/purchases/orders/${order.id}" class="btn btn-outline-primary" title="Ver Detalle">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        ${order.status !== 'received' && order.status !== 'cancelled' ? `
+                        <button class="btn btn-outline-success" onclick="quickChangeStatus(${order.id}, '${order.status}')" title="Cambiar Estado">
+                            <i class="bi bi-arrow-right-circle"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function loadStats() {
+    fetch('/purchases/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.stats.orders_by_status || {};
+                document.getElementById('stat-pending').textContent = stats.pending?.count || 0;
+                document.getElementById('stat-ordered').textContent = stats.ordered?.count || 0;
+                document.getElementById('stat-in-transit').textContent = stats.in_transit?.count || 0;
+                document.getElementById('stat-received').textContent = stats.received?.count || 0;
+            }
+        })
+        .catch(error => console.error('Error loading stats:', error));
+}
+
+function getStatusBadge(status) {
+    const statusMap = {
+        'pending': '<span class="status-badge status-pending">Pendiente</span>',
+        'ordered': '<span class="status-badge status-ordered">Ordenado</span>',
+        'in_transit': '<span class="status-badge status-in_transit">En Tránsito</span>',
+        'received': '<span class="status-badge status-received">Recibido</span>',
+        'cancelled': '<span class="status-badge status-cancelled">Cancelado</span>'
+    };
+    return statusMap[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function quickChangeStatus(orderId, currentStatus) {
+    const nextStatus = getNextStatus(currentStatus);
+    if (!nextStatus) {
+        showAlert('Esta orden ya está en estado final', 'warning');
+        return;
+    }
+
+    const confirmMsg = `¿Cambiar estado a "${getStatusLabel(nextStatus)}"?`;
+    if (!confirm(confirmMsg)) return;
+
+    const reason = prompt('Motivo del cambio (opcional):') || `Cambio a ${nextStatus}`;
+
+    fetch(`/purchases/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: nextStatus,
+            reason: reason
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                loadOrders();
+                loadStats();
+            } else {
+                showAlert('Error: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error de conexión: ' + error, 'danger');
+            console.error(error);
+        });
+}
+
+function getNextStatus(currentStatus) {
+    const flow = {
+        'pending': 'ordered',
+        'ordered': 'in_transit',
+        'in_transit': 'received'
+    };
+    return flow[currentStatus] || null;
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        'pending': 'Pendiente',
+        'ordered': 'Ordenado',
+        'in_transit': 'En Tránsito',
+        'received': 'Recibido',
+        'cancelled': 'Cancelado'
+    };
+    return labels[status] || status;
+}
+
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0.00';
+    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}
