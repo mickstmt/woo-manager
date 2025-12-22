@@ -548,7 +548,7 @@ def api_profits():
                 AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
-            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value = oext.order_number
+            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -1025,7 +1025,7 @@ def export_profits_excel():
                 AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
-            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value = oext.order_number
+            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
