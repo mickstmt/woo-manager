@@ -721,6 +721,7 @@ def api_profits():
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
                 AND om_numero.meta_key = '_order_number'
+            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
