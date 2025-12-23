@@ -117,6 +117,7 @@
                                 <th>SKU</th>
                                 <th>Producto</th>
                                 <th class="text-center">Días sin Stock</th>
+                                <th class="text-center">Fecha Stock a 0</th>
                                 <th class="text-center">Últ. Actualizado por</th>
                                 <th class="text-end">Costo Unit. (USD)</th>
                                 <th class="text-center">Cantidad a Ordenar</th>
@@ -125,7 +126,7 @@
                         </thead>
                         <tbody id="products-table">
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="9" class="text-center text-muted py-4">
                                     <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                                     <p>Usa el buscador para encontrar productos sin stock</p>
                                 </td>
@@ -252,7 +253,7 @@ function loadProducts() {
     // Mostrar loading
     document.getElementById('products-table').innerHTML = `
         <tr>
-            <td colspan="8" class="text-center py-4">
+            <td colspan="9" class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Cargando...</span>
                 </div>
@@ -283,7 +284,7 @@ function renderProducts(products) {
     if (products.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                     <p>No se encontraron productos sin stock</p>
                 </td>
@@ -311,6 +312,9 @@ function renderProducts(products) {
                     <span class="badge ${product.dias_sin_stock > 30 ? 'bg-danger' : product.dias_sin_stock > 14 ? 'bg-warning' : 'bg-info'}">
                         ${product.dias_sin_stock} días
                     </span>
+                </td>
+                <td class="text-center">
+                    <small class="text-muted">${product.last_stock_update ? new Date(product.last_stock_update).toLocaleDateString('es-PE', {day: '2-digit', month: '2-digit', year: 'numeric'}) : '-'}</small>
                 </td>
                 <td class="text-center">
                     <small class="text-muted">${product.last_updated_by}</small>
