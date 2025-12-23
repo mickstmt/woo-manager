@@ -869,6 +869,13 @@ class PurchaseOrder(db.Model):
 
     def to_dict(self):
         """Convertir a diccionario para JSON"""
+        # Intentar obtener el conteo de items de manera eficiente
+        try:
+            # Si items ya está cargado como lista (joinedload), usar len()
+            items_count = len(list(self.items)) if hasattr(self.items, '__iter__') else self.items.count()
+        except:
+            items_count = 0
+
         return {
             'id': self.id,
             'order_number': self.order_number,
@@ -884,7 +891,7 @@ class PurchaseOrder(db.Model):
             'created_by': self.created_by,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None,
-            'items_count': self.items.count()
+            'items_count': items_count
         }
 
 

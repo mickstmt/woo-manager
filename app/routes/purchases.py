@@ -217,7 +217,9 @@ def api_get_orders():
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
 
-        query = PurchaseOrder.query
+        from sqlalchemy.orm import joinedload
+
+        query = PurchaseOrder.query.options(joinedload(PurchaseOrder.items))
 
         # Filtros
         if status:
@@ -239,9 +241,9 @@ def api_get_orders():
         orders_list = []
         for order in orders:
             order_dict = order.to_dict()
-            # Agregar items
+            # Agregar items (ya cargados con joinedload)
             items = []
-            for item in order.items.all():
+            for item in order.items:
                 items.append(item.to_dict())
             order_dict['items'] = items
             orders_list.append(order_dict)
