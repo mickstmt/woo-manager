@@ -863,6 +863,7 @@ def api_profits_externos():
                 oext.order_number as numero_pedido,
                 DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
                 oext.status as estado,
+                COALESCE(oext.payment_method_title, oext.payment_method, 'N/A') as metodo_pago,
                 oext.total_amount as total_venta_pen,
                 COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
                 oext.customer_first_name as cliente_nombre,
@@ -893,10 +894,11 @@ def api_profits_externos():
             numero_pedido = row[1]
             fecha_pedido = row[2]
             estado = row[3]
-            total_venta_pen = float(row[4] or 0)
-            costo_envio_pen = float(row[5] or 0)
-            cliente_nombre = row[6]
-            cliente_apellido = row[7]
+            metodo_pago = row[4] or 'N/A'
+            total_venta_pen = float(row[5] or 0)
+            costo_envio_pen = float(row[6] or 0)
+            cliente_nombre = row[7]
+            cliente_apellido = row[8]
 
             # Obtener tipo de cambio del día
             tc_query = text("""
@@ -964,6 +966,7 @@ def api_profits_externos():
                 'numero_pedido': numero_pedido,
                 'fecha_pedido': fecha_pedido.isoformat() if fecha_pedido else None,
                 'estado': estado,
+                'metodo_pago': metodo_pago,
                 'total_venta_pen': round(total_venta_pen, 2),
                 'tipo_cambio': round(tipo_cambio, 2),
                 'costo_total_usd': round(costo_total_usd, 2),
@@ -1036,6 +1039,7 @@ def export_profits_externos_excel():
                 oext.order_number as numero_pedido,
                 DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
                 oext.status as estado,
+                COALESCE(oext.payment_method_title, oext.payment_method, 'N/A') as metodo_pago,
                 oext.total_amount as total_venta_pen,
                 COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
                 oext.customer_first_name as cliente_nombre,
@@ -1061,10 +1065,11 @@ def export_profits_externos_excel():
             numero_pedido = row[1]
             fecha_pedido = row[2]
             estado = row[3]
-            total_venta_pen = float(row[4] or 0)
-            costo_envio_pen = float(row[5] or 0)
-            cliente_nombre = row[6]
-            cliente_apellido = row[7]
+            metodo_pago = row[4] or 'N/A'
+            total_venta_pen = float(row[5] or 0)
+            costo_envio_pen = float(row[6] or 0)
+            cliente_nombre = row[7]
+            cliente_apellido = row[8]
 
             # Obtener tipo de cambio del día
             tc_query = text("""
@@ -1112,6 +1117,7 @@ def export_profits_externos_excel():
                 'numero_pedido': numero_pedido,
                 'fecha_pedido': fecha_pedido,
                 'estado': estado,
+                'metodo_pago': metodo_pago,
                 'total_venta_pen': total_venta_pen,
                 'tipo_cambio': tipo_cambio,
                 'costo_total_usd': costo_total_usd,
@@ -1140,14 +1146,14 @@ def export_profits_externos_excel():
         )
 
         # Título del reporte
-        ws.merge_cells('A1:L1')
+        ws.merge_cells('A1:M1')
         title_cell = ws['A1']
         title_cell.value = "Reporte de Ganancias - Pedidos Externos"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
         # Período
-        ws.merge_cells('A2:L2')
+        ws.merge_cells('A2:M2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
@@ -1158,6 +1164,7 @@ def export_profits_externos_excel():
             'Número',
             'Fecha',
             'Estado',
+            'Método de Pago',
             'Venta (PEN)',
             'T.C.',
             'Costo (USD)',
@@ -1183,23 +1190,24 @@ def export_profits_externos_excel():
             ws.cell(row=row_num, column=2, value=order['numero_pedido'])
             ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
             ws.cell(row=row_num, column=4, value=order['estado'])
-            ws.cell(row=row_num, column=5, value=round(order['total_venta_pen'], 2))
-            ws.cell(row=row_num, column=6, value=round(order['tipo_cambio'], 2))
-            ws.cell(row=row_num, column=7, value=round(order['costo_total_usd'], 2))
-            ws.cell(row=row_num, column=8, value=round(order['costo_total_pen'], 2))
-            ws.cell(row=row_num, column=9, value=round(order['costo_envio_pen'], 2))
-            ws.cell(row=row_num, column=10, value=round(order['ganancia_pen'], 2))
-            ws.cell(row=row_num, column=11, value=round(order['margen_porcentaje'], 2))
-            ws.cell(row=row_num, column=12, value=order['cliente'])
+            ws.cell(row=row_num, column=5, value=order['metodo_pago'])
+            ws.cell(row=row_num, column=6, value=round(order['total_venta_pen'], 2))
+            ws.cell(row=row_num, column=7, value=round(order['tipo_cambio'], 2))
+            ws.cell(row=row_num, column=8, value=round(order['costo_total_usd'], 2))
+            ws.cell(row=row_num, column=9, value=round(order['costo_total_pen'], 2))
+            ws.cell(row=row_num, column=10, value=round(order['costo_envio_pen'], 2))
+            ws.cell(row=row_num, column=11, value=round(order['ganancia_pen'], 2))
+            ws.cell(row=row_num, column=12, value=round(order['margen_porcentaje'], 2))
+            ws.cell(row=row_num, column=13, value=order['cliente'])
 
             # Aplicar bordes
-            for col in range(1, 13):
+            for col in range(1, 14):
                 ws.cell(row=row_num, column=col).border = border
 
             row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 12, 8, 12, 12, 12, 14, 10, 30]
+        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -1268,6 +1276,7 @@ def export_profits_excel():
                 om_numero.meta_value as numero_pedido,
                 DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
                 o.status as estado,
+                COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago,
                 o.total_amount as total_venta_pen,
                 (
                     SELECT tasa_promedio
@@ -1455,14 +1464,14 @@ def export_profits_excel():
         )
 
         # Título del reporte
-        ws.merge_cells('A1:L1')
+        ws.merge_cells('A1:M1')
         title_cell = ws['A1']
         title_cell.value = f"Reporte de Ganancias - {source_name}"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
         # Período
-        ws.merge_cells('A2:L2')
+        ws.merge_cells('A2:M2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
@@ -1473,6 +1482,7 @@ def export_profits_excel():
             'Número',
             'Fecha',
             'Estado',
+            'Método de Pago',
             'Venta (PEN)',
             'T.C.',
             'Costo (USD)',
@@ -1498,23 +1508,24 @@ def export_profits_excel():
             ws.cell(row=row_num, column=2, value=order[1] or order[0])  # Número
             ws.cell(row=row_num, column=3, value=str(order[2]))  # Fecha
             ws.cell(row=row_num, column=4, value=order[3])  # Estado
-            ws.cell(row=row_num, column=5, value=float(order[4] or 0))  # Venta
-            ws.cell(row=row_num, column=6, value=float(order[5] or 0))  # TC
-            ws.cell(row=row_num, column=7, value=float(order[6] or 0))  # Costo USD
-            ws.cell(row=row_num, column=8, value=float(order[7] or 0))  # Costo PEN
-            ws.cell(row=row_num, column=9, value=float(order[8] or 0))  # Envío
-            ws.cell(row=row_num, column=10, value=float(order[9] or 0))  # Ganancia
-            ws.cell(row=row_num, column=11, value=float(order[10] or 0))  # Margen %
-            ws.cell(row=row_num, column=12, value=order[11] or '')  # Cliente
+            ws.cell(row=row_num, column=5, value=order[4] or 'N/A')  # Método de Pago
+            ws.cell(row=row_num, column=6, value=float(order[5] or 0))  # Venta
+            ws.cell(row=row_num, column=7, value=float(order[6] or 0))  # TC
+            ws.cell(row=row_num, column=8, value=float(order[7] or 0))  # Costo USD
+            ws.cell(row=row_num, column=9, value=float(order[8] or 0))  # Costo PEN
+            ws.cell(row=row_num, column=10, value=float(order[9] or 0))  # Envío
+            ws.cell(row=row_num, column=11, value=float(order[10] or 0))  # Ganancia
+            ws.cell(row=row_num, column=12, value=float(order[11] or 0))  # Margen %
+            ws.cell(row=row_num, column=13, value=order[12] or '')  # Cliente
 
             # Aplicar bordes
-            for col in range(1, 13):
+            for col in range(1, 14):
                 ws.cell(row=row_num, column=col).border = border
 
             row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 12, 8, 12, 12, 12, 14, 10, 30]
+        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
