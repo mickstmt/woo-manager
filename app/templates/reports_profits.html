@@ -446,7 +446,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${order.items.map(item => {
+                                    ${(order.items && order.items.length > 0) ? order.items.map(item => {
                                         const statusClass = !item.tiene_sku ? 'text-danger' : (!item.tiene_costo ? 'text-warning' : 'text-success');
                                         const statusText = !item.tiene_sku ? 'Sin SKU' : (!item.tiene_costo ? 'Sin costo en FC' : 'OK');
                                         const statusIcon = !item.tiene_sku ? 'x-circle-fill' : (!item.tiene_costo ? 'exclamation-triangle-fill' : 'check-circle-fill');
@@ -468,7 +468,7 @@
                                                 </td>
                                             </tr>
                                         `;
-                                    }).join('')}
+                                    }).join('') : '<tr><td colspan="8" class="text-center text-muted">No hay items en este pedido</td></tr>'}
                                 </tbody>
                             </table>
                         </div>

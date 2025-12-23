@@ -911,29 +911,49 @@ def api_profits_externos():
 
             # Obtener items y calcular costos
             items_query = text("""
-                SELECT product_sku, quantity
+                SELECT product_name, product_sku, quantity
                 FROM woo_orders_ext_items
                 WHERE order_ext_id = :order_id
             """)
             items = db.session.execute(items_query, {'order_id': pedido_id}).fetchall()
 
             costo_total_usd = 0
-            for item in items:
-                sku = item[0]
-                qty = item[1]
+            items_list = []
 
-                if not sku:
-                    continue
+            for item in items:
+                producto = item[0]
+                sku = item[1]
+                qty = item[2]
 
                 # Buscar costo del SKU
-                cost_query = text("""
-                    SELECT SUM(FCLastCost)
-                    FROM woo_products_fccost
-                    WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
-                """)
-                cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
-                costo_unitario = float(cost_result[0]) if cost_result and cost_result[0] else 0
-                costo_total_usd += costo_unitario * qty
+                costo_unitario = 0
+                tiene_sku = bool(sku)
+                tiene_costo = False
+
+                if sku:
+                    cost_query = text("""
+                        SELECT SUM(FCLastCost)
+                        FROM woo_products_fccost
+                        WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
+                    """)
+                    cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
+                    if cost_result and cost_result[0]:
+                        costo_unitario = float(cost_result[0])
+                        tiene_costo = True
+
+                costo_total_item = costo_unitario * qty
+                costo_total_usd += costo_total_item
+
+                # Agregar item a la lista con formato compatible con frontend
+                items_list.append({
+                    'producto': producto or 'Sin nombre',
+                    'sku': sku or 'N/A',
+                    'cantidad': qty,
+                    'costo_unitario_usd': round(costo_unitario, 2),
+                    'costo_total_usd': round(costo_total_item, 2),
+                    'tiene_sku': tiene_sku,
+                    'tiene_costo': tiene_costo
+                })
 
             costo_total_pen = costo_total_usd * tipo_cambio
             ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
@@ -952,7 +972,9 @@ def api_profits_externos():
                 'ganancia_pen': round(ganancia_pen, 2),
                 'margen_porcentaje': round(margen_porcentaje, 2),
                 'cliente_nombre': cliente_nombre,
-                'cliente_apellido': cliente_apellido
+                'cliente_apellido': cliente_apellido,
+                'total_items': len(items_list),
+                'items': items_list
             })
 
             # Acumular para resumen
