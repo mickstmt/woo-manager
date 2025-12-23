@@ -61,7 +61,9 @@ def order_detail(order_id):
     URL: /purchases/orders/123
     """
     order = PurchaseOrder.query.get_or_404(order_id)
-    return render_template('purchases_detail.html', title=f'Orden {order.order_number}', order=order)
+    # Ordenar historial por fecha descendente
+    history = order.history.order_by(PurchaseOrderHistory.created_at.desc()).all()
+    return render_template('purchases_detail.html', title=f'Orden {order.order_number}', order=order, history=history)
 
 
 # =====================================================
@@ -101,7 +103,12 @@ def api_products_out_of_stock():
                 sh.changed_by as last_updated_by,
                 sh.created_at as last_stock_update,
                 DATEDIFF(NOW(), sh.created_at) as dias_sin_stock,
-                fc.costo as unit_cost_usd
+                (
+                    SELECT SUM(fc.FCLastCost)
+                    FROM woo_products_fccost fc
+                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                        AND LENGTH(fc.sku) = 7
+                ) as unit_cost_usd
             FROM wpyz_posts p
 
             -- SKU (requerido)
@@ -127,10 +134,6 @@ def api_products_out_of_stock():
                 FROM wpyz_stock_history
                 WHERE new_stock = 0
             ) sh ON p.ID = sh.product_id AND sh.rn = 1
-
-            -- Costo desde Fishbowl Cost
-            LEFT JOIN woo_products_fccost fc
-                ON pm_sku.meta_value = fc.sku
 
             WHERE p.post_type IN ('product', 'product_variation')
             AND p.post_status = 'publish'
@@ -332,9 +335,9 @@ def api_create_order():
                 'error': 'Debe incluir al menos un producto'
             }), 400
 
-        # Obtener tipo de cambio actual
+        # Obtener tipo de cambio actual (usar tasa_compra para órdenes de compra)
         exchange_rate_query = text("""
-            SELECT tasa_cambio
+            SELECT tasa_compra
             FROM woo_tipo_cambio
             ORDER BY fecha DESC
             LIMIT 1
@@ -363,10 +366,16 @@ def api_create_order():
 
         total_cost_pen = total_cost_usd * exchange_rate
 
-        # Parsear fecha estimada
+        # Parsear fecha estimada (acepta formato dd/mm/yyyy o yyyy-mm-dd)
         expected_delivery = None
         if data.get('expected_delivery_date'):
-            expected_delivery = datetime.strptime(data['expected_delivery_date'], '%Y-%m-%d').date()
+            date_str = data['expected_delivery_date']
+            # Intentar primero formato dd/mm/yyyy
+            try:
+                expected_delivery = datetime.strptime(date_str, '%d/%m/%Y').date()
+            except ValueError:
+                # Si falla, intentar formato yyyy-mm-dd
+                expected_delivery = datetime.strptime(date_str, '%Y-%m-%d').date()
 
         # Crear orden
         order = PurchaseOrder(

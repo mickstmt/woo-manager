@@ -199,7 +199,7 @@
             </div>
             <div class="card-body">
                 <div class="timeline" id="history-timeline">
-                    {% for h in order.history.order_by(order.history.order(created_at='desc')) %}
+                    {% for h in history %}
                     <div class="timeline-item">
                         <div class="timeline-dot"></div>
                         <div>
