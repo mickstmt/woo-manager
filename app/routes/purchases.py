@@ -198,6 +198,215 @@ def api_products_out_of_stock():
         }), 500
 
 
+@bp.route('/api/products-out-of-stock/export')
+@login_required
+def export_products_out_of_stock():
+    """
+    Exportar lista de productos sin stock a Excel
+
+    Query params:
+    - search: Búsqueda por SKU o nombre
+    - sort_by: dias_sin_stock_desc, dias_sin_stock_asc, sku, nombre
+
+    Returns:
+        Excel file
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        search = request.args.get('search', '', type=str)
+        sort_by = request.args.get('sort_by', 'dias_sin_stock_desc', type=str)
+
+        # Usar el mismo query que api_products_out_of_stock
+        query = text("""
+            SELECT DISTINCT
+                p.ID as product_id,
+                p.post_title as product_name,
+                pm_sku.meta_value as sku,
+                pm_stock.meta_value as current_stock,
+                sh.new_stock as history_stock,
+                sh.changed_by as last_updated_by,
+                sh.created_at as last_stock_update,
+                DATEDIFF(NOW(), sh.created_at) as dias_sin_stock,
+                (
+                    SELECT SUM(fc.FCLastCost)
+                    FROM woo_products_fccost fc
+                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                        AND LENGTH(fc.sku) = 7
+                ) as unit_cost_usd
+            FROM wpyz_posts p
+
+            -- SKU (requerido)
+            INNER JOIN wpyz_postmeta pm_sku
+                ON p.ID = pm_sku.post_id
+                AND pm_sku.meta_key = '_sku'
+                AND pm_sku.meta_value IS NOT NULL
+                AND pm_sku.meta_value != ''
+
+            -- Stock actual
+            LEFT JOIN wpyz_postmeta pm_stock
+                ON p.ID = pm_stock.post_id
+                AND pm_stock.meta_key = '_stock'
+
+            -- Último cambio en history donde llegó a 0
+            INNER JOIN (
+                SELECT
+                    product_id,
+                    new_stock,
+                    changed_by,
+                    created_at,
+                    ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY created_at DESC) as rn
+                FROM wpyz_stock_history
+                WHERE new_stock = 0
+            ) sh ON p.ID = sh.product_id AND sh.rn = 1
+
+            WHERE p.post_type IN ('product', 'product_variation')
+            AND p.post_status = 'publish'
+            AND (
+                CAST(pm_stock.meta_value AS DECIMAL) = 0
+                OR pm_stock.meta_value IS NULL
+            )
+            AND (:search = '' OR pm_sku.meta_value LIKE :search_pattern OR p.post_title LIKE :search_pattern)
+
+            ORDER BY
+                CASE :sort_by
+                    WHEN 'dias_sin_stock_desc' THEN DATEDIFF(NOW(), sh.created_at)
+                    ELSE NULL
+                END DESC,
+                CASE :sort_by
+                    WHEN 'dias_sin_stock_asc' THEN DATEDIFF(NOW(), sh.created_at)
+                    ELSE NULL
+                END ASC,
+                CASE :sort_by
+                    WHEN 'sku' THEN pm_sku.meta_value
+                    WHEN 'nombre' THEN p.post_title
+                    ELSE NULL
+                END
+        """)
+
+        search_pattern = f'%{search}%'
+        result = db.session.execute(
+            query,
+            {
+                'search': search,
+                'search_pattern': search_pattern,
+                'sort_by': sort_by
+            }
+        )
+
+        products = []
+        for row in result:
+            products.append({
+                'product_id': row.product_id,
+                'product_name': row.product_name,
+                'sku': row.sku,
+                'current_stock': int(float(row.current_stock)) if row.current_stock else 0,
+                'dias_sin_stock': row.dias_sin_stock,
+                'last_updated_by': row.last_updated_by,
+                'last_stock_update': row.last_stock_update.strftime('%d/%m/%Y') if row.last_stock_update else '-',
+                'unit_cost_usd': float(row.unit_cost_usd) if row.unit_cost_usd else 0.00
+            })
+
+        # Crear Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Productos Sin Stock"
+
+        # Estilos
+        header_fill = PatternFill(start_color="DC3545", end_color="DC3545", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True, size=11)
+        header_alignment = Alignment(horizontal="center", vertical="center")
+
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Título del reporte
+        ws.merge_cells('A1:H1')
+        title_cell = ws['A1']
+        title_cell.value = "Reporte de Productos Sin Stock"
+        title_cell.font = Font(bold=True, size=14)
+        title_cell.alignment = Alignment(horizontal="center")
+
+        # Fecha del reporte
+        ws.merge_cells('A2:H2')
+        date_cell = ws['A2']
+        date_cell.value = f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        date_cell.alignment = Alignment(horizontal="center")
+
+        # Headers (fila 4)
+        headers = [
+            'SKU',
+            'Producto',
+            'Días sin Stock',
+            'Fecha Stock a 0',
+            'Actualizado por',
+            'Costo Unit. (USD)',
+            'Cantidad Sugerida',
+            'Total (USD)'
+        ]
+
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = border
+
+        # Datos
+        row_num = 5
+        for product in products:
+            ws.cell(row=row_num, column=1, value=product['sku'])
+            ws.cell(row=row_num, column=2, value=product['product_name'])
+            ws.cell(row=row_num, column=3, value=product['dias_sin_stock'])
+            ws.cell(row=row_num, column=4, value=product['last_stock_update'])
+            ws.cell(row=row_num, column=5, value=product['last_updated_by'])
+            ws.cell(row=row_num, column=6, value=product['unit_cost_usd'])
+            ws.cell(row=row_num, column=7, value=10)  # Cantidad sugerida por defecto
+            ws.cell(row=row_num, column=8, value=product['unit_cost_usd'] * 10)
+
+            # Aplicar bordes
+            for col in range(1, 9):
+                ws.cell(row=row_num, column=col).border = border
+
+            row_num += 1
+
+        # Ajustar anchos de columna
+        column_widths = [15, 40, 15, 15, 20, 15, 15, 15]
+        for i, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+
+        # Guardar en memoria
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+
+        # Nombre del archivo
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"productos_sin_stock_{timestamp}.xlsx"
+
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/api/orders', methods=['GET'])
 @login_required
 def api_get_orders():

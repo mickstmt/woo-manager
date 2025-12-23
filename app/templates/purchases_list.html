@@ -86,10 +86,16 @@
                             <option value="nombre">Nombre (A-Z)</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="alert alert-info mb-0">
                             <strong id="total-products">0</strong> productos sin stock
                         </div>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-success w-100" onclick="exportToExcel()" title="Exportar a Excel">
+                            <i class="bi bi-file-earmark-excel"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -419,6 +425,30 @@ function toggleSelectAll() {
 function clearSearch() {
     document.getElementById('search-input').value = '';
     loadProducts();
+}
+
+function exportToExcel() {
+    const search = document.getElementById('search-input').value;
+    const sortBy = document.getElementById('sort-by').value;
+
+    // Construir URL con parámetros actuales
+    const url = `/purchases/api/products-out-of-stock/export?search=${encodeURIComponent(search)}&sort_by=${sortBy}`;
+
+    // Mostrar mensaje
+    showAlert('Generando archivo Excel...', 'info');
+
+    // Crear enlace temporal para descargar
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `productos_sin_stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Mensaje de éxito después de un breve delay
+    setTimeout(() => {
+        showAlert('Archivo Excel descargado exitosamente', 'success');
+    }, 1000);
 }
 
 function showCreateOrderModal() {
