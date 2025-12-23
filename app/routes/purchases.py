@@ -146,10 +146,7 @@ def api_products_out_of_stock():
             ORDER BY
                 CASE :sort_by
                     WHEN 'dias_sin_stock_desc' THEN DATEDIFF(NOW(), sh.created_at)
-                    WHEN 'dias_sin_stock_asc' THEN DATEDIFF(NOW(), sh.created_at)
-                    WHEN 'sku' THEN 0
-                    WHEN 'nombre' THEN 0
-                    ELSE DATEDIFF(NOW(), sh.created_at)
+                    ELSE NULL
                 END DESC,
                 CASE :sort_by
                     WHEN 'dias_sin_stock_asc' THEN DATEDIFF(NOW(), sh.created_at)
