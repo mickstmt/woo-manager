@@ -343,17 +343,16 @@
             return;
         }
 
-        // Para pedidos externos, mostrar alerta de que no está disponible
-        if (currentSource === 'externos') {
-            showAlert('La exportación a Excel de pedidos externos aún no está disponible', 'warning');
-            return;
-        }
-
         // Mostrar mensaje de descarga
         showAlert('Generando archivo Excel... Por favor espera', 'info');
 
-        // Crear URL con parámetros
-        const url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`;
+        // Crear URL con parámetros según el source
+        let url;
+        if (currentSource === 'externos') {
+            url = `/reports/api/profits/externos/export?start_date=${startDate}&end_date=${endDate}`;
+        } else {
+            url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`;
+        }
 
         // Crear elemento <a> temporal para descargar
         const link = document.createElement('a');

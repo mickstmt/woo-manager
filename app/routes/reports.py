@@ -1010,6 +1010,223 @@ def api_profits_externos():
         }), 500
 
 
+@bp.route('/api/profits/externos/export')
+@login_required
+def export_profits_externos_excel():
+    """
+    Exportar reporte de ganancias de pedidos externos a Excel
+
+    Query params:
+    - start_date: fecha inicio (YYYY-MM-DD)
+    - end_date: fecha fin (YYYY-MM-DD)
+    """
+    try:
+        start_date = request.args.get('start_date', type=str)
+        end_date = request.args.get('end_date', type=str)
+
+        if not end_date:
+            end_date = datetime.now().strftime('%Y-%m-%d')
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+
+        # Query simplificado - solo pedidos básicos
+        orders_query = text("""
+            SELECT
+                oext.id as pedido_id,
+                oext.order_number as numero_pedido,
+                DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
+                oext.status as estado,
+                oext.total_amount as total_venta_pen,
+                COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
+                oext.customer_first_name as cliente_nombre,
+                oext.customer_last_name as cliente_apellido
+            FROM woo_orders_ext oext
+            WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
+                AND oext.status != 'trash'
+                AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+            ORDER BY fecha_pedido DESC, oext.id DESC
+            LIMIT 1000
+        """)
+
+        orders = db.session.execute(orders_query, {
+            'start_date': start_date,
+            'end_date': end_date
+        }).fetchall()
+
+        # Calcular costos en Python (igual que api_profits_externos)
+        orders_data = []
+
+        for row in orders:
+            pedido_id = row[0]
+            numero_pedido = row[1]
+            fecha_pedido = row[2]
+            estado = row[3]
+            total_venta_pen = float(row[4] or 0)
+            costo_envio_pen = float(row[5] or 0)
+            cliente_nombre = row[6]
+            cliente_apellido = row[7]
+
+            # Obtener tipo de cambio del día
+            tc_query = text("""
+                SELECT tasa_promedio
+                FROM woo_tipo_cambio
+                WHERE fecha <= :fecha AND activo = TRUE
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            tc_result = db.session.execute(tc_query, {'fecha': fecha_pedido}).fetchone()
+            tipo_cambio = float(tc_result[0]) if tc_result else 3.8
+
+            # Obtener items y calcular costos
+            items_query = text("""
+                SELECT product_sku, quantity
+                FROM woo_orders_ext_items
+                WHERE order_ext_id = :order_id
+            """)
+            items = db.session.execute(items_query, {'order_id': pedido_id}).fetchall()
+
+            costo_total_usd = 0
+            for item in items:
+                sku = item[0]
+                qty = item[1]
+
+                if sku:
+                    cost_query = text("""
+                        SELECT SUM(FCLastCost)
+                        FROM woo_products_fccost
+                        WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
+                    """)
+                    cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
+                    if cost_result and cost_result[0]:
+                        costo_unitario = float(cost_result[0])
+                        costo_total_usd += costo_unitario * qty
+
+            costo_total_pen = costo_total_usd * tipo_cambio
+            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
+            margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
+
+            cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
+
+            orders_data.append({
+                'pedido_id': pedido_id,
+                'numero_pedido': numero_pedido,
+                'fecha_pedido': fecha_pedido,
+                'estado': estado,
+                'total_venta_pen': total_venta_pen,
+                'tipo_cambio': tipo_cambio,
+                'costo_total_usd': costo_total_usd,
+                'costo_total_pen': costo_total_pen,
+                'costo_envio_pen': costo_envio_pen,
+                'ganancia_pen': ganancia_pen,
+                'margen_porcentaje': margen_porcentaje,
+                'cliente': cliente_completo
+            })
+
+        # Crear Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Pedidos Externos"
+
+        # Estilos
+        header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True, size=11)
+        header_alignment = Alignment(horizontal="center", vertical="center")
+
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        # Título del reporte
+        ws.merge_cells('A1:L1')
+        title_cell = ws['A1']
+        title_cell.value = "Reporte de Ganancias - Pedidos Externos"
+        title_cell.font = Font(bold=True, size=14)
+        title_cell.alignment = Alignment(horizontal="center")
+
+        # Período
+        ws.merge_cells('A2:L2')
+        period_cell = ws['A2']
+        period_cell.value = f"Período: {start_date} a {end_date}"
+        period_cell.alignment = Alignment(horizontal="center")
+
+        # Headers (fila 4)
+        headers = [
+            'Pedido ID',
+            'Número',
+            'Fecha',
+            'Estado',
+            'Venta (PEN)',
+            'T.C.',
+            'Costo (USD)',
+            'Costo (PEN)',
+            'Envío (PEN)',
+            'Ganancia (PEN)',
+            'Margen %',
+            'Cliente'
+        ]
+
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = border
+
+        # Datos
+        row_num = 5
+        for order in orders_data:
+            ws.cell(row=row_num, column=1, value=order['pedido_id'])
+            ws.cell(row=row_num, column=2, value=order['numero_pedido'])
+            ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
+            ws.cell(row=row_num, column=4, value=order['estado'])
+            ws.cell(row=row_num, column=5, value=round(order['total_venta_pen'], 2))
+            ws.cell(row=row_num, column=6, value=round(order['tipo_cambio'], 2))
+            ws.cell(row=row_num, column=7, value=round(order['costo_total_usd'], 2))
+            ws.cell(row=row_num, column=8, value=round(order['costo_total_pen'], 2))
+            ws.cell(row=row_num, column=9, value=round(order['costo_envio_pen'], 2))
+            ws.cell(row=row_num, column=10, value=round(order['ganancia_pen'], 2))
+            ws.cell(row=row_num, column=11, value=round(order['margen_porcentaje'], 2))
+            ws.cell(row=row_num, column=12, value=order['cliente'])
+
+            # Aplicar bordes
+            for col in range(1, 13):
+                ws.cell(row=row_num, column=col).border = border
+
+            row_num += 1
+
+        # Ajustar anchos de columna
+        column_widths = [10, 15, 12, 12, 12, 8, 12, 12, 12, 14, 10, 30]
+        for i, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+
+        # Guardar en memoria
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+
+        # Nombre del archivo
+        filename = f"ganancias_externos_{start_date}_{end_date}.xlsx"
+
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/api/profits/export')
 @login_required
 def export_profits_excel():
