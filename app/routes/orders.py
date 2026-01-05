@@ -1144,6 +1144,12 @@ def create_order():
 
         # ===== CREAR PEDIDO =====
         # Ahora podemos crear el pedido de manera segura
+        payment_method_value = data.get('payment_method', 'cod')
+        payment_method_title_value = data.get('payment_method_title', 'Pago manual')
+
+        current_app.logger.info(f"DEBUG - Payment method from request: {payment_method_value}")
+        current_app.logger.info(f"DEBUG - Payment method title from request: {payment_method_title_value}")
+
         order = Order(
             status='wc-processing',  # Estado inicial
             currency='PEN',
@@ -1154,16 +1160,21 @@ def create_order():
             billing_email=customer.get('email'),
             date_created_gmt=get_gmt_time(),
             date_updated_gmt=get_gmt_time(),
-            payment_method=data.get('payment_method', 'cod'),
-            payment_method_title=data.get('payment_method_title', 'Pago manual'),
+            payment_method=payment_method_value,
+            payment_method_title=payment_method_title_value,
             customer_note=data.get('customer_note', ''),
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent', '')[:200]
         )
 
+        current_app.logger.info(f"DEBUG - Order object payment_method: {order.payment_method}")
+        current_app.logger.info(f"DEBUG - Order object payment_method_title: {order.payment_method_title}")
+
         db.session.add(order)
         db.session.flush()  # Para obtener el ID del pedido
         current_app.logger.info(f"Order created with ID {order.id}")
+        current_app.logger.info(f"DEBUG - After flush, payment_method: {order.payment_method}")
+        current_app.logger.info(f"DEBUG - After flush, payment_method_title: {order.payment_method_title}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
@@ -1352,16 +1363,19 @@ def create_order():
             # OPTIMIZACIÓN: Reutilizar el producto ya cargado en lugar de hacer otra query
             if product:
                 stock_meta = product.product_meta.filter_by(meta_key='_stock').first()
-                if stock_meta:
-                    current_stock = int(float(stock_meta.meta_value))
-                    new_stock = max(0, current_stock - quantity)
-                    stock_meta.meta_value = str(new_stock)
+                if stock_meta and stock_meta.meta_value is not None:
+                    try:
+                        current_stock = int(float(stock_meta.meta_value))
+                        new_stock = max(0, current_stock - quantity)
+                        stock_meta.meta_value = str(new_stock)
 
-                    # Actualizar estado de stock
-                    if new_stock == 0:
-                        stock_status_meta = product.product_meta.filter_by(meta_key='_stock_status').first()
-                        if stock_status_meta:
-                            stock_status_meta.meta_value = 'outofstock'
+                        # Actualizar estado de stock
+                        if new_stock == 0:
+                            stock_status_meta = product.product_meta.filter_by(meta_key='_stock_status').first()
+                            if stock_status_meta:
+                                stock_status_meta.meta_value = 'outofstock'
+                    except (ValueError, TypeError) as e:
+                        current_app.logger.warning(f"Could not update stock for product {product_id}: invalid stock value '{stock_meta.meta_value}'")
 
         # ===== ITEM DE ENVÍO =====
         # SIEMPRE crear item de envío, incluso si el costo es 0 (como en "Recojo en Almacén")
@@ -1621,6 +1635,14 @@ def create_order():
         # OPTIMIZACIÓN: Queries de verificación removidas - confiar en SQLAlchemy
         # Antes hacíamos 3 SELECTs adicionales que agregaban ~1 segundo
         current_app.logger.info(f"Order {order.id} created successfully")
+
+        # DEBUG: Verificar si payment_method se guardó correctamente
+        from sqlalchemy import text
+        check_payment = db.session.execute(
+            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
+            {'order_id': order.id}
+        ).fetchone()
+        current_app.logger.info(f"DEBUG - After commit, DB shows: payment_method={check_payment[0]}, payment_method_title={check_payment[1]}")
 
         # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
         # Enviar email en background para no bloquear la respuesta al usuario

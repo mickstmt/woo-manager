@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Módulo de Despacho - Kanban{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dispatch.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header con título y estadísticas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="bi bi-kanban"></i> Módulo de Despacho
+                    </h2>
+                    <p class="text-muted mb-0">Gestión visual de pedidos por método de envío</p>
+                </div>
+                <div class="d-flex gap-3">
+                    <div class="stat-card">
+                        <div class="stat-label">Total</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card stat-priority">
+                        <div class="stat-label">Prioritarios</div>
+                        <div class="stat-value" id="stat-priority">0</div>
+                    </div>
+                    <div class="stat-card stat-stale">
+                        <div class="stat-label">Estancados</div>
+                        <div class="stat-value" id="stat-stale">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha desde</label>
+                            <input type="date" class="form-control" id="filter-date-from">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha hasta</label>
+                            <input type="date" class="form-control" id="filter-date-to">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Filtros</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="filter-priority">
+                                <label class="form-check-label" for="filter-priority">
+                                    Solo prioritarios
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="applyFilters()">
+                                    <i class="bi bi-funnel"></i> Aplicar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablero Kanban -->
+    <div class="kanban-board">
+        <!-- Columna: Olva Courier -->
+        <div class="kanban-column" data-shipping-method="Olva Courier">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-truck"></i>
+                    Olva Courier
+                </div>
+                <div class="column-count" data-column="olva">0</div>
+            </div>
+            <div class="column-cards" id="column-olva" data-method="Olva Courier">
+                <!-- Las tarjetas se cargarán dinámicamente aquí -->
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna: Recojo en Almacén -->
+        <div class="kanban-column" data-shipping-method="Recojo en Almacén">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-shop"></i>
+                    Recojo
+                </div>
+                <div class="column-count" data-column="recojo">0</div>
+            </div>
+            <div class="column-cards" id="column-recojo" data-method="Recojo en Almacén">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna: Motorizado (CHAMO) -->
+        <div class="kanban-column" data-shipping-method="Motorizado (CHAMO)">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-bicycle"></i>
+                    CHAMO
+                </div>
+                <div class="column-count" data-column="chamo">0</div>
+            </div>
+            <div class="column-cards" id="column-chamo" data-method="Motorizado (CHAMO)">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna: SHALOM -->
+        <div class="kanban-column" data-shipping-method="SHALOM">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-box-seam"></i>
+                    SHALOM
+                </div>
+                <div class="column-count" data-column="shalom">0</div>
+            </div>
+            <div class="column-cards" id="column-shalom" data-method="SHALOM">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna: DINSIDES -->
+        <div class="kanban-column" data-shipping-method="DINSIDES">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-boxes"></i>
+                    DINSIDES
+                </div>
+                <div class="column-count" data-column="dinsides">0</div>
+            </div>
+            <div class="column-cards" id="column-dinsides" data-method="DINSIDES">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Detalle de Pedido -->
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-receipt"></i>
+                    Pedido <span id="modal-order-number"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Información del cliente -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">Información del Cliente</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <i class="bi bi-person"></i>
+                                <strong>Cliente:</strong>
+                                <span id="modal-customer-name"></span>
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-telephone"></i>
+                                <strong>Teléfono:</strong>
+                                <span id="modal-customer-phone"></span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <i class="bi bi-envelope"></i>
+                                <strong>Email:</strong>
+                                <span id="modal-customer-email"></span>
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-calendar"></i>
+                                <strong>Fecha:</strong>
+                                <span id="modal-date-created"></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información del pedido -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">Información del Pedido</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <i class="bi bi-cash"></i>
+                                <strong>Total:</strong>
+                                S/ <span id="modal-total"></span>
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Estado:</strong>
+                                <span id="modal-status"></span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                <i class="bi bi-truck"></i>
+                                <strong>Método de Envío:</strong>
+                                <span id="modal-shipping-method"></span>
+                            </p>
+                            <p class="mb-2">
+                                <i class="bi bi-person-badge"></i>
+                                <strong>Creado por:</strong>
+                                <span id="modal-created-by"></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Productos -->
+                <div class="mb-4" id="products-section">
+                    <h6 class="border-bottom pb-2">Productos</h6>
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-hourglass-split"></i>
+                        <p>Cargando productos...</p>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">Acciones</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-warning btn-sm" onclick="togglePriority()">
+                            <i class="bi bi-star"></i>
+                            <span id="priority-btn-text">Marcar Prioritario</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Agregar Nota -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">Nota de Despacho</h6>
+                    <div class="mb-3">
+                        <textarea class="form-control" id="dispatch-note-input" rows="3" placeholder="Escribir nota sobre el despacho..."></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="addDispatchNote()">
+                        <i class="bi bi-plus-circle"></i> Guardar Nota
+                    </button>
+                </div>
+
+                <!-- Historial -->
+                <div>
+                    <h6 class="border-bottom pb-2">Historial de Cambios</h6>
+                    <div id="order-history">
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-hourglass-split"></i>
+                            <p>Cargando historial...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/dispatch.js') }}"></script>
+{% endblock %}

@@ -961,3 +961,95 @@ class PurchaseOrderHistory(db.Model):
             'change_reason': self.change_reason,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
+
+
+# ============================================
+# MODELOS PARA MÓDULO DE DESPACHO KANBAN
+# ============================================
+
+class DispatchHistory(db.Model):
+    """
+    Modelo para historial de cambios de método de envío
+
+    Tabla: woo_dispatch_history
+    Propósito: Registrar todos los movimientos de pedidos en el tablero Kanban
+    con trazabilidad completa (usuario, timestamp, método anterior/nuevo)
+    """
+    __tablename__ = 'woo_dispatch_history'
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'), nullable=False)
+    order_number = db.Column(db.String(50), nullable=False)
+
+    # Cambio de método de envío
+    previous_shipping_method = db.Column(db.String(100))  # Puede ser NULL si es el primer registro
+    new_shipping_method = db.Column(db.String(100), nullable=False)
+
+    # Trazabilidad
+    changed_by = db.Column(db.String(100), nullable=False)  # Username del usuario
+    changed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Notas opcionales
+    dispatch_note = db.Column(db.Text)
+
+    # Relación con Order
+    order = db.relationship('Order', backref=db.backref('dispatch_history', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<DispatchHistory Order:{self.order_number} {self.previous_shipping_method}→{self.new_shipping_method}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'order_number': self.order_number,
+            'previous_shipping_method': self.previous_shipping_method,
+            'new_shipping_method': self.new_shipping_method,
+            'changed_by': self.changed_by,
+            'changed_at': self.changed_at.strftime('%Y-%m-%d %H:%M:%S') if self.changed_at else None,
+            'dispatch_note': self.dispatch_note
+        }
+
+
+class DispatchPriority(db.Model):
+    """
+    Modelo para gestión de prioridades de pedidos
+
+    Tabla: woo_dispatch_priorities
+    Propósito: Marcar pedidos como prioritarios/urgentes en el tablero de despacho
+    con información sobre quién lo marcó y por qué
+    """
+    __tablename__ = 'woo_dispatch_priorities'
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('wpyz_wc_orders.id'), nullable=False, unique=True)
+    order_number = db.Column(db.String(50), nullable=False)
+
+    # Configuración de prioridad
+    is_priority = db.Column(db.Boolean, default=False, nullable=False)
+    priority_level = db.Column(db.Enum('normal', 'high', 'urgent', name='priority_level_enum'), default='normal')
+
+    # Metadata
+    marked_by = db.Column(db.String(100))
+    marked_at = db.Column(db.DateTime)
+    priority_note = db.Column(db.Text)
+
+    # Relación con Order
+    order = db.relationship('Order', backref=db.backref('dispatch_priority', uselist=False))
+
+    def __repr__(self):
+        return f'<DispatchPriority Order:{self.order_number} Level:{self.priority_level}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'order_number': self.order_number,
+            'is_priority': self.is_priority,
+            'priority_level': self.priority_level,
+            'marked_by': self.marked_by,
+            'marked_at': self.marked_at.strftime('%Y-%m-%d %H:%M:%S') if self.marked_at else None,
+            'priority_note': self.priority_note
+        }
