@@ -305,6 +305,18 @@
     </div>
 </div>
 
+<!-- Contenedor de Toasts para notificaciones -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <!-- Los toasts se insertarán aquí dinámicamente -->
+</div>
+
+<!-- Loading overlay para drag & drop -->
+<div id="drag-loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9998; align-items: center; justify-content: center;">
+    <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+        <span class="visually-hidden">Moviendo pedido...</span>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}

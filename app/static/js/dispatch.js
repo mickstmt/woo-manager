@@ -276,6 +276,9 @@ function initializeDragDrop() {
  * Mover pedido a otra columna (cambiar método de envío)
  */
 async function moveOrder(orderId, orderNumber, newMethod, oldMethod, evt) {
+    // Mostrar loading overlay
+    showLoadingOverlay();
+
     try {
         const response = await fetch('/dispatch/api/move', {
             method: 'POST',
@@ -294,20 +297,31 @@ async function moveOrder(orderId, orderNumber, newMethod, oldMethod, evt) {
             throw new Error(data.error || 'Error al mover pedido');
         }
 
-        // Mostrar notificación de éxito
-        showSuccess(`Pedido ${orderNumber} movido a ${newMethod}`);
+        // Ocultar loading overlay
+        hideLoadingOverlay();
+
+        // Mostrar notificación de éxito con toast
+        showToast('success', 'Pedido Movido', `Pedido ${orderNumber} movido a ${newMethod}`);
 
         // Actualizar contadores
         updateColumnCounts();
 
     } catch (error) {
         console.error('Error moviendo pedido:', error);
-        showError('Error al mover pedido: ' + error.message);
+
+        // Ocultar loading overlay
+        hideLoadingOverlay();
+
+        // Mostrar toast de error
+        showToast('danger', 'Error', 'Error al mover pedido: ' + error.message);
 
         // Revertir movimiento visual
         if (evt.from && evt.item) {
             evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
         }
+
+        // Actualizar contadores después de revertir
+        updateColumnCounts();
     }
 }
 
@@ -577,24 +591,86 @@ async function addDispatchNote() {
 }
 
 /**
- * Mostrar notificación de éxito
+ * Mostrar toast de Bootstrap
+ * @param {string} type - 'success', 'danger', 'warning', 'info'
+ * @param {string} title - Título del toast
+ * @param {string} message - Mensaje del toast
  */
-function showSuccess(message) {
-    // Usar toastr si está disponible, sino alert simple
-    if (typeof toastr !== 'undefined') {
-        toastr.success(message);
-    } else {
-        alert(message);
+function showToast(type, title, message) {
+    const toastContainer = document.querySelector('.toast-container');
+
+    // Determinar ícono según tipo
+    const icons = {
+        'success': 'bi-check-circle-fill',
+        'danger': 'bi-x-circle-fill',
+        'warning': 'bi-exclamation-triangle-fill',
+        'info': 'bi-info-circle-fill'
+    };
+
+    const icon = icons[type] || icons['info'];
+
+    // Crear el toast
+    const toastId = 'toast-' + Date.now();
+    const toastHtml = `
+        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi ${icon} me-2"></i>
+                    <strong>${title}:</strong> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+
+    // Insertar en el contenedor
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+    // Obtener el elemento y mostrarlo
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 3000
+    });
+
+    toast.show();
+
+    // Eliminar el toast del DOM después de ocultarse
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+/**
+ * Mostrar loading overlay durante drag & drop
+ */
+function showLoadingOverlay() {
+    const overlay = document.getElementById('drag-loading-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
     }
 }
 
 /**
- * Mostrar notificación de error
+ * Ocultar loading overlay
+ */
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('drag-loading-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+/**
+ * Mostrar notificación de éxito (compatibilidad con código existente)
+ */
+function showSuccess(message) {
+    showToast('success', 'Éxito', message);
+}
+
+/**
+ * Mostrar notificación de error (compatibilidad con código existente)
  */
 function showError(message) {
-    if (typeof toastr !== 'undefined') {
-        toastr.error(message);
-    } else {
-        alert('ERROR: ' + message);
-    }
+    showToast('danger', 'Error', message);
 }
