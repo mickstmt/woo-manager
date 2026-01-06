@@ -1179,6 +1179,11 @@ def create_order():
         # ===== FORZAR ACTUALIZACIÓN DE PAYMENT METHOD =====
         # WooCommerce HPOS a veces no sincroniza correctamente estos campos en el INSERT
         # Forzamos un UPDATE explícito para garantizar que se guarden
+
+        # DEBUG: Log forzado a stderr para verificar ejecución en producción
+        import sys
+        print(f"[PAYMENT_DEBUG] Updating order {order.id}: payment_method={payment_method_value}, title={payment_method_title_value}", file=sys.stderr, flush=True)
+
         update_payment = text("""
             UPDATE wpyz_wc_orders
             SET payment_method = :payment_method,
@@ -1190,6 +1195,8 @@ def create_order():
             'payment_method': payment_method_value,
             'payment_method_title': payment_method_title_value
         })
+
+        print(f"[PAYMENT_DEBUG] UPDATE executed for order {order.id}", file=sys.stderr, flush=True)
         current_app.logger.info(f"Forced UPDATE payment_method={payment_method_value}, payment_method_title={payment_method_title_value} for order {order.id}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
