@@ -15,6 +15,65 @@ from io import BytesIO
 bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 
+def normalize_payment_method(payment_method_value):
+    """
+    Transforma el payment_method técnico a un nombre de plataforma legible.
+
+    Args:
+        payment_method_value: Valor de payment_method o payment_method_title
+
+    Returns:
+        str: Nombre normalizado de la plataforma
+    """
+    if not payment_method_value or payment_method_value == 'N/A':
+        return 'N/A'
+
+    value = str(payment_method_value).lower()
+
+    # Mapeo de valores técnicos a nombres de plataforma
+    platform_map = {
+        # Billeteras digitales
+        'yape': 'Yape',
+        'plin': 'Plin',
+        'qr_dinamico': 'QR Dinámico (Yape/Plin/BIM)',
+        'izipaypay': 'Yape/Plin',
+
+        # Transferencias y banca
+        'bacs': 'Banca Virtual y Agentes',
+        'transferencia': 'Transferencia Bancaria',
+
+        # Tarjetas
+        'tarjeta_credito': 'Tarjeta de Crédito',
+        'tarjeta_debito': 'Tarjeta de Débito',
+        'tarjeta': 'Tarjeta',
+
+        # Pasarelas de pago
+        'mercadopago': 'Mercado Pago',
+        'woo-mercado-pago-basic': 'Mercado Pago',
+        'mercado_pago': 'Mercado Pago',
+
+        # Efectivo
+        'cod': 'Efectivo',
+        'efectivo': 'Efectivo',
+        'cash': 'Efectivo',
+
+        # Cheque (usado como Plin en versión antigua)
+        'cheque': 'Plin',
+    }
+
+    # Buscar en el mapeo
+    for key, platform in platform_map.items():
+        if key in value:
+            return platform
+
+    # Si contiene "tarjeta" pero no está en el mapeo, devolver genérico
+    if 'tarjeta' in value or 'card' in value:
+        return 'Tarjeta'
+
+    # Si no se encuentra, devolver el valor original capitalizado
+    return payment_method_value.title()
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -1108,9 +1167,12 @@ def export_profits_externos_excel():
 
             costo_total_pen = costo_total_usd * tipo_cambio
 
+            # Normalizar método de pago a nombre de plataforma
+            plataforma = normalize_payment_method(metodo_pago)
+
             # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
             comision_pen = 0
-            if 'Tarjeta' in metodo_pago or 'tarjeta' in metodo_pago:
+            if 'Tarjeta' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
             # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
@@ -1126,7 +1188,7 @@ def export_profits_externos_excel():
                 'numero_pedido': numero_pedido,
                 'fecha_pedido': fecha_pedido,
                 'estado': estado,
-                'metodo_pago': metodo_pago,
+                'metodo_pago': plataforma,
                 'total_venta_pen': total_venta_pen,
                 'tipo_cambio': tipo_cambio,
                 'costo_total_usd': costo_total_usd,
@@ -1517,14 +1579,15 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for order in orders:
-            plataforma = order[4] or 'N/A'  # Plataforma (antes Método de Pago)
+            plataforma_raw = order[4] or 'N/A'  # Valor crudo de la BD
+            plataforma = normalize_payment_method(plataforma_raw)  # Plataforma normalizada
             total_venta_pen = float(order[5] or 0)
             costo_pen = float(order[8] or 0)
             envio_pen = float(order[9] or 0)
 
             # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
             comision_pen = 0
-            if 'Tarjeta' in plataforma or 'tarjeta' in plataforma:
+            if 'Tarjeta' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
             # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
