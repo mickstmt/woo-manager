@@ -9,11 +9,14 @@ let sortableInstances = [];
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Módulo de Despacho inicializado');
 
-    // NO establecer fechas por defecto
-    // Por defecto, se muestran TODOS los pedidos en estado wc-processing
-    // El usuario puede filtrar manualmente si lo desea
+    // Establecer fechas por defecto: primer día del mes actual hasta hoy
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Cargar pedidos (sin filtro de fechas)
+    document.getElementById('filter-date-from').value = formatDateForInput(firstDayOfMonth);
+    document.getElementById('filter-date-to').value = formatDateForInput(today);
+
+    // Cargar pedidos con filtro de fechas del mes actual
     loadOrders();
 
     // Auto-refresh cada 2 minutos
