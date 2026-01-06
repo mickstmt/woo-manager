@@ -187,6 +187,9 @@ def get_orders():
         priority_filter = ""
         params = {}
 
+        # NOTA: El filtro de fechas es OPCIONAL
+        # Por defecto, muestra TODOS los pedidos en estado wc-processing
+        # Solo filtra por fecha si el usuario aplica el filtro manualmente
         if date_from and date_to:
             date_filter = "AND DATE(o.date_created_gmt) BETWEEN :date_from AND :date_to"
             params['date_from'] = date_from

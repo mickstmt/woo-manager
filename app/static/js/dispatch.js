@@ -9,15 +9,11 @@ let sortableInstances = [];
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Módulo de Despacho inicializado');
 
-    // Establecer fechas por defecto (últimos 30 días)
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // NO establecer fechas por defecto
+    // Por defecto, se muestran TODOS los pedidos en estado wc-processing
+    // El usuario puede filtrar manualmente si lo desea
 
-    document.getElementById('filter-date-from').value = formatDateForInput(thirtyDaysAgo);
-    document.getElementById('filter-date-to').value = formatDateForInput(today);
-
-    // Cargar pedidos
+    // Cargar pedidos (sin filtro de fechas)
     loadOrders();
 
     // Auto-refresh cada 2 minutos
@@ -53,8 +49,12 @@ async function loadOrders() {
         const dateTo = document.getElementById('filter-date-to').value;
         const priorityOnly = document.getElementById('filter-priority').checked;
 
-        if (dateFrom) params.append('date_from', dateFrom);
-        if (dateTo) params.append('date_to', dateTo);
+        // Solo aplicar filtro de fechas si AMBAS fechas están presentes
+        if (dateFrom && dateTo) {
+            params.append('date_from', dateFrom);
+            params.append('date_to', dateTo);
+        }
+
         if (priorityOnly) params.append('priority_only', 'true');
 
         // Fetch data
