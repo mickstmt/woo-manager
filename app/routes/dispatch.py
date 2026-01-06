@@ -134,6 +134,19 @@ def get_orders():
         priority_only = request.args.get('priority_only', 'false').lower() == 'true'
         shipping_methods_filter = request.args.get('shipping_methods', '').split(',') if request.args.get('shipping_methods') else None
 
+        # Convertir formato de fecha si viene en formato dd/mm/yyyy a yyyy-mm-dd
+        if date_from and '/' in date_from:
+            # Formato dd/mm/yyyy -> yyyy-mm-dd
+            parts = date_from.split('/')
+            if len(parts) == 3:
+                date_from = f"{parts[2]}-{parts[1]}-{parts[0]}"
+
+        if date_to and '/' in date_to:
+            # Formato dd/mm/yyyy -> yyyy-mm-dd
+            parts = date_to.split('/')
+            if len(parts) == 3:
+                date_to = f"{parts[2]}-{parts[1]}-{parts[0]}"
+
         # Query base: TODOS los pedidos wc-processing (WooCommerce nativos + WhatsApp)
         query = text("""
             SELECT DISTINCT
@@ -227,8 +240,8 @@ def get_orders():
         # Log para debug
         current_app.logger.info("="*80)
         current_app.logger.info(f"DISPATCH API - GET ORDERS REQUEST")
-        current_app.logger.info(f"date_from: {date_from} (type: {type(date_from)})")
-        current_app.logger.info(f"date_to: {date_to} (type: {type(date_to)})")
+        current_app.logger.info(f"date_from (convertido): {date_from}")
+        current_app.logger.info(f"date_to (convertido): {date_to}")
         current_app.logger.info(f"priority_only: {priority_only}")
         current_app.logger.info(f"Query params: {params}")
         current_app.logger.info(f"Date filter SQL: {date_filter}")
