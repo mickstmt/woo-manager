@@ -120,7 +120,7 @@ def get_orders():
             SELECT DISTINCT
                 o.id,
                 COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
-                o.date_created_gmt,
+                DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR) as date_created_local,
                 o.total_amount,
                 o.status,
                 o.billing_email,
@@ -190,8 +190,9 @@ def get_orders():
         # NOTA: El filtro de fechas es OPCIONAL
         # Por defecto, muestra TODOS los pedidos en estado wc-processing
         # Solo filtra por fecha si el usuario aplica el filtro manualmente
+        # IMPORTANTE: Usar DATE_SUB para convertir GMT a hora de Perú (UTC-5)
         if date_from and date_to:
-            date_filter = "AND DATE(o.date_created_gmt) BETWEEN :date_from AND :date_to"
+            date_filter = "AND DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :date_from AND :date_to"
             params['date_from'] = date_from
             params['date_to'] = date_to
 
@@ -204,8 +205,14 @@ def get_orders():
             priority_filter=priority_filter
         )
 
+        # Log para debug
+        current_app.logger.info(f"Filtro de fechas aplicado: date_from={date_from}, date_to={date_to}")
+        current_app.logger.info(f"Query params: {params}")
+
         # Ejecutar query
         results = db.session.execute(text(query_str), params).fetchall()
+
+        current_app.logger.info(f"Pedidos encontrados: {len(results)}")
 
         # Agrupar por método de envío
         orders_by_method = {
