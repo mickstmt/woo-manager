@@ -92,6 +92,25 @@ def index():
 # API ENDPOINTS
 # ============================================
 
+@bp.route('/api/debug', methods=['GET'])
+@login_required
+@master_required
+def debug_params():
+    """
+    Endpoint temporal de debug para ver qué parámetros llegan
+    """
+    return jsonify({
+        'success': True,
+        'debug': {
+            'all_args': dict(request.args),
+            'date_from': request.args.get('date_from'),
+            'date_to': request.args.get('date_to'),
+            'priority_only': request.args.get('priority_only'),
+            'raw_query_string': request.query_string.decode('utf-8')
+        }
+    })
+
+
 @bp.route('/api/orders', methods=['GET'])
 @login_required
 @master_required
@@ -206,13 +225,22 @@ def get_orders():
         )
 
         # Log para debug
-        current_app.logger.info(f"Filtro de fechas aplicado: date_from={date_from}, date_to={date_to}")
+        current_app.logger.info("="*80)
+        current_app.logger.info(f"DISPATCH API - GET ORDERS REQUEST")
+        current_app.logger.info(f"date_from: {date_from} (type: {type(date_from)})")
+        current_app.logger.info(f"date_to: {date_to} (type: {type(date_to)})")
+        current_app.logger.info(f"priority_only: {priority_only}")
         current_app.logger.info(f"Query params: {params}")
+        current_app.logger.info(f"Date filter SQL: {date_filter}")
+        current_app.logger.info("="*80)
 
         # Ejecutar query
         results = db.session.execute(text(query_str), params).fetchall()
 
-        current_app.logger.info(f"Pedidos encontrados: {len(results)}")
+        current_app.logger.info(f"✓ Pedidos encontrados: {len(results)}")
+        if len(results) > 0:
+            current_app.logger.info(f"  Primer pedido: ID={results[0][0]}, Numero={results[0][1]}, Fecha={results[0][2]}")
+        current_app.logger.info("="*80)
 
         # Agrupar por método de envío
         orders_by_method = {

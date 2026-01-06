@@ -49,10 +49,16 @@ async function loadOrders() {
         const dateTo = document.getElementById('filter-date-to').value;
         const priorityOnly = document.getElementById('filter-priority').checked;
 
+        // Debug: Log de fechas
+        console.log('Filtro de fechas:', { dateFrom, dateTo, priorityOnly });
+
         // Solo aplicar filtro de fechas si AMBAS fechas están presentes
         if (dateFrom && dateTo) {
             params.append('date_from', dateFrom);
             params.append('date_to', dateTo);
+            console.log('Filtro aplicado - Params:', params.toString());
+        } else {
+            console.log('Filtro NO aplicado - falta una o ambas fechas');
         }
 
         if (priorityOnly) params.append('priority_only', 'true');
