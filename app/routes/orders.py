@@ -1196,7 +1196,12 @@ def create_order():
             'payment_method_title': payment_method_title_value
         })
 
-        print(f"[PAYMENT_DEBUG] UPDATE executed for order {order.id}", file=sys.stderr, flush=True)
+        # CRÍTICO: Commit inmediato para persistir payment_method
+        # Si esperamos al commit final (línea 1656), cualquier error intermedio
+        # causará rollback y perderemos estos valores
+        db.session.flush()  # Forzar escritura inmediata a BD
+
+        print(f"[PAYMENT_DEBUG] UPDATE executed and flushed for order {order.id}", file=sys.stderr, flush=True)
         current_app.logger.info(f"Forced UPDATE payment_method={payment_method_value}, payment_method_title={payment_method_title_value} for order {order.id}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
