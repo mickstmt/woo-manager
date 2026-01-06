@@ -362,10 +362,12 @@ def move_order():
                 'error': f'Pedido {order_id} no encontrado'
             }), 404
 
-        # Obtener número de pedido
+        # Obtener número de pedido (puede ser None para pedidos WooCommerce nativos)
         order_number = order.get_meta('_order_number')
+        if not order_number:
+            order_number = f"#{order_id}"
 
-        # Obtener método de envío actual
+        # Obtener método de envío actual (ORIGINAL del pedido)
         current_shipping = db.session.execute(
             text("""
                 SELECT order_item_name
@@ -377,19 +379,9 @@ def move_order():
             {'order_id': order_id}
         ).scalar()
 
-        # Actualizar método de envío en la base de datos
-        db.session.execute(
-            text("""
-                UPDATE wpyz_woocommerce_order_items
-                SET order_item_name = :new_method
-                WHERE order_id = :order_id
-                  AND order_item_type = 'shipping'
-            """),
-            {
-                'order_id': order_id,
-                'new_method': new_shipping_method
-            }
-        )
+        # NO actualizar el método de envío en la base de datos
+        # Solo registrar el movimiento en el historial de despacho
+        # Esto permite mantener el método de envío original del pedido
 
         # Registrar en historial
         history_entry = DispatchHistory(
