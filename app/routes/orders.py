@@ -1176,40 +1176,30 @@ def create_order():
         current_app.logger.info(f"DEBUG - After flush, payment_method: {order.payment_method}")
         current_app.logger.info(f"DEBUG - After flush, payment_method_title: {order.payment_method_title}")
 
-        # ===== FORZAR ACTUALIZACIÓN DE PAYMENT METHOD =====
-        # WooCommerce HPOS a veces no sincroniza correctamente estos campos en el INSERT
-        # Forzamos un UPDATE explícito para garantizar que se guarden
+        # ===== VERIFICAR Y FORZAR PAYMENT_METHOD =====
+        # CRÍTICO: En SQLAlchemy 2.0, debemos asegurar que los campos se marquen como modificados
+        # después del flush inicial para que persistan en el commit final
 
-        # DEBUG: Log forzado a stderr para verificar ejecución en producción
+        # DEBUG: Verificar valores antes de cualquier operación
         import sys
-        print(f"[PAYMENT_DEBUG] Updating order {order.id}: payment_method={payment_method_value}, title={payment_method_title_value}", file=sys.stderr, flush=True)
+        print(f"[PAYMENT_DEBUG] After first flush - order {order.id}: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
 
-        update_payment = text("""
-            UPDATE wpyz_wc_orders
-            SET payment_method = :payment_method,
-                payment_method_title = :payment_method_title
-            WHERE id = :order_id
-        """)
-        db.session.execute(update_payment, {
-            'order_id': order.id,
-            'payment_method': payment_method_value,
-            'payment_method_title': payment_method_title_value
-        })
+        # Si por alguna razón los valores son NULL después del flush, forzar asignación
+        if order.payment_method is None or order.payment_method_title is None:
+            print(f"[PAYMENT_DEBUG] WARNING: Values are NULL after flush, forcing assignment", file=sys.stderr, flush=True)
+            order.payment_method = payment_method_value
+            order.payment_method_title = payment_method_title_value
 
-        # CRÍTICO: Commit inmediato para persistir payment_method
-        # Si esperamos al commit final (línea 1656), cualquier error intermedio
-        # causará rollback y perderemos estos valores
-        db.session.flush()  # Forzar escritura inmediata a BD
+            # Marcar explícitamente como modificado
+            from sqlalchemy.orm import attributes
+            attributes.flag_modified(order, 'payment_method')
+            attributes.flag_modified(order, 'payment_method_title')
 
-        # CRÍTICO: Expirar y refrescar el objeto del cache de SQLAlchemy
-        # SQLAlchemy mantiene el estado del objeto en memoria después del primer flush
-        # Si no refrescamos, al hacer commit final puede sobrescribir con valores viejos
-        db.session.expire(order)  # Marcar objeto como expirado
-        db.session.refresh(order)  # Refrescar desde BD con valores actualizados
+            # Flush nuevamente para persistir
+            db.session.flush()
+            print(f"[PAYMENT_DEBUG] After second flush: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
 
-        print(f"[PAYMENT_DEBUG] UPDATE executed and flushed for order {order.id}", file=sys.stderr, flush=True)
-        print(f"[PAYMENT_DEBUG] After refresh: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
-        current_app.logger.info(f"Forced UPDATE payment_method={payment_method_value}, payment_method_title={payment_method_title_value} for order {order.id}")
+        current_app.logger.info(f"Payment method verified for order {order.id}: {payment_method_value} / {payment_method_title_value}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
