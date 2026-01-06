@@ -265,10 +265,44 @@ def get_orders():
             'DINSIDES': []
         }
 
+        # Obtener última ubicación de cada pedido desde el historial
+        order_ids = [row[0] for row in results]
+        last_positions = {}
+
+        if order_ids:
+            # Query para obtener el último movimiento de cada pedido
+            positions_query = text("""
+                SELECT
+                    dh.order_id,
+                    dh.new_shipping_method
+                FROM woo_dispatch_history dh
+                INNER JOIN (
+                    SELECT order_id, MAX(changed_at) as last_changed
+                    FROM woo_dispatch_history
+                    WHERE order_id IN :order_ids
+                    GROUP BY order_id
+                ) latest ON dh.order_id = latest.order_id
+                    AND dh.changed_at = latest.last_changed
+            """)
+
+            positions_result = db.session.execute(
+                positions_query,
+                {'order_ids': tuple(order_ids)}
+            ).fetchall()
+
+            # Mapear order_id -> última columna
+            for pos_row in positions_result:
+                last_positions[pos_row[0]] = pos_row[1]
+
         for row in results:
-            # TODOS los pedidos van inicialmente a "Por Asignar"
-            # Solo se moverán a otras columnas cuando el usuario los arrastre manualmente
-            column = 'Por Asignar'
+            order_id = row[0]
+
+            # Verificar si el pedido tiene un movimiento previo en el historial
+            if order_id in last_positions:
+                column = last_positions[order_id]
+            else:
+                # Si no hay historial, va a "Por Asignar"
+                column = 'Por Asignar'
 
             # Aplicar filtro de métodos si existe
             if shipping_methods_filter and column not in shipping_methods_filter:
