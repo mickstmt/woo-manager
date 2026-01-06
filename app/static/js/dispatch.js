@@ -171,9 +171,26 @@ function createOrderCard(order) {
         html += `<span class="badge bg-${priorityColor}"><i class="bi bi-${priorityIcon}"></i></span>`;
     }
 
-    // Badge de estancado
-    if (order.is_stale) {
+    // Badge de tiempo sin actividad
+    if (order.hours_since_update >= 24) {
+        // Calcular días y horas
+        const days = Math.floor(order.hours_since_update / 24);
+        const hours = order.hours_since_update % 24;
+
+        // Badge de días
         html += `<span class="badge bg-danger" title="${order.hours_since_update}h sin mover">
+            <i class="bi bi-calendar-x"></i> ${days}d
+        </span>`;
+
+        // Badge de horas (si hay horas restantes)
+        if (hours > 0) {
+            html += `<span class="badge bg-warning ms-1" title="${hours}h adicionales">
+                <i class="bi bi-clock-history"></i> ${hours}h
+            </span>`;
+        }
+    } else if (order.hours_since_update > 0) {
+        // Solo mostrar horas si es menos de 24 horas
+        html += `<span class="badge bg-info" title="${order.hours_since_update}h sin mover">
             <i class="bi bi-clock-history"></i> ${order.hours_since_update}h
         </span>`;
     }
@@ -187,7 +204,7 @@ function createOrderCard(order) {
             <div class="order-date">${order.date_created}</div>
         </div>
         <div class="card-footer">
-            <button class="btn btn-sm btn-outline-primary w-100" onclick="showOrderDetail(${order.id})">
+            <button class="btn btn-sm btn-outline-primary w-100" id="detail-btn-${order.id}" onclick="showOrderDetail(${order.id})">
                 <i class="bi bi-eye"></i> Ver Detalle
             </button>
         </div>
@@ -304,6 +321,15 @@ function updateColumnCounts() {
 async function showOrderDetail(orderId) {
     currentOrderId = orderId;
 
+    // Obtener botón y activar estado de carga
+    const btn = document.getElementById(`detail-btn-${orderId}`);
+    const originalContent = btn ? btn.innerHTML : '';
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando...';
+    }
+
     try {
         // Obtener datos completos del pedido desde el backend
         const response = await fetch(`/dispatch/api/order/${orderId}`);
@@ -374,9 +400,21 @@ async function showOrderDetail(orderId) {
         const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
         modal.show();
 
+        // Restaurar botón después de mostrar el modal
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+
     } catch (error) {
         console.error('Error cargando detalle de pedido:', error);
         showError('Error al cargar detalles del pedido: ' + error.message);
+
+        // Restaurar botón en caso de error
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
     }
 }
 
