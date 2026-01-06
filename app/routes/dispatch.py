@@ -198,7 +198,7 @@ def get_orders():
             ORDER BY
                 dp.is_priority DESC,
                 dp.priority_level DESC,
-                o.date_created_gmt DESC
+                date_created_local DESC
         """)
 
         # Construir filtros dinámicos
