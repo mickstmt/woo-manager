@@ -31,44 +31,56 @@ def normalize_payment_method(payment_method_value):
     value = str(payment_method_value).lower()
 
     # Mapeo de valores técnicos a nombres de plataforma
-    platform_map = {
-        # Billeteras digitales
-        'yape': 'Yape',
-        'plin': 'Plin',
-        'qr_dinamico': 'QR Dinámico (Yape/Plin/BIM)',
-        'izipaypay': 'Yape/Plin',
+    # IMPORTANTE: Usamos lista de tuplas para preservar el orden
+    # Los más específicos PRIMERO para evitar matches incorrectos
+    platform_map = [
+        # QR y combinaciones (PRIMERO - más específicos)
+        ('qr_dinamico', 'QR Dinámico (Yape/Plin/BIM)'),
+        ('paga con qr', 'QR Dinámico (Yape/Plin/BIM)'),
+        ('izipaypay', 'Yape/Plin'),
+        ('yape/plin', 'Yape/Plin'),
+        ('plin/yape', 'Yape/Plin'),
 
-        # Transferencias y banca
-        'bacs': 'Banca Virtual y Agentes',
-        'transferencia': 'Transferencia Bancaria',
-
-        # Tarjetas
-        'tarjeta_credito': 'Tarjeta de Crédito',
-        'tarjeta_debito': 'Tarjeta de Débito',
-        'tarjeta': 'Tarjeta',
+        # Tarjetas (antes de keywords genéricos)
+        ('tarjeta_credito', 'Tarjeta de Crédito'),
+        ('tarjeta de crédito', 'Tarjeta de Crédito'),
+        ('tarjeta de credito', 'Tarjeta de Crédito'),
+        ('tarjeta_debito', 'Tarjeta de Débito'),
+        ('tarjeta de débito', 'Tarjeta de Débito'),
+        ('tarjeta de debito', 'Tarjeta de Débito'),
 
         # Pasarelas de pago
-        'mercadopago': 'Mercado Pago',
-        'woo-mercado-pago-basic': 'Mercado Pago',
-        'mercado_pago': 'Mercado Pago',
+        ('woo-mercado-pago', 'Mercado Pago'),
+        ('mercadopago', 'Mercado Pago'),
+        ('mercado_pago', 'Mercado Pago'),
+        ('mercado pago', 'Mercado Pago'),
+
+        # Transferencias y banca
+        ('bacs', 'Banca Virtual y Agentes'),
+        ('banca virtual', 'Banca Virtual y Agentes'),
+        ('transferencia', 'Transferencia Bancaria'),
+
+        # Billeteras digitales (DESPUÉS de QR)
+        ('yape', 'Yape'),
+        ('plin', 'Plin'),
 
         # Efectivo
-        'cod': 'Efectivo',
-        'efectivo': 'Efectivo',
-        'cash': 'Efectivo',
+        ('cod', 'Efectivo'),
+        ('efectivo', 'Efectivo'),
+        ('cash', 'Efectivo'),
 
         # Cheque (usado como Plin en versión antigua)
-        'cheque': 'Plin',
-    }
+        ('cheque', 'Plin'),
 
-    # Buscar en el mapeo
-    for key, platform in platform_map.items():
+        # Tarjeta genérica (ÚLTIMO)
+        ('tarjeta', 'Tarjeta'),
+        ('card', 'Tarjeta'),
+    ]
+
+    # Buscar en el mapeo (orden importa - primero match gana)
+    for key, platform in platform_map:
         if key in value:
             return platform
-
-    # Si contiene "tarjeta" pero no está en el mapeo, devolver genérico
-    if 'tarjeta' in value or 'card' in value:
-        return 'Tarjeta'
 
     # Si no se encuentra, devolver el valor original capitalizado
     return payment_method_value.title()
