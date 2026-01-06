@@ -1107,7 +1107,16 @@ def export_profits_externos_excel():
                         costo_total_usd += costo_unitario * qty
 
             costo_total_pen = costo_total_usd * tipo_cambio
-            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
+
+            # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
+            comision_pen = 0
+            if 'Tarjeta' in metodo_pago or 'tarjeta' in metodo_pago:
+                comision_pen = round(total_venta_pen * 0.05, 2)
+
+            # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
+            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen - comision_pen
+
+            # Recalcular margen %: (Ganancia PEN / Total Venta PEN) * 100
             margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
 
             cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
@@ -1122,6 +1131,7 @@ def export_profits_externos_excel():
                 'tipo_cambio': tipo_cambio,
                 'costo_total_usd': costo_total_usd,
                 'costo_total_pen': costo_total_pen,
+                'comision_pen': comision_pen,
                 'costo_envio_pen': costo_envio_pen,
                 'ganancia_pen': ganancia_pen,
                 'margen_porcentaje': margen_porcentaje,
@@ -1146,14 +1156,14 @@ def export_profits_externos_excel():
         )
 
         # Título del reporte
-        ws.merge_cells('A1:M1')
+        ws.merge_cells('A1:N1')
         title_cell = ws['A1']
         title_cell.value = "Reporte de Ganancias - Pedidos Externos"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
         # Período
-        ws.merge_cells('A2:M2')
+        ws.merge_cells('A2:N2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
@@ -1164,11 +1174,12 @@ def export_profits_externos_excel():
             'Número',
             'Fecha',
             'Estado',
-            'Método de Pago',
+            'Plataforma',
             'Venta (PEN)',
             'T.C.',
             'Costo (USD)',
             'Costo (PEN)',
+            'Comisión (PEN)',
             'Envío (PEN)',
             'Ganancia (PEN)',
             'Margen %',
@@ -1195,19 +1206,20 @@ def export_profits_externos_excel():
             ws.cell(row=row_num, column=7, value=round(order['tipo_cambio'], 2))
             ws.cell(row=row_num, column=8, value=round(order['costo_total_usd'], 2))
             ws.cell(row=row_num, column=9, value=round(order['costo_total_pen'], 2))
-            ws.cell(row=row_num, column=10, value=round(order['costo_envio_pen'], 2))
-            ws.cell(row=row_num, column=11, value=round(order['ganancia_pen'], 2))
-            ws.cell(row=row_num, column=12, value=round(order['margen_porcentaje'], 2))
-            ws.cell(row=row_num, column=13, value=order['cliente'])
+            ws.cell(row=row_num, column=10, value=round(order['comision_pen'], 2))
+            ws.cell(row=row_num, column=11, value=round(order['costo_envio_pen'], 2))
+            ws.cell(row=row_num, column=12, value=round(order['ganancia_pen'], 2))
+            ws.cell(row=row_num, column=13, value=round(order['margen_porcentaje'], 2))
+            ws.cell(row=row_num, column=14, value=order['cliente'])
 
             # Aplicar bordes
-            for col in range(1, 14):
+            for col in range(1, 15):
                 ws.cell(row=row_num, column=col).border = border
 
             row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 14, 10, 30]
+        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -1464,14 +1476,14 @@ def export_profits_excel():
         )
 
         # Título del reporte
-        ws.merge_cells('A1:M1')
+        ws.merge_cells('A1:N1')
         title_cell = ws['A1']
         title_cell.value = f"Reporte de Ganancias - {source_name}"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
         # Período
-        ws.merge_cells('A2:M2')
+        ws.merge_cells('A2:N2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
@@ -1482,11 +1494,12 @@ def export_profits_excel():
             'Número',
             'Fecha',
             'Estado',
-            'Método de Pago',
+            'Plataforma',
             'Venta (PEN)',
             'T.C.',
             'Costo (USD)',
             'Costo (PEN)',
+            'Comisión (PEN)',
             'Envío (PEN)',
             'Ganancia (PEN)',
             'Margen %',
@@ -1504,28 +1517,45 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for order in orders:
+            plataforma = order[4] or 'N/A'  # Plataforma (antes Método de Pago)
+            total_venta_pen = float(order[5] or 0)
+            costo_pen = float(order[8] or 0)
+            envio_pen = float(order[9] or 0)
+
+            # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
+            comision_pen = 0
+            if 'Tarjeta' in plataforma or 'tarjeta' in plataforma:
+                comision_pen = round(total_venta_pen * 0.05, 2)
+
+            # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
+            ganancia_pen = round(total_venta_pen - costo_pen - envio_pen - comision_pen, 2)
+
+            # Recalcular margen %: (Ganancia PEN / Total Venta PEN) * 100
+            margen_porcentaje = round((ganancia_pen / total_venta_pen * 100), 2) if total_venta_pen > 0 else 0
+
             ws.cell(row=row_num, column=1, value=order[0])  # ID
             ws.cell(row=row_num, column=2, value=order[1] or order[0])  # Número
             ws.cell(row=row_num, column=3, value=str(order[2]))  # Fecha
             ws.cell(row=row_num, column=4, value=order[3])  # Estado
-            ws.cell(row=row_num, column=5, value=order[4] or 'N/A')  # Método de Pago
-            ws.cell(row=row_num, column=6, value=float(order[5] or 0))  # Venta
+            ws.cell(row=row_num, column=5, value=plataforma)  # Plataforma
+            ws.cell(row=row_num, column=6, value=total_venta_pen)  # Venta
             ws.cell(row=row_num, column=7, value=float(order[6] or 0))  # TC
             ws.cell(row=row_num, column=8, value=float(order[7] or 0))  # Costo USD
-            ws.cell(row=row_num, column=9, value=float(order[8] or 0))  # Costo PEN
-            ws.cell(row=row_num, column=10, value=float(order[9] or 0))  # Envío
-            ws.cell(row=row_num, column=11, value=float(order[10] or 0))  # Ganancia
-            ws.cell(row=row_num, column=12, value=float(order[11] or 0))  # Margen %
-            ws.cell(row=row_num, column=13, value=order[12] or '')  # Cliente
+            ws.cell(row=row_num, column=9, value=costo_pen)  # Costo PEN
+            ws.cell(row=row_num, column=10, value=comision_pen)  # Comisión
+            ws.cell(row=row_num, column=11, value=envio_pen)  # Envío
+            ws.cell(row=row_num, column=12, value=ganancia_pen)  # Ganancia
+            ws.cell(row=row_num, column=13, value=margen_porcentaje)  # Margen %
+            ws.cell(row=row_num, column=14, value=order[12] or '')  # Cliente
 
             # Aplicar bordes
-            for col in range(1, 14):
+            for col in range(1, 15):
                 ws.cell(row=row_num, column=col).border = border
 
             row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 14, 10, 30]
+        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
