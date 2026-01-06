@@ -1176,6 +1176,22 @@ def create_order():
         current_app.logger.info(f"DEBUG - After flush, payment_method: {order.payment_method}")
         current_app.logger.info(f"DEBUG - After flush, payment_method_title: {order.payment_method_title}")
 
+        # ===== FORZAR ACTUALIZACIÓN DE PAYMENT METHOD =====
+        # WooCommerce HPOS a veces no sincroniza correctamente estos campos en el INSERT
+        # Forzamos un UPDATE explícito para garantizar que se guarden
+        update_payment = text("""
+            UPDATE wpyz_wc_orders
+            SET payment_method = :payment_method,
+                payment_method_title = :payment_method_title
+            WHERE id = :order_id
+        """)
+        db.session.execute(update_payment, {
+            'order_id': order.id,
+            'payment_method': payment_method_value,
+            'payment_method_title': payment_method_title_value
+        })
+        current_app.logger.info(f"Forced UPDATE payment_method={payment_method_value}, payment_method_title={payment_method_title_value} for order {order.id}")
+
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
         # pedidos creados por el manager y evitar conflictos con IDs naturales
