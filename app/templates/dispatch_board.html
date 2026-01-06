@@ -76,6 +76,24 @@
 
     <!-- Tablero Kanban -->
     <div class="kanban-board">
+        <!-- Columna: Por Asignar -->
+        <div class="kanban-column" data-shipping-method="Por Asignar">
+            <div class="column-header">
+                <div class="column-title">
+                    <i class="bi bi-inbox"></i>
+                    Por Asignar
+                </div>
+                <div class="column-count" data-column="por-asignar">0</div>
+            </div>
+            <div class="column-cards" id="column-por-asignar" data-method="Por Asignar">
+                <!-- Las tarjetas se cargarán dinámicamente aquí -->
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Cargando pedidos...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Columna: Olva Courier -->
         <div class="kanban-column" data-shipping-method="Olva Courier">
             <div class="column-header">

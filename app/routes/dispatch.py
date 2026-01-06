@@ -3,6 +3,7 @@
 Módulo de Despacho Kanban
 
 Blueprint para gestión visual de despachos organizados por método de envío.
+TODOS los pedidos en estado wc-processing inician en la columna "Por Asignar".
 Permite drag & drop de pedidos entre columnas, marcado de prioridades,
 y trazabilidad completa de cambios.
 
@@ -71,6 +72,7 @@ def index():
     Vista principal del tablero Kanban de despacho
 
     Muestra pedidos organizados por método de envío en columnas:
+    - Por Asignar (TODOS los pedidos wc-processing inician aquí)
     - Olva Courier
     - Recojo en Almacén
     - Motorizado (CHAMO)
@@ -204,6 +206,7 @@ def get_orders():
 
         # Agrupar por método de envío
         orders_by_method = {
+            'Por Asignar': [],
             'Olva Courier': [],
             'Recojo en Almacén': [],
             'Motorizado (CHAMO)': [],
@@ -212,23 +215,9 @@ def get_orders():
         }
 
         for row in results:
-            # Determinar método de envío
-            shipping_method = row[9] or 'Sin método'
-
-            # Mapear a columnas del tablero
-            if 'Olva' in shipping_method:
-                column = 'Olva Courier'
-            elif 'Recojo' in shipping_method:
-                column = 'Recojo en Almacén'
-            elif 'CHAMO' in shipping_method or 'Motorizado' in shipping_method:
-                column = 'Motorizado (CHAMO)'
-            elif 'SHALOM' in shipping_method:
-                column = 'SHALOM'
-            elif 'DINSIDES' in shipping_method:
-                column = 'DINSIDES'
-            else:
-                # Si no coincide con ninguno, asignar a columna por defecto
-                column = 'Olva Courier'
+            # TODOS los pedidos van inicialmente a "Por Asignar"
+            # Solo se moverán a otras columnas cuando el usuario los arrastre manualmente
+            column = 'Por Asignar'
 
             # Aplicar filtro de métodos si existe
             if shipping_methods_filter and column not in shipping_methods_filter:

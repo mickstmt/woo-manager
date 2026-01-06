@@ -91,6 +91,7 @@ async function loadOrders() {
 function renderOrders(ordersByMethod) {
     // Mapeo de métodos a IDs de columnas
     const columnMap = {
+        'Por Asignar': 'column-por-asignar',
         'Olva Courier': 'column-olva',
         'Recojo en Almacén': 'column-recojo',
         'Motorizado (CHAMO)': 'column-chamo',
