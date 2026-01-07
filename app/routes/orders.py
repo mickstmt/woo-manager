@@ -1096,9 +1096,7 @@ def create_order():
         discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
         shipping_method_title = data.get('shipping_method_title', '')  # Título del método de envío
 
-        # DEBUG: Log customer data para verificar qué se está recibiendo
-        current_app.logger.info(f"Creating order with customer data: {customer}")
-        current_app.logger.info(f"Discount percentage: {discount_percentage}%")
+        current_app.logger.info(f"Creating order with discount: {discount_percentage}%")
 
         # ===== CALCULAR TOTALES =====
         # Los precios INCLUYEN IGV (18%)
@@ -1160,20 +1158,17 @@ def create_order():
             current_app.logger.info(f"AUTO_INCREMENT adjusted to {new_auto_inc}")
 
         # ===== CREAR PEDIDO =====
-        # Ahora podemos crear el pedido de manera segura
+        # Obtener método de pago del request
         payment_method_value = data.get('payment_method', 'cod')
         payment_method_title_value = data.get('payment_method_title', 'Pago manual')
 
-        current_app.logger.info(f"DEBUG - Payment method from request: {payment_method_value}")
-        current_app.logger.info(f"DEBUG - Payment method title from request: {payment_method_title_value}")
-
         order = Order(
-            status='wc-processing',  # Estado inicial
+            status='wc-processing',
             currency='PEN',
             type='shop_order',
             tax_amount=tax_amount,
             total_amount=total_with_tax,
-            customer_id=0,  # Sin cuenta de usuario
+            customer_id=0,
             billing_email=customer.get('email'),
             date_created_gmt=get_gmt_time(),
             date_updated_gmt=get_gmt_time(),
@@ -1184,36 +1179,9 @@ def create_order():
             user_agent=request.headers.get('User-Agent', '')[:200]
         )
 
-        current_app.logger.info(f"DEBUG - Order object payment_method: {order.payment_method}")
-        current_app.logger.info(f"DEBUG - Order object payment_method_title: {order.payment_method_title}")
-
         db.session.add(order)
         db.session.flush()  # Para obtener el ID del pedido
         current_app.logger.info(f"Order created with ID {order.id}")
-        current_app.logger.info(f"DEBUG - After flush, payment_method: {order.payment_method}")
-        current_app.logger.info(f"DEBUG - After flush, payment_method_title: {order.payment_method_title}")
-
-        # ===== COMMIT INMEDIATO DEL ORDER =====
-        # SOLUCIÓN DRÁSTICA: Commit inmediato ANTES de crear items/addresses/meta
-        # Esto aísla el order del resto de operaciones y evita que se sobrescriba
-
-        import sys
-        print(f"[PAYMENT_DEBUG] Before commit - order {order.id}: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
-
-        # COMMIT INMEDIATO - Esto persiste el order con payment_method
-        db.session.commit()
-
-        # Verificar que se guardó en BD
-        check_payment = db.session.execute(
-            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
-            {'order_id': order.id}
-        ).fetchone()
-        print(f"[PAYMENT_DEBUG] DB after commit: payment_method={check_payment[0]}, title={check_payment[1]}", file=sys.stderr, flush=True)
-
-        if check_payment[0] is None:
-            raise Exception(f"CRITICAL: payment_method is NULL in DB after commit for order {order.id}")
-
-        current_app.logger.info(f"Order {order.id} committed successfully with payment_method: {check_payment[0]}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
@@ -1538,14 +1506,8 @@ def create_order():
 
         # ===== METADATOS DEL PEDIDO =====
         # Construir índices de direcciones para búsqueda
-        # DEBUG: Log customer data antes de construir billing_index
-        current_app.logger.info(f"Building billing_index with customer: {customer}")
-
         billing_index = f"{customer.get('first_name', '')} {customer.get('last_name', '')} {customer.get('company', '')} {customer.get('address_1', '')} {customer.get('city', '')} {customer.get('state', '')} {customer.get('postcode', '')} {customer.get('country', '')} {customer.get('email', '')} {customer.get('phone', '')}".strip()
         shipping_index = billing_index  # Usamos la misma dirección
-
-        # DEBUG: Log billing_index generado
-        current_app.logger.info(f"Generated billing_index: {billing_index}")
 
         # Generar external_id (hash único del pedido)
         external_id = hashlib.sha256(f"order_{order.id}_{get_gmt_time().timestamp()}".encode()).hexdigest()
@@ -1668,17 +1630,9 @@ def create_order():
             current_app.logger.warning(f"Could not queue cache clear for order {order.id}: {str(cache_error)}")
             # No fallar si la limpieza de cache falla
 
-        # Commit de items, addresses, metadata (el order ya fue commiteado antes)
+        # Guardar todo (order, items, addresses, metadata)
         db.session.commit()
-
-        # DEBUG FINAL: Verificar que payment_method SIGUE en la BD después del segundo commit
-        final_check = db.session.execute(
-            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
-            {'order_id': order.id}
-        ).fetchone()
-        print(f"[PAYMENT_DEBUG] FINAL CHECK after all commits: payment_method={final_check[0]}, title={final_check[1]}", file=sys.stderr, flush=True)
-
-        current_app.logger.info(f"Order {order.id} items and metadata committed successfully")
+        current_app.logger.info(f"Order {order.id} created successfully")
 
         # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
         # Enviar email en background para no bloquear la respuesta al usuario
