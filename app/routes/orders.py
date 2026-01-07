@@ -1176,30 +1176,27 @@ def create_order():
         current_app.logger.info(f"DEBUG - After flush, payment_method: {order.payment_method}")
         current_app.logger.info(f"DEBUG - After flush, payment_method_title: {order.payment_method_title}")
 
-        # ===== VERIFICAR Y FORZAR PAYMENT_METHOD =====
-        # CRÍTICO: En SQLAlchemy 2.0, debemos asegurar que los campos se marquen como modificados
-        # después del flush inicial para que persistan en el commit final
+        # ===== COMMIT INMEDIATO DEL ORDER =====
+        # SOLUCIÓN DRÁSTICA: Commit inmediato ANTES de crear items/addresses/meta
+        # Esto aísla el order del resto de operaciones y evita que se sobrescriba
 
-        # DEBUG: Verificar valores antes de cualquier operación
         import sys
-        print(f"[PAYMENT_DEBUG] After first flush - order {order.id}: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
+        print(f"[PAYMENT_DEBUG] Before commit - order {order.id}: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
 
-        # Si por alguna razón los valores son NULL después del flush, forzar asignación
-        if order.payment_method is None or order.payment_method_title is None:
-            print(f"[PAYMENT_DEBUG] WARNING: Values are NULL after flush, forcing assignment", file=sys.stderr, flush=True)
-            order.payment_method = payment_method_value
-            order.payment_method_title = payment_method_title_value
+        # COMMIT INMEDIATO - Esto persiste el order con payment_method
+        db.session.commit()
 
-            # Marcar explícitamente como modificado
-            from sqlalchemy.orm import attributes
-            attributes.flag_modified(order, 'payment_method')
-            attributes.flag_modified(order, 'payment_method_title')
+        # Verificar que se guardó en BD
+        check_payment = db.session.execute(
+            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
+            {'order_id': order.id}
+        ).fetchone()
+        print(f"[PAYMENT_DEBUG] DB after commit: payment_method={check_payment[0]}, title={check_payment[1]}", file=sys.stderr, flush=True)
 
-            # Flush nuevamente para persistir
-            db.session.flush()
-            print(f"[PAYMENT_DEBUG] After second flush: payment_method={order.payment_method}, title={order.payment_method_title}", file=sys.stderr, flush=True)
+        if check_payment[0] is None:
+            raise Exception(f"CRITICAL: payment_method is NULL in DB after commit for order {order.id}")
 
-        current_app.logger.info(f"Payment method verified for order {order.id}: {payment_method_value} / {payment_method_title_value}")
+        current_app.logger.info(f"Order {order.id} committed successfully with payment_method: {check_payment[0]}")
 
         # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
         # Genera un número único de pedido en formato W-00001 para identificar
@@ -1654,20 +1651,10 @@ def create_order():
             current_app.logger.warning(f"Could not queue cache clear for order {order.id}: {str(cache_error)}")
             # No fallar si la limpieza de cache falla
 
-        # Guardar todo en UN SOLO COMMIT (antes eran 3 commits separados)
+        # Commit de items, addresses, metadata (el order ya fue commiteado antes)
         db.session.commit()
 
-        # OPTIMIZACIÓN: Queries de verificación removidas - confiar en SQLAlchemy
-        # Antes hacíamos 3 SELECTs adicionales que agregaban ~1 segundo
-        current_app.logger.info(f"Order {order.id} created successfully")
-
-        # DEBUG: Verificar si payment_method se guardó correctamente
-        from sqlalchemy import text
-        check_payment = db.session.execute(
-            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
-            {'order_id': order.id}
-        ).fetchone()
-        current_app.logger.info(f"DEBUG - After commit, DB shows: payment_method={check_payment[0]}, payment_method_title={check_payment[1]}")
+        current_app.logger.info(f"Order {order.id} items and metadata committed successfully")
 
         # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
         # Enviar email en background para no bloquear la respuesta al usuario
