@@ -93,7 +93,7 @@ def get_next_manager_order_number():
     return f"W-{next_number:05d}"
 
 
-def trigger_woocommerce_email(order_id):
+def trigger_woocommerce_email(order_id, payment_method=None, payment_method_title=None):
     """
     Dispara el envío de correo de WooCommerce usando la API REST
 
@@ -101,8 +101,13 @@ def trigger_woocommerce_email(order_id):
     de 'pending' a 'processing'. Esta transición de estado dispara el hook
     de email de WooCommerce automáticamente.
 
+    IMPORTANTE: Incluimos payment_method en los payloads para evitar que
+    la API de WooCommerce los resetee a NULL al actualizar el pedido.
+
     Args:
         order_id (int): ID del pedido
+        payment_method (str, optional): Método de pago a preservar
+        payment_method_title (str, optional): Título del método de pago
 
     Returns:
         bool: True si se disparó correctamente, False si hubo error
@@ -131,6 +136,12 @@ def trigger_woocommerce_email(order_id):
             'status': 'pending'
         }
 
+        # CRÍTICO: Incluir payment_method si se proporcionó para evitar que se resetee
+        if payment_method:
+            payload_pending['payment_method'] = payment_method
+        if payment_method_title:
+            payload_pending['payment_method_title'] = payment_method_title
+
         response_pending = requests.put(
             api_url,
             json=payload_pending,
@@ -153,6 +164,12 @@ def trigger_woocommerce_email(order_id):
             'status': 'processing',
             'set_paid': True
         }
+
+        # CRÍTICO: Incluir payment_method también en el segundo payload
+        if payment_method:
+            payload_processing['payment_method'] = payment_method
+        if payment_method_title:
+            payload_processing['payment_method_title'] = payment_method_title
 
         response_processing = requests.put(
             api_url,
@@ -1654,17 +1671,24 @@ def create_order():
         # Commit de items, addresses, metadata (el order ya fue commiteado antes)
         db.session.commit()
 
+        # DEBUG FINAL: Verificar que payment_method SIGUE en la BD después del segundo commit
+        final_check = db.session.execute(
+            text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :order_id"),
+            {'order_id': order.id}
+        ).fetchone()
+        print(f"[PAYMENT_DEBUG] FINAL CHECK after all commits: payment_method={final_check[0]}, title={final_check[1]}", file=sys.stderr, flush=True)
+
         current_app.logger.info(f"Order {order.id} items and metadata committed successfully")
 
         # ===== DISPARAR ENVÍO DE CORREO DE WOOCOMMERCE =====
         # Enviar email en background para no bloquear la respuesta al usuario
         import threading
 
-        def send_email_async(order_id, app):
+        def send_email_async(order_id, payment_method_val, payment_method_title_val, app):
             """Enviar email en thread separado con contexto de Flask"""
             with app.app_context():
                 try:
-                    email_sent = trigger_woocommerce_email(order_id)
+                    email_sent = trigger_woocommerce_email(order_id, payment_method_val, payment_method_title_val)
                     if email_sent:
                         current_app.logger.info(f"Email notification triggered successfully for order {order_id}")
                     else:
@@ -1675,7 +1699,7 @@ def create_order():
         # Iniciar thread en background (no bloqueante)
         email_thread = threading.Thread(
             target=send_email_async,
-            args=(order.id, current_app._get_current_object())
+            args=(order.id, payment_method_value, payment_method_title_value, current_app._get_current_object())
         )
         email_thread.daemon = True  # Thread se cierra cuando la app se cierra
         email_thread.start()
