@@ -15,75 +15,69 @@ from io import BytesIO
 bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 
-def normalize_payment_method(payment_method_value):
+def normalize_payment_method(payment_method_value, is_whatsapp=False):
     """
-    Transforma el payment_method técnico a un nombre de plataforma legible.
+    Transforma el payment_method en plataforma con formato:
+    - WEBSITE IZI EFECTIVO / WEBSITE IZI TARJETA (pedidos WooCommerce)
+    - WHATSAPP IZI EFECTIVO / WHATSAPP IZI TARJETA (pedidos WhatsApp)
 
     Args:
         payment_method_value: Valor de payment_method o payment_method_title
+        is_whatsapp: True si el pedido es de WhatsApp (tiene _order_number W-XXXXX)
 
     Returns:
-        str: Nombre normalizado de la plataforma
+        str: Plataforma normalizada
     """
     if not payment_method_value or payment_method_value == 'N/A':
         return 'N/A'
 
     value = str(payment_method_value).lower()
 
-    # Mapeo de valores técnicos a nombres de plataforma
-    # IMPORTANTE: Usamos lista de tuplas para preservar el orden
-    # Los más específicos PRIMERO para evitar matches incorrectos
-    platform_map = [
-        # QR y combinaciones (PRIMERO - más específicos)
-        ('qr_dinamico', 'QR Dinámico (Yape/Plin/BIM)'),
-        ('paga con qr', 'QR Dinámico (Yape/Plin/BIM)'),
-        ('izipaypay', 'Yape/Plin'),
-        ('yape/plin', 'Yape/Plin'),
-        ('plin/yape', 'Yape/Plin'),
+    # Determinar prefijo según origen del pedido
+    prefix = 'WHATSAPP IZI' if is_whatsapp else 'WEBSITE IZI'
 
-        # Tarjetas (antes de keywords genéricos)
-        ('tarjeta_credito', 'Tarjeta de Crédito'),
-        ('tarjeta de crédito', 'Tarjeta de Crédito'),
-        ('tarjeta de credito', 'Tarjeta de Crédito'),
-        ('tarjeta_debito', 'Tarjeta de Débito'),
-        ('tarjeta de débito', 'Tarjeta de Débito'),
-        ('tarjeta de debito', 'Tarjeta de Débito'),
-
-        # Pasarelas de pago
-        ('woo-mercado-pago', 'Mercado Pago'),
-        ('mercadopago', 'Mercado Pago'),
-        ('mercado_pago', 'Mercado Pago'),
-        ('mercado pago', 'Mercado Pago'),
-
-        # Transferencias y banca
-        ('bacs', 'Banca Virtual y Agentes'),
-        ('banca virtual', 'Banca Virtual y Agentes'),
-        ('transferencia', 'Transferencia Bancaria'),
-
-        # Billeteras digitales (DESPUÉS de QR)
-        ('yape', 'Yape'),
-        ('plin', 'Plin'),
-
-        # Efectivo
-        ('cod', 'Efectivo'),
-        ('efectivo', 'Efectivo'),
-        ('cash', 'Efectivo'),
-
-        # Cheque (usado como Plin en versión antigua)
-        ('cheque', 'Plin'),
-
-        # Tarjeta genérica (ÚLTIMO)
-        ('tarjeta', 'Tarjeta'),
-        ('card', 'Tarjeta'),
+    # Clasificar como TARJETA o EFECTIVO
+    # TARJETA: tarjetas de débito/crédito y Mercado Pago
+    tarjeta_keywords = [
+        'tarjeta',
+        'card',
+        'débito',
+        'debito',
+        'crédito',
+        'credito',
+        'mercado pago',
+        'mercadopago',
+        'mercado_pago',
+        'woo-mercado-pago',
+        'cuotas'
     ]
 
-    # Buscar en el mapeo (orden importa - primero match gana)
-    for key, platform in platform_map:
-        if key in value:
-            return platform
+    # EFECTIVO: QR, Yape, Plin, Banca Virtual, Transferencias, Efectivo
+    efectivo_keywords = [
+        'qr',
+        'yape',
+        'plin',
+        'bacs',
+        'banca virtual',
+        'transferencia',
+        'efectivo',
+        'cod',
+        'cash',
+        'cheque'
+    ]
 
-    # Si no se encuentra, devolver el valor original capitalizado
-    return payment_method_value.title()
+    # Verificar si es TARJETA
+    for keyword in tarjeta_keywords:
+        if keyword in value:
+            return f'{prefix} TARJETA'
+
+    # Verificar si es EFECTIVO
+    for keyword in efectivo_keywords:
+        if keyword in value:
+            return f'{prefix} EFECTIVO'
+
+    # Si no coincide con ninguna categoría, retornar N/A
+    return 'N/A'
 
 
 @bp.route('/')
@@ -1180,11 +1174,12 @@ def export_profits_externos_excel():
             costo_total_pen = costo_total_usd * tipo_cambio
 
             # Normalizar método de pago a nombre de plataforma
-            plataforma = normalize_payment_method(metodo_pago)
+            # Los pedidos de woo_orders_ext son SIEMPRE de WhatsApp
+            plataforma = normalize_payment_method(metodo_pago, is_whatsapp=True)
 
-            # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
+            # Calcular comisión: 5% si Plataforma contiene "TARJETA"
             comision_pen = 0
-            if 'Tarjeta' in plataforma:
+            if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
             # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
@@ -1591,15 +1586,20 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for order in orders:
+            numero_pedido = order[1]  # W-XXXXX o None
             plataforma_raw = order[4] or 'N/A'  # Valor crudo de la BD
-            plataforma = normalize_payment_method(plataforma_raw)  # Plataforma normalizada
+
+            # Determinar si es WhatsApp basado en el número de pedido
+            is_whatsapp = numero_pedido and str(numero_pedido).startswith('W-')
+            plataforma = normalize_payment_method(plataforma_raw, is_whatsapp=is_whatsapp)
+
             total_venta_pen = float(order[5] or 0)
             costo_pen = float(order[8] or 0)
             envio_pen = float(order[9] or 0)
 
-            # Calcular comisión: 5% si Plataforma contiene "Tarjeta"
+            # Calcular comisión: 5% si Plataforma contiene "TARJETA"
             comision_pen = 0
-            if 'Tarjeta' in plataforma:
+            if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
             # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
