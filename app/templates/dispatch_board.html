@@ -305,6 +305,64 @@
     </div>
 </div>
 
+<!-- Modal: Agregar Tracking -->
+<div class="modal fade" id="trackingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="trackingModalLabel">
+                    <i class="bi bi-truck"></i> Agregar Tracking
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="tracking-form">
+                    <div class="mb-3">
+                        <label for="tracking-number" class="form-label">Número de Tracking *</label>
+                        <input type="text" class="form-control" id="tracking-number" placeholder="Ej: IZI26010841608660" required>
+                        <small class="form-text text-muted">Ingrese el código de seguimiento del envío</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="tracking-provider" class="form-label">Proveedor de Envío *</label>
+                        <select class="form-select" id="tracking-provider" required>
+                            <option value="">Seleccione un proveedor...</option>
+                            <option value="Motorizado Izi - Entrega de 11:00 AM - 7:00 PM">Motorizado Izi - Entrega de 11:00 AM - 7:00 PM</option>
+                            <option value="Peru">Peru</option>
+                            <option value="Scharff">Scharff</option>
+                            <option value="Shalom">Shalom</option>
+                            <option value="Olva courier">Olva courier</option>
+                            <option value="Urbano">Urbano</option>
+                            <option value="Dinsides Courier">Dinsides Courier</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="tracking-date-shipped" class="form-label">Fecha de Envío</label>
+                        <input type="date" class="form-control" id="tracking-date-shipped">
+                    </div>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="tracking-mark-shipped" checked>
+                        <label class="form-check-label" for="tracking-mark-shipped">
+                            Marcar como "Completado" y enviar email al cliente
+                        </label>
+                        <small class="form-text text-muted d-block">
+                            Al activar esta opción, el pedido cambiará a estado "Completado" y se enviará un email al cliente con la información de tracking.
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-save-tracking" onclick="saveTracking()">
+                    <i class="bi bi-check-circle"></i> Guardar Tracking
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Contenedor de Toasts para notificaciones -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
     <!-- Los toasts se insertarán aquí dinámicamente -->

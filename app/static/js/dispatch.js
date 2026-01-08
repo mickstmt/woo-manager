@@ -217,9 +217,14 @@ function createOrderCard(order) {
             </div>
         </div>
         <div class="card-footer">
-            <button class="btn btn-sm btn-outline-primary w-100" id="detail-btn-${order.id}" onclick="showOrderDetail(${order.id})">
-                <i class="bi bi-eye"></i> Ver Detalle
-            </button>
+            <div class="btn-group w-100" role="group">
+                <button class="btn btn-sm btn-outline-primary" onclick="showOrderDetail(${order.id})">
+                    <i class="bi bi-eye"></i> Ver Detalle
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="showTrackingModal(${order.id}, '${order.number}')">
+                    <i class="bi bi-truck"></i> Agregar Tracking
+                </button>
+            </div>
         </div>
     `;
 
@@ -677,4 +682,97 @@ function showSuccess(message) {
  */
 function showError(message) {
     showToast('danger', 'Error', message);
+}
+
+/**
+ * Mostrar modal de agregar tracking
+ */
+function showTrackingModal(orderId, orderNumber) {
+    currentOrderId = orderId;
+
+    // Actualizar título del modal
+    document.getElementById('trackingModalLabel').textContent = `Agregar Tracking - ${orderNumber}`;
+
+    // Resetear formulario
+    document.getElementById('tracking-form').reset();
+
+    // Establecer fecha actual por defecto
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
+    document.getElementById('tracking-date-shipped').value = dateString;
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
+    modal.show();
+}
+
+/**
+ * Guardar información de tracking
+ */
+async function saveTracking() {
+    const trackingNumber = document.getElementById('tracking-number').value.trim();
+    const shippingProvider = document.getElementById('tracking-provider').value;
+    const dateShipped = document.getElementById('tracking-date-shipped').value;
+    const markAsShipped = document.getElementById('tracking-mark-shipped').checked;
+
+    // Validar campos
+    if (!trackingNumber) {
+        showError('Por favor ingrese el número de tracking');
+        return;
+    }
+
+    if (!shippingProvider) {
+        showError('Por favor seleccione el proveedor de envío');
+        return;
+    }
+
+    // Mostrar loading en el botón
+    const saveBtn = document.getElementById('btn-save-tracking');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+
+    try {
+        const response = await fetch('/dispatch/api/add-tracking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                order_id: currentOrderId,
+                tracking_number: trackingNumber,
+                shipping_provider: shippingProvider,
+                date_shipped: dateShipped,
+                mark_as_shipped: markAsShipped
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Error al guardar tracking');
+        }
+
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('trackingModal'));
+        modal.hide();
+
+        // Mostrar mensaje de éxito
+        let successMsg = `Tracking agregado exitosamente al pedido ${data.order_number}`;
+        if (data.status_changed) {
+            successMsg += ' y estado cambiado a "Completado"';
+        }
+        showSuccess(successMsg);
+
+        // Recargar pedidos para reflejar cambios
+        await loadOrders();
+
+    } catch (error) {
+        console.error('Error guardando tracking:', error);
+        showError('Error al guardar tracking: ' + error.message);
+    } finally {
+        // Restaurar botón
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    }
 }

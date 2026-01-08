@@ -939,3 +939,187 @@ def get_order_detail(order_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@bp.route('/api/add-tracking', methods=['POST'])
+@login_required
+@master_required
+def add_tracking():
+    """
+    Agregar información de tracking a un pedido.
+
+    Request Body:
+        {
+            "order_id": 41608,
+            "tracking_number": "IZI26010841608660",
+            "shipping_provider": "Motorizado Izi",
+            "date_shipped": "2026-01-08",  // Opcional, por defecto fecha actual
+            "mark_as_shipped": true  // Opcional, si cambiar a wc-completed
+        }
+
+    Returns:
+        JSON con confirmación del cambio
+    """
+    try:
+        data = request.get_json()
+        order_id = data.get('order_id')
+        tracking_number = data.get('tracking_number')
+        shipping_provider = data.get('shipping_provider')
+        date_shipped = data.get('date_shipped')
+        mark_as_shipped = data.get('mark_as_shipped', False)
+
+        # Validar parámetros requeridos
+        if not all([order_id, tracking_number, shipping_provider]):
+            return jsonify({
+                'success': False,
+                'error': 'Parámetros faltantes: order_id, tracking_number y shipping_provider son requeridos'
+            }), 400
+
+        # Validar que el pedido existe
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': f'Pedido {order_id} no encontrado'
+            }), 404
+
+        # Fecha de envío (por defecto hoy)
+        if not date_shipped:
+            from datetime import date
+            date_shipped = date.today().strftime('%Y-%m-%d')
+
+        # Timestamp actual
+        timestamp = int(datetime.utcnow().timestamp())
+
+        # Crear el array de tracking items en formato PHP serializado
+        # Estructura: array con un item que contiene tracking_number, tracking_provider, date_shipped
+        tracking_items = [{
+            'tracking_number': tracking_number,
+            'tracking_provider': shipping_provider,
+            'custom_tracking_provider': '',
+            'custom_tracking_link': '',
+            'date_shipped': date_shipped,
+            'tracking_id': str(timestamp)  # ID único basado en timestamp
+        }]
+
+        # Serializar a formato PHP
+        import phpserialize
+        serialized_items = phpserialize.dumps(tracking_items).decode('utf-8')
+
+        current_app.logger.info(f"[TRACKING] Order {order_id}: Agregando tracking {tracking_number} con provider '{shipping_provider}'")
+        current_app.logger.info(f"[TRACKING] Serialized data: {serialized_items}")
+
+        # Guardar metadatos en wpyz_postmeta (para compatibilidad con el plugin)
+        # 1. _tracking_number
+        query_tracking_number = text("""
+            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+            VALUES (:order_id, '_tracking_number', :tracking_number)
+            ON DUPLICATE KEY UPDATE meta_value = :tracking_number
+        """)
+        db.session.execute(query_tracking_number, {
+            'order_id': order_id,
+            'tracking_number': tracking_number
+        })
+
+        # 2. _tracking_provider
+        query_tracking_provider = text("""
+            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+            VALUES (:order_id, '_tracking_provider', :shipping_provider)
+            ON DUPLICATE KEY UPDATE meta_value = :shipping_provider
+        """)
+        db.session.execute(query_tracking_provider, {
+            'order_id': order_id,
+            'shipping_provider': shipping_provider
+        })
+
+        # 3. _wc_shipment_tracking_items (PHP serialized array)
+        query_tracking_items = text("""
+            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
+            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
+        """)
+        db.session.execute(query_tracking_items, {
+            'order_id': order_id,
+            'serialized_items': serialized_items
+        })
+
+        # Guardar también en wpyz_wc_orders_meta (HPOS)
+        query_hpos_tracking = text("""
+            INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value)
+            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
+            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
+        """)
+        db.session.execute(query_hpos_tracking, {
+            'order_id': order_id,
+            'serialized_items': serialized_items
+        })
+
+        # Si se marca como enviado, cambiar el estado a wc-completed
+        if mark_as_shipped:
+            current_app.logger.info(f"[TRACKING] Order {order_id}: Cambiando estado a wc-completed")
+            order.status = 'wc-completed'
+            order.date_updated_gmt = datetime.utcnow()
+
+            # Triggerar email usando WooCommerce API
+            try:
+                from woocommerce import API
+                wc_api = API(
+                    url=current_app.config['WC_API_URL'],
+                    consumer_key=current_app.config['WC_CONSUMER_KEY'],
+                    consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+                    version="wc/v3",
+                    timeout=30
+                )
+
+                # Actualizar pedido via API para triggerar emails
+                # Preservar payment_method del pedido
+                payment_method = order.get_meta('_payment_method') or order.payment_method
+
+                wc_api.put(f"orders/{order_id}", {
+                    "status": "completed",
+                    "payment_method": payment_method,
+                    "meta_data": [
+                        {"key": "_tracking_number", "value": tracking_number},
+                        {"key": "_tracking_provider", "value": shipping_provider},
+                        {"key": "_wc_shipment_tracking_items", "value": serialized_items}
+                    ]
+                })
+
+                current_app.logger.info(f"[TRACKING] Order {order_id}: Email de tracking enviado via WooCommerce API")
+
+            except Exception as email_error:
+                current_app.logger.error(f"[TRACKING] Error al enviar email via API: {str(email_error)}")
+                # No fallar la operación si el email falla
+
+        db.session.commit()
+
+        # Obtener número de pedido
+        order_number = order.get_meta('_order_number')
+        if not order_number:
+            order_number = f"#{order_id}"
+
+        current_app.logger.info(
+            f"Tracking agregado a pedido {order_number}: {tracking_number} ({shipping_provider}) "
+            f"por {current_user.username}"
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Tracking agregado exitosamente al pedido {order_number}',
+            'order_id': order_id,
+            'order_number': order_number,
+            'tracking_number': tracking_number,
+            'shipping_provider': shipping_provider,
+            'date_shipped': date_shipped,
+            'status_changed': mark_as_shipped
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error agregando tracking: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
