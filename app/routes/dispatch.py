@@ -71,44 +71,47 @@ def get_column_from_shipping_method(order_id):
              'Motorizado (CHAMO)', o 'Por Asignar')
     """
     try:
-        # Obtener el method_id del shipping item del pedido
+        # Obtener el nombre del método de envío (order_item_name)
         query = text("""
-            SELECT oim.meta_value as method_id
+            SELECT oi.order_item_name
             FROM wpyz_woocommerce_order_items oi
-            INNER JOIN wpyz_woocommerce_order_itemmeta oim
-                ON oi.order_item_id = oim.order_item_id
             WHERE oi.order_id = :order_id
                 AND oi.order_item_type = 'shipping'
-                AND oim.meta_key = 'method_id'
             LIMIT 1
         """)
 
         result = db.session.execute(query, {'order_id': order_id}).fetchone()
 
         if result and result[0]:
-            method_id = result[0]
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: method_id = '{method_id}'")
+            shipping_method_name = result[0].lower()
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: shipping_method_name = '{result[0]}'")
 
-            # Extraer el ID numérico del method_id
-            # Formato típico: "advanced_shipping:15355"
-            if ':' in method_id:
-                numeric_id = method_id.split(':')[1]
+            # Mapeo por palabras clave en el nombre del método
+            # SHALOM
+            if 'shalom' in shipping_method_name or 'maynas' in shipping_method_name or 'iquitos' in shipping_method_name:
+                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'SHALOM'")
+                return 'SHALOM'
+
+            # OLVA COURIER
+            elif 'olva' in shipping_method_name:
+                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Olva Courier'")
+                return 'Olva Courier'
+
+            # RECOJO EN ALMACÉN
+            elif 'recojo' in shipping_method_name:
+                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Recojo en Almacén'")
+                return 'Recojo en Almacén'
+
+            # DINSIDES (Envío rápido, Lima Sur, etc.)
+            elif any(keyword in shipping_method_name for keyword in ['rapido', 'rápido', 'lima sur', 'envio rapido']):
+                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'DINSIDES'")
+                return 'DINSIDES'
+
             else:
-                numeric_id = method_id
-
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: numeric_id = '{numeric_id}'")
-
-            # Buscar en el mapeo
-            column = SHIPPING_METHOD_TO_COLUMN.get(numeric_id)
-
-            if column:
-                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a columna '{column}'")
-                return column
-            else:
-                current_app.logger.warning(f"[DISPATCH] Order {order_id}: numeric_id '{numeric_id}' NO encontrado en mapeo")
+                current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón")
 
         else:
-            current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene method_id en shipping item")
+            current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene método de envío")
 
         # Si no se encuentra mapeo, va a "Por Asignar"
         current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Por Asignar' (sin mapeo)")
