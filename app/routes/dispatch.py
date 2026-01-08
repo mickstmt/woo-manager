@@ -103,7 +103,7 @@ def get_column_from_shipping_method(order_id):
                 return 'Recojo en Almacén'
 
             # DINSIDES (Envío rápido, Lima Sur, 1 día hábil, etc.)
-            elif any(keyword in shipping_method_name for keyword in ['rapido', 'rápido', 'lima sur', 'envio rapido', '1 día hábil', '1 dia habil']):
+            elif any(keyword in shipping_method_name for keyword in ['rapido', 'rápido', 'lima sur', 'envio rapido', '1 día', '1 dia']):
                 current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'DINSIDES'")
                 return 'DINSIDES'
 
