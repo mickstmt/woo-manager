@@ -1074,7 +1074,12 @@ def add_tracking():
             order.status = 'wc-completed'
             order.date_updated_gmt = datetime.utcnow()
 
-            # Triggerar email usando WooCommerce API
+        # COMMIT INMEDIATO: Guardar cambios en BD antes de llamar a API externa
+        # Esto permite responder rápido al usuario sin esperar WooCommerce
+        db.session.commit()
+
+        # Triggerar email usando WooCommerce API (después del commit)
+        if mark_as_shipped:
             try:
                 from woocommerce import API
                 wc_api = API(
@@ -1082,7 +1087,7 @@ def add_tracking():
                     consumer_key=current_app.config['WC_CONSUMER_KEY'],
                     consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
                     version="wc/v3",
-                    timeout=30
+                    timeout=10  # Reducir timeout de 30s a 10s
                 )
 
                 # Actualizar pedido via API para triggerar emails
@@ -1103,9 +1108,7 @@ def add_tracking():
 
             except Exception as email_error:
                 current_app.logger.error(f"[TRACKING] Error al enviar email via API: {str(email_error)}")
-                # No fallar la operación si el email falla
-
-        db.session.commit()
+                # No fallar la operación si el email falla - tracking ya está guardado
 
         # Obtener número de pedido
         order_number = order.get_meta('_order_number')
