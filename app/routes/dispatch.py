@@ -17,6 +17,7 @@ from app.models import Order, OrderMeta, DispatchHistory, DispatchPriority
 from sqlalchemy import text, or_
 from datetime import datetime, timedelta
 from functools import wraps
+import unicodedata
 
 # Crear blueprint
 bp = Blueprint('dispatch', __name__, url_prefix='/dispatch')
@@ -59,6 +60,22 @@ SHIPPING_METHOD_TO_COLUMN = {
 }
 
 
+def normalize_text(text):
+    """
+    Normaliza texto removiendo acentos y convirtiéndolo a minúsculas.
+
+    Args:
+        text: String a normalizar
+
+    Returns:
+        str: Texto normalizado sin acentos en minúsculas
+    """
+    # Normalizar a NFD (Canonical Decomposition) y remover marcas de acento
+    nfd = unicodedata.normalize('NFD', text)
+    without_accents = ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
+    return without_accents.lower()
+
+
 def get_column_from_shipping_method(order_id):
     """
     Determina la columna del Kanban basándose en el método de envío del pedido.
@@ -83,35 +100,29 @@ def get_column_from_shipping_method(order_id):
         result = db.session.execute(query, {'order_id': order_id}).fetchone()
 
         if result and result[0]:
-            shipping_method_name = result[0].lower()
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: shipping_method_name = '{result[0]}'")
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: shipping_method_name.lower() = '{shipping_method_name}'")
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: repr() = {repr(shipping_method_name)}")
-            current_app.logger.info(f"[DISPATCH] Order {order_id}: '1 día' in string = {'1 día' in shipping_method_name}")
+            # Normalizar el nombre del método de envío (quitar acentos y minúsculas)
+            shipping_method_name = normalize_text(result[0])
 
-            # Mapeo por palabras clave en el nombre del método
+            # Mapeo por palabras clave en el nombre del método (sin acentos)
             # SHALOM
             if 'shalom' in shipping_method_name or 'maynas' in shipping_method_name or 'iquitos' in shipping_method_name:
-                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'SHALOM'")
                 return 'SHALOM'
 
             # OLVA COURIER
             elif 'olva' in shipping_method_name:
-                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Olva Courier'")
                 return 'Olva Courier'
 
             # RECOJO EN ALMACÉN
             elif 'recojo' in shipping_method_name:
-                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Recojo en Almacén'")
                 return 'Recojo en Almacén'
 
             # DINSIDES (Envío rápido, Lima Sur, 1 día hábil, etc.)
-            elif any(keyword in shipping_method_name for keyword in ['rapido', 'rápido', 'lima sur', 'envio rapido', '1 d', 'dia habil', 'día hábil']):
-                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'DINSIDES'")
+            # Búsqueda sin acentos: "envio 1 dia habil" coincide con "Envío 1 día hábil"
+            elif any(keyword in shipping_method_name for keyword in ['rapido', 'lima sur', 'envio rapido', '1 dia', 'dia habil']):
                 return 'DINSIDES'
 
             else:
-                current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón")
+                current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón (normalizado: '{shipping_method_name}')")
 
         else:
             current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene método de envío")
