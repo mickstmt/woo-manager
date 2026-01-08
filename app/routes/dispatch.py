@@ -87,6 +87,7 @@ def get_column_from_shipping_method(order_id):
 
         if result and result[0]:
             method_id = result[0]
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: method_id = '{method_id}'")
 
             # Extraer el ID numérico del method_id
             # Formato típico: "advanced_shipping:15355"
@@ -95,17 +96,26 @@ def get_column_from_shipping_method(order_id):
             else:
                 numeric_id = method_id
 
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: numeric_id = '{numeric_id}'")
+
             # Buscar en el mapeo
             column = SHIPPING_METHOD_TO_COLUMN.get(numeric_id)
 
             if column:
+                current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a columna '{column}'")
                 return column
+            else:
+                current_app.logger.warning(f"[DISPATCH] Order {order_id}: numeric_id '{numeric_id}' NO encontrado en mapeo")
+
+        else:
+            current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene method_id en shipping item")
 
         # Si no se encuentra mapeo, va a "Por Asignar"
+        current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Por Asignar' (sin mapeo)")
         return 'Por Asignar'
 
     except Exception as e:
-        current_app.logger.error(f"Error obteniendo columna para pedido {order_id}: {str(e)}")
+        current_app.logger.error(f"[DISPATCH] Error obteniendo columna para pedido {order_id}: {str(e)}")
         return 'Por Asignar'
 
 

@@ -211,6 +211,10 @@ function createOrderCard(order) {
             <div class="customer-name">${order.customer_name}</div>
             <div class="order-total">S/ ${order.total.toFixed(2)}</div>
             <div class="order-date">${order.date_created}</div>
+            <div class="shipping-method mt-2">
+                <i class="bi bi-truck"></i>
+                <small class="text-muted">${order.shipping_method || 'Sin método'}</small>
+            </div>
         </div>
         <div class="card-footer">
             <button class="btn btn-sm btn-outline-primary w-100" id="detail-btn-${order.id}" onclick="showOrderDetail(${order.id})">
