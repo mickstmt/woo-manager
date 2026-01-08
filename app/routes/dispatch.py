@@ -23,6 +23,93 @@ bp = Blueprint('dispatch', __name__, url_prefix='/dispatch')
 
 
 # ============================================
+# MAPEO DE MÉTODOS DE ENVÍO A COLUMNAS
+# ============================================
+
+# Mapeo de shipping_method_id (post_id de wpyz_posts) a columnas del Kanban
+SHIPPING_METHOD_TO_COLUMN = {
+    # SHALOM
+    '29884': 'SHALOM',  # Envio Shalom 10
+    '15347': 'SHALOM',  # Envio Shalom 12
+    '16017': 'SHALOM',  # Zona Maynas Iquitos
+
+    # OLVA COURIER
+    '15305': 'Olva Courier',  # Zona Envio Provincia 12.7
+    '15369': 'Olva Courier',  # Zona Olva Ica Pisco y Zonas de Lima
+    '15310': 'Olva Courier',  # Zona Olva Lima Provincia S/31.90
+    '15306': 'Olva Courier',  # Zona Olva Provincia 13.79 13.80
+    '15307': 'Olva Courier',  # Zona Olva Provincia 20.7
+    '15308': 'Olva Courier',  # Zona Olva Provincia 24.8
+    '15311': 'Olva Courier',  # Zona Olva Provincia 32.7 33.70
+    '15312': 'Olva Courier',  # Zona Olva Provincia 39.97
+    '15304': 'Olva Courier',  # Zona Olva Provincia 9.1
+    '15355': 'Olva Courier',  # Zona Olva S/6.90 Lima
+
+    # DINSIDES
+    '40672': 'DINSIDES',  # Lima Sur Envio Rapido
+    '15302': 'DINSIDES',  # Zona Envio Rapido A
+    '15303': 'DINSIDES',  # Zona Envio Rapido B
+    '21722': 'DINSIDES',  # Zona Envio Rapido C
+    '15300': 'DINSIDES',  # Zona Envio Rapido D
+    '15352': 'DINSIDES',  # Zona Rapido L-M-V (1)
+    '15354': 'DINSIDES',  # Zona Rapido L-M-V (3)
+
+    # RECOJO EN ALMACÉN
+    '15360': 'Recojo en Almacén',  # Zona Recojo
+}
+
+
+def get_column_from_shipping_method(order_id):
+    """
+    Determina la columna del Kanban basándose en el método de envío del pedido.
+
+    Args:
+        order_id: ID del pedido
+
+    Returns:
+        str: Nombre de la columna ('SHALOM', 'Olva Courier', 'DINSIDES', 'Recojo en Almacén',
+             'Motorizado (CHAMO)', o 'Por Asignar')
+    """
+    try:
+        # Obtener el method_id del shipping item del pedido
+        query = text("""
+            SELECT oim.meta_value as method_id
+            FROM wpyz_woocommerce_order_items oi
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim
+                ON oi.order_item_id = oim.order_item_id
+            WHERE oi.order_id = :order_id
+                AND oi.order_item_type = 'shipping'
+                AND oim.meta_key = 'method_id'
+            LIMIT 1
+        """)
+
+        result = db.session.execute(query, {'order_id': order_id}).fetchone()
+
+        if result and result[0]:
+            method_id = result[0]
+
+            # Extraer el ID numérico del method_id
+            # Formato típico: "advanced_shipping:15355"
+            if ':' in method_id:
+                numeric_id = method_id.split(':')[1]
+            else:
+                numeric_id = method_id
+
+            # Buscar en el mapeo
+            column = SHIPPING_METHOD_TO_COLUMN.get(numeric_id)
+
+            if column:
+                return column
+
+        # Si no se encuentra mapeo, va a "Por Asignar"
+        return 'Por Asignar'
+
+    except Exception as e:
+        current_app.logger.error(f"Error obteniendo columna para pedido {order_id}: {str(e)}")
+        return 'Por Asignar'
+
+
+# ============================================
 # MIDDLEWARE DE AUTORIZACIÓN
 # ============================================
 
@@ -299,10 +386,11 @@ def get_orders():
 
             # Verificar si el pedido tiene un movimiento previo en el historial
             if order_id in last_positions:
+                # Si tiene historial, usar la última posición guardada
                 column = last_positions[order_id]
             else:
-                # Si no hay historial, va a "Por Asignar"
-                column = 'Por Asignar'
+                # Si no hay historial, determinar columna automáticamente según método de envío
+                column = get_column_from_shipping_method(order_id)
 
             # Aplicar filtro de métodos si existe
             if shipping_methods_filter and column not in shipping_methods_filter:
