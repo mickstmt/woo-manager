@@ -85,6 +85,9 @@ def get_column_from_shipping_method(order_id):
         if result and result[0]:
             shipping_method_name = result[0].lower()
             current_app.logger.info(f"[DISPATCH] Order {order_id}: shipping_method_name = '{result[0]}'")
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: shipping_method_name.lower() = '{shipping_method_name}'")
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: repr() = {repr(shipping_method_name)}")
+            current_app.logger.info(f"[DISPATCH] Order {order_id}: '1 día' in string = {'1 día' in shipping_method_name}")
 
             # Mapeo por palabras clave en el nombre del método
             # SHALOM
