@@ -266,6 +266,7 @@ def get_orders():
             SELECT DISTINCT
                 o.id,
                 COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
+                om_number.meta_value as whatsapp_number,  -- Número W-XXXXX si existe
                 DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR) as date_created_local,
                 o.total_amount,
                 o.status,
@@ -325,7 +326,7 @@ def get_orders():
             ORDER BY
                 dp.is_priority DESC,
                 dp.priority_level DESC,
-                date_created_local DESC
+                hours_since_update DESC  -- Pedidos con más retraso primero
         """)
 
         # Construir filtros dinámicos
@@ -424,21 +425,32 @@ def get_orders():
                 continue
 
             # Construir objeto de pedido
+            whatsapp_number = row[2]  # W-XXXXX si existe, None si no
+            display_number = row[1]   # Ya viene como COALESCE(W-XXXXX, #ID)
+
+            # Si es pedido WhatsApp, mostrar #ID principal y W-XXXXX secundario
+            if whatsapp_number and whatsapp_number.startswith('W-'):
+                display_number = f"#{row[0]}"  # ID original
+                whatsapp_label = whatsapp_number  # W-XXXXX
+            else:
+                whatsapp_label = None
+
             order_data = {
                 'id': row[0],
-                'number': row[1],
-                'date_created': row[2].strftime('%Y-%m-%d %H:%M') if row[2] else None,
-                'total': float(row[3]) if row[3] else 0,
-                'status': row[4],
-                'email': row[5],
-                'customer_name': f"{row[6]} {row[7]}" if row[6] and row[7] else 'N/A',
-                'customer_phone': row[8] or 'N/A',
-                'shipping_method': row[9] or 'Sin método',
-                'is_priority': bool(row[10]) if row[10] is not None else False,
-                'priority_level': row[11] or 'normal',
-                'hours_since_update': row[12] or 0,
-                'is_stale': (row[12] or 0) > 24,  # Más de 24h sin mover
-                'created_by': row[13] or 'Desconocido'
+                'number': display_number,
+                'whatsapp_number': whatsapp_label,  # W-XXXXX para mostrar en gris
+                'date_created': row[3].strftime('%Y-%m-%d %H:%M') if row[3] else None,
+                'total': float(row[4]) if row[4] else 0,
+                'status': row[5],
+                'email': row[6],
+                'customer_name': f"{row[7]} {row[8]}" if row[7] and row[8] else 'N/A',
+                'customer_phone': row[9] or 'N/A',
+                'shipping_method': row[10] or 'Sin método',
+                'is_priority': bool(row[11]) if row[11] is not None else False,
+                'priority_level': row[12] or 'normal',
+                'hours_since_update': row[13] or 0,
+                'is_stale': (row[13] or 0) > 24,  # Más de 24h sin mover
+                'created_by': row[14] or 'Desconocido'
             }
 
             orders_by_method[column].append(order_data)

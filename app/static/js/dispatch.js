@@ -169,7 +169,10 @@ function createOrderCard(order) {
     // Construir HTML de la tarjeta
     let html = `
         <div class="card-header">
-            <div class="order-number">${order.number}</div>
+            <div class="order-number">
+                ${order.number}
+                ${order.whatsapp_number ? `<span style="color: #999; font-size: 0.85em; margin-left: 4px;">${order.whatsapp_number}</span>` : ''}
+            </div>
             <div class="order-badges">
     `;
 
