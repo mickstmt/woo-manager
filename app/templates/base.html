@@ -149,6 +149,13 @@
                             <i class="bi bi-cart-check"></i> Pedidos
                         </a>
                     </li>
+                    {% if current_user.is_master() %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dispatch/">
+                            <i class="bi bi-kanban"></i> Despacho
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="/history/">
                             <i class="bi bi-clock-history"></i> Historial

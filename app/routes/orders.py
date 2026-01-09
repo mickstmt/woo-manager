@@ -1117,7 +1117,7 @@ def create_order():
             current_app.logger.info(f"Discount amount: S/ {discount_amount}")
 
         products_after_discount = products_total_with_tax - discount_amount
-
+    
         # Total final = productos con descuento + envío
         total_with_tax = products_after_discount + shipping_cost
 
