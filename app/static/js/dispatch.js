@@ -220,7 +220,7 @@ function createOrderCard(order) {
             </div>
         </div>
         <div class="card-footer">
-            <button class="btn btn-outline-primary btn-icon" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
+            <button class="btn btn-outline-primary btn-icon btn-detail" data-order-id="${order.id}" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
                 <i class="bi bi-eye"></i>
             </button>
             <button class="btn btn-outline-success btn-icon" onclick="showTrackingModal(${order.id}, '${order.number}')" title="Agregar Tracking">
@@ -354,13 +354,14 @@ function updateColumnCounts() {
 async function showOrderDetail(orderId) {
     currentOrderId = orderId;
 
-    // Obtener botón y activar estado de carga
-    const btn = document.getElementById(`detail-btn-${orderId}`);
+    // Obtener botón usando data-order-id y activar estado de carga
+    const btn = document.querySelector(`.btn-detail[data-order-id="${orderId}"]`);
     const originalContent = btn ? btn.innerHTML : '';
 
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        btn.classList.add('loading');
     }
 
     try {
@@ -437,6 +438,7 @@ async function showOrderDetail(orderId) {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalContent;
+            btn.classList.remove('loading');
         }
 
     } catch (error) {
@@ -447,6 +449,7 @@ async function showOrderDetail(orderId) {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalContent;
+            btn.classList.remove('loading');
         }
     }
 }
