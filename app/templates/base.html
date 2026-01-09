@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,19 +11,21 @@
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 
     <!-- Select2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+        rel="stylesheet" />
 
     <!-- Flatpickr CSS (date picker en español) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- CSS personalizado -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
 
     <!-- Estilos para date pickers -->
     <style>
@@ -93,167 +96,227 @@
 
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
-    
+
     <!-- Badge de ambiente (solo visible si NO es producción) -->
     {% if not is_production %}
-    <div class="alert alert-info alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-2 shadow" 
-         style="z-index: 9999; max-width: 400px;">
-        <i class="bi bi-info-circle-fill"></i> 
+    <div class="alert alert-info alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-2 shadow"
+        style="z-index: 9999; max-width: 400px;">
+        <i class="bi bi-info-circle-fill"></i>
         <strong>Ambiente: {{ environment|upper }}</strong>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endif %}
-    
+
     {% if current_user.is_authenticated %}
-    <!-- Navegación -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-shop"></i> WooCommerce Manager
-            </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Header: Logo + Toggle -->
+            <div class="sidebar-header">
+                <a href="/" class="sidebar-brand">
+                    <div class="sidebar-brand-icon">
+                        <i class="bi bi-shop"></i>
+                    </div>
+                    <span class="sidebar-brand-text">WooManager</span>
+                </a>
+                </a>
+            </div>
+
+            <!-- Navegación -->
+            <nav class="sidebar-nav">
+                <!-- Sección: PRINCIPAL -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Principal</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="/" class="nav-link" data-tooltip="Dashboard">
+                                <span class="nav-link-icon"><i class="bi bi-speedometer2"></i></span>
+                                <span class="nav-link-text">Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/stock/" class="nav-link" data-tooltip="Inventario">
+                                <span class="nav-link-icon"><i class="bi bi-boxes"></i></span>
+                                <span class="nav-link-text">Inventario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/products/" class="nav-link" data-tooltip="Productos">
+                                <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
+                                <span class="nav-link-text">Productos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/purchases/" class="nav-link" data-tooltip="Compras">
+                                <span class="nav-link-icon"><i class="bi bi-cart-plus"></i></span>
+                                <span class="nav-link-text">Compras</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/prices/" class="nav-link" data-tooltip="Precios">
+                                <span class="nav-link-icon"><i class="bi bi-tag"></i></span>
+                                <span class="nav-link-text">Precios</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Sección: OPERACIONES -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Operaciones</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="/orders/" class="nav-link" data-tooltip="Pedidos">
+                                <span class="nav-link-icon"><i class="bi bi-cart-check"></i></span>
+                                <span class="nav-link-text">Pedidos</span>
+                            </a>
+                        </li>
+                        {% if current_user.is_master() %}
+                        <li class="nav-item">
+                            <a href="/dispatch/" class="nav-link" data-tooltip="Despacho">
+                                <span class="nav-link-icon"><i class="bi bi-kanban"></i></span>
+                                <span class="nav-link-text">Despacho</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a href="/history/" class="nav-link" data-tooltip="Historial">
+                                <span class="nav-link-icon"><i class="bi bi-clock-history"></i></span>
+                                <span class="nav-link-text">Historial</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/reports/" class="nav-link" data-tooltip="Reportes">
+                                <span class="nav-link-icon"><i class="bi bi-graph-up"></i></span>
+                                <span class="nav-link-text">Reportes</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/images/" class="nav-link" data-tooltip="Imágenes">
+                                <span class="nav-link-icon"><i class="bi bi-image"></i></span>
+                                <span class="nav-link-text">Imágenes</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Footer: Configuración + Logout -->
+            <div class="sidebar-footer">
+                <ul class="nav-items">
+                    {% if current_user.is_admin() %}
                     <li class="nav-item">
-                        <a class="nav-link" href="/">
-                            <i class="bi bi-speedometer2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/products/">
-                            <i class="bi bi-box-seam"></i> Productos
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/stock/">
-                            <i class="bi bi-boxes"></i> Stock
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/purchases/">
-                            <i class="bi bi-cart-plus"></i> Compras
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/prices/">
-                            <i class="bi bi-tag"></i> Precios
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/orders/">
-                            <i class="bi bi-cart-check"></i> Pedidos
-                        </a>
-                    </li>
-                    {% if current_user.is_master() %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/dispatch/">
-                            <i class="bi bi-kanban"></i> Despacho
+                        <a href="{{ url_for('auth.admin_users') }}" class="nav-link" data-tooltip="Configuración">
+                            <span class="nav-link-icon"><i class="bi bi-gear"></i></span>
+                            <span class="nav-link-text">Configuración</span>
                         </a>
                     </li>
                     {% endif %}
                     <li class="nav-item">
-                        <a class="nav-link" href="/history/">
-                            <i class="bi bi-clock-history"></i> Historial
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-graph-up"></i> Reportes
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
-                            <li><a class="dropdown-item" href="/reports/">
-                                <i class="bi bi-bar-chart"></i> Dashboard
-                            </a></li>
-                            <li><a class="dropdown-item" href="/reports/profits">
-                                <i class="bi bi-currency-dollar"></i> Ganancias
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/reports/exchange-rate">
-                                <i class="bi bi-currency-exchange"></i> Tipo de Cambio
-                            </a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/images/">
-                            <i class="bi bi-image"></i> Imágenes
+                        <a href="{{ url_for('auth.logout') }}" class="nav-link" data-tooltip="Cerrar Sesión">
+                            <span class="nav-link-icon"><i class="bi bi-box-arrow-right"></i></span>
+                            <span class="nav-link-text">Cerrar Sesión</span>
                         </a>
                     </li>
                 </ul>
             </div>
-        </div>
-        <ul class="navbar-nav ms-auto">
-            {% if current_user.is_authenticated %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle"></i>
-                        {{ current_user.username }}
-                        {% if current_user.is_master() %}
-                        <span class="badge bg-dark ms-1">Master</span>
-                        {% elif current_user.role == 'admin' %}
-                        <span class="badge bg-danger ms-1">Admin</span>
-                        {% elif current_user.is_advisor() %}
-                        <span class="badge bg-warning ms-1">Asesor</span>
-                        {% else %}
-                        <span class="badge bg-primary ms-1">Usuario</span>
-                        {% endif %}
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li class="dropdown-header">
-                            <small class="text-muted">{{ current_user.email }}</small>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
-                                <i class="bi bi-person"></i> Mi Perfil
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
-                                <i class="bi bi-key"></i> Cambiar Contraseña
-                            </a>
-                        </li>
-                        {% if current_user.is_admin() %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li class="dropdown-header">
-                            <small class="text-danger">
-                                <i class="bi bi-shield-check"></i> Panel Admin
-                            </small>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('auth.admin_users') }}">
-                                <i class="bi bi-people"></i> Gestión de Usuarios
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if current_user.is_master() %}
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('expenses.index') }}">
-                                <i class="bi bi-receipt"></i> Gastos Detallados
-                            </a>
-                        </li>
-                        {% endif %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
-    
-    <!-- Contenido principal -->
-    <div class="container-fluid mt-4">
-        {% block content %}{% endblock %}
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <!-- Topbar superior -->
+            <div class="topbar">
+                <!-- Toggle Sidebar (Desktop & Mobile) -->
+                <div class="d-flex align-items-center">
+                    <button class="sidebar-toggle-btn d-none d-md-flex" id="sidebarToggle" title="Alternar menú">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <button class="sidebar-toggle-btn d-md-none" id="mobileMenuToggle" title="Menú">
+                        <i class="bi bi-list"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Theme Toggle -->
+                    <button class="theme-toggle-btn" id="themeToggle" title="Cambiar tema">
+                        <i class="bi bi-moon"></i>
+                    </button>
+
+                    <!-- Dropdown de usuario -->
+                    <div class="user-dropdown">
+                        <button class="user-dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <div class="user-avatar">
+                                {{ current_user.username[0]|upper }}
+                            </div>
+                            <span>{{ current_user.username }}</span>
+                            {% if current_user.is_master() %}
+                            <span class="badge bg-dark">Master</span>
+                            {% elif current_user.role == 'admin' %}
+                            <span class="badge bg-danger">Admin</span>
+                            {% elif current_user.is_advisor() %}
+                            <span class="badge bg-warning">Asesor</span>
+                            {% else %}
+                            <span class="badge bg-primary">Usuario</span>
+                            {% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li class="dropdown-header">
+                                <small class="text-muted">{{ current_user.email }}</small>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                    <i class="bi bi-person"></i> Mi Perfil
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                                    <i class="bi bi-key"></i> Cambiar Contraseña
+                                </a>
+                            </li>
+                            {% if current_user.is_master() %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('expenses.index') }}">
+                                    <i class="bi bi-receipt"></i> Gastos Detallados
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/reports/exchange-rate">
+                                    <i class="bi bi-currency-exchange"></i> Tipo de Cambio
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/reports/profits">
+                                    <i class="bi bi-currency-dollar"></i> Ganancias
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wrapper del contenido con padding -->
+            <div class="content-wrapper">
+                {% else %}
+                <!-- Vista para usuarios no autenticados (login) -->
+                <div class="container mt-4">
+                    {% endif %}
+                    {% block content %}{% endblock %}
+                    {% if current_user.is_authenticated %}
+                </div>
+        </main>
     </div>
+    {% else %}
+    </div>
+    {% endif %}
 
     <!-- jQuery (debe ir ANTES de Bootstrap para Select2) -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
@@ -269,47 +332,140 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
 
     {% if current_user.is_authenticated %}
+    <!-- Sidebar Toggle y Estado Activo -->
+    <script>
+        (function () {
+            // --- Sidebar Logic ---
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+
+            // Cargar estado guardado del sidebar
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+            }
+
+            // Toggle Desktop
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function () {
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+                });
+            }
+
+            // --- Theme Logic (Dark Mode) ---
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = themeToggle.querySelector('i');
+            const htmlElement = document.documentElement;
+
+            // Función para establecer tema
+            function setTheme(theme) {
+                htmlElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+
+                // Actualizar icono
+                if (theme === 'dark') {
+                    themeIcon.classList.remove('bi-moon');
+                    themeIcon.classList.add('bi-sun');
+                } else {
+                    themeIcon.classList.remove('bi-sun');
+                    themeIcon.classList.add('bi-moon');
+                }
+            }
+
+            // Cargar tema guardado o preferencia del sistema
+            const savedTheme = localStorage.getItem('theme');
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            if (savedTheme) {
+                setTheme(savedTheme);
+            } else if (systemDark) {
+                setTheme('dark');
+            }
+
+            // Evento toggle tema
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function () {
+                    const currentTheme = htmlElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    setTheme(newTheme);
+                });
+            }
+
+            // --- Active Link Logic ---
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (currentPath === '/' && href === '/') {
+                    link.classList.add('active');
+                } else if (href !== '/' && currentPath.startsWith(href)) {
+                    link.classList.add('active');
+                }
+            });
+
+            // --- Mobile Logic ---
+            const overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            document.body.appendChild(overlay);
+
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', function () {
+                    sidebar.classList.toggle('mobile-open');
+                    overlay.classList.toggle('active');
+                });
+            }
+
+            overlay.addEventListener('click', function () {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+            });
+        })();
+    </script>
+
     <!-- Verificador de sesión -->
     <script>
-    (function() {
-        const CHECK_INTERVAL = 10000;
-        let sessionExpired = false;
+        (function () {
+            const CHECK_INTERVAL = 10000;
+            let sessionExpired = false;
 
-        function checkSession() {
-            if (sessionExpired) return;
+            function checkSession() {
+                if (sessionExpired) return;
 
-            fetch('/auth/check-session', {
-                method: 'GET',
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                // Si no es 200 OK, la sesión expiró
-                if (!response.ok || response.status === 401 || response.redirected) {
-                    showSessionExpiredModal();
-                    return null;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data && data.expired === true) {
-                    showSessionExpiredModal();
-                }
-            })
-            .catch(() => {
-                // En caso de error de red, no hacer nada
-            });
-        }
+                fetch('/auth/check-session', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                })
+                    .then(response => {
+                        // Si no es 200 OK, la sesión expiró
+                        if (!response.ok || response.status === 401 || response.redirected) {
+                            showSessionExpiredModal();
+                            return null;
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.expired === true) {
+                            showSessionExpiredModal();
+                        }
+                    })
+                    .catch(() => {
+                        // En caso de error de red, no hacer nada
+                    });
+            }
 
-        function showSessionExpiredModal() {
-            if (sessionExpired) return;
-            sessionExpired = true;
+            function showSessionExpiredModal() {
+                if (sessionExpired) return;
+                sessionExpired = true;
 
-            // Crear modal dinámicamente para asegurar que existe
-            let modalEl = document.getElementById('sessionExpiredModal');
+                // Crear modal dinámicamente para asegurar que existe
+                let modalEl = document.getElementById('sessionExpiredModal');
 
-            if (!modalEl) {
-                // Si no existe, crearlo
-                const modalHTML = `
+                if (!modalEl) {
+                    // Si no existe, crearlo
+                    const modalHTML = `
                     <div class="modal fade" id="sessionExpiredModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content border-0 shadow-lg">
@@ -330,250 +486,251 @@
                         </div>
                     </div>
                 `;
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-                modalEl = document.getElementById('sessionExpiredModal');
+                    document.body.insertAdjacentHTML('beforeend', modalHTML);
+                    modalEl = document.getElementById('sessionExpiredModal');
+                }
+
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
             }
 
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-        }
-
-        // Verificar cada 10 segundos
-        setInterval(checkSession, CHECK_INTERVAL);
-    })();
+            // Verificar cada 10 segundos
+            setInterval(checkSession, CHECK_INTERVAL);
+        })();
     </script>
     {% endif %}
 
     <!-- Función global de paginación inteligente -->
     <script>
-    /**
-     * Genera HTML de paginación inteligente que muestra solo un rango de páginas
-     * @param {object} pagination - Objeto con: page, pages, has_prev, has_next, prev_num, next_num
-     * @param {function} loadFunction - Función a llamar cuando se cambia de página (ej: loadStockHistory)
-     * @returns {string} HTML de la paginación
-     */
-    function buildSmartPagination(pagination, loadFunction) {
-        if (pagination.pages <= 1) {
-            return '';
-        }
+        /**
+         * Genera HTML de paginación inteligente que muestra solo un rango de páginas
+         * @param {object} pagination - Objeto con: page, pages, has_prev, has_next, prev_num, next_num
+         * @param {function} loadFunction - Función a llamar cuando se cambia de página (ej: loadStockHistory)
+         * @returns {string} HTML de la paginación
+         */
+        function buildSmartPagination(pagination, loadFunction) {
+            if (pagination.pages <= 1) {
+                return '';
+            }
 
-        let html = '<nav><ul class="pagination justify-content-center">';
-        const currentPage = pagination.page;
-        const totalPages = pagination.pages;
-        const maxVisible = 5; // Número máximo de páginas visibles
+            let html = '<nav><ul class="pagination justify-content-center">';
+            const currentPage = pagination.page;
+            const totalPages = pagination.pages;
+            const maxVisible = 5; // Número máximo de páginas visibles
 
-        const funcName = loadFunction.name;
+            const funcName = loadFunction.name;
 
-        // Botón Primera página
-        if (currentPage > 1) {
-            html += `<li class="page-item">
+            // Botón Primera página
+            if (currentPage > 1) {
+                html += `<li class="page-item">
                 <a class="page-link" href="#" onclick="${funcName}(1); return false;">
                     &laquo; Primera
                 </a>
             </li>`;
-        }
+            }
 
-        // Botón anterior
-        if (pagination.has_prev) {
-            html += `<li class="page-item">
+            // Botón anterior
+            if (pagination.has_prev) {
+                html += `<li class="page-item">
                 <a class="page-link" href="#" onclick="${funcName}(${pagination.prev_num}); return false;">
                     Anterior
                 </a>
             </li>`;
-        }
+            }
 
-        // Calcular rango de páginas a mostrar
-        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            // Calcular rango de páginas a mostrar
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
 
-        // Ajustar si estamos cerca del final
-        if (endPage - startPage < maxVisible - 1) {
-            startPage = Math.max(1, endPage - maxVisible + 1);
-        }
+            // Ajustar si estamos cerca del final
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
 
-        // Mostrar "..." si no empezamos en la página 1
-        if (startPage > 1) {
-            html += `<li class="page-item disabled">
+            // Mostrar "..." si no empezamos en la página 1
+            if (startPage > 1) {
+                html += `<li class="page-item disabled">
                 <span class="page-link">...</span>
             </li>`;
-        }
+            }
 
-        // Páginas visibles
-        for (let i = startPage; i <= endPage; i++) {
-            let active = i === currentPage ? 'active' : '';
-            html += `<li class="page-item ${active}">
+            // Páginas visibles
+            for (let i = startPage; i <= endPage; i++) {
+                let active = i === currentPage ? 'active' : '';
+                html += `<li class="page-item ${active}">
                 <a class="page-link" href="#" onclick="${funcName}(${i}); return false;">
                     ${i}
                 </a>
             </li>`;
-        }
+            }
 
-        // Mostrar "..." si no terminamos en la última página
-        if (endPage < totalPages) {
-            html += `<li class="page-item disabled">
+            // Mostrar "..." si no terminamos en la última página
+            if (endPage < totalPages) {
+                html += `<li class="page-item disabled">
                 <span class="page-link">...</span>
             </li>`;
-        }
+            }
 
-        // Botón siguiente
-        if (pagination.has_next) {
-            html += `<li class="page-item">
+            // Botón siguiente
+            if (pagination.has_next) {
+                html += `<li class="page-item">
                 <a class="page-link" href="#" onclick="${funcName}(${pagination.next_num}); return false;">
                     Siguiente
                 </a>
             </li>`;
-        }
+            }
 
-        // Botón Última página
-        if (currentPage < totalPages) {
-            html += `<li class="page-item">
+            // Botón Última página
+            if (currentPage < totalPages) {
+                html += `<li class="page-item">
                 <a class="page-link" href="#" onclick="${funcName}(${totalPages}); return false;">
                     Última &raquo;
                 </a>
             </li>`;
+            }
+
+            html += '</ul></nav>';
+            return html;
         }
 
-        html += '</ul></nav>';
-        return html;
-    }
+        // ===================================================================
+        // CONFIGURACIÓN GLOBAL: Formato de fechas en español (dd/mm/yyyy)
+        // ===================================================================
 
-    // ===================================================================
-    // CONFIGURACIÓN GLOBAL: Formato de fechas en español (dd/mm/yyyy)
-    // ===================================================================
+        /**
+         * Convierte una fecha del formato dd/mm/yyyy a yyyy-mm-dd
+         * @param {string} dateStr - Fecha en formato dd/mm/yyyy
+         * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
+         */
+        function convertDateToISO(dateStr) {
+            if (!dateStr) return '';
 
-    /**
-     * Convierte una fecha del formato dd/mm/yyyy a yyyy-mm-dd
-     * @param {string} dateStr - Fecha en formato dd/mm/yyyy
-     * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
-     */
-    function convertDateToISO(dateStr) {
-        if (!dateStr) return '';
+            // Si ya está en formato ISO (yyyy-mm-dd), devolverla tal cual
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                return dateStr;
+            }
 
-        // Si ya está en formato ISO (yyyy-mm-dd), devolverla tal cual
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            // Si está en formato dd/mm/yyyy, convertir
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+                const parts = dateStr.split('/');
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                return `${year}-${month}-${day}`;
+            }
+
+            // Intentar parsear como fecha
+            try {
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+            } catch (e) {
+                console.warn('Error converting date:', dateStr, e);
+            }
+
             return dateStr;
         }
 
-        // Si está en formato dd/mm/yyyy, convertir
-        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-            const parts = dateStr.split('/');
-            const day = parts[0].padStart(2, '0');
-            const month = parts[1].padStart(2, '0');
-            const year = parts[2];
-            return `${year}-${month}-${day}`;
+        /**
+         * Obtiene el valor de un input de fecha y lo convierte a formato ISO
+         * @param {string} elementId - ID del elemento input
+         * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
+         */
+        function getDateValue(elementId) {
+            const input = document.getElementById(elementId);
+            if (!input) return '';
+
+            // Si el input tiene el atributo data-iso-date (Flatpickr), usarlo
+            const isoDate = input.getAttribute('data-iso-date');
+            if (isoDate) return isoDate;
+
+            // Si no, intentar convertir el valor
+            return convertDateToISO(input.value);
         }
 
-        // Intentar parsear como fecha
-        try {
-            const date = new Date(dateStr);
-            if (!isNaN(date.getTime())) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-        } catch (e) {
-            console.warn('Error converting date:', dateStr, e);
+        function initSpanishDatePickers() {
+            // Configurar todos los inputs tipo date con Flatpickr en español
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+
+            dateInputs.forEach(input => {
+                // Guardar el valor original y atributos
+                const originalValue = input.value;
+                const placeholder = input.getAttribute('placeholder') || 'dd/mm/aaaa';
+                const inputId = input.id;
+                const inputName = input.name;
+                const inputClasses = input.className;
+
+                // Envolver el input en un contenedor para el icono
+                const wrapper = document.createElement('div');
+                wrapper.className = 'date-picker-wrapper';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+
+                // Cambiar el tipo a text para que Flatpickr funcione correctamente
+                input.type = 'text';
+                input.placeholder = placeholder;
+
+                // Agregar clase de Bootstrap para mejor apariencia
+                if (!input.classList.contains('form-control')) {
+                    input.classList.add('form-control');
+                }
+
+                // Inicializar Flatpickr con configuración en español
+                const fp = flatpickr(input, {
+                    locale: 'es',               // Idioma español
+                    dateFormat: 'd/m/Y',        // Formato dd/mm/yyyy
+                    allowInput: true,           // Permitir escritura manual
+                    disableMobile: true,        // Forzar uso de Flatpickr en móviles también
+                    defaultDate: originalValue || null,  // Fecha inicial si existe
+                    onChange: function (selectedDates, dateStr, instance) {
+                        // Mantener compatibilidad: guardar también en formato ISO
+                        if (selectedDates.length > 0) {
+                            const date = selectedDates[0];
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            input.setAttribute('data-iso-date', `${year}-${month}-${day}`);
+                        } else {
+                            input.removeAttribute('data-iso-date');
+                        }
+                    },
+                    onReady: function (selectedDates, dateStr, instance) {
+                        // Cuando Flatpickr está listo, asegurarse de que el input tenga el valor correcto
+                        if (originalValue) {
+                            instance.setDate(originalValue, false);
+                        }
+                    },
+                    onOpen: function (selectedDates, dateStr, instance) {
+                        // Limpiar el valor del input al abrir para evitar sugerencias molestas
+                        // Esto previene que se muestren fechas antiguas en el dropdown
+                        instance.input.value = dateStr;
+                    }
+                });
+
+                // Hacer que el wrapper también abra el calendario al hacer click
+                wrapper.addEventListener('click', function (e) {
+                    if (e.target === wrapper) {
+                        fp.open();
+                    }
+                });
+            });
         }
 
-        return dateStr;
-    }
-
-    /**
-     * Obtiene el valor de un input de fecha y lo convierte a formato ISO
-     * @param {string} elementId - ID del elemento input
-     * @returns {string} Fecha en formato yyyy-mm-dd (ISO)
-     */
-    function getDateValue(elementId) {
-        const input = document.getElementById(elementId);
-        if (!input) return '';
-
-        // Si el input tiene el atributo data-iso-date (Flatpickr), usarlo
-        const isoDate = input.getAttribute('data-iso-date');
-        if (isoDate) return isoDate;
-
-        // Si no, intentar convertir el valor
-        return convertDateToISO(input.value);
-    }
-
-    function initSpanishDatePickers() {
-        // Configurar todos los inputs tipo date con Flatpickr en español
-        const dateInputs = document.querySelectorAll('input[type="date"]');
-
-        dateInputs.forEach(input => {
-            // Guardar el valor original y atributos
-            const originalValue = input.value;
-            const placeholder = input.getAttribute('placeholder') || 'dd/mm/aaaa';
-            const inputId = input.id;
-            const inputName = input.name;
-            const inputClasses = input.className;
-
-            // Envolver el input en un contenedor para el icono
-            const wrapper = document.createElement('div');
-            wrapper.className = 'date-picker-wrapper';
-            input.parentNode.insertBefore(wrapper, input);
-            wrapper.appendChild(input);
-
-            // Cambiar el tipo a text para que Flatpickr funcione correctamente
-            input.type = 'text';
-            input.placeholder = placeholder;
-
-            // Agregar clase de Bootstrap para mejor apariencia
-            if (!input.classList.contains('form-control')) {
-                input.classList.add('form-control');
+        // Ejecutar al cargar el DOM
+        document.addEventListener('DOMContentLoaded', function () {
+            // Esperar a que Flatpickr esté disponible
+            if (typeof flatpickr !== 'undefined') {
+                initSpanishDatePickers();
             }
-
-            // Inicializar Flatpickr con configuración en español
-            const fp = flatpickr(input, {
-                locale: 'es',               // Idioma español
-                dateFormat: 'd/m/Y',        // Formato dd/mm/yyyy
-                allowInput: true,           // Permitir escritura manual
-                disableMobile: true,        // Forzar uso de Flatpickr en móviles también
-                defaultDate: originalValue || null,  // Fecha inicial si existe
-                onChange: function(selectedDates, dateStr, instance) {
-                    // Mantener compatibilidad: guardar también en formato ISO
-                    if (selectedDates.length > 0) {
-                        const date = selectedDates[0];
-                        const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
-                        input.setAttribute('data-iso-date', `${year}-${month}-${day}`);
-                    } else {
-                        input.removeAttribute('data-iso-date');
-                    }
-                },
-                onReady: function(selectedDates, dateStr, instance) {
-                    // Cuando Flatpickr está listo, asegurarse de que el input tenga el valor correcto
-                    if (originalValue) {
-                        instance.setDate(originalValue, false);
-                    }
-                },
-                onOpen: function(selectedDates, dateStr, instance) {
-                    // Limpiar el valor del input al abrir para evitar sugerencias molestas
-                    // Esto previene que se muestren fechas antiguas en el dropdown
-                    instance.input.value = dateStr;
-                }
-            });
-
-            // Hacer que el wrapper también abra el calendario al hacer click
-            wrapper.addEventListener('click', function(e) {
-                if (e.target === wrapper) {
-                    fp.open();
-                }
-            });
         });
-    }
-
-    // Ejecutar al cargar el DOM
-    document.addEventListener('DOMContentLoaded', function() {
-        // Esperar a que Flatpickr esté disponible
-        if (typeof flatpickr !== 'undefined') {
-            initSpanishDatePickers();
-        }
-    });
     </script>
 
     {% block extra_js %}{% endblock %}
-    
+
 </body>
+
 </html>

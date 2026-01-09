@@ -275,6 +275,7 @@
 #orderDetailModal h6 {
     color: #667eea;
     font-weight: 600;
+    display: block;
 }
 
 /* ============================================
@@ -364,6 +365,7 @@
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -405,13 +407,106 @@
 }
 
 /* Estados vacíos */
-.column-cards > .text-center {
+.column-cards>.text-center {
     padding: 60px 20px;
 }
 
-.column-cards > .text-center i {
+.column-cards>.text-center i {
     font-size: 48px;
     opacity: 0.3;
     display: block;
     margin-bottom: 15px;
+}
+
+/* ============================================
+   DARK MODE OVERRIDES (KANBAN SPECIFIC)
+   ============================================ */
+
+[data-theme="dark"] .kanban-column {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .order-card {
+    background: var(--bg-body);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .order-card:hover {
+    background: var(--bg-hover);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .card-header {
+    border-bottom-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .card-footer {
+    border-top-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .customer-name {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .order-date,
+[data-theme="dark"] .timeline-date,
+[data-theme="dark"] .timeline-user {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .order-number {
+    color: #818cf8;
+    /* Lighter indigo */
+}
+
+/* Timeline specific */
+[data-theme="dark"] .timeline::before {
+    background: var(--border-color);
+}
+
+[data-theme="dark"] .timeline-content {
+    background: var(--bg-surface);
+}
+
+[data-theme="dark"] .timeline-change {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .timeline-note {
+    background: var(--bg-body);
+    color: var(--text-secondary);
+}
+
+/* Scrollbars */
+[data-theme="dark"] .column-cards::-webkit-scrollbar-track {
+    background: var(--bg-body);
+}
+
+[data-theme="dark"] .column-cards::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+}
+
+[data-theme="dark"] .column-cards::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Priority Gradients in Dark Mode */
+[data-theme="dark"] .order-card.priority-high {
+    background: linear-gradient(to right, rgba(255, 193, 7, 0.15) 0%, var(--bg-body) 15%);
+}
+
+[data-theme="dark"] .order-card.priority-urgent {
+    background: linear-gradient(to right, rgba(220, 53, 69, 0.15) 0%, var(--bg-body) 15%);
+}
+
+[data-theme="dark"] .sortable-ghost {
+    background: var(--bg-hover);
+    opacity: 0.3;
 }
