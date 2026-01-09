@@ -112,7 +112,7 @@
 
 .column-cards {
     flex: 1;
-    padding: 15px;
+    padding: 10px;
     overflow-y: auto;
     max-height: calc(100vh - 350px);
 }
@@ -141,12 +141,12 @@
 
 .order-card {
     background: white;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: move;
-    border-left: 4px solid #667eea;
+    border-left: 3px solid #667eea;
 }
 
 .order-card:hover {
@@ -186,7 +186,7 @@
    ============================================ */
 
 .card-header {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
@@ -196,40 +196,55 @@
 .order-number {
     font-weight: 700;
     color: #667eea;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .order-badges {
     display: flex;
-    gap: 5px;
+    gap: 4px;
 }
 
 .card-body {
-    padding: 12px;
+    padding: 10px;
 }
 
 .customer-name {
     font-weight: 600;
     color: #333;
-    margin-bottom: 8px;
-    font-size: 14px;
+    margin-bottom: 6px;
+    font-size: 13px;
 }
 
 .order-total {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: #28a745;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
 .order-date {
-    font-size: 12px;
+    font-size: 11px;
     color: #6c757d;
 }
 
 .card-footer {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* Botones de acción en el footer - solo iconos */
+.card-footer .btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 14px;
 }
 
 /* ============================================

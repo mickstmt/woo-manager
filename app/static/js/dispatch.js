@@ -220,14 +220,12 @@ function createOrderCard(order) {
             </div>
         </div>
         <div class="card-footer">
-            <div class="btn-group w-100" role="group">
-                <button class="btn btn-sm btn-outline-primary" onclick="showOrderDetail(${order.id})">
-                    <i class="bi bi-eye"></i> Ver Detalle
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="showTrackingModal(${order.id}, '${order.number}')">
-                    <i class="bi bi-truck"></i> Agregar Tracking
-                </button>
-            </div>
+            <button class="btn btn-outline-primary btn-icon" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
+                <i class="bi bi-eye"></i>
+            </button>
+            <button class="btn btn-outline-success btn-icon" onclick="showTrackingModal(${order.id}, '${order.number}')" title="Agregar Tracking">
+                <i class="bi bi-truck"></i>
+            </button>
         </div>
     `;
 
