@@ -218,6 +218,19 @@ function createOrderCard(order) {
                 <i class="bi bi-truck"></i>
                 <small class="text-muted">${order.shipping_method || 'Sin método'}</small>
             </div>
+    `;
+
+    // Mostrar distrito solo para pedidos de "1 día hábil"
+    if (order.shipping_method && order.shipping_method.toLowerCase().includes('1 día') && order.shipping_district) {
+        html += `
+            <div class="shipping-district mt-1">
+                <i class="bi bi-geo-alt-fill"></i>
+                <small class="text-primary fw-bold">${order.shipping_district}</small>
+            </div>
+        `;
+    }
+
+    html += `
         </div>
         <div class="card-footer">
             <button class="btn btn-outline-primary btn-icon btn-detail" data-order-id="${order.id}" onclick="showOrderDetail(${order.id})" title="Ver Detalle">

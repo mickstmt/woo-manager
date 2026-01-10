@@ -292,7 +292,10 @@ def get_orders():
                 TIMESTAMPDIFF(HOUR, o.date_updated_gmt, UTC_TIMESTAMP()) as hours_since_update,
 
                 -- Usuario que creó el pedido
-                om_created.meta_value as created_by
+                om_created.meta_value as created_by,
+
+                -- Distrito de envío (para pedidos 1 día hábil)
+                sa.city as shipping_district
 
             FROM wpyz_wc_orders o
 
@@ -305,6 +308,11 @@ def get_orders():
             LEFT JOIN wpyz_wc_order_addresses ba
                 ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
+
+            -- Dirección de envío (para obtener distrito)
+            LEFT JOIN wpyz_wc_order_addresses sa
+                ON o.id = sa.order_id
+                AND sa.address_type = 'shipping'
 
             -- Prioridades
             LEFT JOIN woo_dispatch_priorities dp
@@ -450,7 +458,8 @@ def get_orders():
                 'priority_level': row[12] or 'normal',
                 'hours_since_update': row[13] or 0,
                 'is_stale': (row[13] or 0) > 24,  # Más de 24h sin mover
-                'created_by': row[14] or 'Desconocido'
+                'created_by': row[14] or 'Desconocido',
+                'shipping_district': row[15] or None  # Distrito de envío
             }
 
             orders_by_method[column].append(order_data)

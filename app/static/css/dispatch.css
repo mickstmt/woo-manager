@@ -278,6 +278,15 @@
     display: block;
 }
 
+/* Specific Badge Override for Modal Product List */
+#orderDetailModal .list-group-item .badge {
+    font-size: 20px !important;
+    padding: 10px 18px !important;
+    border-radius: 50rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 /* ============================================
    TIMELINE DE HISTORIAL
    ============================================ */
@@ -509,4 +518,42 @@
 [data-theme="dark"] .sortable-ghost {
     background: var(--bg-hover);
     opacity: 0.3;
+}
+
+/* Modal Dark Mode overrides */
+[data-theme="dark"] .modal-content {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: var(--border-color);
+}
+
+[data-theme="dark"] #orderDetailModal h6 {
+    color: #818cf8;
+    /* Light indigo */
+}
+
+[data-theme="dark"] .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+[data-theme="dark"] .list-group-item {
+    background-color: var(--bg-surface);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .product-thumbnail-placeholder {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .product-thumbnail-placeholder i {
+    color: var(--text-tertiary) !important;
 }

@@ -58,6 +58,11 @@
 
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+
+    /* Dashboard Variables */
+    --card-bg: #1f2937;
+    --text-main: #f9fafb;
+    --text-muted: #9ca3af;
 }
 
 body {
@@ -635,6 +640,28 @@ h6 {
 
 [data-theme="dark"] .order-card:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Dashboard Cards (Custom) */
+[data-theme="dark"] .quick-action-card,
+[data-theme="dark"] .stat-card {
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .quick-action-card:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .quick-action-card h5,
+[data-theme="dark"] .stat-number {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .quick-action-card small,
+[data-theme="dark"] .stat-label {
+    color: var(--text-secondary) !important;
 }
 
 /* Contrast Utilities & Overrides */
