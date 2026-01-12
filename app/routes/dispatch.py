@@ -88,13 +88,28 @@ def get_column_from_shipping_method(order_id):
              'Motorizado (CHAMO)', o 'Por Asignar')
     """
     try:
-        # Obtener el nombre del método de envío (order_item_name)
+        # Obtener el nombre del método de envío (con fallback para pedidos sin shipping item)
         query = text("""
-            SELECT oi.order_item_name
-            FROM wpyz_woocommerce_order_items oi
-            WHERE oi.order_id = :order_id
-                AND oi.order_item_type = 'shipping'
-            LIMIT 1
+            SELECT
+                COALESCE(
+                    (SELECT oi.order_item_name
+                     FROM wpyz_woocommerce_order_items oi
+                     WHERE oi.order_id = o.id
+                       AND oi.order_item_type = 'shipping'
+                     LIMIT 1),
+                    -- Fallback: extraer desde _billing_entrega metadata
+                    CASE
+                        WHEN om_billing_entrega.meta_value = 'billing_recojo' THEN 'Recojo en Almacén'
+                        WHEN om_billing_entrega.meta_value LIKE '%recojo%' THEN 'Recojo en Almacén'
+                        WHEN om_billing_entrega.meta_value = 'billing_address' THEN 'Envío a domicilio'
+                        ELSE NULL
+                    END
+                ) as shipping_method
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om_billing_entrega
+                ON o.id = om_billing_entrega.order_id
+                AND om_billing_entrega.meta_key = '_billing_entrega'
+            WHERE o.id = :order_id
         """)
 
         result = db.session.execute(query, {'order_id': order_id}).fetchone()
