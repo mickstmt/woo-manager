@@ -277,12 +277,21 @@ def get_orders():
                 ba.last_name,
                 ba.phone,
 
-                -- Método de envío actual
-                (SELECT oi.order_item_name
-                 FROM wpyz_woocommerce_order_items oi
-                 WHERE oi.order_id = o.id
-                   AND oi.order_item_type = 'shipping'
-                 LIMIT 1) as shipping_method,
+                -- Método de envío (con fallback para pedidos sin shipping item)
+                COALESCE(
+                    (SELECT oi.order_item_name
+                     FROM wpyz_woocommerce_order_items oi
+                     WHERE oi.order_id = o.id
+                       AND oi.order_item_type = 'shipping'
+                     LIMIT 1),
+                    -- Fallback: extraer desde _billing_entrega metadata
+                    CASE
+                        WHEN om_billing_entrega.meta_value = 'billing_recojo' THEN 'Recojo en Almacén'
+                        WHEN om_billing_entrega.meta_value LIKE '%recojo%' THEN 'Recojo en Almacén'
+                        WHEN om_billing_entrega.meta_value = 'billing_address' THEN 'Envío a domicilio'
+                        ELSE NULL
+                    END
+                ) as shipping_method,
 
                 -- Prioridad (si existe)
                 dp.is_priority,
@@ -322,6 +331,11 @@ def get_orders():
             LEFT JOIN wpyz_wc_orders_meta om_created
                 ON o.id = om_created.order_id
                 AND om_created.meta_key = '_created_by'
+
+            -- Metadata de tipo de entrega (fallback para shipping_method)
+            LEFT JOIN wpyz_wc_orders_meta om_billing_entrega
+                ON o.id = om_billing_entrega.order_id
+                AND om_billing_entrega.meta_key = '_billing_entrega'
 
             WHERE o.status = 'wc-processing'
 
