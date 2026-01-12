@@ -114,6 +114,8 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
     """
     import requests
     from requests.auth import HTTPBasicAuth
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
     import time
 
     try:
@@ -130,6 +132,27 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
         api_url = f"{wc_url}/wp-json/wc/v3/orders/{order_id}"
         auth = HTTPBasicAuth(consumer_key, consumer_secret)
 
+        # Configurar reintentos automáticos
+        # Si WooCommerce tarda más de 30s o falla con error 5xx, reintenta hasta 3 veces
+        # con pausas progresivas (2s, 4s, 8s) entre intentos
+        retry_strategy = Retry(
+            total=3,  # Total de 3 intentos
+            backoff_factor=2,  # Espera 2s, 4s, 8s entre reintentos
+            status_forcelist=[429, 500, 502, 503, 504],  # Códigos HTTP a reintentar
+            allowed_methods=["PUT"],  # Permitir reintentos en PUT
+            raise_on_status=False  # No lanzar excepción en status codes
+        )
+
+        # Crear adaptador con retry strategy
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+
+        # Crear sesión con reintentos configurados
+        session = requests.Session()
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+        current_app.logger.info(f"Triggering email for order {order_id} (with auto-retry on timeout/5xx errors)")
+
         # PASO 1: Cambiar a 'pending' (estado intermedio)
         # Esto asegura que luego podamos hacer una transición real
         payload_pending = {
@@ -142,11 +165,11 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
         if payment_method_title:
             payload_pending['payment_method_title'] = payment_method_title
 
-        response_pending = requests.put(
+        response_pending = session.put(
             api_url,
             json=payload_pending,
             auth=auth,
-            timeout=10
+            timeout=30  # Aumentado de 10 a 30 segundos
         )
 
         if response_pending.status_code != 200:
@@ -171,11 +194,11 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
         if payment_method_title:
             payload_processing['payment_method_title'] = payment_method_title
 
-        response_processing = requests.put(
+        response_processing = session.put(
             api_url,
             json=payload_processing,
             auth=auth,
-            timeout=10
+            timeout=30  # Aumentado de 10 a 30 segundos
         )
 
         if response_processing.status_code == 200:
@@ -185,8 +208,15 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
             current_app.logger.error(f"Failed to trigger email for order {order_id}: {response_processing.status_code} - {response_processing.text}")
             return False
 
+    except requests.exceptions.Timeout as e:
+        current_app.logger.error(f"Timeout triggering email for order {order_id} after 3 retries: {str(e)}")
+        current_app.logger.warning(f"WooCommerce may be slow or unresponsive. Email may not have been sent for order {order_id}")
+        return False
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"Request exception triggering email for order {order_id}: {str(e)}")
+        return False
     except Exception as e:
-        current_app.logger.error(f"Exception triggering email for order {order_id}: {str(e)}")
+        current_app.logger.error(f"Unexpected exception triggering email for order {order_id}: {str(e)}")
         return False
 
 
