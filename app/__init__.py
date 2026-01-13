@@ -3,7 +3,7 @@ from flask import Flask, redirect, url_for, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from flask_caching import Cache
-from config import config
+from config import config, get_local_time
 import os
 
 # Inicializar extensiones
@@ -78,6 +78,11 @@ def create_app(config_name=None):
                     # Usar el mensaje configurado en login_manager
                     flash(login_manager.login_message, login_manager.login_message_category)
                     return redirect(url_for('auth.login', next=request.url))
+                
+                # ACTUALIZAR ÚLTIMA ACTIVIDAD (Detección automática)
+                # Solo actualizamos si no es una petición estática o pública
+                current_user.last_login = get_local_time()
+                db.session.commit()
             except Exception as e:
                 # Si hay error de BD, redirigir a login
                 import logging
@@ -104,11 +109,27 @@ def create_app(config_name=None):
     # Contexto global para templates
     @app.context_processor
     def inject_config():
+        import datetime
+        
+        def is_user_online(user):
+            if not user or not user.last_login:
+                return False
+            now = get_local_time()
+            last_active = user.last_login
+            # Sincronizar timezones para comparación segura
+            if last_active.tzinfo is None and now.tzinfo is not None:
+                now = now.replace(tzinfo=None)
+            diff = (now - last_active).total_seconds()
+            return diff < 300 # 5 minutos
+
         return {
             'environment': app.config['ENVIRONMENT'],
             'is_production': app.config['ENVIRONMENT'] == 'production',
             'db_prefix': app.config['DB_PREFIX'],
-            'current_user': current_user
+            'current_user': current_user,
+            'get_local_time': get_local_time,
+            'datetime': datetime,
+            'is_user_online': is_user_online
         }
     
     # Ruta principal

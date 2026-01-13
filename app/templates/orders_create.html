@@ -150,7 +150,7 @@
     }
 
     .product-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
     }
 
@@ -226,7 +226,8 @@
         height: calc(100vh - 100px);
         overflow-y: auto;
         border-left: 1px solid #dee2e6;
-        padding-left: 15px;
+        padding: 15px;
+        border-radius: 16px;
     }
 
     .cart-item {
@@ -382,11 +383,13 @@
 
     .variation-swatch.out-of-stock {
         opacity: 0.6;
-        cursor: pointer; /* Permitir selección para lógica de agregar stock temporal */
+        cursor: pointer;
+        /* Permitir selección para lógica de agregar stock temporal */
     }
 
     .variation-swatch.out-of-stock:hover {
-        border-color: #ffc107; /* Color ámbar para indicar "sin stock pero seleccionable" */
+        border-color: #ffc107;
+        /* Color ámbar para indicar "sin stock pero seleccionable" */
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
     }
@@ -483,18 +486,19 @@
         cursor: not-allowed !important;
     }
 
-    /* Navigation buttons */
+    /* Navigation buttons - Floating Style */
     .wizard-navigation {
         position: sticky;
-        bottom: 0;
+        bottom: 20px;
         display: flex;
         justify-content: space-between;
-        margin-top: 30px;
-        padding: 20px;
+        margin-top: 20px;
+        padding: 15px 25px;
         background: white;
-        border-top: 2px solid #dee2e6;
+        border: 1px solid #dee2e6;
+        border-radius: 16px;
         z-index: 100;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
 </style>
 {% endblock %}
@@ -538,8 +542,10 @@
 
                 <!-- Buscador contextual de productos -->
                 <div class="mb-3">
-                    <input type="text" class="form-control" id="product-filter-search" placeholder="Buscar por nombre o SKU..." disabled>
-                    <small class="text-muted" id="product-search-context">Selecciona una categoría para ver productos</small>
+                    <input type="text" class="form-control" id="product-filter-search"
+                        placeholder="Buscar por nombre o SKU..." disabled>
+                    <small class="text-muted" id="product-search-context">Selecciona una categoría para ver
+                        productos</small>
                 </div>
 
                 <!-- Grid de productos con imágenes -->
@@ -554,7 +560,11 @@
             <!-- Carrito -->
             <div class="col-md-3">
                 <div class="cart-sidebar">
-                    <h5>Carrito <span class="badge bg-primary" id="cart-count">0</span></h5>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="mb-0">Carrito</h5>
+                        <span class="badge bg-primary rounded-pill d-flex align-items-center justify-content-center"
+                            style="min-width: 24px; height: 24px;" id="cart-count">0</span>
+                    </div>
                     <div id="cart-items">
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-cart" style="font-size: 2rem;"></i>
@@ -645,7 +655,8 @@
                     </div>
 
                     <div class="mb-3" id="address-container">
-                        <label class="form-label" id="address-label">Dirección <span class="text-danger">*</span></label>
+                        <label class="form-label" id="address-label">Dirección <span
+                                class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="address">
                     </div>
 
@@ -680,12 +691,15 @@
                             <select class="form-select" id="shipping-method" required disabled>
                                 <option value="">Primero seleccione distrito</option>
                             </select>
-                            <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos disponibles</small>
+                            <small class="text-muted" id="shipping-help">Seleccione primero un distrito para ver métodos
+                                disponibles</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Costo de Envío (S/) <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.01" required>
-                            <small class="text-muted">Se actualiza automáticamente al seleccionar método, pero puede editarlo</small>
+                            <input type="number" class="form-control" id="shipping-cost" value="0" min="0" step="0.01"
+                                required>
+                            <small class="text-muted">Se actualiza automáticamente al seleccionar método, pero puede
+                                editarlo</small>
                         </div>
                     </div>
 
@@ -708,7 +722,8 @@
 
                     <div class="mb-3">
                         <label class="form-label">Notas del Pedido</label>
-                        <textarea class="form-control" id="customer-note" rows="2" placeholder="Cliente contactó por WhatsApp..."></textarea>
+                        <textarea class="form-control" id="customer-note" rows="2"
+                            placeholder="Cliente contactó por WhatsApp..."></textarea>
                     </div>
                 </div>
             </div>
@@ -720,7 +735,8 @@
                     <div id="cart-summary"></div>
                     <div class="mt-3 pt-3 border-top">
                         <label class="form-label">Descuento (%)</label>
-                        <input type="number" class="form-control" id="discount-percentage" value="0" min="0" max="100" step="0.01">
+                        <input type="number" class="form-control" id="discount-percentage" value="0" min="0" max="100"
+                            step="0.01">
                         <small class="text-muted">Descuento aplicado al subtotal de productos (incluye IGV)</small>
                     </div>
                 </div>
@@ -742,7 +758,8 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Revisa todos los datos antes de crear el pedido. Una vez creado, se reducirá el stock automáticamente.
+                    <i class="bi bi-info-circle"></i> Revisa todos los datos antes de crear el pedido. Una vez creado,
+                    se reducirá el stock automáticamente.
                 </div>
             </div>
         </div>
@@ -863,7 +880,8 @@
                         <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
                             <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
                         </button>
-                        <button type="button" class="btn btn-outline-success" id="btn-view-woo" onclick="viewInWooCommerce()">
+                        <button type="button" class="btn btn-outline-success" id="btn-view-woo"
+                            onclick="viewInWooCommerce()">
                             <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
                         </button>
                     </div>
@@ -877,543 +895,543 @@
 
 {% block extra_js %}
 <script>
-// Variables globales
-let currentStep = 1;
-let selectedCategory = null;
-let cart = [];
+    // Variables globales
+    let currentStep = 1;
+    let selectedCategory = null;
+    let cart = [];
 
-// Detectar tipo de pedido desde URL
-const urlParams = new URLSearchParams(window.location.search);
-const orderType = urlParams.get('type') || 'whatsapp'; // 'whatsapp' o 'external'
-let categories = [];
-let currentProducts = []; // Productos de la categoría actual o filtrados
-let allProducts = []; // Todos los productos cargados al inicio
+    // Detectar tipo de pedido desde URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderType = urlParams.get('type') || 'whatsapp'; // 'whatsapp' o 'external'
+    let categories = [];
+    let currentProducts = []; // Productos de la categoría actual o filtrados
+    let allProducts = []; // Todos los productos cargados al inicio
 
-// Datos del pedido
-let orderData = {
-    customer: {},
-    items: [],
-    shipping_cost: 0,
-    payment_method: '',
-    payment_method_title: '',
-    customer_note: ''
-};
+    // Datos del pedido
+    let orderData = {
+        customer: {},
+        items: [],
+        shipping_cost: 0,
+        payment_method: '',
+        payment_method_title: '',
+        customer_note: ''
+    };
 
-$(document).ready(function() {
-    loadCategories();
-    // NO cargar productos al inicio - esperar a que seleccione categoría
-    updateCartDisplay();
+    $(document).ready(function () {
+        loadCategories();
+        // NO cargar productos al inicio - esperar a que seleccione categoría
+        updateCartDisplay();
 
-    // Inicializar lightbox para imágenes del carrito
-    initImageLightbox();
+        // Inicializar lightbox para imágenes del carrito
+        initImageLightbox();
 
-    // Cargar departamentos desde API
-    loadDepartamentos();
+        // Cargar departamentos desde API
+        loadDepartamentos();
 
-    // Ocultar sección de dirección de entrega solo para pedidos externos
-    if (orderType === 'external') {
-        $('#delivery-section').hide();
-        // Asegurar que el delivery-type esté en "billing_recojo"
-        $('#delivery-type').val('billing_recojo');
-    } else {
-        // Para pedidos WhatsApp, inicializar campos de dirección según el tipo seleccionado
-        updateAddressFields();
+        // Ocultar sección de dirección de entrega solo para pedidos externos
+        if (orderType === 'external') {
+            $('#delivery-section').hide();
+            // Asegurar que el delivery-type esté en "billing_recojo"
+            $('#delivery-type').val('billing_recojo');
+        } else {
+            // Para pedidos WhatsApp, inicializar campos de dirección según el tipo seleccionado
+            updateAddressFields();
+        }
+
+        // Cuando cambie el departamento, cargar sus distritos
+        $('#state').on('change', function () {
+            const departamentoCode = $(this).val();
+            if (departamentoCode) {
+                loadDistritos(departamentoCode);
+            } else {
+                // Limpiar distrito si no hay departamento seleccionado
+                $('#city').empty().append('<option value="">Seleccione distrito</option>');
+                $('#city').trigger('change');
+            }
+        });
+
+        // Actualizar resumen cuando cambie el costo de envío
+        $('#shipping-cost').on('input', function () {
+            updateCartSummary();
+        });
+
+        // Actualizar resumen cuando cambie el descuento
+        $('#discount-percentage').on('input', function () {
+            updateCartSummary();
+        });
+    });
+
+    // ==================== UBIGEO: DEPARTAMENTOS Y DISTRITOS ====================
+
+    function loadDepartamentos() {
+        $.ajax({
+            url: '/orders/api/departamentos',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    const $select = $('#state');
+                    $select.empty();
+                    $select.append('<option value="">Seleccione departamento</option>');
+
+                    response.departamentos.forEach(function (dep) {
+                        $select.append(`<option value="${dep.code}">${dep.name}</option>`);
+                    });
+
+                    // Inicializar Select2 después de cargar opciones
+                    $select.select2({
+                        theme: 'bootstrap-5',
+                        placeholder: 'Buscar departamento...',
+                        allowClear: true,
+                        width: '100%'
+                    });
+                } else {
+                    showNotification('error', 'Error al cargar departamentos: ' + response.error);
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión al cargar departamentos');
+            }
+        });
     }
 
-    // Cuando cambie el departamento, cargar sus distritos
-    $('#state').on('change', function() {
-        const departamentoCode = $(this).val();
-        if (departamentoCode) {
-            loadDistritos(departamentoCode);
-        } else {
-            // Limpiar distrito si no hay departamento seleccionado
-            $('#city').empty().append('<option value="">Seleccione distrito</option>');
-            $('#city').trigger('change');
-        }
-    });
+    function loadDistritos(departamentoCode) {
+        const $citySelect = $('#city');
 
-    // Actualizar resumen cuando cambie el costo de envío
-    $('#shipping-cost').on('input', function() {
-        updateCartSummary();
-    });
+        // Mostrar loading
+        $citySelect.empty().append('<option value="">Cargando...</option>');
 
-    // Actualizar resumen cuando cambie el descuento
-    $('#discount-percentage').on('input', function() {
-        updateCartSummary();
-    });
-});
+        $.ajax({
+            url: `/orders/api/distritos/${departamentoCode}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    $citySelect.empty();
+                    $citySelect.append('<option value="">Seleccione distrito</option>');
 
-// ==================== UBIGEO: DEPARTAMENTOS Y DISTRITOS ====================
+                    response.distritos.forEach(function (distrito) {
+                        $citySelect.append(`<option value="${distrito}">${distrito}</option>`);
+                    });
 
-function loadDepartamentos() {
-    $.ajax({
-        url: '/orders/api/departamentos',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                const $select = $('#state');
-                $select.empty();
-                $select.append('<option value="">Seleccione departamento</option>');
-
-                response.departamentos.forEach(function(dep) {
-                    $select.append(`<option value="${dep.code}">${dep.name}</option>`);
-                });
-
-                // Inicializar Select2 después de cargar opciones
-                $select.select2({
-                    theme: 'bootstrap-5',
-                    placeholder: 'Buscar departamento...',
-                    allowClear: true,
-                    width: '100%'
-                });
-            } else {
-                showNotification('error', 'Error al cargar departamentos: ' + response.error);
-            }
-        },
-        error: function() {
-            showNotification('error', 'Error de conexión al cargar departamentos');
-        }
-    });
-}
-
-function loadDistritos(departamentoCode) {
-    const $citySelect = $('#city');
-
-    // Mostrar loading
-    $citySelect.empty().append('<option value="">Cargando...</option>');
-
-    $.ajax({
-        url: `/orders/api/distritos/${departamentoCode}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                $citySelect.empty();
-                $citySelect.append('<option value="">Seleccione distrito</option>');
-
-                response.distritos.forEach(function(distrito) {
-                    $citySelect.append(`<option value="${distrito}">${distrito}</option>`);
-                });
-
-                // Inicializar o reinicializar Select2 en distrito
-                if ($citySelect.hasClass('select2-hidden-accessible')) {
-                    $citySelect.select2('destroy');
-                }
-
-                $citySelect.select2({
-                    theme: 'bootstrap-5',
-                    placeholder: 'Buscar distrito...',
-                    allowClear: true,
-                    width: '100%'
-                });
-
-                // Escuchar cambios en distrito para cargar métodos de envío
-                $citySelect.off('change.shipping').on('change.shipping', function() {
-                    const distrito = $(this).val();
-                    if (distrito) {
-                        loadMetodosEnvio(distrito);
-                    } else {
-                        // Limpiar métodos de envío si no hay distrito
-                        $('#shipping-method').prop('disabled', true).empty()
-                            .append('<option value="">Primero seleccione distrito</option>');
-                        $('#shipping-cost').val(0);
-                        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
+                    // Inicializar o reinicializar Select2 en distrito
+                    if ($citySelect.hasClass('select2-hidden-accessible')) {
+                        $citySelect.select2('destroy');
                     }
-                });
-            } else {
-                $citySelect.empty().append('<option value="">Error al cargar</option>');
-                showNotification('error', 'Error: ' + response.error);
-            }
-        },
-        error: function() {
-            $citySelect.empty().append('<option value="">Error de conexión</option>');
-            showNotification('error', 'Error de conexión al cargar distritos');
-        }
-    });
-}
 
-function loadMetodosEnvio(distrito) {
-    const $shippingSelect = $('#shipping-method');
-    const $shippingHelp = $('#shipping-help');
-
-    // Mostrar loading
-    $shippingSelect.prop('disabled', true).empty()
-        .append('<option value="">Cargando métodos...</option>');
-    $shippingHelp.text('Buscando métodos de envío disponibles...');
-
-    $.ajax({
-        url: `/orders/api/metodos-envio/${encodeURIComponent(distrito)}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.success && response.metodos.length > 0) {
-                // Obtener tipo de entrega seleccionado
-                const deliveryType = $('#delivery-type').val();
-
-                // Filtrar métodos según tipo de entrega
-                let filteredMetodos = response.metodos;
-
-                if (deliveryType === 'billing_agencia') {
-                    // Solo Olva y Shalom
-                    filteredMetodos = response.metodos.filter(function(metodo) {
-                        const title = metodo.title.toLowerCase();
-                        return title.includes('olva') || title.includes('shalom');
-                    });
-                } else if (deliveryType === 'billing_domicilio') {
-                    // Solo Olva y envío 1 día hábil
-                    filteredMetodos = response.metodos.filter(function(metodo) {
-                        const title = metodo.title.toLowerCase();
-                        return title.includes('olva') || title.includes('1 hábil') || title.includes('1 día hábil') || title.includes('1 habíl') || title.includes('1 dia habil') || title.includes('1 día habil');
-                    });
-                }
-                // billing_recojo: no filtra, muestra todos
-
-                if (filteredMetodos.length > 0) {
-                    $shippingSelect.empty().append('<option value="">Seleccione método de envío</option>');
-
-                    filteredMetodos.forEach(function(metodo) {
-                        $shippingSelect.append(
-                            `<option value="${metodo.cost}" data-method-id="${metodo.id}" data-method-title="${metodo.title}">
-                                ${metodo.title}
-                            </option>`
-                        );
+                    $citySelect.select2({
+                        theme: 'bootstrap-5',
+                        placeholder: 'Buscar distrito...',
+                        allowClear: true,
+                        width: '100%'
                     });
 
-                    $shippingSelect.prop('disabled', false);
-                    $shippingHelp.text(`${filteredMetodos.length} método(s) de envío disponible(s)`);
-
-                    // Actualizar costo cuando se selecciona un método
-                    $shippingSelect.off('change.cost').on('change.cost', function() {
-                        const cost = $(this).val();
-                        const methodTitle = $(this).find(':selected').data('method-title');
-
-                        $('#shipping-cost').val(cost || 0).trigger('input');
-
-                        if (methodTitle) {
-                            showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
+                    // Escuchar cambios en distrito para cargar métodos de envío
+                    $citySelect.off('change.shipping').on('change.shipping', function () {
+                        const distrito = $(this).val();
+                        if (distrito) {
+                            loadMetodosEnvio(distrito);
+                        } else {
+                            // Limpiar métodos de envío si no hay distrito
+                            $('#shipping-method').prop('disabled', true).empty()
+                                .append('<option value="">Primero seleccione distrito</option>');
+                            $('#shipping-cost').val(0);
+                            $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
                         }
                     });
                 } else {
-                    $shippingSelect.empty()
-                        .append('<option value="">No hay métodos disponibles para este tipo de entrega</option>');
-                    $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío disponibles para ${deliveryType}</span>`);
-                    $('#shipping-cost').val(0);
-                    showNotification('warning', `No hay métodos de envío para este tipo de entrega en ${distrito}`);
+                    $citySelect.empty().append('<option value="">Error al cargar</option>');
+                    showNotification('error', 'Error: ' + response.error);
                 }
-            } else {
-                $shippingSelect.empty()
-                    .append('<option value="">No hay métodos disponibles</option>');
-                $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío para este distrito</span>`);
-                $('#shipping-cost').val(0);
-                showNotification('warning', `No hay métodos de envío configurados para ${distrito}`);
+            },
+            error: function () {
+                $citySelect.empty().append('<option value="">Error de conexión</option>');
+                showNotification('error', 'Error de conexión al cargar distritos');
             }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error cargando métodos de envío:', {
-                status: xhr.status,
-                statusText: xhr.statusText,
-                responseText: xhr.responseText,
-                error: error
-            });
+        });
+    }
 
-            $shippingSelect.empty().append('<option value="">Error al cargar</option>');
-            $shippingHelp.html('<span class="text-danger">Error de conexión</span>');
+    function loadMetodosEnvio(distrito) {
+        const $shippingSelect = $('#shipping-method');
+        const $shippingHelp = $('#shipping-help');
 
-            let errorMsg = 'Error al cargar métodos de envío';
-            try {
-                const response = JSON.parse(xhr.responseText);
-                if (response.error) {
-                    errorMsg += ': ' + response.error;
-                    console.error('Error del servidor:', response.traceback);
+        // Mostrar loading
+        $shippingSelect.prop('disabled', true).empty()
+            .append('<option value="">Cargando métodos...</option>');
+        $shippingHelp.text('Buscando métodos de envío disponibles...');
+
+        $.ajax({
+            url: `/orders/api/metodos-envio/${encodeURIComponent(distrito)}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success && response.metodos.length > 0) {
+                    // Obtener tipo de entrega seleccionado
+                    const deliveryType = $('#delivery-type').val();
+
+                    // Filtrar métodos según tipo de entrega
+                    let filteredMetodos = response.metodos;
+
+                    if (deliveryType === 'billing_agencia') {
+                        // Solo Olva y Shalom
+                        filteredMetodos = response.metodos.filter(function (metodo) {
+                            const title = metodo.title.toLowerCase();
+                            return title.includes('olva') || title.includes('shalom');
+                        });
+                    } else if (deliveryType === 'billing_domicilio') {
+                        // Solo Olva y envío 1 día hábil
+                        filteredMetodos = response.metodos.filter(function (metodo) {
+                            const title = metodo.title.toLowerCase();
+                            return title.includes('olva') || title.includes('1 hábil') || title.includes('1 día hábil') || title.includes('1 habíl') || title.includes('1 dia habil') || title.includes('1 día habil');
+                        });
+                    }
+                    // billing_recojo: no filtra, muestra todos
+
+                    if (filteredMetodos.length > 0) {
+                        $shippingSelect.empty().append('<option value="">Seleccione método de envío</option>');
+
+                        filteredMetodos.forEach(function (metodo) {
+                            $shippingSelect.append(
+                                `<option value="${metodo.cost}" data-method-id="${metodo.id}" data-method-title="${metodo.title}">
+                                ${metodo.title}
+                            </option>`
+                            );
+                        });
+
+                        $shippingSelect.prop('disabled', false);
+                        $shippingHelp.text(`${filteredMetodos.length} método(s) de envío disponible(s)`);
+
+                        // Actualizar costo cuando se selecciona un método
+                        $shippingSelect.off('change.cost').on('change.cost', function () {
+                            const cost = $(this).val();
+                            const methodTitle = $(this).find(':selected').data('method-title');
+
+                            $('#shipping-cost').val(cost || 0).trigger('input');
+
+                            if (methodTitle) {
+                                showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
+                            }
+                        });
+                    } else {
+                        $shippingSelect.empty()
+                            .append('<option value="">No hay métodos disponibles para este tipo de entrega</option>');
+                        $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío disponibles para ${deliveryType}</span>`);
+                        $('#shipping-cost').val(0);
+                        showNotification('warning', `No hay métodos de envío para este tipo de entrega en ${distrito}`);
+                    }
+                } else {
+                    $shippingSelect.empty()
+                        .append('<option value="">No hay métodos disponibles</option>');
+                    $shippingHelp.html(`<span class="text-warning">⚠️ No hay métodos de envío para este distrito</span>`);
+                    $('#shipping-cost').val(0);
+                    showNotification('warning', `No hay métodos de envío configurados para ${distrito}`);
                 }
-            } catch(e) {}
+            },
+            error: function (xhr, status, error) {
+                console.error('Error cargando métodos de envío:', {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    error: error
+                });
 
-            showNotification('error', errorMsg);
-        }
-    });
-}
+                $shippingSelect.empty().append('<option value="">Error al cargar</option>');
+                $shippingHelp.html('<span class="text-danger">Error de conexión</span>');
 
-// ==================== LIGHTBOX PARA IMÁGENES DEL CARRITO ====================
+                let errorMsg = 'Error al cargar métodos de envío';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg += ': ' + response.error;
+                        console.error('Error del servidor:', response.traceback);
+                    }
+                } catch (e) { }
 
-let lastTapTime = 0;
+                showNotification('error', errorMsg);
+            }
+        });
+    }
 
-function openImageLightbox(imgSrc) {
-    $('#imageLightbox').find('img').attr('src', imgSrc);
-    $('#imageLightbox').addClass('active');
-    $('body').css('overflow', 'hidden');
-}
+    // ==================== LIGHTBOX PARA IMÁGENES DEL CARRITO ====================
 
-function closeImageLightbox() {
-    $('#imageLightbox').removeClass('active');
-    $('body').css('overflow', '');
-}
+    let lastTapTime = 0;
 
-function initImageLightbox() {
-    // Doble toque para móvil - imágenes de variantes y carrito
-    $(document).on('touchend', '.variation-swatch-image, .cart-item-image', function(e) {
-        const currentTime = new Date().getTime();
-        const tapInterval = currentTime - lastTapTime;
+    function openImageLightbox(imgSrc) {
+        $('#imageLightbox').find('img').attr('src', imgSrc);
+        $('#imageLightbox').addClass('active');
+        $('body').css('overflow', 'hidden');
+    }
 
-        if (tapInterval < 300 && tapInterval > 0) {
-            e.preventDefault();
+    function closeImageLightbox() {
+        $('#imageLightbox').removeClass('active');
+        $('body').css('overflow', '');
+    }
+
+    function initImageLightbox() {
+        // Doble toque para móvil - imágenes de variantes y carrito
+        $(document).on('touchend', '.variation-swatch-image, .cart-item-image', function (e) {
+            const currentTime = new Date().getTime();
+            const tapInterval = currentTime - lastTapTime;
+
+            if (tapInterval < 300 && tapInterval > 0) {
+                e.preventDefault();
+                e.stopPropagation(); // Evitar que se seleccione la variante
+                openImageLightbox($(this).attr('src'));
+            }
+            lastTapTime = currentTime;
+        });
+
+        // Doble click para escritorio - imágenes de variantes y carrito
+        $(document).on('dblclick', '.variation-swatch-image, .cart-item-image', function (e) {
             e.stopPropagation(); // Evitar que se seleccione la variante
             openImageLightbox($(this).attr('src'));
-        }
-        lastTapTime = currentTime;
-    });
+        });
 
-    // Doble click para escritorio - imágenes de variantes y carrito
-    $(document).on('dblclick', '.variation-swatch-image, .cart-item-image', function(e) {
-        e.stopPropagation(); // Evitar que se seleccione la variante
-        openImageLightbox($(this).attr('src'));
-    });
+        // Cerrar lightbox
+        $('#imageLightbox').on('click touchend', function () {
+            closeImageLightbox();
+        });
 
-    // Cerrar lightbox
-    $('#imageLightbox').on('click touchend', function() {
-        closeImageLightbox();
-    });
+        // Cerrar con Escape
+        $(document).on('keydown', function (e) {
+            if (e.key === 'Escape') closeImageLightbox();
+        });
+    }
 
-    // Cerrar con Escape
-    $(document).on('keydown', function(e) {
-        if (e.key === 'Escape') closeImageLightbox();
-    });
-}
+    // ==================== PASO 1: PRODUCTOS ====================
 
-// ==================== PASO 1: PRODUCTOS ====================
-
-function loadCategories() {
-    $.ajax({
-        url: '/orders/get-categories',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                categories = response.categories;
-                renderCategoriesSelect(response.categories);
-            } else {
-                showNotification('error', 'Error al cargar categorías');
-            }
-        },
-        error: function() {
-            showNotification('error', 'Error de conexión');
-        }
-    });
-}
-
-function renderCategoriesSelect(cats) {
-    const $select = $('#categories-select');
-
-    // Buscar la categoría "Accesorios Smartwatch" y obtener sus hijos
-    let subcategories = [];
-
-    function findSmartwatch(categories) {
-        categories.forEach(cat => {
-            if (cat.name.toLowerCase().includes('accesorios') &&
-                cat.name.toLowerCase().includes('smartwatch')) {
-                // Encontrada, usar sus hijos
-                if (cat.children && cat.children.length > 0) {
-                    subcategories = cat.children;
+    function loadCategories() {
+        $.ajax({
+            url: '/orders/get-categories',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    categories = response.categories;
+                    renderCategoriesSelect(response.categories);
+                } else {
+                    showNotification('error', 'Error al cargar categorías');
                 }
-            }
-            // Buscar recursivamente en hijos
-            if (cat.children && cat.children.length > 0) {
-                findSmartwatch(cat.children);
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión');
             }
         });
     }
 
-    findSmartwatch(cats);
+    function renderCategoriesSelect(cats) {
+        const $select = $('#categories-select');
 
-    // Destruir Select2 si existe
-    if ($select.hasClass('select2-hidden-accessible')) {
-        $select.select2('destroy');
-    }
+        // Buscar la categoría "Accesorios Smartwatch" y obtener sus hijos
+        let subcategories = [];
 
-    // Limpiar y agregar opciones
-    $select.empty();
-    $select.append('<option value="">Todas las categorías</option>');
+        function findSmartwatch(categories) {
+            categories.forEach(cat => {
+                if (cat.name.toLowerCase().includes('accesorios') &&
+                    cat.name.toLowerCase().includes('smartwatch')) {
+                    // Encontrada, usar sus hijos
+                    if (cat.children && cat.children.length > 0) {
+                        subcategories = cat.children;
+                    }
+                }
+                // Buscar recursivamente en hijos
+                if (cat.children && cat.children.length > 0) {
+                    findSmartwatch(cat.children);
+                }
+            });
+        }
 
-    if (subcategories.length > 0) {
-        subcategories.forEach(cat => {
-            $select.append(
-                `<option value="${cat.id}" data-name="${cat.name}">
+        findSmartwatch(cats);
+
+        // Destruir Select2 si existe
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+
+        // Limpiar y agregar opciones
+        $select.empty();
+        $select.append('<option value="">Todas las categorías</option>');
+
+        if (subcategories.length > 0) {
+            subcategories.forEach(cat => {
+                $select.append(
+                    `<option value="${cat.id}" data-name="${cat.name}">
                     ${cat.name} (${cat.product_count} productos)
                 </option>`
-            );
-        });
-    }
+                );
+            });
+        }
 
-    // Inicializar Select2 con búsqueda flexible
-    $select.select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Selecciona una categoría...',
-        allowClear: true,
-        width: '100%',
-        matcher: function(params, data) {
-            // Si no hay término de búsqueda, mostrar todo
-            if ($.trim(params.term) === '') {
-                return data;
-            }
+        // Inicializar Select2 con búsqueda flexible
+        $select.select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Selecciona una categoría...',
+            allowClear: true,
+            width: '100%',
+            matcher: function (params, data) {
+                // Si no hay término de búsqueda, mostrar todo
+                if ($.trim(params.term) === '') {
+                    return data;
+                }
 
-            // No buscar en la opción por defecto
-            if (typeof data.text === 'undefined') {
+                // No buscar en la opción por defecto
+                if (typeof data.text === 'undefined') {
+                    return null;
+                }
+
+                // Convertir a minúsculas para búsqueda insensible a mayúsculas
+                const searchText = data.text.toLowerCase();
+                const searchTerms = params.term.toLowerCase().split(' ');
+
+                // Verificar que todas las palabras del término de búsqueda estén en el texto
+                const allWordsMatch = searchTerms.every(term => searchText.includes(term));
+
+                if (allWordsMatch) {
+                    return data;
+                }
+
+                // Sin coincidencia
                 return null;
             }
+        });
 
-            // Convertir a minúsculas para búsqueda insensible a mayúsculas
-            const searchText = data.text.toLowerCase();
-            const searchTerms = params.term.toLowerCase().split(' ');
+        // Evento de selección
+        $select.on('change', function () {
+            const catId = $(this).val();
+            const catName = $(this).find(':selected').data('name') || 'Todas las categorías';
 
-            // Verificar que todas las palabras del término de búsqueda estén en el texto
-            const allWordsMatch = searchTerms.every(term => searchText.includes(term));
+            if (catId) {
+                selectCategory(catId, catName);
+            } else {
+                // Sin categoría seleccionada, mostrar estado inicial
+                selectedCategory = null;
+                $('#product-filter-search').prop('disabled', true).val('');
+                $('#product-search-context').text('Selecciona una categoría para ver productos');
 
-            if (allWordsMatch) {
-                return data;
-            }
-
-            // Sin coincidencia
-            return null;
-        }
-    });
-
-    // Evento de selección
-    $select.on('change', function() {
-        const catId = $(this).val();
-        const catName = $(this).find(':selected').data('name') || 'Todas las categorías';
-
-        if (catId) {
-            selectCategory(catId, catName);
-        } else {
-            // Sin categoría seleccionada, mostrar estado inicial
-            selectedCategory = null;
-            $('#product-filter-search').prop('disabled', true).val('');
-            $('#product-search-context').text('Selecciona una categoría para ver productos');
-
-            // Mostrar mensaje inicial vacío
-            $('#products-grid').html(`
+                // Mostrar mensaje inicial vacío
+                $('#products-grid').html(`
                 <div class="col-12 text-center py-5">
                     <i class="bi bi-box" style="font-size: 3rem; color: #dee2e6;"></i>
                     <p class="text-muted mt-3">Selecciona una categoría</p>
                 </div>
             `);
-        }
-    });
-}
-
-function selectCategory(catId, catName) {
-    selectedCategory = catId;
-
-    // Habilitar buscador
-    $('#product-filter-search').prop('disabled', false);
-
-    // Actualizar contexto de búsqueda
-    $('#product-search-context').text(`Buscando en: ${catName}`);
-
-    // Cargar productos
-    loadProductsByCategory(catId);
-}
-
-// Función para cargar todos los productos al inicio
-function loadAllProducts() {
-    $.ajax({
-        url: '/orders/search-products',
-        method: 'GET',
-        data: { q: '' }, // Enviar query vacío para obtener todos
-        success: function(response) {
-            if (response.success && response.products) {
-                allProducts = response.products;
-                renderProducts(response.products);
-                $('#product-search-context').text('Buscando en: Todos los productos');
             }
-        },
-        error: function() {
-            console.error('Error al cargar productos');
-        }
-    });
-}
-
-function loadProductsByCategory(catId) {
-    const $select = $('#products-select');
-    $select.empty().append('<option value="">Cargando productos...</option>');
-    if ($select.hasClass('select2-hidden-accessible')) {
-        $select.select2('destroy');
-    }
-
-    $.ajax({
-        url: `/orders/get-products-by-category/${catId}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                renderProducts(response.products);
-            }
-        },
-        error: function() {
-            showNotification('error', 'Error al cargar productos');
-        }
-    });
-}
-
-// Buscador contextual de productos
-let productFilterTimeout = null;
-$('#product-filter-search').on('input', function() {
-    const searchTerm = $(this).val().trim().toLowerCase();
-
-    // Limpiar timeout anterior
-    if (productFilterTimeout) {
-        clearTimeout(productFilterTimeout);
-    }
-
-    // Esperar 300ms antes de filtrar
-    productFilterTimeout = setTimeout(() => {
-        if (searchTerm.length === 0) {
-            // Sin búsqueda, mostrar productos según contexto
-            if (selectedCategory) {
-                // Si hay categoría seleccionada, recargar productos de esa categoría
-                loadProductsByCategory(selectedCategory);
-            } else {
-                // Sin categoría, mostrar todos los productos
-                renderProducts(allProducts);
-            }
-            return;
-        }
-
-        // Determinar en qué conjunto buscar
-        const productsToSearch = selectedCategory ? currentProducts : allProducts;
-
-        // Filtrar productos
-        const filtered = productsToSearch.filter(product => {
-            const name = product.name.toLowerCase();
-            const sku = (product.sku || '').toLowerCase();
-            return name.includes(searchTerm) || sku.includes(searchTerm);
         });
+    }
 
-        renderProducts(filtered);
+    function selectCategory(catId, catName) {
+        selectedCategory = catId;
 
-        // Actualizar contador
-        if (filtered.length === 0) {
-            showNotification('info', `No se encontraron productos que coincidan con "${searchTerm}"`);
+        // Habilitar buscador
+        $('#product-filter-search').prop('disabled', false);
+
+        // Actualizar contexto de búsqueda
+        $('#product-search-context').text(`Buscando en: ${catName}`);
+
+        // Cargar productos
+        loadProductsByCategory(catId);
+    }
+
+    // Función para cargar todos los productos al inicio
+    function loadAllProducts() {
+        $.ajax({
+            url: '/orders/search-products',
+            method: 'GET',
+            data: { q: '' }, // Enviar query vacío para obtener todos
+            success: function (response) {
+                if (response.success && response.products) {
+                    allProducts = response.products;
+                    renderProducts(response.products);
+                    $('#product-search-context').text('Buscando en: Todos los productos');
+                }
+            },
+            error: function () {
+                console.error('Error al cargar productos');
+            }
+        });
+    }
+
+    function loadProductsByCategory(catId) {
+        const $select = $('#products-select');
+        $select.empty().append('<option value="">Cargando productos...</option>');
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
         }
-    }, 300);
-});
 
-function renderProducts(products) {
-    currentProducts = products;
-    const container = $('#products-grid');
-    container.empty();
+        $.ajax({
+            url: `/orders/get-products-by-category/${catId}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    renderProducts(response.products);
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error al cargar productos');
+            }
+        });
+    }
 
-    if (products.length === 0) {
-        container.html(`
+    // Buscador contextual de productos
+    let productFilterTimeout = null;
+    $('#product-filter-search').on('input', function () {
+        const searchTerm = $(this).val().trim().toLowerCase();
+
+        // Limpiar timeout anterior
+        if (productFilterTimeout) {
+            clearTimeout(productFilterTimeout);
+        }
+
+        // Esperar 300ms antes de filtrar
+        productFilterTimeout = setTimeout(() => {
+            if (searchTerm.length === 0) {
+                // Sin búsqueda, mostrar productos según contexto
+                if (selectedCategory) {
+                    // Si hay categoría seleccionada, recargar productos de esa categoría
+                    loadProductsByCategory(selectedCategory);
+                } else {
+                    // Sin categoría, mostrar todos los productos
+                    renderProducts(allProducts);
+                }
+                return;
+            }
+
+            // Determinar en qué conjunto buscar
+            const productsToSearch = selectedCategory ? currentProducts : allProducts;
+
+            // Filtrar productos
+            const filtered = productsToSearch.filter(product => {
+                const name = product.name.toLowerCase();
+                const sku = (product.sku || '').toLowerCase();
+                return name.includes(searchTerm) || sku.includes(searchTerm);
+            });
+
+            renderProducts(filtered);
+
+            // Actualizar contador
+            if (filtered.length === 0) {
+                showNotification('info', `No se encontraron productos que coincidan con "${searchTerm}"`);
+            }
+        }, 300);
+    });
+
+    function renderProducts(products) {
+        currentProducts = products;
+        const container = $('#products-grid');
+        container.empty();
+
+        if (products.length === 0) {
+            container.html(`
             <div class="col-12 text-center py-5">
                 <i class="bi bi-inbox" style="font-size: 3rem; color: #dee2e6;"></i>
                 <p class="text-muted mt-3">No hay productos en esta categoría</p>
             </div>
         `);
-        return;
-    }
+            return;
+        }
 
-    products.forEach(product => {
-        const imageUrl = product.image_url || 'https://via.placeholder.com/200';
-        const inStock = product.stock_status === 'instock';
-        const stockClass = inStock ? '' : 'out-of-stock';
+        products.forEach(product => {
+            const imageUrl = product.image_url || 'https://via.placeholder.com/200';
+            const inStock = product.stock_status === 'instock';
+            const stockClass = inStock ? '' : 'out-of-stock';
 
-        const html = `
+            const html = `
             <div class="product-card ${stockClass}" onclick="selectProduct(${product.id}, ${product.has_variations})">
                 <img src="${imageUrl}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/200'">
                 <div class="product-card-name">${product.name}</div>
@@ -1424,110 +1442,110 @@ function renderProducts(products) {
             </div>
         `;
 
-        container.append(html);
-    });
-}
+            container.append(html);
+        });
+    }
 
-function selectProduct(productId, hasVariations) {
-    if (hasVariations) {
-        loadVariations(productId);
-    } else {
-        // Producto simple, agregar directamente
-        showLoadingOverlay('Agregando producto...');
+    function selectProduct(productId, hasVariations) {
+        if (hasVariations) {
+            loadVariations(productId);
+        } else {
+            // Producto simple, agregar directamente
+            showLoadingOverlay('Agregando producto...');
+
+            $.ajax({
+                url: `/orders/get-variations/${productId}`,
+                method: 'GET',
+                success: function (response) {
+                    hideLoadingOverlay();
+                    if (response.success) {
+                        const parent = response.parent;
+                        addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock, parent.image_url);
+                        showNotification('success', 'Producto agregado al carrito');
+                    }
+                },
+                error: function () {
+                    hideLoadingOverlay();
+                    showNotification('error', 'Error al agregar producto');
+                }
+            });
+        }
+    }
+
+    function loadVariations(productId) {
+        // Mostrar overlay de carga
+        showLoadingOverlay('Cargando variaciones...');
 
         $.ajax({
             url: `/orders/get-variations/${productId}`,
             method: 'GET',
-            success: function(response) {
-                hideLoadingOverlay();
+            beforeSend: function () {
+                // Deshabilitar clics en productos mientras se carga
+                $('.product-card').css('pointer-events', 'none');
+            },
+            success: function (response) {
                 if (response.success) {
-                    const parent = response.parent;
-                    addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock, parent.image_url);
-                    showNotification('success', 'Producto agregado al carrito');
+                    hideLoadingOverlay();
+                    showVariationsModal(response.parent, response.variations, response.available_attributes);
                 }
             },
-            error: function() {
+            error: function () {
                 hideLoadingOverlay();
-                showNotification('error', 'Error al agregar producto');
+                showNotification('error', 'Error al cargar variaciones');
+            },
+            complete: function () {
+                // Rehabilitar clics en productos
+                $('.product-card').css('pointer-events', 'auto');
             }
         });
     }
-}
 
-function loadVariations(productId) {
-    // Mostrar overlay de carga
-    showLoadingOverlay('Cargando variaciones...');
+    // Variables globales para el modal de variaciones
+    let currentVariations = [];
+    let currentParent = null;
+    let selectedAttributes = {};
 
-    $.ajax({
-        url: `/orders/get-variations/${productId}`,
-        method: 'GET',
-        beforeSend: function() {
-            // Deshabilitar clics en productos mientras se carga
-            $('.product-card').css('pointer-events', 'none');
-        },
-        success: function(response) {
-            if (response.success) {
-                hideLoadingOverlay();
-                showVariationsModal(response.parent, response.variations, response.available_attributes);
-            }
-        },
-        error: function() {
-            hideLoadingOverlay();
-            showNotification('error', 'Error al cargar variaciones');
-        },
-        complete: function() {
-            // Rehabilitar clics en productos
-            $('.product-card').css('pointer-events', 'auto');
+    function showVariationsModal(parent, variations, availableAttributes) {
+        // LIMPIAR TODO PRIMERO
+        selectedAttributes = {};
+        currentVariations = variations;
+        currentParent = parent;
+
+        // Limpiar UI
+        $('#selected-variation-info').hide();
+        $('#no-variation-match').hide();
+
+        // Actualizar título
+        $('#variations-modal-title').text(parent.name);
+
+        // Generar selectores de atributos
+        const container = $('#attribute-selectors');
+        container.empty();
+
+        if (Object.keys(availableAttributes).length === 0) {
+            container.html('<p class="text-muted">Este producto no tiene variaciones configuradas.</p>');
+            $('#variationsModal').modal('show');
+            return;
         }
-    });
-}
 
-// Variables globales para el modal de variaciones
-let currentVariations = [];
-let currentParent = null;
-let selectedAttributes = {};
+        // Generar selector VISUAL para cada atributo
+        for (const [attrName, values] of Object.entries(availableAttributes)) {
+            const selectId = `attr-${attrName.toLowerCase().replace(/\s+/g, '-')}`;
 
-function showVariationsModal(parent, variations, availableAttributes) {
-    // LIMPIAR TODO PRIMERO
-    selectedAttributes = {};
-    currentVariations = variations;
-    currentParent = parent;
-
-    // Limpiar UI
-    $('#selected-variation-info').hide();
-    $('#no-variation-match').hide();
-
-    // Actualizar título
-    $('#variations-modal-title').text(parent.name);
-
-    // Generar selectores de atributos
-    const container = $('#attribute-selectors');
-    container.empty();
-
-    if (Object.keys(availableAttributes).length === 0) {
-        container.html('<p class="text-muted">Este producto no tiene variaciones configuradas.</p>');
-        $('#variationsModal').modal('show');
-        return;
-    }
-
-    // Generar selector VISUAL para cada atributo
-    for (const [attrName, values] of Object.entries(availableAttributes)) {
-        const selectId = `attr-${attrName.toLowerCase().replace(/\s+/g, '-')}`;
-
-        // Crear contenedor del atributo
-        const attrHtml = `
+            // Crear contenedor del atributo
+            const attrHtml = `
             <div class="mb-4">
                 <label class="form-label fw-bold">${attrName}:</label>
                 <div class="variation-swatches" id="swatches-${selectId}">
                     ${values.map(value => {
-                        // Buscar variación con este valor de atributo para obtener imagen
-                        const matchingVar = variations.find(v => v.attributes[attrName] === value);
-                        const imageUrl = matchingVar?.image_url || parent.image_url || 'https://via.placeholder.com/80';
-                        const stock = matchingVar?.stock || 0;
-                        const inStock = stock > 0;
-                        const outOfStockClass = !inStock ? 'out-of-stock' : '';
+                // Buscar variación con este valor de atributo para obtener imagen
+                const matchingVar = variations.find(v => v.attributes[attrName] === value);
+                const imageUrl = matchingVar?.image_url || parent.image_url || 'https://via.placeholder.com/80';
+                const stock = matchingVar?.stock || 0;
+                const inStock = stock > 0;
+                const outOfStockClass = !inStock ? 'out-of-stock' : '';
 
-                        return `
+                return `
                             <div class="variation-swatch ${outOfStockClass}"
                                  data-attr-name="${attrName}"
                                  data-attr-value="${value}"
@@ -1540,164 +1558,164 @@ function showVariationsModal(parent, variations, availableAttributes) {
                                 <span class="variation-swatch-label">${value}</span>
                             </div>
                         `;
-                    }).join('')}
+            }).join('')}
                 </div>
             </div>
         `;
 
-        container.append(attrHtml);
+            container.append(attrHtml);
+        }
+
+        // Mostrar modal
+        $('#variationsModal').modal('show');
+
+        // IMPORTANTE: Forzar la eliminación de aria-hidden después de que Bootstrap lo muestre
+        setTimeout(() => {
+            $('#variationsModal').removeAttr('aria-hidden');
+            $('#variationsModal').attr('aria-modal', 'true');
+        }, 50);
     }
 
-    // Mostrar modal
-    $('#variationsModal').modal('show');
+    // Event listener para clicks en las miniaturas visuales
+    // NOTA: Permitimos seleccionar incluso sin stock para que funcione la lógica de "agregar uno temporalmente"
+    $(document).on('click', '.variation-swatch', function () {
+        const $swatch = $(this);
+        const attrName = $swatch.data('attr-name');
+        const attrValue = $swatch.data('attr-value');
 
-    // IMPORTANTE: Forzar la eliminación de aria-hidden después de que Bootstrap lo muestre
-    setTimeout(() => {
-        $('#variationsModal').removeAttr('aria-hidden');
-        $('#variationsModal').attr('aria-modal', 'true');
-    }, 50);
-}
+        // Remover selección de otros swatches del mismo atributo
+        $swatch.siblings('.variation-swatch').removeClass('active');
 
-// Event listener para clicks en las miniaturas visuales
-// NOTA: Permitimos seleccionar incluso sin stock para que funcione la lógica de "agregar uno temporalmente"
-$(document).on('click', '.variation-swatch', function() {
-    const $swatch = $(this);
-    const attrName = $swatch.data('attr-name');
-    const attrValue = $swatch.data('attr-value');
+        // Marcar este como activo
+        $swatch.addClass('active');
 
-    // Remover selección de otros swatches del mismo atributo
-    $swatch.siblings('.variation-swatch').removeClass('active');
+        // Actualizar atributos seleccionados
+        selectedAttributes[attrName] = attrValue;
 
-    // Marcar este como activo
-    $swatch.addClass('active');
-
-    // Actualizar atributos seleccionados
-    selectedAttributes[attrName] = attrValue;
-
-    // Buscar variación que coincida
-    findMatchingVariation();
-});
-
-function findMatchingVariation() {
-    // Verificar si todos los atributos están seleccionados
-    const totalAttributes = $('.variation-swatches').length;
-    const selectedCount = Object.keys(selectedAttributes).length;
-
-    if (selectedCount < totalAttributes) {
-        // Aún faltan atributos por seleccionar
-        $('#selected-variation-info').hide();
-        $('#no-variation-match').hide();
-        return;
-    }
-
-    // Buscar variación que coincida con TODOS los atributos seleccionados
-    const matchingVariation = currentVariations.find(variation => {
-        const match = Object.entries(selectedAttributes).every(([attrName, attrValue]) => {
-            return variation.attributes[attrName] === attrValue;
-        });
-        return match;
+        // Buscar variación que coincida
+        findMatchingVariation();
     });
 
-    if (matchingVariation) {
-        // Mostrar información de la variación
-        $('#selected-variation-name').text(matchingVariation.name);
-        $('#selected-variation-sku').text(matchingVariation.sku);
-        $('#selected-variation-price').text(matchingVariation.price.toFixed(2));
+    function findMatchingVariation() {
+        // Verificar si todos los atributos están seleccionados
+        const totalAttributes = $('.variation-swatches').length;
+        const selectedCount = Object.keys(selectedAttributes).length;
 
-        const inStock = matchingVariation.stock > 0;
-        const stockBadge = inStock
-            ? `<span class="badge bg-success">En Stock (${matchingVariation.stock})</span>`
-            : `<span class="badge bg-danger">Sin Stock</span>`;
-        $('#selected-variation-stock-badge').html(stockBadge);
-
-        // NO deshabilitar el botón, solo cambiar su texto si no hay stock
-        $('#add-variation-btn').prop('disabled', false);
-        $('#add-variation-btn').data('variation-id', matchingVariation.id);
-        $('#add-variation-btn').data('variation-name', matchingVariation.name);
-        $('#add-variation-btn').data('variation-price', matchingVariation.price);
-        $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
-        $('#add-variation-btn').data('in-stock', inStock);
-        $('#add-variation-btn').data('stock', matchingVariation.stock);
-        $('#add-variation-btn').data('image-url', matchingVariation.image_url || currentParent.image_url);
-
-        // Usar CSS directo en lugar de .show() para forzar visibilidad
-        $('#selected-variation-info').css('display', 'block');
-        $('#no-variation-match').hide();
-
-    } else {
-        // No hay variación que coincida
-        $('#selected-variation-info').hide();
-        $('#no-variation-match').show();
-    }
-}
-
-// Event listener para agregar al carrito
-$(document).on('click', '#add-variation-btn', function() {
-    const variationId = $(this).data('variation-id');
-    const variationName = $(this).data('variation-name');
-    const variationPrice = $(this).data('variation-price');
-    const variationSku = $(this).data('variation-sku');
-    const inStock = $(this).data('in-stock');
-    const stock = $(this).data('stock');
-    const imageUrl = $(this).data('image-url');
-
-    // Si no hay stock, mostrar modal de confirmación
-    if (!inStock) {
-        showOutOfStockConfirmation(currentParent.id, variationId, variationName, variationPrice, variationSku, imageUrl);
-    } else {
-        // Hay stock, agregar directamente con validación de stock
-        addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku, stock, imageUrl);
-        $('#variationsModal').modal('hide');
-    }
-});
-
-// Limpiar modal cuando se cierra
-$('#variationsModal').on('hidden.bs.modal', function() {
-    // Limpiar selectores
-    selectedAttributes = {};
-    $('.attribute-selector').val('');
-
-    // Ocultar información de variación seleccionada
-    $('#selected-variation-info').hide();
-    $('#no-variation-match').hide();
-
-    // Limpiar contenedor de selectores
-    $('#attribute-selectors').empty();
-});
-
-function addToCart(productId, variationId, name, price, sku, stock = null, imageUrl = null) {
-    const item = {
-        product_id: productId,
-        variation_id: variationId,
-        name: name,
-        price: parseFloat(price),
-        quantity: 1,
-        sku: sku,
-        stock: stock, // Guardar stock disponible
-        image_url: imageUrl || 'https://via.placeholder.com/60?text=Sin+imagen' // Imagen del producto
-    };
-
-    // Verificar si ya existe
-    const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
-
-    if (existing) {
-        // Verificar si hay stock suficiente
-        if (existing.stock !== null && existing.quantity >= existing.stock) {
-            showNotification('warning', `Stock máximo alcanzado: ${existing.stock} unidades disponibles`);
+        if (selectedCount < totalAttributes) {
+            // Aún faltan atributos por seleccionar
+            $('#selected-variation-info').hide();
+            $('#no-variation-match').hide();
             return;
         }
-        existing.quantity++;
-    } else {
-        cart.push(item);
+
+        // Buscar variación que coincida con TODOS los atributos seleccionados
+        const matchingVariation = currentVariations.find(variation => {
+            const match = Object.entries(selectedAttributes).every(([attrName, attrValue]) => {
+                return variation.attributes[attrName] === attrValue;
+            });
+            return match;
+        });
+
+        if (matchingVariation) {
+            // Mostrar información de la variación
+            $('#selected-variation-name').text(matchingVariation.name);
+            $('#selected-variation-sku').text(matchingVariation.sku);
+            $('#selected-variation-price').text(matchingVariation.price.toFixed(2));
+
+            const inStock = matchingVariation.stock > 0;
+            const stockBadge = inStock
+                ? `<span class="badge bg-success">En Stock (${matchingVariation.stock})</span>`
+                : `<span class="badge bg-danger">Sin Stock</span>`;
+            $('#selected-variation-stock-badge').html(stockBadge);
+
+            // NO deshabilitar el botón, solo cambiar su texto si no hay stock
+            $('#add-variation-btn').prop('disabled', false);
+            $('#add-variation-btn').data('variation-id', matchingVariation.id);
+            $('#add-variation-btn').data('variation-name', matchingVariation.name);
+            $('#add-variation-btn').data('variation-price', matchingVariation.price);
+            $('#add-variation-btn').data('variation-sku', matchingVariation.sku);
+            $('#add-variation-btn').data('in-stock', inStock);
+            $('#add-variation-btn').data('stock', matchingVariation.stock);
+            $('#add-variation-btn').data('image-url', matchingVariation.image_url || currentParent.image_url);
+
+            // Usar CSS directo en lugar de .show() para forzar visibilidad
+            $('#selected-variation-info').css('display', 'block');
+            $('#no-variation-match').hide();
+
+        } else {
+            // No hay variación que coincida
+            $('#selected-variation-info').hide();
+            $('#no-variation-match').show();
+        }
     }
 
-    updateCartDisplay();
-    showNotification('success', 'Producto agregado al carrito');
-}
+    // Event listener para agregar al carrito
+    $(document).on('click', '#add-variation-btn', function () {
+        const variationId = $(this).data('variation-id');
+        const variationName = $(this).data('variation-name');
+        const variationPrice = $(this).data('variation-price');
+        const variationSku = $(this).data('variation-sku');
+        const inStock = $(this).data('in-stock');
+        const stock = $(this).data('stock');
+        const imageUrl = $(this).data('image-url');
 
-// Función para mostrar confirmación cuando no hay stock
-function showOutOfStockConfirmation(productId, variationId, name, price, sku, imageUrl = null) {
-    const message = `
+        // Si no hay stock, mostrar modal de confirmación
+        if (!inStock) {
+            showOutOfStockConfirmation(currentParent.id, variationId, variationName, variationPrice, variationSku, imageUrl);
+        } else {
+            // Hay stock, agregar directamente con validación de stock
+            addToCart(currentParent.id, variationId, variationName, variationPrice, variationSku, stock, imageUrl);
+            $('#variationsModal').modal('hide');
+        }
+    });
+
+    // Limpiar modal cuando se cierra
+    $('#variationsModal').on('hidden.bs.modal', function () {
+        // Limpiar selectores
+        selectedAttributes = {};
+        $('.attribute-selector').val('');
+
+        // Ocultar información de variación seleccionada
+        $('#selected-variation-info').hide();
+        $('#no-variation-match').hide();
+
+        // Limpiar contenedor de selectores
+        $('#attribute-selectors').empty();
+    });
+
+    function addToCart(productId, variationId, name, price, sku, stock = null, imageUrl = null) {
+        const item = {
+            product_id: productId,
+            variation_id: variationId,
+            name: name,
+            price: parseFloat(price),
+            quantity: 1,
+            sku: sku,
+            stock: stock, // Guardar stock disponible
+            image_url: imageUrl || 'https://via.placeholder.com/60?text=Sin+imagen' // Imagen del producto
+        };
+
+        // Verificar si ya existe
+        const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
+
+        if (existing) {
+            // Verificar si hay stock suficiente
+            if (existing.stock !== null && existing.quantity >= existing.stock) {
+                showNotification('warning', `Stock máximo alcanzado: ${existing.stock} unidades disponibles`);
+                return;
+            }
+            existing.quantity++;
+        } else {
+            cart.push(item);
+        }
+
+        updateCartDisplay();
+        showNotification('success', 'Producto agregado al carrito');
+    }
+
+    // Función para mostrar confirmación cuando no hay stock
+    function showOutOfStockConfirmation(productId, variationId, name, price, sku, imageUrl = null) {
+        const message = `
         <div class="alert alert-warning">
             <h5><i class="bi bi-exclamation-triangle"></i> Producto sin stock</h5>
             <p><strong>${name}</strong> (SKU: ${sku})</p>
@@ -1707,8 +1725,8 @@ function showOutOfStockConfirmation(productId, variationId, name, price, sku, im
         </div>
     `;
 
-    // Crear modal de confirmación con Bootstrap
-    const modalHtml = `
+        // Crear modal de confirmación con Bootstrap
+        const modalHtml = `
         <div class="modal fade" id="outOfStockModal" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -1730,104 +1748,104 @@ function showOutOfStockConfirmation(productId, variationId, name, price, sku, im
         </div>
     `;
 
-    // Eliminar modal si existe
-    $('#outOfStockModal').remove();
+        // Eliminar modal si existe
+        $('#outOfStockModal').remove();
 
-    // Agregar modal al body
-    $('body').append(modalHtml);
+        // Agregar modal al body
+        $('body').append(modalHtml);
 
-    // Mostrar modal
-    const modal = new bootstrap.Modal(document.getElementById('outOfStockModal'));
-    modal.show();
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('outOfStockModal'));
+        modal.show();
 
-    // Event listener para confirmación
-    $('#confirm-enable-stock').off('click').on('click', function() {
-        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Habilitando...');
+        // Event listener para confirmación
+        $('#confirm-enable-stock').off('click').on('click', function () {
+            $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Habilitando...');
 
-        // Llamar al endpoint para habilitar stock
-        enableProductStock(productId, variationId, name, price, sku, imageUrl);
-    });
-}
+            // Llamar al endpoint para habilitar stock
+            enableProductStock(productId, variationId, name, price, sku, imageUrl);
+        });
+    }
 
-// Función para habilitar stock en WooCommerce
-function enableProductStock(productId, variationId, name, price, sku, imageUrl = null) {
-    $.ajax({
-        url: `/orders/enable-stock/${productId}`,
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            variation_id: variationId,
-            min_stock: 1
-        }),
-        success: function(response) {
-            if (response.success) {
-                // Cerrar modal de confirmación
-                $('#outOfStockModal').modal('hide');
+    // Función para habilitar stock en WooCommerce
+    function enableProductStock(productId, variationId, name, price, sku, imageUrl = null) {
+        $.ajax({
+            url: `/orders/enable-stock/${productId}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                variation_id: variationId,
+                min_stock: 1
+            }),
+            success: function (response) {
+                if (response.success) {
+                    // Cerrar modal de confirmación
+                    $('#outOfStockModal').modal('hide');
 
-                // Cerrar modal de variaciones
-                $('#variationsModal').modal('hide');
+                    // Cerrar modal de variaciones
+                    $('#variationsModal').modal('hide');
 
-                // Agregar al carrito con stock habilitado
-                addToCart(productId, variationId, name, price, sku, response.stock, imageUrl);
+                    // Agregar al carrito con stock habilitado
+                    addToCart(productId, variationId, name, price, sku, response.stock, imageUrl);
 
-                // Notificar éxito
-                showNotification('success', `Stock habilitado: ${response.stock} unidades disponibles`);
-            } else {
-                showNotification('error', 'Error al habilitar stock: ' + response.error);
+                    // Notificar éxito
+                    showNotification('success', `Stock habilitado: ${response.stock} unidades disponibles`);
+                } else {
+                    showNotification('error', 'Error al habilitar stock: ' + response.error);
+                    $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión al habilitar stock');
                 $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
             }
-        },
-        error: function() {
-            showNotification('error', 'Error de conexión al habilitar stock');
-            $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
-        }
-    });
-}
-
-function removeFromCart(index) {
-    cart.splice(index, 1);
-    updateCartDisplay();
-}
-
-function updateQuantity(index, change) {
-    const item = cart[index];
-    const newQuantity = item.quantity + change;
-
-    // Verificar si intenta exceder el stock disponible
-    if (change > 0 && item.stock !== null && newQuantity > item.stock) {
-        showNotification('warning', `Stock máximo alcanzado: ${item.stock} unidades disponibles`);
-        return;
+        });
     }
 
-    item.quantity = newQuantity;
-
-    if (item.quantity < 1) {
-        removeFromCart(index);
-    } else {
+    function removeFromCart(index) {
+        cart.splice(index, 1);
         updateCartDisplay();
     }
-}
 
-function updateCartDisplay() {
-    const container = $('#cart-items');
-    const count = $('#cart-count');
+    function updateQuantity(index, change) {
+        const item = cart[index];
+        const newQuantity = item.quantity + change;
 
-    count.text(cart.length);
+        // Verificar si intenta exceder el stock disponible
+        if (change > 0 && item.stock !== null && newQuantity > item.stock) {
+            showNotification('warning', `Stock máximo alcanzado: ${item.stock} unidades disponibles`);
+            return;
+        }
 
-    if (cart.length === 0) {
-        container.html(`
+        item.quantity = newQuantity;
+
+        if (item.quantity < 1) {
+            removeFromCart(index);
+        } else {
+            updateCartDisplay();
+        }
+    }
+
+    function updateCartDisplay() {
+        const container = $('#cart-items');
+        const count = $('#cart-count');
+
+        count.text(cart.length);
+
+        if (cart.length === 0) {
+            container.html(`
             <div class="text-center py-4 text-muted">
                 <i class="bi bi-cart" style="font-size: 2rem;"></i>
                 <p class="mt-2">Carrito vacío</p>
             </div>
         `);
 
-        $('#btn-step-1').prop('disabled', true);
-    } else {
-        container.empty();
+            $('#btn-step-1').prop('disabled', true);
+        } else {
+            container.empty();
 
-        cart.forEach((item, index) => {
-            const html = `
+            cart.forEach((item, index) => {
+                const html = `
                 <div class="cart-item">
                     <span class="cart-item-remove" onclick="removeFromCart(${index})">
                         <i class="bi bi-x-circle-fill"></i>
@@ -1851,119 +1869,119 @@ function updateCartDisplay() {
                 </div>
             `;
 
-            container.append(html);
+                container.append(html);
+            });
+
+            $('#btn-step-1').prop('disabled', false);
+        }
+
+        updateCartTotals();
+    }
+
+    function updateCartTotals() {
+        // Los precios YA incluyen IGV
+        let totalWithTax = 0;
+
+        cart.forEach(item => {
+            totalWithTax += item.price * item.quantity;
         });
 
-        $('#btn-step-1').prop('disabled', false);
+        // Calcular subtotal sin IGV (precio / 1.18)
+        const subtotal = totalWithTax / 1.18;
+        const tax = totalWithTax - subtotal;
+
+        $('#cart-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
+        $('#cart-tax').text(`S/ ${tax.toFixed(2)}`);
+        $('#cart-total').text(`S/ ${totalWithTax.toFixed(2)}`);
     }
 
-    updateCartTotals();
-}
+    // ==================== BUSCADOR DE PRODUCTOS ====================
 
-function updateCartTotals() {
-    // Los precios YA incluyen IGV
-    let totalWithTax = 0;
+    let searchTimeout = null;
 
-    cart.forEach(item => {
-        totalWithTax += item.price * item.quantity;
+    // Toggle del buscador
+    $('#toggle-search').on('click', function () {
+        $('#search-container').slideToggle();
+        $('#product-search').focus();
     });
 
-    // Calcular subtotal sin IGV (precio / 1.18)
-    const subtotal = totalWithTax / 1.18;
-    const tax = totalWithTax - subtotal;
-
-    $('#cart-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
-    $('#cart-tax').text(`S/ ${tax.toFixed(2)}`);
-    $('#cart-total').text(`S/ ${totalWithTax.toFixed(2)}`);
-}
-
-// ==================== BUSCADOR DE PRODUCTOS ====================
-
-let searchTimeout = null;
-
-// Toggle del buscador
-$('#toggle-search').on('click', function() {
-    $('#search-container').slideToggle();
-    $('#product-search').focus();
-});
-
-// Limpiar búsqueda
-$('#clear-search').on('click', function() {
-    $('#product-search').val('');
-    $('#search-results').empty();
-    $('#product-search').focus();
-});
-
-// Búsqueda en tiempo real (con debounce)
-$('#product-search').on('input', function() {
-    const searchTerm = $(this).val().trim();
-
-    // Limpiar timeout anterior
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-    }
-
-    if (searchTerm.length < 2) {
+    // Limpiar búsqueda
+    $('#clear-search').on('click', function () {
+        $('#product-search').val('');
         $('#search-results').empty();
-        return;
-    }
+        $('#product-search').focus();
+    });
 
-    // Esperar 500ms antes de buscar
-    searchTimeout = setTimeout(() => {
-        searchProducts(searchTerm);
-    }, 500);
-});
+    // Búsqueda en tiempo real (con debounce)
+    $('#product-search').on('input', function () {
+        const searchTerm = $(this).val().trim();
 
-function searchProducts(searchTerm) {
-    $('#search-results').html(`
+        // Limpiar timeout anterior
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        if (searchTerm.length < 2) {
+            $('#search-results').empty();
+            return;
+        }
+
+        // Esperar 500ms antes de buscar
+        searchTimeout = setTimeout(() => {
+            searchProducts(searchTerm);
+        }, 500);
+    });
+
+    function searchProducts(searchTerm) {
+        $('#search-results').html(`
         <div class="text-center py-2">
             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
             <small class="ms-2">Buscando...</small>
         </div>
     `);
 
-    $.ajax({
-        url: '/orders/search-products',
-        method: 'GET',
-        data: { q: searchTerm },
-        success: function(response) {
-            if (response.success) {
-                displaySearchResults(response.products);
-            } else {
-                $('#search-results').html(`
+        $.ajax({
+            url: '/orders/search-products',
+            method: 'GET',
+            data: { q: searchTerm },
+            success: function (response) {
+                if (response.success) {
+                    displaySearchResults(response.products);
+                } else {
+                    $('#search-results').html(`
                     <div class="alert alert-warning py-2">
                         <small>Error al buscar productos</small>
                     </div>
                 `);
-            }
-        },
-        error: function() {
-            $('#search-results').html(`
+                }
+            },
+            error: function () {
+                $('#search-results').html(`
                 <div class="alert alert-danger py-2">
                     <small>Error de conexión</small>
                 </div>
             `);
-        }
-    });
-}
+            }
+        });
+    }
 
-function displaySearchResults(products) {
-    if (products.length === 0) {
-        $('#search-results').html(`
+    function displaySearchResults(products) {
+        if (products.length === 0) {
+            $('#search-results').html(`
             <div class="alert alert-info py-2 mb-0">
                 <small><i class="bi bi-info-circle"></i> No se encontraron productos</small>
             </div>
         `);
-        return;
-    }
+            return;
+        }
 
-    let html = '<div class="list-group">';
-    products.forEach(product => {
-        const stockBadge = product.stock > 0
-            ? `<span class="badge bg-success">${product.stock} en stock</span>`
-            : `<span class="badge bg-danger">Sin stock</span>`;
+        let html = '<div class="list-group">';
+        products.forEach(product => {
+            const stockBadge = product.stock > 0
+                ? `<span class="badge bg-success">${product.stock} en stock</span>`
+                : `<span class="badge bg-danger">Sin stock</span>`;
 
-        html += `
+            html += `
             <div class="list-group-item list-group-item-action py-2 search-result-item"
                  data-product-id="${product.id}"
                  data-product-type="${product.type}"
@@ -1981,104 +1999,104 @@ function displaySearchResults(products) {
                 </div>
             </div>
         `;
-    });
-    html += '</div>';
+        });
+        html += '</div>';
 
-    $('#search-results').html(html);
-}
-
-// Event listener para resultados de búsqueda
-$(document).on('click', '.search-result-item', function() {
-    const productId = $(this).data('product-id');
-    const productType = $(this).data('product-type');
-
-    if (productType === 'product_variation') {
-        // Es una variación directa, podemos obtener datos desde la búsqueda
-        const name = $(this).find('strong').text();
-        const priceText = $(this).find('small').text();
-        const price = parseFloat(priceText.split('S/')[1]);
-        const sku = priceText.split('SKU: ')[1].split(' |')[0];
-        const stock = $(this).data('product-stock') || null;
-        const imageUrl = $(this).data('product-image') || null;
-
-        addToCart(productId, productId, name, price, sku, stock, imageUrl);
-
-        // Limpiar búsqueda
-        $('#product-search').val('');
-        $('#search-results').empty();
-        $('#search-container').slideUp();
-
-        showNotification('success', 'Producto agregado al carrito');
-    } else {
-        // Es producto padre, verificar si tiene variaciones
-        loadSingleProduct(productId);
+        $('#search-results').html(html);
     }
-});
 
-function loadSingleProduct(productId) {
-    showLoadingOverlay('Cargando producto...');
+    // Event listener para resultados de búsqueda
+    $(document).on('click', '.search-result-item', function () {
+        const productId = $(this).data('product-id');
+        const productType = $(this).data('product-type');
 
-    $.ajax({
-        url: `/orders/get-variations/${productId}`,
-        method: 'GET',
-        success: function(response) {
-            hideLoadingOverlay();
+        if (productType === 'product_variation') {
+            // Es una variación directa, podemos obtener datos desde la búsqueda
+            const name = $(this).find('strong').text();
+            const priceText = $(this).find('small').text();
+            const price = parseFloat(priceText.split('S/')[1]);
+            const sku = priceText.split('SKU: ')[1].split(' |')[0];
+            const stock = $(this).data('product-stock') || null;
+            const imageUrl = $(this).data('product-image') || null;
 
-            if (response.success && response.variations.length > 0) {
-                // Tiene variaciones, mostrar modal
-                showVariationsModal(response.parent, response.variations, response.available_attributes);
+            addToCart(productId, productId, name, price, sku, stock, imageUrl);
 
-                // Limpiar búsqueda
-                $('#product-search').val('');
-                $('#search-results').empty();
-            } else {
-                // Producto simple, agregar directamente usando datos del response
-                const parent = response.parent;
-                addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock, parent.image_url);
+            // Limpiar búsqueda
+            $('#product-search').val('');
+            $('#search-results').empty();
+            $('#search-container').slideUp();
 
-                // Limpiar búsqueda
-                $('#product-search').val('');
-                $('#search-results').empty();
-                $('#search-container').slideUp();
-
-                showNotification('success', 'Producto agregado al carrito');
-            }
-        },
-        error: function() {
-            hideLoadingOverlay();
-            showNotification('error', 'Error al cargar producto');
+            showNotification('success', 'Producto agregado al carrito');
+        } else {
+            // Es producto padre, verificar si tiene variaciones
+            loadSingleProduct(productId);
         }
     });
-}
 
-// ==================== PASO 2: CLIENTE ====================
+    function loadSingleProduct(productId) {
+        showLoadingOverlay('Cargando producto...');
 
-function updateCartSummary() {
-    const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
-    const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
+        $.ajax({
+            url: `/orders/get-variations/${productId}`,
+            method: 'GET',
+            success: function (response) {
+                hideLoadingOverlay();
 
-    // Los precios YA incluyen IGV
-    let totalWithTax = 0;
-    cart.forEach(item => {
-        totalWithTax += item.price * item.quantity;
-    });
+                if (response.success && response.variations.length > 0) {
+                    // Tiene variaciones, mostrar modal
+                    showVariationsModal(response.parent, response.variations, response.available_attributes);
 
-    const subtotal = totalWithTax / 1.18;
-    const tax = totalWithTax - subtotal;
+                    // Limpiar búsqueda
+                    $('#product-search').val('');
+                    $('#search-results').empty();
+                } else {
+                    // Producto simple, agregar directamente usando datos del response
+                    const parent = response.parent;
+                    addToCart(parent.id, 0, parent.name, parent.price, parent.sku, parent.stock, parent.image_url);
 
-    // Aplicar descuento al total de productos (incluye IGV)
-    // Truncar a 2 decimales en lugar de redondear
-    const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
-    const totalAfterDiscount = totalWithTax - discountAmount;
+                    // Limpiar búsqueda
+                    $('#product-search').val('');
+                    $('#search-results').empty();
+                    $('#search-container').slideUp();
 
-    // El gran total incluye el descuento y el envío
-    const grandTotal = totalAfterDiscount + shippingCost;
+                    showNotification('success', 'Producto agregado al carrito');
+                }
+            },
+            error: function () {
+                hideLoadingOverlay();
+                showNotification('error', 'Error al cargar producto');
+            }
+        });
+    }
 
-    // Generar lista de productos
-    let productsHtml = '';
-    cart.forEach(item => {
-        const itemTotal = item.price * item.quantity;
-        productsHtml += `
+    // ==================== PASO 2: CLIENTE ====================
+
+    function updateCartSummary() {
+        const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+        const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
+
+        // Los precios YA incluyen IGV
+        let totalWithTax = 0;
+        cart.forEach(item => {
+            totalWithTax += item.price * item.quantity;
+        });
+
+        const subtotal = totalWithTax / 1.18;
+        const tax = totalWithTax - subtotal;
+
+        // Aplicar descuento al total de productos (incluye IGV)
+        // Truncar a 2 decimales en lugar de redondear
+        const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
+        const totalAfterDiscount = totalWithTax - discountAmount;
+
+        // El gran total incluye el descuento y el envío
+        const grandTotal = totalAfterDiscount + shippingCost;
+
+        // Generar lista de productos
+        let productsHtml = '';
+        cart.forEach(item => {
+            const itemTotal = item.price * item.quantity;
+            productsHtml += `
             <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
                 <div style="flex: 1;">
                     <div class="fw-bold" style="font-size: 0.9rem;">${item.name}</div>
@@ -2089,20 +2107,20 @@ function updateCartSummary() {
                 </div>
             </div>
         `;
-    });
+        });
 
-    // Construir HTML del resumen
-    let discountHtml = '';
-    if (discountPercentage > 0) {
-        discountHtml = `
+        // Construir HTML del resumen
+        let discountHtml = '';
+        if (discountPercentage > 0) {
+            discountHtml = `
             <div class="d-flex justify-content-between mb-1 text-danger">
                 <span>Descuento (${discountPercentage.toFixed(2)}%):</span>
                 <span>- S/ ${discountAmount.toFixed(2)}</span>
             </div>
         `;
-    }
+        }
 
-    const html = `
+        const html = `
         <div class="mb-3">
             <h6 class="mb-2">Productos (${cart.length})</h6>
             ${productsHtml}
@@ -2126,54 +2144,54 @@ function updateCartSummary() {
         </div>
     `;
 
-    $('#cart-summary').html(html);
-}
+        $('#cart-summary').html(html);
+    }
 
-// ==================== PASO 3: CONFIRMACIÓN ====================
+    // ==================== PASO 3: CONFIRMACIÓN ====================
 
-function showStep3Summary() {
-    // Resumen del cliente
-    const customerHtml = `
+    function showStep3Summary() {
+        // Resumen del cliente
+        const customerHtml = `
         <p><strong>Nombre:</strong> ${$('#first-name').val()} ${$('#last-name').val()}</p>
         <p><strong>Email:</strong> ${$('#email').val()}</p>
         <p><strong>Teléfono:</strong> ${$('#phone').val()}</p>
         <p><strong>DNI/CE:</strong> ${$('#dni').val()}</p>
         ${$('#ruc').val() ? `<p><strong>RUC:</strong> ${$('#ruc').val()}</p>` : ''}
     `;
-    $('#customer-summary').html(customerHtml);
+        $('#customer-summary').html(customerHtml);
 
-    // Resumen de entrega
-    const deliveryType = $('#delivery-type option:selected').text();
-    const deliveryTypeValue = $('#delivery-type').val();
+        // Resumen de entrega
+        const deliveryType = $('#delivery-type option:selected').text();
+        const deliveryTypeValue = $('#delivery-type').val();
 
-    let deliveryHtml = `<p><strong>Tipo:</strong> ${deliveryType}</p>`;
+        let deliveryHtml = `<p><strong>Tipo:</strong> ${deliveryType}</p>`;
 
-    // Solo mostrar campos de dirección si NO es "Recojo en Almacén"
-    if (deliveryTypeValue !== 'billing_recojo') {
-        deliveryHtml += `
+        // Solo mostrar campos de dirección si NO es "Recojo en Almacén"
+        if (deliveryTypeValue !== 'billing_recojo') {
+            deliveryHtml += `
             <p><strong>Dirección:</strong> ${$('#address').val()}</p>
             ${$('#reference').val() ? `<p><strong>Referencia:</strong> ${$('#reference').val()}</p>` : ''}
             <p><strong>Distrito:</strong> ${$('#city').val()}</p>
             <p><strong>Departamento:</strong> ${$('#state').val()}</p>
         `;
-    }
+        }
 
-    // Obtener método de envío seleccionado
-    const shippingMethodSelect = $('#shipping-method');
-    const shippingMethodText = shippingMethodSelect.find('option:selected').data('method-title') || shippingMethodSelect.find('option:selected').text();
+        // Obtener método de envío seleccionado
+        const shippingMethodSelect = $('#shipping-method');
+        const shippingMethodText = shippingMethodSelect.find('option:selected').data('method-title') || shippingMethodSelect.find('option:selected').text();
 
-    if (shippingMethodText && shippingMethodText !== 'Primero seleccione distrito' && shippingMethodText !== '') {
-        deliveryHtml += `<p><strong>Método de Envío:</strong> ${shippingMethodText}</p>`;
-    }
+        if (shippingMethodText && shippingMethodText !== 'Primero seleccione distrito' && shippingMethodText !== '') {
+            deliveryHtml += `<p><strong>Método de Envío:</strong> ${shippingMethodText}</p>`;
+        }
 
-    deliveryHtml += `<p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>`;
+        deliveryHtml += `<p><strong>Método de Pago:</strong> ${$('#payment-method option:selected').text()}</p>`;
 
-    $('#delivery-summary').html(deliveryHtml);
+        $('#delivery-summary').html(deliveryHtml);
 
-    // Resumen de productos
-    let productsHtml = '';
-    cart.forEach(item => {
-        productsHtml += `
+        // Resumen de productos
+        let productsHtml = '';
+        cart.forEach(item => {
+            productsHtml += `
             <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
                 <div>
                     <strong>${item.name}</strong><br>
@@ -2184,37 +2202,37 @@ function showStep3Summary() {
                 </div>
             </div>
         `;
-    });
-    $('#products-summary').html(productsHtml);
+        });
+        $('#products-summary').html(productsHtml);
 
-    // Totales
-    const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
-    const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
+        // Totales
+        const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+        const discountPercentage = parseFloat($('#discount-percentage').val()) || 0;
 
-    let totalWithTax = 0;
-    cart.forEach(item => {
-        totalWithTax += item.price * item.quantity;
-    });
+        let totalWithTax = 0;
+        cart.forEach(item => {
+            totalWithTax += item.price * item.quantity;
+        });
 
-    const subtotal = totalWithTax / 1.18;
-    const tax = totalWithTax - subtotal;
+        const subtotal = totalWithTax / 1.18;
+        const tax = totalWithTax - subtotal;
 
-    // Aplicar descuento
-    const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
-    const totalAfterDiscount = totalWithTax - discountAmount;
-    const grandTotal = totalAfterDiscount + shippingCost;
+        // Aplicar descuento
+        const discountAmount = Math.floor(totalWithTax * (discountPercentage / 100) * 100) / 100;
+        const totalAfterDiscount = totalWithTax - discountAmount;
+        const grandTotal = totalAfterDiscount + shippingCost;
 
-    let discountHtml = '';
-    if (discountPercentage > 0) {
-        discountHtml = `
+        let discountHtml = '';
+        if (discountPercentage > 0) {
+            discountHtml = `
             <div class="d-flex justify-content-between mb-2 text-danger">
                 <span>Descuento (${discountPercentage.toFixed(2)}%):</span>
                 <span>- S/ ${discountAmount.toFixed(2)}</span>
             </div>
         `;
-    }
+        }
 
-    const totalsHtml = `
+        const totalsHtml = `
         <div class="d-flex justify-content-between mb-2">
             <span>Subtotal:</span>
             <span>S/ ${subtotal.toFixed(2)}</span>
@@ -2233,105 +2251,105 @@ function showStep3Summary() {
             <strong style="font-size: 1.3rem;" class="text-success">S/ ${grandTotal.toFixed(2)}</strong>
         </div>
     `;
-    $('#totals-summary').html(totalsHtml);
-}
-
-// ==================== NAVEGACIÓN ====================
-
-function goToStep(step) {
-    // Validar antes de avanzar
-    if (step === 2 && cart.length === 0) {
-        showNotification('error', 'Debes agregar al menos un producto al carrito');
-        return;
+        $('#totals-summary').html(totalsHtml);
     }
 
-    if (step === 2) {
-        // Actualizar resumen del pedido al entrar al paso 2
-        updateCartSummary();
-    }
+    // ==================== NAVEGACIÓN ====================
 
-    if (step === 3) {
-        if (!validateStep2()) {
+    function goToStep(step) {
+        // Validar antes de avanzar
+        if (step === 2 && cart.length === 0) {
+            showNotification('error', 'Debes agregar al menos un producto al carrito');
             return;
         }
-        updateCartSummary();
-        showStep3Summary();
-    }
 
-    // Actualizar UI
-    $('.wizard-content').removeClass('active');
-    $(`#step-${step}`).addClass('active');
-
-    $('.wizard-step').removeClass('active').removeClass('completed');
-
-    for (let i = 1; i < step; i++) {
-        $(`.wizard-step[data-step="${i}"]`).addClass('completed');
-    }
-
-    $(`.wizard-step[data-step="${step}"]`).addClass('active');
-
-    currentStep = step;
-
-    // Scroll to top
-    window.scrollTo(0, 0);
-}
-
-function validateStep2() {
-    // Campos siempre requeridos
-    const alwaysRequired = ['first-name', 'last-name', 'email', 'phone', 'dni'];
-
-    // Validar campos siempre requeridos
-    for (const field of alwaysRequired) {
-        const value = $(`#${field}`).val();
-        if (!value || value.trim() === '') {
-            showNotification('error', `Por favor completa todos los campos requeridos`);
-            $(`#${field}`).focus();
-            return false;
+        if (step === 2) {
+            // Actualizar resumen del pedido al entrar al paso 2
+            updateCartSummary();
         }
+
+        if (step === 3) {
+            if (!validateStep2()) {
+                return;
+            }
+            updateCartSummary();
+            showStep3Summary();
+        }
+
+        // Actualizar UI
+        $('.wizard-content').removeClass('active');
+        $(`#step-${step}`).addClass('active');
+
+        $('.wizard-step').removeClass('active').removeClass('completed');
+
+        for (let i = 1; i < step; i++) {
+            $(`.wizard-step[data-step="${i}"]`).addClass('completed');
+        }
+
+        $(`.wizard-step[data-step="${step}"]`).addClass('active');
+
+        currentStep = step;
+
+        // Scroll to top
+        window.scrollTo(0, 0);
     }
 
-    // Validar campos de dirección solo si NO es "Recojo en Almacén"
-    const deliveryType = $('#delivery-type').val();
-    if (deliveryType !== 'billing_recojo') {
-        const addressRequired = ['address', 'city', 'state'];
+    function validateStep2() {
+        // Campos siempre requeridos
+        const alwaysRequired = ['first-name', 'last-name', 'email', 'phone', 'dni'];
 
-        for (const field of addressRequired) {
+        // Validar campos siempre requeridos
+        for (const field of alwaysRequired) {
             const value = $(`#${field}`).val();
             if (!value || value.trim() === '') {
-                showNotification('error', `Por favor completa todos los campos de dirección requeridos`);
+                showNotification('error', `Por favor completa todos los campos requeridos`);
                 $(`#${field}`).focus();
                 return false;
             }
         }
+
+        // Validar campos de dirección solo si NO es "Recojo en Almacén"
+        const deliveryType = $('#delivery-type').val();
+        if (deliveryType !== 'billing_recojo') {
+            const addressRequired = ['address', 'city', 'state'];
+
+            for (const field of addressRequired) {
+                const value = $(`#${field}`).val();
+                if (!value || value.trim() === '') {
+                    showNotification('error', `Por favor completa todos los campos de dirección requeridos`);
+                    $(`#${field}`).focus();
+                    return false;
+                }
+            }
+        }
+
+        // Validar email
+        const email = $('#email').val();
+        if (!email.includes('@')) {
+            showNotification('error', 'Email inválido');
+            $('#email').focus();
+            return false;
+        }
+
+        return true;
     }
 
-    // Validar email
-    const email = $('#email').val();
-    if (!email.includes('@')) {
-        showNotification('error', 'Email inválido');
-        $('#email').focus();
-        return false;
-    }
+    // ==================== ENVÍO DE PEDIDO ====================
 
-    return true;
-}
+    let createdOrderId = null;
 
-// ==================== ENVÍO DE PEDIDO ====================
+    function submitOrder() {
+        const btn = $('#btn-submit');
+        btn.prop('disabled', true);
+        btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
 
-let createdOrderId = null;
+        // **MOSTRAR MODAL INMEDIATAMENTE** con opciones de acción
+        const modal = new bootstrap.Modal(document.getElementById('orderCreatedModal'));
 
-function submitOrder() {
-    const btn = $('#btn-submit');
-    btn.prop('disabled', true);
-    btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Creando pedido...');
-
-    // **MOSTRAR MODAL INMEDIATAMENTE** con opciones de acción
-    const modal = new bootstrap.Modal(document.getElementById('orderCreatedModal'));
-
-    // Resetear el modal al estado inicial de "procesando en segundo plano"
-    $('#modal-icon').html('<span class="spinner-border spinner-border-sm me-2"></span>');
-    $('#modal-title-text').text('Procesando pedido en segundo plano...');
-    $('#modal-message').html(`
+        // Resetear el modal al estado inicial de "procesando en segundo plano"
+        $('#modal-icon').html('<span class="spinner-border spinner-border-sm me-2"></span>');
+        $('#modal-title-text').text('Procesando pedido en segundo plano...');
+        $('#modal-message').html(`
         <div class="alert alert-info">
             <i class="bi bi-info-circle"></i> Tu pedido se está creando en segundo plano.
             Puedes continuar con tus tareas mientras tanto.
@@ -2339,8 +2357,8 @@ function submitOrder() {
         <p class="text-muted">¿Qué deseas hacer ahora?</p>
     `);
 
-    // **MOSTRAR BOTONES DE ACCIÓN INMEDIATAMENTE**
-    $('#modal-actions').html(`
+        // **MOSTRAR BOTONES DE ACCIÓN INMEDIATAMENTE**
+        $('#modal-actions').html(`
         <div class="d-grid gap-2">
             <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
                 <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
@@ -2351,92 +2369,92 @@ function submitOrder() {
         </div>
     `).show();
 
-    $('.modal-header').removeClass('bg-success bg-danger').addClass('bg-primary');
+        $('.modal-header').removeClass('bg-success bg-danger').addClass('bg-primary');
 
-    // Mostrar el modal ANTES de enviar
-    modal.show();
+        // Mostrar el modal ANTES de enviar
+        modal.show();
 
-    // Verificar tipo de entrega
-    const deliveryType = $('#delivery-type').val();
-    const isPickup = deliveryType === 'billing_recojo';
+        // Verificar tipo de entrega
+        const deliveryType = $('#delivery-type').val();
+        const isPickup = deliveryType === 'billing_recojo';
 
-    // Preparar datos
-    const orderData = {
-        customer: {
-            first_name: $('#first-name').val(),
-            last_name: $('#last-name').val(),
-            email: $('#email').val(),
-            phone: $('#phone').val(),
-            dni: $('#dni').val(),  // DNI/CE
-            ruc: $('#ruc').val() || '',
-            company: $('#dni').val(),  // Para compatibilidad con WooCommerce (billing_company)
-            // Si es recojo en almacén, usar valores por defecto; si no, usar los del formulario
-            address_1: isPickup ? 'Recojo en Almacén' : $('#address').val(),
-            city: isPickup ? 'Lima' : $('#city').val(),
-            state: isPickup ? 'LIMA' : $('#state').val(),
-            postcode: '',
-            country: 'PE',
-            delivery_type: deliveryType,
-            reference: isPickup ? '' : ($('#reference').val() || ''),
-            // Campos custom para WooCommerce
-            billing_ruc: $('#ruc').val() || '',
-            billing_entrega: deliveryType,
-            billing_referencia: isPickup ? '' : ($('#reference').val() || '')
-        },
-        items: cart.map(item => ({
-            product_id: item.product_id || 0,
-            variation_id: item.variation_id || 0,
-            quantity: item.quantity,
-            price: item.price
-        })),
-        shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
-        shipping_method_title: $('#shipping-method option:selected').data('method-title') || '',
-        discount_percentage: parseFloat($('#discount-percentage').val()) || 0,
-        payment_method: $('#payment-method').val(),
-        payment_method_title: $('#payment-method option:selected').text(),
-        customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
-    };
+        // Preparar datos
+        const orderData = {
+            customer: {
+                first_name: $('#first-name').val(),
+                last_name: $('#last-name').val(),
+                email: $('#email').val(),
+                phone: $('#phone').val(),
+                dni: $('#dni').val(),  // DNI/CE
+                ruc: $('#ruc').val() || '',
+                company: $('#dni').val(),  // Para compatibilidad con WooCommerce (billing_company)
+                // Si es recojo en almacén, usar valores por defecto; si no, usar los del formulario
+                address_1: isPickup ? 'Recojo en Almacén' : $('#address').val(),
+                city: isPickup ? 'Lima' : $('#city').val(),
+                state: isPickup ? 'LIMA' : $('#state').val(),
+                postcode: '',
+                country: 'PE',
+                delivery_type: deliveryType,
+                reference: isPickup ? '' : ($('#reference').val() || ''),
+                // Campos custom para WooCommerce
+                billing_ruc: $('#ruc').val() || '',
+                billing_entrega: deliveryType,
+                billing_referencia: isPickup ? '' : ($('#reference').val() || '')
+            },
+            items: cart.map(item => ({
+                product_id: item.product_id || 0,
+                variation_id: item.variation_id || 0,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
+            shipping_method_title: $('#shipping-method option:selected').data('method-title') || '',
+            discount_percentage: parseFloat($('#discount-percentage').val()) || 0,
+            payment_method: $('#payment-method').val(),
+            payment_method_title: $('#payment-method option:selected').text(),
+            customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
+        };
 
-    // Determinar endpoint según tipo de pedido
-    const endpoint = orderType === 'external' ? '/orders/save-order-external' : '/orders/save-order';
+        // Determinar endpoint según tipo de pedido
+        const endpoint = orderType === 'external' ? '/orders/save-order-external' : '/orders/save-order';
 
-    // Si es pedido externo, agregar campo de fuente
-    if (orderType === 'external') {
-        orderData.external_source = $('#external-source').val() || 'otro';
-        // Actualizar customer_note para reflejar que es externo
-        orderData.customer_note = $('#customer-note').val() || 'Pedido externo creado desde WooCommerce Manager';
-    }
+        // Si es pedido externo, agregar campo de fuente
+        if (orderType === 'external') {
+            orderData.external_source = $('#external-source').val() || 'otro';
+            // Actualizar customer_note para reflejar que es externo
+            orderData.customer_note = $('#customer-note').val() || 'Pedido externo creado desde WooCommerce Manager';
+        }
 
-    // Enviar
-    $.ajax({
-        url: endpoint,
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(orderData),
-        success: function(response) {
-            if (response.success) {
-                // Guardar ID del pedido
-                createdOrderId = response.order_id;
+        // Enviar
+        $.ajax({
+            url: endpoint,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(orderData),
+            success: function (response) {
+                if (response.success) {
+                    // Guardar ID del pedido
+                    createdOrderId = response.order_id;
 
-                // Si el modal aún está visible, actualizar con éxito
-                if ($('#orderCreatedModal').hasClass('show')) {
-                    $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
-                    $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
-                    $('#modal-message').html(`
+                    // Si el modal aún está visible, actualizar con éxito
+                    if ($('#orderCreatedModal').hasClass('show')) {
+                        $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
+                        $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
+                        $('#modal-message').html(`
                         <div class="alert alert-success">
                             <strong>Pedido #${response.order_number || response.order_id}</strong> creado correctamente
                         </div>
                         <p class="text-muted">¿Qué deseas hacer ahora?</p>
                     `);
 
-                    // Actualizar botones (NO mostrar "Ver en WooCommerce" si es pedido externo)
-                    const viewWooButton = orderType === 'external' ? '' : `
+                        // Actualizar botones (NO mostrar "Ver en WooCommerce" si es pedido externo)
+                        const viewWooButton = orderType === 'external' ? '' : `
                         <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
                             <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
                         </button>
                     `;
 
-                    $('#modal-actions').html(`
+                        $('#modal-actions').html(`
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
                                 <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
@@ -2448,166 +2466,166 @@ function submitOrder() {
                         </div>
                     `);
 
-                    // Cambiar color del header a éxito
-                    $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                        // Cambiar color del header a éxito
+                        $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                    } else {
+                        // Si el modal ya se cerró, mostrar notificación
+                        showNotification('success', `Pedido #${response.order_number || response.order_id} creado exitosamente`);
+                    }
                 } else {
-                    // Si el modal ya se cerró, mostrar notificación
-                    showNotification('success', `Pedido #${response.order_number || response.order_id} creado exitosamente`);
-                }
-            } else {
-                // Actualizar modal con error
-                $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
-                $('#modal-title-text').text('Error al Crear Pedido');
-                $('#modal-message').html(`
+                    // Actualizar modal con error
+                    $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
+                    $('#modal-title-text').text('Error al Crear Pedido');
+                    $('#modal-message').html(`
                     <div class="alert alert-danger">
                         ${response.error || 'Error desconocido'}
                     </div>
                 `);
+
+                    // Cambiar color del header a error
+                    $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
+
+                    // Mostrar solo opción de cerrar
+                    $('#modal-actions').html(`
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cerrar
+                    </button>
+                `).show();
+
+                    // Re-habilitar botón
+                    btn.prop('disabled', false);
+                    btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+                }
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+
+                // Actualizar modal con error
+                $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
+                $('#modal-title-text').text('Error de Conexión');
+                $('#modal-message').html(`
+                <div class="alert alert-danger">
+                    ${error}
+                </div>
+            `);
 
                 // Cambiar color del header a error
                 $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
 
                 // Mostrar solo opción de cerrar
                 $('#modal-actions').html(`
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cerrar
-                    </button>
-                `).show();
-
-                // Re-habilitar botón
-                btn.prop('disabled', false);
-                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
-            }
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-
-            // Actualizar modal con error
-            $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
-            $('#modal-title-text').text('Error de Conexión');
-            $('#modal-message').html(`
-                <div class="alert alert-danger">
-                    ${error}
-                </div>
-            `);
-
-            // Cambiar color del header a error
-            $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
-
-            // Mostrar solo opción de cerrar
-            $('#modal-actions').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle"></i> Cerrar
                 </button>
             `).show();
 
-            // Re-habilitar botón
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
-        }
-    });
-}
+                // Re-habilitar botón
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+            }
+        });
+    }
 
-// ==================== UTILIDADES ====================
+    // ==================== UTILIDADES ====================
 
-function showNotification(type, message) {
-    const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-warning';
-    const html = `
+    function showNotification(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-warning';
+        const html = `
         <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
              style="z-index: 9999; max-width: 500px;">
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
-    $('body').append(html);
-    setTimeout(() => $('.alert').fadeOut(), 3000);
-}
-
-// Función para actualizar campos según tipo de entrega
-function updateAddressFields() {
-    const deliveryType = $('#delivery-type').val();
-    const addressContainer = $('#address-container');
-    const addressLabel = $('#address-label');
-    const addressInput = $('#address');
-    const referenceContainer = $('#reference-container');
-    const locationContainer = $('#location-container');
-
-    if (!deliveryType || deliveryType === '') {
-        // Placeholder seleccionado - Ocultar todos los campos
-        addressContainer.hide();
-        referenceContainer.hide();
-        locationContainer.hide();
-        addressInput.removeAttr('required');
-        $('#city').removeAttr('required');
-        $('#state').removeAttr('required');
-
-        // Deshabilitar método de envío
-        $('#shipping-method').prop('disabled', true).empty()
-            .append('<option value="">Seleccione tipo de entrega primero</option>');
-        $('#shipping-cost').val(0);
-        $('#shipping-help').text('Primero seleccione el tipo de entrega');
-    } else if (deliveryType === 'billing_recojo') {
-        // Recojo en Almacén - Ocultar todos los campos de dirección
-        addressContainer.hide();
-        referenceContainer.hide();
-        locationContainer.hide();
-        addressInput.removeAttr('required');
-        $('#city').removeAttr('required');
-        $('#state').removeAttr('required');
-
-        // Para Recojo en Almacén, habilitar método de envío sin necesidad de distrito
-        $('#shipping-method').prop('disabled', false).empty()
-            .append('<option value="0" data-method-id="recojo_almacen" data-method-title="Recojo en Almacén">Recojo en Almacén - S/0.00</option>');
-        $('#shipping-cost').val(0);
-        $('#shipping-help').text('No tiene costo de envío');
-    } else if (deliveryType === 'billing_agencia') {
-        // En Agencia Shalom/Olva Courier - Cambiar label
-        addressContainer.show();
-        referenceContainer.show();
-        locationContainer.show();
-        addressLabel.html('Sede o Agencia Shalom / Olva Courier <span class="text-danger">*</span>');
-        addressInput.attr('placeholder', 'Ej: Agencia Shalom Av. Faucett 492');
-        addressInput.attr('required', 'required');
-        $('#city').attr('required', 'required');
-        $('#state').attr('required', 'required');
-
-        // Resetear método de envío para que seleccione distrito
-        $('#shipping-method').prop('disabled', true).empty()
-            .append('<option value="">Primero seleccione distrito</option>');
-        $('#shipping-cost').val(0);
-        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
-    } else {
-        // Entrega a Domicilio - Mostrar todo normal
-        addressContainer.show();
-        referenceContainer.show();
-        locationContainer.show();
-        addressLabel.html('Dirección <span class="text-danger">*</span>');
-        addressInput.attr('placeholder', '');
-        addressInput.attr('required', 'required');
-        $('#city').attr('required', 'required');
-        $('#state').attr('required', 'required');
-
-        // Resetear método de envío para que seleccione distrito
-        $('#shipping-method').prop('disabled', true).empty()
-            .append('<option value="">Primero seleccione distrito</option>');
-        $('#shipping-cost').val(0);
-        $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
+        $('body').append(html);
+        setTimeout(() => $('.alert').fadeOut(), 3000);
     }
 
-    // Recargar métodos de envío si hay un distrito seleccionado (solo para agencia y domicilio)
-    if (deliveryType !== 'billing_recojo') {
-        const distrito = $('#city').val();
-        if (distrito) {
-            loadMetodosEnvio(distrito);
+    // Función para actualizar campos según tipo de entrega
+    function updateAddressFields() {
+        const deliveryType = $('#delivery-type').val();
+        const addressContainer = $('#address-container');
+        const addressLabel = $('#address-label');
+        const addressInput = $('#address');
+        const referenceContainer = $('#reference-container');
+        const locationContainer = $('#location-container');
+
+        if (!deliveryType || deliveryType === '') {
+            // Placeholder seleccionado - Ocultar todos los campos
+            addressContainer.hide();
+            referenceContainer.hide();
+            locationContainer.hide();
+            addressInput.removeAttr('required');
+            $('#city').removeAttr('required');
+            $('#state').removeAttr('required');
+
+            // Deshabilitar método de envío
+            $('#shipping-method').prop('disabled', true).empty()
+                .append('<option value="">Seleccione tipo de entrega primero</option>');
+            $('#shipping-cost').val(0);
+            $('#shipping-help').text('Primero seleccione el tipo de entrega');
+        } else if (deliveryType === 'billing_recojo') {
+            // Recojo en Almacén - Ocultar todos los campos de dirección
+            addressContainer.hide();
+            referenceContainer.hide();
+            locationContainer.hide();
+            addressInput.removeAttr('required');
+            $('#city').removeAttr('required');
+            $('#state').removeAttr('required');
+
+            // Para Recojo en Almacén, habilitar método de envío sin necesidad de distrito
+            $('#shipping-method').prop('disabled', false).empty()
+                .append('<option value="0" data-method-id="recojo_almacen" data-method-title="Recojo en Almacén">Recojo en Almacén - S/0.00</option>');
+            $('#shipping-cost').val(0);
+            $('#shipping-help').text('No tiene costo de envío');
+        } else if (deliveryType === 'billing_agencia') {
+            // En Agencia Shalom/Olva Courier - Cambiar label
+            addressContainer.show();
+            referenceContainer.show();
+            locationContainer.show();
+            addressLabel.html('Sede o Agencia Shalom / Olva Courier <span class="text-danger">*</span>');
+            addressInput.attr('placeholder', 'Ej: Agencia Shalom Av. Faucett 492');
+            addressInput.attr('required', 'required');
+            $('#city').attr('required', 'required');
+            $('#state').attr('required', 'required');
+
+            // Resetear método de envío para que seleccione distrito
+            $('#shipping-method').prop('disabled', true).empty()
+                .append('<option value="">Primero seleccione distrito</option>');
+            $('#shipping-cost').val(0);
+            $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
+        } else {
+            // Entrega a Domicilio - Mostrar todo normal
+            addressContainer.show();
+            referenceContainer.show();
+            locationContainer.show();
+            addressLabel.html('Dirección <span class="text-danger">*</span>');
+            addressInput.attr('placeholder', '');
+            addressInput.attr('required', 'required');
+            $('#city').attr('required', 'required');
+            $('#state').attr('required', 'required');
+
+            // Resetear método de envío para que seleccione distrito
+            $('#shipping-method').prop('disabled', true).empty()
+                .append('<option value="">Primero seleccione distrito</option>');
+            $('#shipping-cost').val(0);
+            $('#shipping-help').text('Seleccione primero un distrito para ver métodos disponibles');
+        }
+
+        // Recargar métodos de envío si hay un distrito seleccionado (solo para agencia y domicilio)
+        if (deliveryType !== 'billing_recojo') {
+            const distrito = $('#city').val();
+            if (distrito) {
+                loadMetodosEnvio(distrito);
+            }
         }
     }
-}
 
-function showLoadingOverlay(message = 'Cargando...') {
-    // Remover overlay existente si hay
-    $('#loading-overlay').remove();
+    function showLoadingOverlay(message = 'Cargando...') {
+        // Remover overlay existente si hay
+        $('#loading-overlay').remove();
 
-    const html = `
+        const html = `
         <div id="loading-overlay" style="
             position: fixed;
             top: 0;
@@ -2627,44 +2645,44 @@ function showLoadingOverlay(message = 'Cargando...') {
             <p class="text-light mt-3 fs-5">${message}</p>
         </div>
     `;
-    $('body').append(html);
-}
+        $('body').append(html);
+    }
 
-function hideLoadingOverlay() {
-    $('#loading-overlay').fadeOut(300, function() {
-        $(this).remove();
-    });
-}
+    function hideLoadingOverlay() {
+        $('#loading-overlay').fadeOut(300, function () {
+            $(this).remove();
+        });
+    }
 
-// ==================== FUNCIONES DEL MODAL DE PEDIDO CREADO ====================
+    // ==================== FUNCIONES DEL MODAL DE PEDIDO CREADO ====================
 
-function createNewOrder() {
-    // Recargar la página para limpiar todo el formulario
-    window.location.reload();
-}
+    function createNewOrder() {
+        // Recargar la página para limpiar todo el formulario
+        window.location.reload();
+    }
 
-function goToOrdersList() {
-    window.location.href = '/orders/';
-}
+    function goToOrdersList() {
+        window.location.href = '/orders/';
+    }
 
-function viewInWooCommerce() {
-    // Obtener la URL base de WooCommerce del servidor
-    $.ajax({
-        url: '/orders/get-woo-orders-url',
-        method: 'GET',
-        success: function(response) {
-            if (response.success && response.url) {
-                window.open(response.url, '_blank');
-            } else {
-                // Fallback: construir URL manualmente si el backend no responde correctamente
-                alert('No se pudo obtener la URL de WooCommerce. Intenta acceder manualmente desde el panel de administración.');
+    function viewInWooCommerce() {
+        // Obtener la URL base de WooCommerce del servidor
+        $.ajax({
+            url: '/orders/get-woo-orders-url',
+            method: 'GET',
+            success: function (response) {
+                if (response.success && response.url) {
+                    window.open(response.url, '_blank');
+                } else {
+                    // Fallback: construir URL manualmente si el backend no responde correctamente
+                    alert('No se pudo obtener la URL de WooCommerce. Intenta acceder manualmente desde el panel de administración.');
+                }
+            },
+            error: function () {
+                // Fallback en caso de error
+                alert('No se pudo obtener la URL de WooCommerce. Por favor, accede manualmente al panel de administración.');
             }
-        },
-        error: function() {
-            // Fallback en caso de error
-            alert('No se pudo obtener la URL de WooCommerce. Por favor, accede manualmente al panel de administración.');
-        }
-    });
-}
+        });
+    }
 </script>
 {% endblock %}

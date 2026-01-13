@@ -5,33 +5,56 @@
 {% block extra_css %}
 <style>
     .user-card {
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-surface);
     }
 
     .user-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
     }
 
     .user-avatar {
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-color: var(--primary-light);
+        color: white;
+        /* Changed from var(--primary-color) for maximum contrast */
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        /* Extra bold */
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        /* Subtle shadow for depth */
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+        /* Prepare for hover */
+    }
+
+    .user-card:hover .user-avatar {
+        transform: scale(1.05);
+        background-color: var(--primary-color);
         color: white;
-        font-weight: bold;
+        border-color: var(--primary-light);
+    }
+
+    .btn-action-square {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .change-password-form {
         display: none;
-        margin-top: 15px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
+        background-color: var(--bs-body-bg);
     }
 </style>
 {% endblock %}
@@ -40,189 +63,208 @@
 <div class="row mb-4">
     <div class="col-12">
         <h1 class="mb-0">
-            <i class="bi bi-people-fill"></i> Gestión de Usuarios
+            <i class="bi bi-people"></i> Gestión de Usuarios
         </h1>
         <p class="text-muted">Administrar cuentas y cambiar contraseñas</p>
     </div>
 </div>
 
-<!-- Estadísticas rápidas -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
+<!-- Estadísticas Modernas -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-2 col-md-4">
+        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
             <div class="card-body">
-                <h6 class="card-title">Total Usuarios</h6>
-                <h2 class="mb-0">{{ users|length }}</h2>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="avatar-sm rounded-circle bg-primary-subtle text-primary p-2 me-2 d-flex align-items-center justify-content-center"
+                        style="width: 40px; height: 40px;">
+                        <i class="bi bi-people fs-5"></i>
+                    </div>
+                    <span class="text-muted text-uppercase small fw-bold">Total</span>
+                </div>
+                <h2 class="mb-0 fw-bold">{{ users|length }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
+    <div class="col-xl-2 col-md-4">
+        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
             <div class="card-body">
-                <h6 class="card-title">Activos</h6>
-                <h2 class="mb-0">{{ users|selectattr('is_active')|list|length }}</h2>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="avatar-sm rounded-circle bg-success-subtle text-success p-2 me-2 d-flex align-items-center justify-content-center"
+                        style="width: 40px; height: 40px;">
+                        <i class="bi bi-person-check fs-5"></i>
+                    </div>
+                    <span class="text-muted text-uppercase small fw-bold">Activos</span>
+                </div>
+                <h2 class="mb-0 fw-bold">{{ users|selectattr('is_active')|list|length }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
+    <div class="col-xl-3 col-md-4">
+        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
             <div class="card-body">
-                <h6 class="card-title">Administradores</h6>
-                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h2>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="avatar-sm rounded-circle bg-danger-subtle text-danger p-2 me-2 d-flex align-items-center justify-content-center"
+                        style="width: 40px; height: 40px;">
+                        <i class="bi bi-shield-lock fs-5"></i>
+                    </div>
+                    <span class="text-muted text-uppercase small fw-bold">Administradores</span>
+                </div>
+                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-2">
-        <div class="card bg-warning text-dark">
+    <div class="col-xl-3 col-md-6">
+        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
             <div class="card-body">
-                <h6 class="card-title">Asesores</h6>
-                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h2>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="avatar-sm rounded-circle bg-warning-subtle text-warning p-2 me-2 d-flex align-items-center justify-content-center"
+                        style="width: 40px; height: 40px;">
+                        <i class="bi bi-headset fs-5"></i>
+                    </div>
+                    <span class="text-muted text-uppercase small fw-bold">Asesores</span>
+                </div>
+                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-2">
-        <div class="card bg-info text-white">
+    <div class="col-xl-2 col-md-6">
+        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
             <div class="card-body">
-                <h6 class="card-title">Usuarios</h6>
-                <h2 class="mb-0">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h2>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="avatar-sm rounded-circle bg-info-subtle text-info p-2 me-2 d-flex align-items-center justify-content-center"
+                        style="width: 40px; height: 40px;">
+                        <i class="bi bi-person fs-5"></i>
+                    </div>
+                    <span class="text-muted text-uppercase small fw-bold">Usuarios</span>
+                </div>
+                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h2>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Lista de usuarios -->
-<div class="row">
+<div class="row g-4">
     {% for user in users %}
-    <div class="col-md-6 mb-4">
-        <div class="card user-card">
+    <div class="col-xl-4 col-md-6">
+        <div class="card user-card h-100 shadow-sm">
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="user-avatar me-3">
+                <div class="d-flex align-items-start mb-3">
+                    <div class="user-avatar me-3 flex-shrink-0">
                         {{ user.username[0]|upper }}
                     </div>
-                    <div class="flex-grow-1">
-                        <h5 class="mb-1">
+                    <div class="flex-grow-1 min-w-0">
+                        <h5 class="mb-1 text-truncate">
                             {{ user.full_name or user.username }}
-                            {% if user.id == current_user.id %}
-                                <span class="badge bg-info">Tú</span>
-                            {% endif %}
                         </h5>
-                        <p class="text-muted mb-0">
+                        <p class="text-muted mb-1 text-truncate small">
                             <i class="bi bi-at"></i> {{ user.email }}
                         </p>
-                    </div>
-                    <div>
-                        {% if user.role == 'master' %}
-                            <span class="badge bg-dark">
-                                <i class="bi bi-star-fill"></i> Master
-                            </span>
-                        {% elif user.role == 'admin' %}
-                            <span class="badge bg-danger">
-                                <i class="bi bi-shield-fill-check"></i> Admin
-                            </span>
-                        {% elif user.role == 'advisor' %}
-                            <span class="badge bg-warning text-dark">
-                                <i class="bi bi-headset"></i> Asesor
-                            </span>
-                        {% else %}
-                            <span class="badge bg-primary">
-                                <i class="bi bi-person"></i> Usuario
-                            </span>
-                        {% endif %}
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if user.id == current_user.id %}
+                            <span class="badge bg-info-subtle text-info border border-info-subtle">Tú</span>
+                            {% endif %}
+
+                            {% if user.role == 'master' %}
+                            <span class="badge bg-dark">Master</span>
+                            {% elif user.role == 'admin' %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Admin</span>
+                            {% elif user.role == 'advisor' %}
+                            <span
+                                class="badge bg-warning-subtle text-warning border border-warning-subtle">Asesor</span>
+                            {% else %}
+                            <span
+                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Usuario</span>
+                            {% endif %}
+
+                            {% if user.is_active %}
+                            <span
+                                class="badge bg-success-subtle text-success border border-success-subtle">Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
-                <hr>
-
-                <div class="row text-center mb-3">
-                    <div class="col-4">
-                        <small class="text-muted">Usuario</small>
-                        <p class="mb-0"><code>{{ user.username }}</code></p>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted">Estado</small>
-                        <p class="mb-0">
-                            {% if user.is_active %}
-                                <span class="badge bg-success">Activo</span>
-                            {% else %}
-                                <span class="badge bg-danger">Inactivo</span>
-                            {% endif %}
-                        </p>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted">Último acceso</small>
-                        <p class="mb-0">
-                            {% if user.last_login %}
-                                {{ user.last_login.strftime('%d/%m/%Y') }}
-                            {% else %}
-                                <small class="text-muted">Nunca</small>
-                            {% endif %}
-                        </p>
+                <div class="bg-transparent border rounded p-2 mb-3 small"
+                    style="border-color: var(--border-color) !important;">
+                    <div class="row text-center g-0">
+                        <div class="col-6 border-end" style="border-color: var(--border-color) !important;">
+                            <span class="text-muted d-block">Usuario</span>
+                            <span class="fw-medium text-break">{{ user.username }}</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block">Última actividad</span>
+                            <span class="fw-medium">
+                                {% if user.last_login %}
+                                {% if is_user_online(user) %}
+                                <span class="text-success fw-bold">
+                                    <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Ahora
+                                </span>
+                                {% else %}
+                                {{ user.last_login.strftime('%d/%m %H:%M') }}
+                                {% endif %}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Controles de administración -->
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}" class="d-inline">
-                            <select name="role" class="form-select form-select-sm"
-                                    onchange="this.form.submit()"
-                                    {% if user.id == current_user.id %}disabled{% endif %}
-                                    {% if user.role == 'master' and not current_user.is_master() %}disabled{% endif %}>
-                                <option value="user" {% if user.role == 'user' %}selected{% endif %}>Usuario</option>
-                                <option value="advisor" {% if user.role == 'advisor' %}selected{% endif %}>Asesor</option>
-                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                <div class="d-flex gap-2">
+                    <div class="flex-grow-1">
+                        <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}">
+                            <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" {% if
+                                user.id==current_user.id %}disabled{% endif %} {% if user.role=='master' and not
+                                current_user.is_master() %}disabled{% endif %}>
+                                <option value="user" {% if user.role=='user' %}selected{% endif %}>Usuario</option>
+                                <option value="advisor" {% if user.role=='advisor' %}selected{% endif %}>Asesor</option>
+                                <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
                                 {% if current_user.is_master() %}
-                                <option value="master" {% if user.role == 'master' %}selected{% endif %}>Master</option>
+                                <option value="master" {% if user.role=='master' %}selected{% endif %}>Master</option>
                                 {% endif %}
                             </select>
                         </form>
                     </div>
-                    <div class="col-6">
-                        <form method="POST" action="{{ url_for('auth.admin_toggle_user_status', user_id=user.id) }}" class="d-inline">
-                            <button type="submit"
-                                    class="btn btn-sm w-100 {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                                    {% if user.id == current_user.id %}disabled{% endif %}>
-                                <i class="bi bi-{% if user.is_active %}x-circle{% else %}check-circle{% endif %}"></i>
-                                {% if user.is_active %}Desactivar{% else %}Activar{% endif %}
-                            </button>
-                        </form>
-                    </div>
-                </div>
 
-                <div class="d-grid">
-                    <button class="btn btn-warning btn-sm"
-                            onclick="togglePasswordForm({{ user.id }})">
-                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    <form method="POST" action="{{ url_for('auth.admin_toggle_user_status', user_id=user.id) }}">
+                        <button type="submit"
+                            class="btn btn-sm btn-action-square {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                            data-bs-toggle="tooltip"
+                            title="{% if user.is_active %}Desactivar cuenta{% else %}Activar cuenta{% endif %}" {% if
+                            user.id==current_user.id %}disabled{% endif %}>
+                            <i class="bi bi-{% if user.is_active %}power{% else %}check-lg{% endif %}"></i>
+                        </button>
+                    </form>
+
+                    <button class="btn btn-outline-secondary btn-sm btn-action-square"
+                        onclick="togglePasswordForm({{ user.id }})" data-bs-toggle="tooltip" title="Cambiar contraseña">
+                        <i class="bi bi-key"></i>
                     </button>
                 </div>
 
                 <!-- Formulario de cambio de contraseña -->
-                <div id="password-form-{{ user.id }}" class="change-password-form">
+                <div id="password-form-{{ user.id }}"
+                    class="change-password-form mt-3 border bg-body p-3 rounded shadow-sm" style="display: none;">
                     <form method="POST" action="{{ url_for('auth.admin_change_password', user_id=user.id) }}">
+                        <h6 class="mb-2 text-primary small fw-bold">Cambiar Contraseña</h6>
                         <div class="mb-2">
-                            <label class="form-label small">Nueva Contraseña</label>
-                            <input type="password"
-                                   class="form-control form-control-sm"
-                                   name="new_password"
-                                   minlength="6"
-                                   required>
+                            <input type="password" class="form-control form-control-sm" name="new_password"
+                                placeholder="Nueva contraseña" minlength="6" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label small">Confirmar Contraseña</label>
-                            <input type="password"
-                                   class="form-control form-control-sm"
-                                   name="confirm_password"
-                                   minlength="6"
-                                   required>
+                        <div class="mb-2">
+                            <input type="password" class="form-control form-control-sm" name="confirm_password"
+                                placeholder="Confirmar contraseña" minlength="6" required>
                         </div>
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success btn-sm flex-grow-1">
-                                <i class="bi bi-check-circle"></i> Actualizar
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                                Guardar
                             </button>
-                            <button type="button"
-                                    class="btn btn-secondary btn-sm"
-                                    onclick="togglePasswordForm({{ user.id }})">
+                            <button type="button" class="btn btn-light btn-sm"
+                                onclick="togglePasswordForm({{ user.id }})">
                                 Cancelar
                             </button>
                         </div>
@@ -235,21 +277,21 @@
 </div>
 
 {% if not users %}
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i> No hay usuarios registrados.
+<div class="alert alert-info border-0 shadow-sm">
+    <i class="bi bi-info-circle me-2"></i> No hay usuarios registrados.
 </div>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function togglePasswordForm(userId) {
-    const form = document.getElementById(`password-form-${userId}`);
-    if (form.style.display === 'none' || form.style.display === '') {
-        form.style.display = 'block';
-    } else {
-        form.style.display = 'none';
+    function togglePasswordForm(userId) {
+        const form = document.getElementById(`password-form-${userId}`);
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'block';
+        } else {
+            form.style.display = 'none';
+        }
     }
-}
 </script>
 {% endblock %}

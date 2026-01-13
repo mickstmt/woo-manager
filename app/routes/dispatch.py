@@ -1074,34 +1074,55 @@ def add_tracking():
         current_app.logger.info(f"[TRACKING] Serialized data: {serialized_items}")
 
         # Guardar metadatos en wpyz_postmeta (para compatibilidad con el plugin)
-        # 1. _tracking_number
+        # IMPORTANTE: El plugin de WooCommerce Shipment Tracking requiere registros DUPLICADOS
+        # Por eso insertamos cada meta_key DOS VECES (sin ON DUPLICATE KEY UPDATE)
+
+        # Primero eliminar registros anteriores para evitar acumulación
+        query_delete_old = text("""
+            DELETE FROM wpyz_postmeta
+            WHERE post_id = :order_id
+              AND meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+        """)
+        db.session.execute(query_delete_old, {'order_id': order_id})
+
+        # Ahora insertar DUPLICADOS (2 veces cada uno)
+        # 1. _tracking_number (insertar 2 veces)
         query_tracking_number = text("""
             INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
             VALUES (:order_id, '_tracking_number', :tracking_number)
-            ON DUPLICATE KEY UPDATE meta_value = :tracking_number
         """)
         db.session.execute(query_tracking_number, {
             'order_id': order_id,
             'tracking_number': tracking_number
         })
+        db.session.execute(query_tracking_number, {
+            'order_id': order_id,
+            'tracking_number': tracking_number
+        })
 
-        # 2. _tracking_provider
+        # 2. _tracking_provider (insertar 2 veces)
         query_tracking_provider = text("""
             INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
             VALUES (:order_id, '_tracking_provider', :shipping_provider)
-            ON DUPLICATE KEY UPDATE meta_value = :shipping_provider
         """)
         db.session.execute(query_tracking_provider, {
             'order_id': order_id,
             'shipping_provider': shipping_provider
         })
+        db.session.execute(query_tracking_provider, {
+            'order_id': order_id,
+            'shipping_provider': shipping_provider
+        })
 
-        # 3. _wc_shipment_tracking_items (PHP serialized array)
+        # 3. _wc_shipment_tracking_items (insertar 2 veces)
         query_tracking_items = text("""
             INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
             VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
-            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
         """)
+        db.session.execute(query_tracking_items, {
+            'order_id': order_id,
+            'serialized_items': serialized_items
+        })
         db.session.execute(query_tracking_items, {
             'order_id': order_id,
             'serialized_items': serialized_items
