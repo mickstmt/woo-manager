@@ -5,6 +5,8 @@
 -- que sufrieron de "Doble Serialización" y falta de registros duplicados.
 -- =========================================================================
 
+SET SQL_SAFE_UPDATES = 0;
+
 -- PASO 1: CORREGIR SERIALIZACIÓN CORRUPTA (s:NNN:"a:1:{...}")
 -- Solo para registros que empiezan con 's:' (doble serialización)
 -- =========================================================================
@@ -67,3 +69,5 @@ WHERE pm.meta_key = '_wc_shipment_tracking_items'
   AND p.post_date >= '2026-01-11'
 GROUP BY pm.post_id, pm.meta_key, pm.meta_value
 ORDER BY pm.post_id DESC;
+
+SET SQL_SAFE_UPDATES = 1;
