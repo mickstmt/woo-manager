@@ -26,3 +26,14 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Archivos temporales y de debug (NO committear)
+temp_*.py
+temp_*.sql
+debug_*.py
+debug_*.sql
+test_*.py
+*_backup.*
+*_old.*
+*.bak
+*.tmp
