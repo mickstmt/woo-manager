@@ -1077,79 +1077,8 @@ def add_tracking():
         # IMPORTANTE: El plugin de WooCommerce Shipment Tracking requiere registros DUPLICADOS
         # Por eso insertamos cada meta_key DOS VECES (sin ON DUPLICATE KEY UPDATE)
 
-        # Primero eliminar registros anteriores para evitar acumulación
-        query_delete_old = text("""
-            DELETE FROM wpyz_postmeta
-            WHERE post_id = :order_id
-              AND meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
-        """)
-        db.session.execute(query_delete_old, {'order_id': order_id})
-
-        # Ahora insertar DUPLICADOS (2 veces cada uno)
-        # 1. _tracking_number (insertar 2 veces)
-        query_tracking_number = text("""
-            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
-            VALUES (:order_id, '_tracking_number', :tracking_number)
-        """)
-        db.session.execute(query_tracking_number, {
-            'order_id': order_id,
-            'tracking_number': tracking_number
-        })
-        db.session.execute(query_tracking_number, {
-            'order_id': order_id,
-            'tracking_number': tracking_number
-        })
-
-        # 2. _tracking_provider (insertar 2 veces)
-        query_tracking_provider = text("""
-            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
-            VALUES (:order_id, '_tracking_provider', :shipping_provider)
-        """)
-        db.session.execute(query_tracking_provider, {
-            'order_id': order_id,
-            'shipping_provider': shipping_provider
-        })
-        db.session.execute(query_tracking_provider, {
-            'order_id': order_id,
-            'shipping_provider': shipping_provider
-        })
-
-        # 3. _wc_shipment_tracking_items (insertar 2 veces)
-        query_tracking_items = text("""
-            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
-            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
-        """)
-        db.session.execute(query_tracking_items, {
-            'order_id': order_id,
-            'serialized_items': serialized_items
-        })
-        db.session.execute(query_tracking_items, {
-            'order_id': order_id,
-            'serialized_items': serialized_items
-        })
-
-        # Guardar también en wpyz_wc_orders_meta (HPOS)
-        query_hpos_tracking = text("""
-            INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value)
-            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
-            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
-        """)
-        db.session.execute(query_hpos_tracking, {
-            'order_id': order_id,
-            'serialized_items': serialized_items
-        })
-
-        # Si se marca como enviado, cambiar el estado a wc-completed
-        if mark_as_shipped:
-            current_app.logger.info(f"[TRACKING] Order {order_id}: Cambiando estado a wc-completed")
-            order.status = 'wc-completed'
-            order.date_updated_gmt = datetime.utcnow()
-
-        # COMMIT INMEDIATO: Guardar cambios en BD antes de llamar a API externa
-        # Esto permite responder rápido al usuario sin esperar WooCommerce
-        db.session.commit()
-
-        # Triggerar email usando WooCommerce API (después del commit)
+        # 1. ACTUALIZAR VÍA API PRIMERO (si se marca como enviado)
+        # Esto triggera los emails y el cambio de estado oficial en WooCommerce
         if mark_as_shipped:
             try:
                 from woocommerce import API
@@ -1158,28 +1087,73 @@ def add_tracking():
                     consumer_key=current_app.config['WC_CONSUMER_KEY'],
                     consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
                     version="wc/v3",
-                    timeout=10  # Reducir timeout de 30s a 10s
+                    timeout=15 
                 )
 
-                # Actualizar pedido via API para triggerar emails
                 # Preservar payment_method del pedido
                 payment_method = order.get_meta('_payment_method') or order.payment_method
 
+                # IMPORTANTE: Enviamos tracking_items (LISTA), NO serialized_items (STRING)
+                # La API de WooCommerce se encarga de serializarlo CORRECTAMENTE (una sola vez)
                 wc_api.put(f"orders/{order_id}", {
                     "status": "completed",
                     "payment_method": payment_method,
                     "meta_data": [
                         {"key": "_tracking_number", "value": tracking_number},
                         {"key": "_tracking_provider", "value": shipping_provider},
-                        {"key": "_wc_shipment_tracking_items", "value": serialized_items}
+                        {"key": "_wc_shipment_tracking_items", "value": tracking_items}
                     ]
                 })
+                current_app.logger.info(f"[TRACKING] Order {order_id}: API update success (status: completed)")
+                
+                # Actualizar objeto local
+                order.status = 'wc-completed'
+                order.date_updated_gmt = datetime.utcnow()
 
-                current_app.logger.info(f"[TRACKING] Order {order_id}: Email de tracking enviado via WooCommerce API")
+            except Exception as api_err:
+                current_app.logger.error(f"[TRACKING] API Error (non-blocking): {str(api_err)}")
+                # Si la API falla, intentamos al menos cambiar el estado localmente
+                order.status = 'wc-completed'
+                order.date_updated_gmt = datetime.utcnow()
 
-            except Exception as email_error:
-                current_app.logger.error(f"[TRACKING] Error al enviar email via API: {str(email_error)}")
-                # No fallar la operación si el email falla - tracking ya está guardado
+        # 2. GUARDAR EN BASE DE DATOS (DUPLICADOS PARA EL PLUGIN)
+        # Hacemos esto DESPUÉS de la API (o independientemente) para asegurar que 
+        # los registros duplicados persistan en el modelo Legacy de WooCommerce.
+        
+        # Eliminar registros anteriores para evitar acumulación
+        query_delete_old = text("""
+            DELETE FROM wpyz_postmeta 
+            WHERE post_id = :order_id 
+              AND meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+        """)
+        db.session.execute(query_delete_old, {'order_id': order_id})
+
+        # Insertar DUPLICADOS (2 veces cada uno) para el plugin "Shipment Tracking"
+        query_insert = text("""
+            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+            VALUES (:order_id, :key, :value)
+        """)
+        
+        for key, value in [
+            ('_tracking_number', tracking_number),
+            ('_tracking_provider', shipping_provider),
+            ('_wc_shipment_tracking_items', serialized_items)
+        ]:
+            db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+            db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+
+        # 3. GUARDAR EN HPOS (wpyz_wc_orders_meta)
+        query_hpos = text("""
+            INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value)
+            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
+            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
+        """)
+        db.session.execute(query_hpos, {
+            'order_id': order_id,
+            'serialized_items': serialized_items
+        })
+
+        db.session.commit()
 
         # Obtener número de pedido
         order_number = order.get_meta('_order_number')
