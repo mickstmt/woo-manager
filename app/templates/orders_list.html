@@ -737,7 +737,11 @@ function renderOrders(orders) {
                     <div class="col-md-2">
                         <small class="text-muted">${order.date_created}</small><br>
                         <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small><br>
-                        <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method}</small>
+                        <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method}</small><br>
+                        ${order.tracking_number ?
+                            `<small class="text-success"><i class="bi bi-check-circle-fill"></i> ${order.tracking_number}</small>` :
+                            `<small class="text-muted"><i class="bi bi-dash-circle"></i> Sin tracking</small>`
+                        }
                     </div>
                     <div class="col-md-2 text-end">
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"

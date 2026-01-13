@@ -325,12 +325,13 @@
 
                     <div class="mb-3">
                         <label for="tracking-provider" class="form-label">Proveedor de Envío *</label>
-                        <select class="form-select" id="tracking-provider" required>
+                        <select class="form-select" id="tracking-provider" required onchange="handleProviderChange()">
                             <option value="">Seleccione un proveedor...</option>
+                            <option value="Recojo en Almacén">Recojo en Almacén</option>
                             <option value="Motorizado Izi">Motorizado Izi</option>
                             <option value="Scharff">Scharff</option>
                             <option value="Shalom">Shalom</option>
-                            <option value="Olva courier">Olva courier</option>  
+                            <option value="Olva courier">Olva courier</option>
                             <option value="Urbano">Urbano</option>
                             <option value="Dinsides Courier">Dinsides Courier</option>
                         </select>

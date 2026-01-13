@@ -482,10 +482,12 @@ def list_orders():
                 (SELECT oi.order_item_name
                  FROM wpyz_woocommerce_order_items oi
                  WHERE oi.order_id = o.id AND oi.order_item_type = 'shipping'
-                 LIMIT 1) as shipping_method
+                 LIMIT 1) as shipping_method,
+                om_tracking.meta_value as tracking_number
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
+            LEFT JOIN wpyz_wc_orders_meta om_tracking ON o.id = om_tracking.order_id AND om_tracking.meta_key = '_tracking_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             WHERE o.status != 'trash'
             {search_filter}
@@ -578,6 +580,7 @@ def list_orders():
                 'created_by': row[12] or 'N/A',  # Usuario que creó el pedido
                 'items_count': row[13] or 0,
                 'shipping_method': row[14] or 'N/A',  # Método de envío
+                'tracking_number': row[15] or None,  # Número de tracking
                 'date_created': row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else ''
             })
 

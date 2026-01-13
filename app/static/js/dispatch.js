@@ -724,6 +724,27 @@ function showTrackingModal(orderId, orderNumber) {
 }
 
 /**
+ * Manejar cambio en el selector de proveedor de envío
+ * Si se selecciona "Recojo en Almacén", deshabilitar tracking number
+ */
+function handleProviderChange() {
+    const providerSelect = document.getElementById('tracking-provider');
+    const trackingNumberInput = document.getElementById('tracking-number');
+
+    if (providerSelect.value === 'Recojo en Almacén') {
+        // Deshabilitar tracking number y poner valor por defecto
+        trackingNumberInput.value = 'RECOJO';
+        trackingNumberInput.disabled = true;
+        trackingNumberInput.required = false;
+    } else {
+        // Habilitar tracking number y limpiar
+        trackingNumberInput.value = '';
+        trackingNumberInput.disabled = false;
+        trackingNumberInput.required = true;
+    }
+}
+
+/**
  * Guardar información de tracking
  */
 async function saveTracking() {
@@ -733,7 +754,7 @@ async function saveTracking() {
     const markAsShipped = document.getElementById('tracking-mark-shipped').checked;
 
     // Validar campos
-    if (!trackingNumber) {
+    if (!trackingNumber && shippingProvider !== 'Recojo en Almacén') {
         showError('Por favor ingrese el número de tracking');
         return;
     }
