@@ -608,10 +608,17 @@
                 stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
             }
 
-            html += '<tr class="variation-row">';
+            // Detectar si estamos en modo oscuro
+            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const bgColor = isDarkMode ? '#1e293b' : '#f8f9fa';
+            const textColor = isDarkMode ? '#e2e8f0' : 'inherit';
+
+            html += '<tr class="variation-row" style="background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;">';
+
+            const tdStyle = 'background-color: transparent !important; color: ' + textColor + ' !important;';
 
             // Imagen
-            html += '<td style="width: 70px;"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
+            html += '<td style="width: 70px; ' + tdStyle + '"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
             if (variation.image_url) {
                 html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
             } else {
@@ -620,13 +627,13 @@
             html += '</div></td>';
 
             // ID
-            html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
+            html += '<td style="width: 80px; ' + tdStyle + '"><small>' + variation.id + '</small></td>';
 
             // Tipo
-            html += '<td style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
+            html += '<td style="width: 120px; ' + tdStyle + '"><span class="badge bg-info">Variación</span></td>';
 
             // Título con atributos
-            html += '<td class="indent-cell">';
+            html += '<td class="indent-cell" style="' + tdStyle + '">';
             html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
             html += variation.title;
             if (attributesHtml) {
@@ -635,22 +642,22 @@
             html += '</td>';
 
             // SKU
-            html += '<td style="width: 140px;"><code>' + variation.sku + '</code></td>';
+            html += '<td style="width: 140px; ' + tdStyle + '"><code>' + variation.sku + '</code></td>';
 
             // Precio
-            html += '<td style="width: 100px;">S/ ' + parseFloat(variation.price).toFixed(2) + '</td>';
+            html += '<td style="width: 100px; ' + tdStyle + '">S/ ' + parseFloat(variation.price).toFixed(2) + '</td>';
 
             // Stock
-            html += '<td style="width: 100px;">' + variation.stock + ' ' + stockBadge + '</td>';
+            html += '<td style="width: 100px; ' + tdStyle + '">' + variation.stock + ' ' + stockBadge + '</td>';
 
             // Estado (vacío para variaciones en expansión)
-            html += '<td style="width: 120px;">-</td>';
+            html += '<td style="width: 120px; ' + tdStyle + '">-</td>';
 
             // Variaciones column (vacío)
-            html += '<td style="width: 120px;">-</td>';
+            html += '<td style="width: 120px; ' + tdStyle + '">-</td>';
 
             // Acciones
-            html += '<td style="width: 150px;">';
+            html += '<td style="width: 150px; ' + tdStyle + '">';
             html += '<button class="btn btn-sm btn-primary me-1" title="Ver detalles">';
             html += '<i class="bi bi-eye"></i>';
             html += '</button>';
