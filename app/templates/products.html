@@ -47,23 +47,51 @@
     tr[id^="variations-"] .table {
         --bs-table-bg: transparent;
         margin-bottom: 0;
+        background-color: transparent !important;
+    }
+
+    tr[id^="variations-"] .table tbody {
+        background-color: transparent !important;
     }
 
     tr[id^="variations-"] .table tbody tr {
-        background-color: rgba(var(--bs-emphasis-color-rgb), 0.05) !important;
+        background-color: #f8f9fa !important;
     }
 
     tr[id^="variations-"] .table tbody tr:hover {
-        background-color: rgba(var(--bs-emphasis-color-rgb), 0.1) !important;
+        background-color: #e9ecef !important;
     }
 
-    /* Modo oscuro específico para variaciones */
+    tr[id^="variations-"] .table tbody tr td {
+        background-color: transparent !important;
+    }
+
+    /* Modo oscuro específico para variaciones - MÁXIMA PRIORIDAD */
+    [data-bs-theme="dark"] tr[id^="variations-"] {
+        background-color: #0f172a !important;
+    }
+
+    [data-bs-theme="dark"] tr[id^="variations-"] td {
+        background-color: #0f172a !important;
+    }
+
+    [data-bs-theme="dark"] tr[id^="variations-"] .table,
+    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody {
+        background-color: transparent !important;
+    }
+
     [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr {
-        background-color: rgba(255, 255, 255, 0.05) !important;
+        background-color: #1e293b !important;
     }
 
     [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr:hover {
-        background-color: rgba(255, 255, 255, 0.1) !important;
+        background-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr td {
+        background-color: transparent !important;
+        color: #e2e8f0 !important;
+        border-color: #334155 !important;
     }
 
     .indent-cell {
