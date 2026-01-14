@@ -837,6 +837,23 @@ function navigateOrder(direction) {
         return;
     }
 
+    // Obtener ambos botones
+    const btnPrev = document.getElementById('btn-prev-order');
+    const btnNext = document.getElementById('btn-next-order');
+    const btn = direction === 'next' ? btnNext : btnPrev;
+
+    if (!btn || btn.disabled) {
+        return;
+    }
+
+    // Guardar contenido original y mostrar loading en ambos botones
+    const originalContentPrev = btnPrev.innerHTML;
+    const originalContentNext = btnNext.innerHTML;
+
+    btnPrev.disabled = true;
+    btnNext.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
     let newIndex;
     if (direction === 'next') {
         newIndex = currentIndex + 1;
@@ -851,10 +868,22 @@ function navigateOrder(direction) {
     }
 
     const newOrderId = currentVisibleOrderIds[newIndex];
-    showOrderDetail(newOrderId);
 
-    // Actualizar estado de los botones
-    updateNavigationButtons();
+    // Llamar a showOrderDetail y restaurar botones después
+    showOrderDetail(newOrderId).then(() => {
+        // Restaurar ambos botones
+        btnPrev.innerHTML = originalContentPrev;
+        btnNext.innerHTML = originalContentNext;
+        btnPrev.disabled = false;
+        btnNext.disabled = false;
+    }).catch((error) => {
+        // En caso de error, también restaurar botones
+        btnPrev.innerHTML = originalContentPrev;
+        btnNext.innerHTML = originalContentNext;
+        btnPrev.disabled = false;
+        btnNext.disabled = false;
+        console.error('Error navegando a orden:', error);
+    });
 }
 
 /**
