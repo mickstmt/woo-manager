@@ -37,3 +37,4 @@ test_*.py
 *_old.*
 *.bak
 *.tmp
+tmpclaude-*-cwd
