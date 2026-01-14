@@ -586,7 +586,12 @@
             return;
         }
 
-        let html = '<table class="table table-sm mb-0">';
+        // Detectar si estamos en modo oscuro
+        const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        const bgColor = isDarkMode ? '#1e293b' : '#f8f9fa';
+        const textColor = isDarkMode ? '#e2e8f0' : '#212529';
+
+        let html = '<table class="table table-sm mb-0" style="background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important; --bs-table-bg: ' + bgColor + ' !important; --bs-table-color: ' + textColor + ' !important;">';
         html += '<tbody>';
 
         variations.forEach(function (variation) {
@@ -608,14 +613,9 @@
                 stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
             }
 
-            // Detectar si estamos en modo oscuro
-            const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-            const bgColor = isDarkMode ? '#1e293b' : '#f8f9fa';
-            const textColor = isDarkMode ? '#e2e8f0' : 'inherit';
-
             html += '<tr class="variation-row" style="background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;">';
 
-            const tdStyle = 'background-color: transparent !important; color: ' + textColor + ' !important;';
+            const tdStyle = 'background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;';
 
             // Imagen
             html += '<td style="width: 70px; ' + tdStyle + '"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
