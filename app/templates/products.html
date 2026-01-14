@@ -516,8 +516,8 @@
 
             // Fila para variaciones (solo productos padre)
             if (!showVariations && product.is_variable && product.variations_count > 0) {
-                html += '<tr id="variations-' + product.id + '" class="variation-row bg-body-tertiary" style="display: none;">';
-                html += '<td colspan="11" class="p-0 bg-body-tertiary">';
+                html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
+                html += '<td colspan="11" class="p-0" id="variations-td-' + product.id + '">';
                 html += '<div id="variations-content-' + product.id + '"></div>';
                 html += '</td>';
                 html += '</tr>';
@@ -674,15 +674,9 @@
 
         $('#variations-content-' + productId).html(html);
 
-        // Aplicar estilos al contenedor padre (tr y td)
-        $('#variations-' + productId).css({
-            'background-color': bgColor + ' !important',
-            'color': textColor + ' !important'
-        });
-        $('#variations-content-' + productId).parent().css({
-            'background-color': bgColor + ' !important',
-            'color': textColor + ' !important'
-        });
+        // Aplicar estilos al contenedor padre (tr y td) usando attr para sobrescribir
+        $('#variations-' + productId).attr('style', 'display: table-row; background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;');
+        $('#variations-td-' + productId).attr('style', 'padding: 0; background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;');
     }
 
     function displayPagination(pagination) {
