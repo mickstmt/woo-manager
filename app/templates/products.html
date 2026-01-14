@@ -10,28 +10,28 @@
         color: #6c757d;
         margin-bottom: 1rem;
     }
-    
+
     .product-image {
         width: 50px;
         height: 50px;
         object-fit: cover;
         border-radius: 5px;
     }
-    
+
     .parent-link {
         color: #0d6efd;
         text-decoration: none;
         font-size: 0.85rem;
     }
-    
+
     .parent-link:hover {
         text-decoration: underline;
     }
-    
+
     .variation-row {
-        background-color: #f8f9fa;
+        background-color: var(--bs-tertiary-bg);
     }
-    
+
     .indent-cell {
         padding-left: 2rem !important;
     }
@@ -45,7 +45,7 @@
             <h1>
                 <i class="bi bi-box-seam"></i> Gestión de Productos
             </h1>
-            
+
             <!-- Estadísticas -->
             <div id="stats-container">
                 <span class="badge bg-primary" id="stat-total">
@@ -53,7 +53,7 @@
                 </span>
             </div>
         </div>
-        
+
         <!-- Filtros y búsqueda -->
         <div class="card mb-3">
             <div class="card-body">
@@ -63,10 +63,8 @@
                             <span class="input-group-text">
                                 <i class="bi bi-search"></i>
                             </span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="search-input" 
-                                   placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
+                            <input type="text" class="form-control" id="search-input"
+                                placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
                             <button class="btn btn-primary" onclick="searchProducts()">
                                 Buscar
                             </button>
@@ -75,7 +73,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-3">
                         <select class="form-select" id="status-filter">
                             <option value="">Todos los estados</option>
@@ -85,7 +83,7 @@
                             <option value="private">Privados</option>
                         </select>
                     </div>
-                    
+
                     <div class="col-md-3">
                         <select class="form-select" id="per-page-select">
                             <option value="25">25 por página</option>
@@ -97,10 +95,10 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Contador de resultados -->
         <div id="result-count" class="result-count" style="display: none;"></div>
-        
+
         <!-- Tabla de productos -->
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -118,9 +116,9 @@
                     </div>
                     <p class="mt-2">Cargando productos...</p>
                 </div>
-                
+
                 <div id="products-table-container"></div>
-                
+
                 <!-- Paginación -->
                 <div id="pagination-container" class="mt-3"></div>
             </div>
@@ -144,19 +142,21 @@
                     <i class="bi bi-info-circle"></i>
                     <strong>Formato del archivo:</strong><br>
                     <small>
-                    ID | Título | SKU | [Atributos] | ID Padre | Descripción Corta | Descripción Larga | Precio Regular | Precio Oferta | URL Imagen | Stock
+                        ID | Título | SKU | [Atributos] | ID Padre | Descripción Corta | Descripción Larga | Precio
+                        Regular | Precio Oferta | URL Imagen | Stock
                     </small>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Filtro por Título (opcional)</label>
                     <input type="text" class="form-control" id="export-title-filter"
-                           placeholder="Buscar por nombre del producto">
+                        placeholder="Buscar por nombre del producto">
                     <small class="text-muted">Deja vacío para exportar todos los productos del rango de fechas</small>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Rango de Fechas de Creación <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold">Rango de Fechas de Creación <span
+                            class="text-danger">*</span></label>
                     <div class="row">
                         <div class="col-md-6">
                             <label class="form-label small">Desde:</label>
@@ -199,497 +199,497 @@
 
 {% block extra_js %}
 <script>
-let currentPage = 1;
-let perPage = 50;
-let searchTerm = '';
-let statusFilter = 'publish';
-let loadedVariations = {};
+    let currentPage = 1;
+    let perPage = 50;
+    let searchTerm = '';
+    let statusFilter = 'publish';
+    let loadedVariations = {};
 
-// Cargar productos automáticamente al cargar la página
-$(document).ready(function() {
-    loadStats();
-    loadProducts();
-    
-    // Evento para búsqueda con Enter
-    $('#search-input').on('keypress', function(e) {
-        if (e.which === 13) {
-            searchProducts();
-        }
-    });
-    
-    // Evento para cambio de estado
-    $('#status-filter').on('change', function() {
-        statusFilter = $(this).val();
-        currentPage = 1;
+    // Cargar productos automáticamente al cargar la página
+    $(document).ready(function () {
+        loadStats();
         loadProducts();
+
+        // Evento para búsqueda con Enter
+        $('#search-input').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchProducts();
+            }
+        });
+
+        // Evento para cambio de estado
+        $('#status-filter').on('change', function () {
+            statusFilter = $(this).val();
+            currentPage = 1;
+            loadProducts();
+        });
+
+        // Evento para cambio de items por página
+        $('#per-page-select').on('change', function () {
+            perPage = parseInt($(this).val());
+            currentPage = 1;
+            loadProducts();
+        });
     });
-    
-    // Evento para cambio de items por página
-    $('#per-page-select').on('change', function() {
-        perPage = parseInt($(this).val());
+
+    function loadStats() {
+        $.ajax({
+            url: '/products/stats',
+            method: 'GET',
+            success: function (data) {
+                if (data.success) {
+                    $('#stat-total span').text(data.stats.total);
+                }
+            }
+        });
+    }
+
+    function searchProducts() {
+        searchTerm = $('#search-input').val();
         currentPage = 1;
+        loadedVariations = {}; // Reset variaciones cargadas
         loadProducts();
-    });
-});
+    }
 
-function loadStats() {
-    $.ajax({
-        url: '/products/stats',
-        method: 'GET',
-        success: function(data) {
-            if (data.success) {
-                $('#stat-total span').text(data.stats.total);
+    function clearSearch() {
+        searchTerm = '';
+        $('#search-input').val('');
+        currentPage = 1;
+        loadedVariations = {};
+        loadProducts();
+    }
+
+    function loadProducts(page = currentPage) {
+        currentPage = page;
+
+        $('#loading').show();
+        $('#products-table-container').hide();
+
+        $.ajax({
+            url: '/products/list',
+            method: 'GET',
+            data: {
+                page: currentPage,
+                per_page: perPage,
+                search: searchTerm,
+                status: statusFilter
+            },
+            success: function (data) {
+                $('#loading').hide();
+                $('#products-table-container').show();
+
+                if (data.success) {
+                    displayProducts(data);
+                    displayPagination(data.pagination);
+                    displayResultCount(data);
+                }
+            },
+            error: function (error) {
+                $('#loading').hide();
+                $('#products-table-container').html(
+                    '<div class="alert alert-danger">Error al cargar productos</div>'
+                ).show();
             }
+        });
+    }
+
+    function displayResultCount(data) {
+        if (data.search_term) {
+            let count = data.pagination.total;
+            let html = `${count} resultado(s) para "${data.search_term}"`;
+            $('#result-count').html(html).show();
+        } else {
+            $('#result-count').hide();
         }
-    });
-}
+    }
 
-function searchProducts() {
-    searchTerm = $('#search-input').val();
-    currentPage = 1;
-    loadedVariations = {}; // Reset variaciones cargadas
-    loadProducts();
-}
+    function displayProducts(data) {
+        let products = data.products;
+        let showVariations = data.show_variations || false;
 
-function clearSearch() {
-    searchTerm = '';
-    $('#search-input').val('');
-    currentPage = 1;
-    loadedVariations = {};
-    loadProducts();
-}
-
-function loadProducts(page = currentPage) {
-    currentPage = page;
-    
-    $('#loading').show();
-    $('#products-table-container').hide();
-    
-    $.ajax({
-        url: '/products/list',
-        method: 'GET',
-        data: {
-            page: currentPage,
-            per_page: perPage,
-            search: searchTerm,
-            status: statusFilter
-        },
-        success: function(data) {
-            $('#loading').hide();
-            $('#products-table-container').show();
-            
-            if (data.success) {
-                displayProducts(data);
-                displayPagination(data.pagination);
-                displayResultCount(data);
-            }
-        },
-        error: function(error) {
-            $('#loading').hide();
+        if (products.length === 0) {
             $('#products-table-container').html(
-                '<div class="alert alert-danger">Error al cargar productos</div>'
-            ).show();
+                '<div class="alert alert-info">No se encontraron productos</div>'
+            );
+            return;
         }
-    });
-}
 
-function displayResultCount(data) {
-    if (data.search_term) {
-        let count = data.pagination.total;
-        let html = `${count} resultado(s) para "${data.search_term}"`;
-        $('#result-count').html(html).show();
-    } else {
-        $('#result-count').hide();
-    }
-}
+        let html = '<div class="table-responsive">';
+        html += '<table class="table table-hover align-middle">';
+        html += '<thead class="table-light">';
+        html += '<tr>';
+        html += '<th style="width: 70px;">Imagen</th>';
+        html += '<th style="width: 80px;">ID</th>';
+        html += '<th style="width: 120px;">Tipo</th>';
 
-function displayProducts(data) {
-    let products = data.products;
-    let showVariations = data.show_variations || false;
-    
-    if (products.length === 0) {
-        $('#products-table-container').html(
-            '<div class="alert alert-info">No se encontraron productos</div>'
-        );
-        return;
-    }
-    
-    let html = '<div class="table-responsive">';
-    html += '<table class="table table-hover align-middle">';
-    html += '<thead class="table-light">';
-    html += '<tr>';
-    html += '<th style="width: 70px;">Imagen</th>';
-    html += '<th style="width: 80px;">ID</th>';
-    html += '<th style="width: 120px;">Tipo</th>';
-    
-    // Mostrar columna "Padre" solo si estamos mostrando variaciones
-    if (showVariations) {
-        html += '<th style="width: 100px;">Padre</th>';
-        html += '<th>Producto / Variación</th>';
-    } else {
-        html += '<th>Producto</th>';
-    }
-    
-    html += '<th style="width: 140px;">SKU</th>';
-    html += '<th style="width: 100px;">Precio</th>';
-    html += '<th style="width: 100px;">Stock</th>';
-    html += '<th style="width: 120px;">Estado</th>';
-    
-    // Columna adicional para productos padre
-    if (!showVariations) {
-        html += '<th style="width: 120px;">Variaciones</th>';
-    }
-    
-    html += '<th style="width: 150px;">Acciones</th>';
-    html += '</tr>';
-    html += '</thead>';
-    html += '<tbody>';
-    
-    products.forEach(function(product) {
-        // Badge de tipo
-        let typeBadge = '';
-        if (product.type === 'variation') {
-            typeBadge = '<span class="badge bg-info">Variación</span>';
-        } else if (product.type === 'variable') {
-            typeBadge = '<span class="badge bg-primary">Variable</span>';
-        } else {
-            typeBadge = '<span class="badge bg-secondary">Simple</span>';
-        }
-        
-        // Badge de estado de stock
-        let stockBadge = '';
-        if (product.stock_status === 'instock') {
-            stockBadge = '<span class="badge bg-success">En stock</span>';
-        } else if (product.stock_status === 'outofstock') {
-            stockBadge = '<span class="badge bg-danger">Sin stock</span>';
-        } else {
-            stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
-        }
-        
-        // Badge de estado de publicación
-        let statusBadge = '';
-        if (product.status === 'publish') {
-            statusBadge = '<span class="badge bg-success">Publicado</span>';
-        } else if (product.status === 'draft') {
-            statusBadge = '<span class="badge bg-secondary">Borrador</span>';
-        } else {
-            statusBadge = '<span class="badge bg-warning">' + product.status + '</span>';
-        }
-        
-        html += '<tr id="product-' + product.id + '">';
-        
-        // Imagen
-        html += '<td><div class="product-image bg-light d-flex align-items-center justify-content-center">';
-        if (product.image_url) {
-            html += '<img src="' + product.image_url + '" alt="' + product.title + '" class="product-image">';
-        } else {
-            html += '<i class="bi bi-image text-muted"></i>';
-        }
-        html += '</div></td>';
-        
-        // ID
-        html += '<td><strong>' + product.id + '</strong></td>';
-        
-        // Tipo
-        html += '<td>' + typeBadge + '</td>';
-        
-        // Padre (solo para variaciones)
+        // Mostrar columna "Padre" solo si estamos mostrando variaciones
         if (showVariations) {
-            if (product.parent_id) {
-                html += '<td><a href="/products/' + product.parent_id + '" class="parent-link">';
-                html += '#' + product.parent_id;
-                html += '</a></td>';
-            } else {
-                html += '<td>-</td>';
-            }
+            html += '<th style="width: 100px;">Padre</th>';
+            html += '<th>Producto / Variación</th>';
+        } else {
+            html += '<th>Producto</th>';
         }
-        
-        // Título
-        html += '<td>' + product.title + '</td>';
-        
-        // SKU
-        html += '<td><code>' + product.sku + '</code></td>';
-        
-        // Precio
-        html += '<td>S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
-        
-        // Stock
-        html += '<td>' + product.stock + ' ' + stockBadge + '</td>';
-        
-        // Estado
-        html += '<td>' + statusBadge + '</td>';
-        
-        // Variaciones (solo para productos padre)
+
+        html += '<th style="width: 140px;">SKU</th>';
+        html += '<th style="width: 100px;">Precio</th>';
+        html += '<th style="width: 100px;">Stock</th>';
+        html += '<th style="width: 120px;">Estado</th>';
+
+        // Columna adicional para productos padre
         if (!showVariations) {
-            html += '<td>';
-            if (product.is_variable && product.variations_count > 0) {
-                html += '<button class="btn btn-sm btn-info" onclick="toggleVariations(' + product.id + ')" id="btn-var-' + product.id + '">';
-                html += '<i class="bi bi-chevron-down" id="icon-var-' + product.id + '"></i> ';
-                html += product.variations_count + ' vars';
-                html += '</button>';
-            } else {
-                html += '-';
-            }
-            html += '</td>';
+            html += '<th style="width: 120px;">Variaciones</th>';
         }
-        
-        // Acciones
-        html += '<td class="text-end">';
-        html += '<div class="btn-group" role="group">';
 
-        // Botón Ver Detalles
-        html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles">';
-        html += '<i class="bi bi-eye"></i>';
-        html += '</a>';
-
-        // Botón Editar en WordPress
-        html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-secondary" title="Editar en WordPress">';
-        html += '<i class="bi bi-wordpress"></i>';
-        html += '</a>';
-
-        html += '</div>';
-        html += '</td>';
-
+        html += '<th style="width: 150px;">Acciones</th>';
         html += '</tr>';
-        
-        // Fila para variaciones (solo productos padre)
-        if (!showVariations && product.is_variable && product.variations_count > 0) {
-            html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
-            html += '<td colspan="11" class="p-0">';
-            html += '<div id="variations-content-' + product.id + '"></div>';
-            html += '</td>';
-            html += '</tr>';
-        }
-    });
-    
-    html += '</tbody>';
-    html += '</table>';
-    html += '</div>';
-    
-    $('#products-table-container').html(html);
-}
+        html += '</thead>';
+        html += '<tbody>';
 
-function toggleVariations(productId) {
-    const variationsRow = $('#variations-' + productId);
-    const icon = $('#icon-var-' + productId);
-    
-    // Si ya está visible, ocultarlo
-    if (variationsRow.is(':visible')) {
-        variationsRow.hide();
-        icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
-        return;
-    }
-    
-    // Si no está cargado, cargarlo
-    if (!loadedVariations[productId]) {
-        loadVariations(productId);
-    }
-    
-    // Mostrar
-    variationsRow.show();
-    icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
-}
-
-function loadVariations(productId) {
-    $('#variations-content-' + productId).html(
-        '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div> Cargando variaciones...</div>'
-    );
-    
-    $.ajax({
-        url: '/products/' + productId + '/variations',
-        method: 'GET',
-        success: function(data) {
-            if (data.success) {
-                displayVariationsExpanded(productId, data.variations);
-                loadedVariations[productId] = true;
+        products.forEach(function (product) {
+            // Badge de tipo
+            let typeBadge = '';
+            if (product.type === 'variation') {
+                typeBadge = '<span class="badge bg-info">Variación</span>';
+            } else if (product.type === 'variable') {
+                typeBadge = '<span class="badge bg-primary">Variable</span>';
             } else {
+                typeBadge = '<span class="badge bg-secondary">Simple</span>';
+            }
+
+            // Badge de estado de stock
+            let stockBadge = '';
+            if (product.stock_status === 'instock') {
+                stockBadge = '<span class="badge bg-success">En stock</span>';
+            } else if (product.stock_status === 'outofstock') {
+                stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+            } else {
+                stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
+            }
+
+            // Badge de estado de publicación
+            let statusBadge = '';
+            if (product.status === 'publish') {
+                statusBadge = '<span class="badge bg-success">Publicado</span>';
+            } else if (product.status === 'draft') {
+                statusBadge = '<span class="badge bg-secondary">Borrador</span>';
+            } else {
+                statusBadge = '<span class="badge bg-warning">' + product.status + '</span>';
+            }
+
+            html += '<tr id="product-' + product.id + '">';
+
+            // Imagen
+            html += '<td><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
+            if (product.image_url) {
+                html += '<img src="' + product.image_url + '" alt="' + product.title + '" class="product-image">';
+            } else {
+                html += '<i class="bi bi-image text-muted"></i>';
+            }
+            html += '</div></td>';
+
+            // ID
+            html += '<td><strong>' + product.id + '</strong></td>';
+
+            // Tipo
+            html += '<td>' + typeBadge + '</td>';
+
+            // Padre (solo para variaciones)
+            if (showVariations) {
+                if (product.parent_id) {
+                    html += '<td><a href="/products/' + product.parent_id + '" class="parent-link">';
+                    html += '#' + product.parent_id;
+                    html += '</a></td>';
+                } else {
+                    html += '<td>-</td>';
+                }
+            }
+
+            // Título
+            html += '<td>' + product.title + '</td>';
+
+            // SKU
+            html += '<td><code>' + product.sku + '</code></td>';
+
+            // Precio
+            html += '<td>S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
+
+            // Stock
+            html += '<td>' + product.stock + ' ' + stockBadge + '</td>';
+
+            // Estado
+            html += '<td>' + statusBadge + '</td>';
+
+            // Variaciones (solo para productos padre)
+            if (!showVariations) {
+                html += '<td>';
+                if (product.is_variable && product.variations_count > 0) {
+                    html += '<button class="btn btn-sm btn-info" onclick="toggleVariations(' + product.id + ')" id="btn-var-' + product.id + '">';
+                    html += '<i class="bi bi-chevron-down" id="icon-var-' + product.id + '"></i> ';
+                    html += product.variations_count + ' vars';
+                    html += '</button>';
+                } else {
+                    html += '-';
+                }
+                html += '</td>';
+            }
+
+            // Acciones
+            html += '<td class="text-end">';
+            html += '<div class="btn-group" role="group">';
+
+            // Botón Ver Detalles
+            html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles">';
+            html += '<i class="bi bi-eye"></i>';
+            html += '</a>';
+
+            // Botón Editar en WordPress
+            html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-secondary" title="Editar en WordPress">';
+            html += '<i class="bi bi-wordpress"></i>';
+            html += '</a>';
+
+            html += '</div>';
+            html += '</td>';
+
+            html += '</tr>';
+
+            // Fila para variaciones (solo productos padre)
+            if (!showVariations && product.is_variable && product.variations_count > 0) {
+                html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
+                html += '<td colspan="11" class="p-0">';
+                html += '<div id="variations-content-' + product.id + '"></div>';
+                html += '</td>';
+                html += '</tr>';
+            }
+        });
+
+        html += '</tbody>';
+        html += '</table>';
+        html += '</div>';
+
+        $('#products-table-container').html(html);
+    }
+
+    function toggleVariations(productId) {
+        const variationsRow = $('#variations-' + productId);
+        const icon = $('#icon-var-' + productId);
+
+        // Si ya está visible, ocultarlo
+        if (variationsRow.is(':visible')) {
+            variationsRow.hide();
+            icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
+            return;
+        }
+
+        // Si no está cargado, cargarlo
+        if (!loadedVariations[productId]) {
+            loadVariations(productId);
+        }
+
+        // Mostrar
+        variationsRow.show();
+        icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
+    }
+
+    function loadVariations(productId) {
+        $('#variations-content-' + productId).html(
+            '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div> Cargando variaciones...</div>'
+        );
+
+        $.ajax({
+            url: '/products/' + productId + '/variations',
+            method: 'GET',
+            success: function (data) {
+                if (data.success) {
+                    displayVariationsExpanded(productId, data.variations);
+                    loadedVariations[productId] = true;
+                } else {
+                    $('#variations-content-' + productId).html(
+                        '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
+                    );
+                }
+            },
+            error: function (error) {
                 $('#variations-content-' + productId).html(
                     '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
                 );
             }
-        },
-        error: function(error) {
+        });
+    }
+
+    function displayVariationsExpanded(productId, variations) {
+        if (variations.length === 0) {
             $('#variations-content-' + productId).html(
-                '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
+                '<div class="alert alert-info m-3">No se encontraron variaciones</div>'
             );
+            return;
         }
-    });
-}
 
-function displayVariationsExpanded(productId, variations) {
-    if (variations.length === 0) {
-        $('#variations-content-' + productId).html(
-            '<div class="alert alert-info m-3">No se encontraron variaciones</div>'
-        );
-        return;
-    }
-    
-    let html = '<table class="table table-sm mb-0">';
-    html += '<tbody>';
-    
-    variations.forEach(function(variation) {
-        // Atributos
-        let attributesHtml = '';
-        for (let attr in variation.attributes) {
-            attributesHtml += '<span class="badge bg-secondary me-1">';
-            attributesHtml += attr + ': ' + variation.attributes[attr];
-            attributesHtml += '</span> ';
-        }
-        
-        // Stock badge
-        let stockBadge = '';
-        if (variation.stock_status === 'instock') {
-            stockBadge = '<span class="badge bg-success">En stock</span>';
-        } else if (variation.stock_status === 'outofstock') {
-            stockBadge = '<span class="badge bg-danger">Sin stock</span>';
-        } else {
-            stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
-        }
-        
-        html += '<tr class="variation-row">';
-        
-        // Imagen
-        html += '<td style="width: 70px;"><div class="product-image bg-light d-flex align-items-center justify-content-center">';
-        if (variation.image_url) {
-            html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
-        } else {
-            html += '<i class="bi bi-image text-muted" style="font-size: 0.8rem;"></i>';
-        }
-        html += '</div></td>';
-        
-        // ID
-        html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
-        
-        // Tipo
-        html += '<td style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
-        
-        // Título con atributos
-        html += '<td class="indent-cell">';
-        html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
-        html += variation.title;
-        if (attributesHtml) {
-            html += '<br><small>' + attributesHtml + '</small>';
-        }
-        html += '</td>';
-        
-        // SKU
-        html += '<td style="width: 140px;"><code>' + variation.sku + '</code></td>';
-        
-        // Precio
-        html += '<td style="width: 100px;">S/ ' + parseFloat(variation.price).toFixed(2) + '</td>';
-        
-        // Stock
-        html += '<td style="width: 100px;">' + variation.stock + ' ' + stockBadge + '</td>';
-        
-        // Estado (vacío para variaciones en expansión)
-        html += '<td style="width: 120px;">-</td>';
-        
-        // Variaciones column (vacío)
-        html += '<td style="width: 120px;">-</td>';
-        
-        // Acciones
-        html += '<td style="width: 150px;">';
-        html += '<button class="btn btn-sm btn-primary me-1" title="Ver detalles">';
-        html += '<i class="bi bi-eye"></i>';
-        html += '</button>';
-        html += '<button class="btn btn-sm btn-success" title="Editar">';
-        html += '<i class="bi bi-pencil"></i>';
-        html += '</button>';
-        html += '</td>';
-        
-        html += '</tr>';
-    });
-    
-    html += '</tbody>';
-    html += '</table>';
-    
-    $('#variations-content-' + productId).html(html);
-}
+        let html = '<table class="table table-sm mb-0">';
+        html += '<tbody>';
 
-function displayPagination(pagination) {
-    if (pagination.pages <= 1) {
-        $('#pagination-container').html('');
-        return;
+        variations.forEach(function (variation) {
+            // Atributos
+            let attributesHtml = '';
+            for (let attr in variation.attributes) {
+                attributesHtml += '<span class="badge bg-secondary me-1">';
+                attributesHtml += attr + ': ' + variation.attributes[attr];
+                attributesHtml += '</span> ';
+            }
+
+            // Stock badge
+            let stockBadge = '';
+            if (variation.stock_status === 'instock') {
+                stockBadge = '<span class="badge bg-success">En stock</span>';
+            } else if (variation.stock_status === 'outofstock') {
+                stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+            } else {
+                stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
+            }
+
+            html += '<tr class="variation-row">';
+
+            // Imagen
+            html += '<td style="width: 70px;"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
+            if (variation.image_url) {
+                html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
+            } else {
+                html += '<i class="bi bi-image text-muted" style="font-size: 0.8rem;"></i>';
+            }
+            html += '</div></td>';
+
+            // ID
+            html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
+
+            // Tipo
+            html += '<td style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
+
+            // Título con atributos
+            html += '<td class="indent-cell">';
+            html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
+            html += variation.title;
+            if (attributesHtml) {
+                html += '<br><small>' + attributesHtml + '</small>';
+            }
+            html += '</td>';
+
+            // SKU
+            html += '<td style="width: 140px;"><code>' + variation.sku + '</code></td>';
+
+            // Precio
+            html += '<td style="width: 100px;">S/ ' + parseFloat(variation.price).toFixed(2) + '</td>';
+
+            // Stock
+            html += '<td style="width: 100px;">' + variation.stock + ' ' + stockBadge + '</td>';
+
+            // Estado (vacío para variaciones en expansión)
+            html += '<td style="width: 120px;">-</td>';
+
+            // Variaciones column (vacío)
+            html += '<td style="width: 120px;">-</td>';
+
+            // Acciones
+            html += '<td style="width: 150px;">';
+            html += '<button class="btn btn-sm btn-primary me-1" title="Ver detalles">';
+            html += '<i class="bi bi-eye"></i>';
+            html += '</button>';
+            html += '<button class="btn btn-sm btn-success" title="Editar">';
+            html += '<i class="bi bi-pencil"></i>';
+            html += '</button>';
+            html += '</td>';
+
+            html += '</tr>';
+        });
+
+        html += '</tbody>';
+        html += '</table>';
+
+        $('#variations-content-' + productId).html(html);
     }
-    
-    let html = '<nav>';
-    html += '<ul class="pagination justify-content-center">';
-    
-    // Botón anterior
-    if (pagination.has_prev) {
-        html += '<li class="page-item">';
-        html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.prev_num + '); return false;">Anterior</a>';
-        html += '</li>';
-    } else {
-        html += '<li class="page-item disabled">';
-        html += '<span class="page-link">Anterior</span>';
-        html += '</li>';
-    }
-    
-    // Números de página
-    for (let i = 1; i <= pagination.pages; i++) {
-        if (i === pagination.page) {
-            html += '<li class="page-item active">';
-            html += '<span class="page-link">' + i + '</span>';
-            html += '</li>';
-        } else if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+
+    function displayPagination(pagination) {
+        if (pagination.pages <= 1) {
+            $('#pagination-container').html('');
+            return;
+        }
+
+        let html = '<nav>';
+        html += '<ul class="pagination justify-content-center">';
+
+        // Botón anterior
+        if (pagination.has_prev) {
             html += '<li class="page-item">';
-            html += '<a class="page-link" href="#" onclick="loadProducts(' + i + '); return false;">' + i + '</a>';
+            html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.prev_num + '); return false;">Anterior</a>';
             html += '</li>';
-        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+        } else {
             html += '<li class="page-item disabled">';
-            html += '<span class="page-link">...</span>';
+            html += '<span class="page-link">Anterior</span>';
             html += '</li>';
         }
-    }
-    
-    // Botón siguiente
-    if (pagination.has_next) {
-        html += '<li class="page-item">';
-        html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.next_num + '); return false;">Siguiente</a>';
-        html += '</li>';
-    } else {
-        html += '<li class="page-item disabled">';
-        html += '<span class="page-link">Siguiente</span>';
-        html += '</li>';
-    }
-    
-    html += '</ul>';
-    html += '</nav>';
-    
-    // Info de paginación
-    if (pagination.total > 0) {
-        let start = (pagination.page - 1) * pagination.per_page + 1;
-        let end = Math.min(pagination.page * pagination.per_page, pagination.total);
-        
-        html += '<p class="text-center text-muted">';
-        html += 'Mostrando ' + start + ' - ' + end + ' de ' + pagination.total + ' productos';
-        html += '</p>';
-    }
-    
-    $('#pagination-container').html(html);
-}
 
-function viewProduct(productId) {
-    window.location.href = '/products/' + productId;
-}
+        // Números de página
+        for (let i = 1; i <= pagination.pages; i++) {
+            if (i === pagination.page) {
+                html += '<li class="page-item active">';
+                html += '<span class="page-link">' + i + '</span>';
+                html += '</li>';
+            } else if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+                html += '<li class="page-item">';
+                html += '<a class="page-link" href="#" onclick="loadProducts(' + i + '); return false;">' + i + '</a>';
+                html += '</li>';
+            } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+                html += '<li class="page-item disabled">';
+                html += '<span class="page-link">...</span>';
+                html += '</li>';
+            }
+        }
 
-// Función para escapar HTML y evitar XSS
-function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
+        // Botón siguiente
+        if (pagination.has_next) {
+            html += '<li class="page-item">';
+            html += '<a class="page-link" href="#" onclick="loadProducts(' + pagination.next_num + '); return false;">Siguiente</a>';
+            html += '</li>';
+        } else {
+            html += '<li class="page-item disabled">';
+            html += '<span class="page-link">Siguiente</span>';
+            html += '</li>';
+        }
 
-// Edición rápida de stock
-function quickEditStock(productId, productTitle, currentStock) {
-    // Crear modal dinámico
-    const modalHtml = `
+        html += '</ul>';
+        html += '</nav>';
+
+        // Info de paginación
+        if (pagination.total > 0) {
+            let start = (pagination.page - 1) * pagination.per_page + 1;
+            let end = Math.min(pagination.page * pagination.per_page, pagination.total);
+
+            html += '<p class="text-center text-muted">';
+            html += 'Mostrando ' + start + ' - ' + end + ' de ' + pagination.total + ' productos';
+            html += '</p>';
+        }
+
+        $('#pagination-container').html(html);
+    }
+
+    function viewProduct(productId) {
+        window.location.href = '/products/' + productId;
+    }
+
+    // Función para escapar HTML y evitar XSS
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+    }
+
+    // Edición rápida de stock
+    function quickEditStock(productId, productTitle, currentStock) {
+        // Crear modal dinámico
+        const modalHtml = `
         <div class="modal fade" id="quickStockModal" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -725,68 +725,68 @@ function quickEditStock(productId, productTitle, currentStock) {
             </div>
         </div>
     `;
-    
-    // Eliminar modal anterior si existe
-    $('#quickStockModal').remove();
-    
-    // Agregar y mostrar modal
-    $('body').append(modalHtml);
-    const modal = new bootstrap.Modal(document.getElementById('quickStockModal'));
-    modal.show();
-    
-    // Enfocar input
-    $('#quickStockModal').on('shown.bs.modal', function () {
-        $('#quick-new-stock').focus().select();
-    });
-}
 
-// Guardar cambio rápido de stock
-function saveQuickStock(productId) {
-    const newStock = $('#quick-new-stock').val();
-    const reason = $('#quick-stock-reason').val() || 'Actualización rápida';
-    
-    $.ajax({
-        url: `/stock/update/${productId}`,
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            stock: parseInt(newStock),
-            reason: reason
-        }),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', 'Stock actualizado correctamente');
-                $('#quickStockModal').modal('hide');
-                loadProducts(currentPage); // Recargar tabla
-            } else {
-                showNotification('error', response.error || 'Error al actualizar');
+        // Eliminar modal anterior si existe
+        $('#quickStockModal').remove();
+
+        // Agregar y mostrar modal
+        $('body').append(modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('quickStockModal'));
+        modal.show();
+
+        // Enfocar input
+        $('#quickStockModal').on('shown.bs.modal', function () {
+            $('#quick-new-stock').focus().select();
+        });
+    }
+
+    // Guardar cambio rápido de stock
+    function saveQuickStock(productId) {
+        const newStock = $('#quick-new-stock').val();
+        const reason = $('#quick-stock-reason').val() || 'Actualización rápida';
+
+        $.ajax({
+            url: `/stock/update/${productId}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                stock: parseInt(newStock),
+                reason: reason
+            }),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', 'Stock actualizado correctamente');
+                    $('#quickStockModal').modal('hide');
+                    loadProducts(currentPage); // Recargar tabla
+                } else {
+                    showNotification('error', response.error || 'Error al actualizar');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error al actualizar el stock');
             }
-        },
-        error: function() {
-            showNotification('error', 'Error al actualizar el stock');
-        }
-    });
-}
+        });
+    }
 
-// Edición rápida de precio (solo admins)
-function quickEditPrice(productId, productTitle) {
-    // Obtener precios actuales
-    $.ajax({
-        url: `/products/${productId}`,
-        method: 'GET',
-        success: function(data) {
-            // Extraer precios del HTML retornado (o mejor hacer un endpoint API)
-            showPriceModal(productId, productTitle);
-        },
-        error: function() {
-            showNotification('error', 'Error al cargar información del producto');
-        }
-    });
-}
+    // Edición rápida de precio (solo admins)
+    function quickEditPrice(productId, productTitle) {
+        // Obtener precios actuales
+        $.ajax({
+            url: `/products/${productId}`,
+            method: 'GET',
+            success: function (data) {
+                // Extraer precios del HTML retornado (o mejor hacer un endpoint API)
+                showPriceModal(productId, productTitle);
+            },
+            error: function () {
+                showNotification('error', 'Error al cargar información del producto');
+            }
+        });
+    }
 
-// Mostrar modal de precio
-function showPriceModal(productId, productTitle) {
-    const modalHtml = `
+    // Mostrar modal de precio
+    function showPriceModal(productId, productTitle) {
+        const modalHtml = `
         <div class="modal fade" id="quickPriceModal" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -818,129 +818,129 @@ function showPriceModal(productId, productTitle) {
             </div>
         </div>
     `;
-    
-    // Eliminar modal anterior si existe
-    $('#quickPriceModal').remove();
-    
-    // Agregar y mostrar modal
-    $('body').append(modalHtml);
-    const modal = new bootstrap.Modal(document.getElementById('quickPriceModal'));
-    modal.show();
-    
-    // Enfocar input
-    $('#quickPriceModal').on('shown.bs.modal', function () {
-        $('#quick-regular-price').focus();
-    });
-}
 
-// Guardar cambio rápido de precio
-function saveQuickPrice(productId) {
-    const regularPrice = $('#quick-regular-price').val();
-    const salePrice = $('#quick-sale-price').val();
-    
-    if (!regularPrice || parseFloat(regularPrice) < 0) {
-        showNotification('error', 'El precio regular es obligatorio');
-        return;
+        // Eliminar modal anterior si existe
+        $('#quickPriceModal').remove();
+
+        // Agregar y mostrar modal
+        $('body').append(modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('quickPriceModal'));
+        modal.show();
+
+        // Enfocar input
+        $('#quickPriceModal').on('shown.bs.modal', function () {
+            $('#quick-regular-price').focus();
+        });
     }
-    
-    $.ajax({
-        url: `/prices/update/${productId}`,
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            regular_price: parseFloat(regularPrice),
-            sale_price: salePrice ? parseFloat(salePrice) : null
-        }),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', 'Precio actualizado correctamente');
-                $('#quickPriceModal').modal('hide');
-                loadProducts(currentPage); // Recargar tabla
-            } else {
-                showNotification('error', response.error || 'Error al actualizar');
-            }
-        },
-        error: function() {
-            showNotification('error', 'Error al actualizar el precio');
+
+    // Guardar cambio rápido de precio
+    function saveQuickPrice(productId) {
+        const regularPrice = $('#quick-regular-price').val();
+        const salePrice = $('#quick-sale-price').val();
+
+        if (!regularPrice || parseFloat(regularPrice) < 0) {
+            showNotification('error', 'El precio regular es obligatorio');
+            return;
         }
-    });
-}
 
-// Mostrar modal de exportación
-function showExportModal() {
-    const modalElement = document.getElementById('exportModal');
-    if (!modalElement) {
-        console.error('Modal exportModal no encontrado');
-        return;
+        $.ajax({
+            url: `/prices/update/${productId}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                regular_price: parseFloat(regularPrice),
+                sale_price: salePrice ? parseFloat(salePrice) : null
+            }),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', 'Precio actualizado correctamente');
+                    $('#quickPriceModal').modal('hide');
+                    loadProducts(currentPage); // Recargar tabla
+                } else {
+                    showNotification('error', response.error || 'Error al actualizar');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error al actualizar el precio');
+            }
+        });
     }
 
-    // Configurar fechas por defecto (último mes)
-    const today = new Date();
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    // Mostrar modal de exportación
+    function showExportModal() {
+        const modalElement = document.getElementById('exportModal');
+        if (!modalElement) {
+            console.error('Modal exportModal no encontrado');
+            return;
+        }
 
-    document.getElementById('export-date-from').value = lastMonth.toISOString().split('T')[0];
-    document.getElementById('export-date-to').value = today.toISOString().split('T')[0];
-    document.getElementById('export-title-filter').value = '';
+        // Configurar fechas por defecto (último mes)
+        const today = new Date();
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
 
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
-}
+        document.getElementById('export-date-from').value = lastMonth.toISOString().split('T')[0];
+        document.getElementById('export-date-to').value = today.toISOString().split('T')[0];
+        document.getElementById('export-title-filter').value = '';
 
-// Ejecutar exportación
-function executeExport() {
-    const dateFrom = document.getElementById('export-date-from').value;
-    const dateTo = document.getElementById('export-date-to').value;
-    const titleFilter = document.getElementById('export-title-filter').value.trim();
-
-    // Validaciones
-    if (!dateFrom || !dateTo) {
-        alert('Por favor selecciona ambas fechas (desde y hasta)');
-        return;
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
     }
 
-    if (new Date(dateFrom) > new Date(dateTo)) {
-        alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta"');
-        return;
+    // Ejecutar exportación
+    function executeExport() {
+        const dateFrom = document.getElementById('export-date-from').value;
+        const dateTo = document.getElementById('export-date-to').value;
+        const titleFilter = document.getElementById('export-title-filter').value.trim();
+
+        // Validaciones
+        if (!dateFrom || !dateTo) {
+            alert('Por favor selecciona ambas fechas (desde y hasta)');
+            return;
+        }
+
+        if (new Date(dateFrom) > new Date(dateTo)) {
+            alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta"');
+            return;
+        }
+
+        // Bloquear interfaz
+        const btnApply = document.getElementById('export-btn-apply');
+        const btnCancel = document.getElementById('export-btn-cancel');
+        const processingStatus = document.getElementById('export-processing-status');
+
+        btnApply.disabled = true;
+        btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generando...';
+        btnCancel.disabled = true;
+        processingStatus.style.display = 'block';
+
+        // Construir URL con parámetros
+        const params = new URLSearchParams({
+            date_from: dateFrom,
+            date_to: dateTo
+        });
+
+        if (titleFilter) {
+            params.append('title', titleFilter);
+        }
+
+        // Iniciar descarga
+        window.location.href = `/products/export-excel?${params.toString()}`;
+
+        // Desbloquear interfaz después de 2 segundos (tiempo estimado para iniciar descarga)
+        setTimeout(() => {
+            btnApply.disabled = false;
+            btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
+            btnCancel.disabled = false;
+            processingStatus.style.display = 'none';
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+            modal.hide();
+
+            // Mostrar mensaje de éxito
+            alert('El archivo se está descargando. Revisa tu carpeta de descargas.');
+        }, 2000);
     }
-
-    // Bloquear interfaz
-    const btnApply = document.getElementById('export-btn-apply');
-    const btnCancel = document.getElementById('export-btn-cancel');
-    const processingStatus = document.getElementById('export-processing-status');
-
-    btnApply.disabled = true;
-    btnApply.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generando...';
-    btnCancel.disabled = true;
-    processingStatus.style.display = 'block';
-
-    // Construir URL con parámetros
-    const params = new URLSearchParams({
-        date_from: dateFrom,
-        date_to: dateTo
-    });
-
-    if (titleFilter) {
-        params.append('title', titleFilter);
-    }
-
-    // Iniciar descarga
-    window.location.href = `/products/export-excel?${params.toString()}`;
-
-    // Desbloquear interfaz después de 2 segundos (tiempo estimado para iniciar descarga)
-    setTimeout(() => {
-        btnApply.disabled = false;
-        btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
-        btnCancel.disabled = false;
-        processingStatus.style.display = 'none';
-
-        // Cerrar modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-        modal.hide();
-
-        // Mostrar mensaje de éxito
-        alert('El archivo se está descargando. Revisa tu carpeta de descargas.');
-    }, 2000);
-}
 </script>
 {% endblock %}

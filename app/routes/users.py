@@ -233,9 +233,16 @@ def create_user():
             }), 400
         
         # Validar rol
-        if role not in ['admin', 'user']:
+        # Solo usuarios con rol 'master' pueden crear otros usuarios 'master'
+        if role == 'master' and current_user.role != 'master':
+            return jsonify({
+                'success': False,
+                'error': 'Solo usuarios con rol Master pueden asignar el rol Master'
+            }), 403
+
+        if role not in ['admin', 'user', 'master']:
             role = 'user'
-        
+
         # Crear usuario
         new_user = User(
             username=username,
@@ -381,13 +388,36 @@ def update_user(user_id):
         # Actualizar rol
         if 'role' in data:
             new_role = data['role']
-            if new_role in ['admin', 'user']:
-                # No permitir que el admin se quite sus propios permisos
-                if user.id == current_user.id and new_role != 'admin':
+
+            # Solo usuarios con rol 'master' pueden asignar o modificar el rol 'master'
+            if new_role == 'master' and current_user.role != 'master':
+                return jsonify({
+                    'success': False,
+                    'error': 'Solo usuarios con rol Master pueden asignar el rol Master'
+                }), 403
+
+            # No permitir que un usuario Master pueda ser degradado por un admin regular
+            if user.role == 'master' and current_user.role != 'master':
+                return jsonify({
+                    'success': False,
+                    'error': 'Solo usuarios con rol Master pueden modificar a otros usuarios Master'
+                }), 403
+
+            if new_role in ['admin', 'user', 'master']:
+                # No permitir que el usuario se quite sus propios permisos
+                if user.id == current_user.id and current_user.role == 'admin' and new_role == 'user':
                     return jsonify({
                         'success': False,
                         'error': 'No puedes quitarte tus propios permisos de administrador'
                     }), 400
+
+                # No permitir que un master se quite sus propios permisos de master
+                if user.id == current_user.id and current_user.role == 'master' and new_role != 'master':
+                    return jsonify({
+                        'success': False,
+                        'error': 'No puedes quitarte tus propios permisos de Master'
+                    }), 400
+
                 user.role = new_role
         
         user.updated_at = datetime.utcnow()

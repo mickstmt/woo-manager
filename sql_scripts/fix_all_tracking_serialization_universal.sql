@@ -36,17 +36,27 @@ WHERE om.meta_key = '_wc_shipment_tracking_items'
 
 
 -- PASO 2: ASEGURAR DUPLICADOS EN POSTMETA
+-- Optimizado para evitar timeout: Filtramos primero por fecha
 -- =========================================================================
 INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
 SELECT pm.post_id, pm.meta_key, pm.meta_value
 FROM wpyz_postmeta pm
+JOIN wpyz_posts p ON pm.post_id = p.ID
 WHERE pm.meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+  AND p.post_date >= '2026-01-11' AND p.post_date <= '2026-01-13 23:59:59'
   AND pm.post_id IN (
+      -- Subconsulta optimizada: Solo verificamos los que ya filtramos por fecha
       SELECT post_id 
-      FROM wpyz_postmeta 
-      WHERE meta_key = pm.meta_key
-      GROUP BY post_id, meta_key
-      HAVING COUNT(*) = 1
+      FROM (
+          SELECT pm2.post_id, pm2.meta_key
+          FROM wpyz_postmeta pm2
+          JOIN wpyz_posts p2 ON pm2.post_id = p2.ID
+          WHERE pm2.meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+            AND p2.post_date >= '2026-01-11' AND p2.post_date <= '2026-01-13 23:59:59'
+          GROUP BY pm2.post_id, pm2.meta_key
+          HAVING COUNT(*) = 1
+      ) as need_dupes
+      WHERE need_dupes.meta_key = pm.meta_key
   );
 
 SET SQL_SAFE_UPDATES = 1;

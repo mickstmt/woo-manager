@@ -152,6 +152,9 @@
                                 <select class="form-select" id="create-role" required>
                                     <option value="user" selected>Usuario</option>
                                     <option value="admin">Administrador</option>
+                                    {% if current_user.role == 'master' %}
+                                    <option value="master">Master</option>
+                                    {% endif %}
                                 </select>
                             </div>
                         </form>
@@ -267,6 +270,9 @@
                         <select class="form-select" id="edit-role" required>
                             <option value="user">Usuario</option>
                             <option value="admin">Administrador</option>
+                            {% if current_user.role == 'master' %}
+                            <option value="master">Master</option>
+                            {% endif %}
                         </select>
                     </div>
                 </form>
@@ -472,7 +478,9 @@
             let rowClass = !user.is_active ? 'user-row inactive' : 'user-row';
             let initial = user.username.charAt(0).toUpperCase();
 
-            let roleBadge = user.role === 'admin'
+            let roleBadge = user.role === 'master'
+                ? '<span class="badge badge-role bg-dark">Master</span>'
+                : user.role === 'admin'
                 ? '<span class="badge badge-role bg-danger">Administrador</span>'
                 : '<span class="badge badge-role bg-primary">Usuario</span>';
 
