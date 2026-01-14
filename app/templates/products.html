@@ -618,7 +618,7 @@
             const tdStyle = 'background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;';
 
             // Imagen
-            html += '<td style="width: 70px; ' + tdStyle + '"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
+            html += '<td style="width: 70px; ' + tdStyle + '"><div class="product-image d-flex align-items-center justify-content-center" style="background-color: ' + bgColor + ' !important;">';
             if (variation.image_url) {
                 html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
             } else {
@@ -673,6 +673,16 @@
         html += '</table>';
 
         $('#variations-content-' + productId).html(html);
+
+        // Aplicar estilos al contenedor padre (tr y td)
+        $('#variations-' + productId).css({
+            'background-color': bgColor + ' !important',
+            'color': textColor + ' !important'
+        });
+        $('#variations-content-' + productId).parent().css({
+            'background-color': bgColor + ' !important',
+            'color': textColor + ' !important'
+        });
     }
 
     function displayPagination(pagination) {
