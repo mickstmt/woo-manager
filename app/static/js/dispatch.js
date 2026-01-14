@@ -5,6 +5,7 @@ let currentOrderId = null;
 let currentOrderData = null;
 let sortableInstances = [];
 let currentVisibleOrderIds = []; // Lista de IDs de pedidos visibles
+let orderDetailModalInstance = null; // Instancia única del modal
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -22,6 +23,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh cada 2 minutos
     setInterval(loadOrders, 120000);
+
+    // Limpiar instancia del modal cuando se cierra
+    const modalElement = document.getElementById('orderDetailModal');
+    if (modalElement) {
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            // Limpiar cualquier backdrop residual
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+
+            // Restaurar scroll del body
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        });
+    }
 });
 
 /**
@@ -452,9 +468,16 @@ async function showOrderDetail(orderId) {
         // Actualizar botones de navegación
         updateNavigationButtons();
 
-        // Mostrar modal
-        const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
-        modal.show();
+        // Obtener o crear instancia del modal (reutilizar si ya existe)
+        const modalElement = document.getElementById('orderDetailModal');
+        if (!orderDetailModalInstance) {
+            orderDetailModalInstance = new bootstrap.Modal(modalElement);
+        }
+
+        // Mostrar modal solo si no está visible
+        if (!modalElement.classList.contains('show')) {
+            orderDetailModalInstance.show();
+        }
 
         // Restaurar botón después de mostrar el modal
         if (btn) {
