@@ -28,8 +28,32 @@
         text-decoration: underline;
     }
 
+    /* Filas de variaciones */
     .variation-row {
-        background-color: var(--bs-tertiary-bg);
+        background-color: var(--bs-secondary-bg);
+    }
+
+    /* Contenedor de variaciones - fila expandida */
+    tr[id^="variations-"] {
+        background-color: var(--bs-tertiary-bg) !important;
+    }
+
+    tr[id^="variations-"] td {
+        background-color: var(--bs-tertiary-bg) !important;
+    }
+
+    /* Tabla interna de variaciones */
+    tr[id^="variations-"] .table {
+        --bs-table-bg: var(--bs-tertiary-bg);
+        margin-bottom: 0;
+    }
+
+    tr[id^="variations-"] .table tbody tr {
+        background-color: var(--bs-secondary-bg) !important;
+    }
+
+    tr[id^="variations-"] .table tbody tr:hover {
+        background-color: var(--bs-tertiary-bg) !important;
     }
 
     .indent-cell {
@@ -454,8 +478,8 @@
 
             // Fila para variaciones (solo productos padre)
             if (!showVariations && product.is_variable && product.variations_count > 0) {
-                html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
-                html += '<td colspan="11" class="p-0">';
+                html += '<tr id="variations-' + product.id + '" class="variation-row bg-body-tertiary" style="display: none;">';
+                html += '<td colspan="11" class="p-0 bg-body-tertiary">';
                 html += '<div id="variations-content-' + product.id + '"></div>';
                 html += '</td>';
                 html += '</tr>';
