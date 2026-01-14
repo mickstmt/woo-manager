@@ -4,6 +4,7 @@
 let currentOrderId = null;
 let currentOrderData = null;
 let sortableInstances = [];
+let currentVisibleOrderIds = []; // Lista de IDs de pedidos visibles
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -108,7 +109,8 @@ function renderOrders(ordersByMethod) {
         'DINSIDES': 'column-dinsides'
     };
 
-    // Limpiar todas las columnas
+    // Limpiar todas las columnas y resetear lista de IDs visibles
+    currentVisibleOrderIds = [];
     Object.values(columnMap).forEach(columnId => {
         const column = document.getElementById(columnId);
         if (column) {
@@ -118,6 +120,10 @@ function renderOrders(ordersByMethod) {
 
     // Renderizar pedidos en cada columna
     for (const [method, orders] of Object.entries(ordersByMethod)) {
+        // Agregar IDs a la lista de visibles
+        orders.forEach(order => {
+            currentVisibleOrderIds.push(order.id);
+        });
         const columnId = columnMap[method];
         if (!columnId) continue;
 
@@ -405,6 +411,9 @@ async function showOrderDetail(orderId) {
                 ${order.products.map(product => `
                     <li class="list-group-item">
                         <div class="d-flex gap-3">
+                            <div>
+                                <span class="badge bg-primary rounded-pill">x${product.quantity}</span>
+                            </div>
                             ${product.image
                                 ? `<img src="${product.image}" alt="${product.name}" class="product-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">`
                                 : `<div class="product-thumbnail-placeholder" style="width: 60px; height: 60px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
@@ -415,9 +424,6 @@ async function showOrderDetail(orderId) {
                                 ${product.sku ? `<div class="text-muted small mb-1">SKU: ${product.sku}</div>` : ''}
                                 <div class="fw-bold">${product.name}</div>
                                 ${product.attributes ? `<div class="text-muted small">${product.attributes}</div>` : ''}
-                            </div>
-                            <div class="text-end">
-                                <span class="badge bg-primary rounded-pill">x${product.quantity}</span>
                             </div>
                         </div>
                     </li>
@@ -442,6 +448,9 @@ async function showOrderDetail(orderId) {
 
         // Cargar historial
         loadOrderHistory(orderId);
+
+        // Actualizar botones de navegación
+        updateNavigationButtons();
 
         // Mostrar modal
         const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
@@ -812,5 +821,64 @@ async function saveTracking() {
         // Restaurar botón
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Navegar entre pedidos (siguiente/anterior)
+ */
+function navigateOrder(direction) {
+    if (!currentOrderId || currentVisibleOrderIds.length === 0) {
+        return;
+    }
+
+    const currentIndex = currentVisibleOrderIds.indexOf(currentOrderId);
+    if (currentIndex === -1) {
+        return;
+    }
+
+    let newIndex;
+    if (direction === 'next') {
+        newIndex = currentIndex + 1;
+        if (newIndex >= currentVisibleOrderIds.length) {
+            newIndex = 0; // Volver al inicio
+        }
+    } else { // 'prev'
+        newIndex = currentIndex - 1;
+        if (newIndex < 0) {
+            newIndex = currentVisibleOrderIds.length - 1; // Ir al último
+        }
+    }
+
+    const newOrderId = currentVisibleOrderIds[newIndex];
+    showOrderDetail(newOrderId);
+
+    // Actualizar estado de los botones
+    updateNavigationButtons();
+}
+
+/**
+ * Actualizar estado de botones de navegación
+ */
+function updateNavigationButtons() {
+    const btnPrev = document.getElementById('btn-prev-order');
+    const btnNext = document.getElementById('btn-next-order');
+
+    if (!btnPrev || !btnNext) return;
+
+    const currentIndex = currentVisibleOrderIds.indexOf(currentOrderId);
+    const totalOrders = currentVisibleOrderIds.length;
+
+    // Siempre habilitados (circular)
+    btnPrev.disabled = totalOrders <= 1;
+    btnNext.disabled = totalOrders <= 1;
+
+    // Actualizar tooltips con información
+    if (totalOrders > 1) {
+        btnPrev.title = `Pedido anterior (${currentIndex + 1}/${totalOrders})`;
+        btnNext.title = `Pedido siguiente (${currentIndex + 1}/${totalOrders})`;
+    } else {
+        btnPrev.title = 'No hay más pedidos';
+        btnNext.title = 'No hay más pedidos';
     }
 }

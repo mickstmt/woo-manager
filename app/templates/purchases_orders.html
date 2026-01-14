@@ -183,17 +183,40 @@ function loadOrders() {
     `;
 
     fetch(url)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 renderOrders(data.orders);
+                updateStats(data.orders);
             } else {
-                showAlert('Error al cargar órdenes: ' + data.error, 'danger');
+                document.getElementById('orders-table').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                            <p>Error al cargar órdenes: ${data.error}</p>
+                        </td>
+                    </tr>
+                `;
             }
         })
         .catch(error => {
-            showAlert('Error de conexión: ' + error, 'danger');
-            console.error(error);
+            document.getElementById('orders-table').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger py-4">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p>Error de conexión: ${error.message}</p>
+                        <button class="btn btn-sm btn-primary mt-2" onclick="loadOrders()">
+                            <i class="bi bi-arrow-clockwise"></i> Reintentar
+                        </button>
+                    </td>
+                </tr>
+            `;
+            console.error('Error cargando órdenes:', error);
         });
 }
 
@@ -247,6 +270,26 @@ function renderOrders(orders) {
             </tr>
         `;
     }).join('');
+}
+
+function updateStats(orders) {
+    const stats = {
+        pending: 0,
+        ordered: 0,
+        in_transit: 0,
+        received: 0
+    };
+
+    orders.forEach(order => {
+        if (stats.hasOwnProperty(order.status)) {
+            stats[order.status]++;
+        }
+    });
+
+    document.getElementById('stat-pending').textContent = stats.pending;
+    document.getElementById('stat-ordered').textContent = stats.ordered;
+    document.getElementById('stat-in-transit').textContent = stats.in_transit;
+    document.getElementById('stat-received').textContent = stats.received;
 }
 
 function loadStats() {
