@@ -356,7 +356,21 @@ def get_variations(product_id):
             sale_price = variation.get_meta('_sale_price') or ''
             stock = variation.get_meta('_stock') or 'N/A'
             stock_status = variation.get_meta('_stock_status') or 'instock'
-            
+
+            # Obtener imagen de la variación
+            image_url = None
+            thumbnail_id = variation.get_meta('_thumbnail_id')
+            if thumbnail_id:
+                from sqlalchemy import text
+                image_query = text("""
+                    SELECT guid
+                    FROM wpyz_posts
+                    WHERE ID = :image_id
+                """)
+                image_result = db.session.execute(image_query, {'image_id': thumbnail_id}).fetchone()
+                if image_result:
+                    image_url = image_result[0]
+
             variations_list.append({
                 'id': variation.ID,
                 'title': variation.post_title,
@@ -366,7 +380,8 @@ def get_variations(product_id):
                 'regular_price': regular_price,
                 'sale_price': sale_price,
                 'stock': stock,
-                'stock_status': stock_status
+                'stock_status': stock_status,
+                'image_url': image_url
             })
         
         return jsonify({

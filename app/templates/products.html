@@ -35,25 +35,35 @@
 
     /* Contenedor de variaciones - fila expandida */
     tr[id^="variations-"] {
-        background-color: var(--bs-tertiary-bg) !important;
+        background-color: var(--bs-body-bg) !important;
     }
 
     tr[id^="variations-"] td {
-        background-color: var(--bs-tertiary-bg) !important;
+        background-color: var(--bs-body-bg) !important;
+        padding: 0 !important;
     }
 
     /* Tabla interna de variaciones */
     tr[id^="variations-"] .table {
-        --bs-table-bg: var(--bs-tertiary-bg);
+        --bs-table-bg: transparent;
         margin-bottom: 0;
     }
 
     tr[id^="variations-"] .table tbody tr {
-        background-color: var(--bs-secondary-bg) !important;
+        background-color: rgba(var(--bs-emphasis-color-rgb), 0.05) !important;
     }
 
     tr[id^="variations-"] .table tbody tr:hover {
-        background-color: var(--bs-tertiary-bg) !important;
+        background-color: rgba(var(--bs-emphasis-color-rgb), 0.1) !important;
+    }
+
+    /* Modo oscuro específico para variaciones */
+    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
     }
 
     .indent-cell {
