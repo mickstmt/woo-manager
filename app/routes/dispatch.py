@@ -1253,3 +1253,451 @@ def add_tracking():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ============================================
+# TRACKING MASIVO SHALOM
+# ============================================
+
+@bp.route('/bulk-tracking')
+@login_required
+@master_required
+def bulk_tracking_page():
+    """
+    Página para asignación masiva de tracking Shalom.
+    """
+    return render_template('dispatch_bulk_tracking.html')
+
+
+@bp.route('/api/bulk-tracking/preview', methods=['GET'])
+@login_required
+@master_required
+def bulk_tracking_preview():
+    """
+    Lee el archivo Excel de Shalom y muestra preview de los envíos.
+    Hace matching por DNI con pedidos Shalom en estado processing.
+
+    Returns:
+        JSON con lista de envíos y su estado de matching
+    """
+    try:
+        from openpyxl import load_workbook
+
+        # Ruta del archivo Excel
+        excel_path = os.path.join(current_app.root_path, 'static', 'uploads', 'shalom_tracking.xlsx')
+
+        # Verificar si existe el archivo
+        if not os.path.exists(excel_path):
+            return jsonify({
+                'success': False,
+                'error': 'Archivo no encontrado. Coloque el archivo shalom_tracking.xlsx en app/static/uploads/'
+            }), 404
+
+        # Cargar el Excel
+        workbook = load_workbook(excel_path, data_only=True)
+        sheet = workbook.active
+
+        # Parsear envíos (cada 26 filas)
+        envios = []
+        fila = 1
+        envio_num = 1
+
+        while True:
+            # Verificar si hay datos en la primera celda del bloque
+            celda_inicio = sheet[f'A{fila}'].value
+            if not celda_inicio or not str(celda_inicio).strip():
+                break
+
+            # Extraer datos del bloque de 26 filas
+            dni_remitente = str(sheet[f'A{fila + 7}'].value or '').strip()      # A8
+            tel_remitente = str(sheet[f'A{fila + 8}'].value or '').strip()      # A9
+            dni_destinatario = str(sheet[f'A{fila + 13}'].value or '').strip()  # A14
+            orden_shalom = str(sheet[f'A{fila + 22}'].value or '').strip()      # A23
+            codigo_shalom = str(sheet[f'A{fila + 23}'].value or '').strip()     # A24
+
+            # Construir la CLAVE (últimos 2 dígitos de DNI remitente + últimos 2 de teléfono)
+            clave = ''
+            if len(dni_remitente) >= 2 and len(tel_remitente) >= 2:
+                clave = dni_remitente[-2:] + tel_remitente[-2:]
+
+            # Construir tracking number completo
+            tracking_number = f"{orden_shalom} {codigo_shalom} CLAVE: {clave}"
+
+            envio = {
+                'envio_num': envio_num,
+                'fila_inicio': fila,
+                'dni_destinatario': dni_destinatario,
+                'dni_remitente': dni_remitente,
+                'tel_remitente': tel_remitente,
+                'orden_shalom': orden_shalom,
+                'codigo_shalom': codigo_shalom,
+                'clave': clave,
+                'tracking_number': tracking_number,
+                'pedido_id': None,
+                'pedido_numero': None,
+                'cliente_nombre': None,
+                'estado_pedido': None,
+                'validacion': 'pending',
+                'mensaje': ''
+            }
+
+            envios.append(envio)
+            fila += 26
+            envio_num += 1
+
+            # Límite de seguridad
+            if envio_num > 100:
+                break
+
+        workbook.close()
+
+        if not envios:
+            return jsonify({
+                'success': False,
+                'error': 'No se encontraron envíos en el archivo Excel'
+            }), 400
+
+        # Obtener todos los pedidos Shalom en estado processing
+        shalom_orders = get_shalom_orders_by_dni()
+
+        # Hacer matching por DNI
+        total_ok = 0
+        total_ya_completado = 0
+        total_no_encontrado = 0
+
+        for envio in envios:
+            dni = envio['dni_destinatario']
+
+            if not dni or len(dni) < 8:
+                envio['validacion'] = 'error'
+                envio['mensaje'] = 'DNI inválido'
+                total_no_encontrado += 1
+                continue
+
+            if dni in shalom_orders:
+                pedido = shalom_orders[dni]
+                envio['pedido_id'] = pedido['id']
+                envio['pedido_numero'] = pedido['numero']
+                envio['cliente_nombre'] = pedido['cliente']
+                envio['estado_pedido'] = pedido['estado']
+
+                if pedido['estado'] == 'wc-completed':
+                    envio['validacion'] = 'warning'
+                    envio['mensaje'] = 'Pedido ya completado'
+                    total_ya_completado += 1
+                else:
+                    envio['validacion'] = 'ok'
+                    envio['mensaje'] = 'Listo para procesar'
+                    total_ok += 1
+            else:
+                envio['validacion'] = 'error'
+                envio['mensaje'] = 'DNI no encontrado en pedidos Shalom'
+                total_no_encontrado += 1
+
+        return jsonify({
+            'success': True,
+            'envios': envios,
+            'resumen': {
+                'total': len(envios),
+                'ok': total_ok,
+                'ya_completado': total_ya_completado,
+                'no_encontrado': total_no_encontrado
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error en preview de tracking masivo: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def get_shalom_orders_by_dni():
+    """
+    Obtiene todos los pedidos Shalom en estado processing,
+    indexados por DNI del cliente.
+
+    Returns:
+        dict: {dni: {id, numero, cliente, estado}}
+    """
+    query = text("""
+        SELECT
+            o.id,
+            COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
+            CONCAT(ba.first_name, ' ', ba.last_name) as customer_name,
+            ba.company as customer_dni,
+            o.status,
+            (SELECT oi.order_item_name
+             FROM wpyz_woocommerce_order_items oi
+             WHERE oi.order_id = o.id
+               AND oi.order_item_type = 'shipping'
+             LIMIT 1) as shipping_method
+        FROM wpyz_wc_orders o
+        LEFT JOIN wpyz_wc_orders_meta om_number
+            ON o.id = om_number.order_id
+            AND om_number.meta_key = '_order_number'
+        LEFT JOIN wpyz_wc_order_addresses ba
+            ON o.id = ba.order_id
+            AND ba.address_type = 'billing'
+        WHERE o.status IN ('wc-processing', 'wc-completed')
+          AND o.type = 'shop_order'
+        ORDER BY o.date_created_gmt DESC
+    """)
+
+    results = db.session.execute(query).fetchall()
+
+    # Indexar por DNI (solo pedidos Shalom)
+    orders_by_dni = {}
+    for row in results:
+        shipping_method = row[5] or ''
+        # Verificar si es pedido Shalom
+        if 'shalom' in shipping_method.lower():
+            dni = str(row[3] or '').strip()
+            if dni and len(dni) >= 8:
+                # Si hay múltiples pedidos con el mismo DNI, quedarse con el más reciente (processing primero)
+                if dni not in orders_by_dni or row[4] == 'wc-processing':
+                    orders_by_dni[dni] = {
+                        'id': row[0],
+                        'numero': row[1],
+                        'cliente': row[2],
+                        'estado': row[4]
+                    }
+
+    return orders_by_dni
+
+
+@bp.route('/api/bulk-tracking/process', methods=['POST'])
+@login_required
+@master_required
+def bulk_tracking_process():
+    """
+    Procesa los envíos seleccionados y asigna tracking a cada pedido.
+
+    Request Body:
+        {
+            "envios": [
+                {
+                    "pedido_id": 41608,
+                    "tracking_number": "N° de orden: 68529922 Código: JN79 CLAVE: 7014"
+                },
+                ...
+            ],
+            "fecha_envio": "2026-01-15"  // Opcional
+        }
+
+    Returns:
+        JSON con resultados del procesamiento
+    """
+    try:
+        data = request.get_json()
+        envios = data.get('envios', [])
+        fecha_envio = data.get('fecha_envio')
+
+        if not envios:
+            return jsonify({
+                'success': False,
+                'error': 'No hay envíos para procesar'
+            }), 400
+
+        # Fecha de envío (por defecto hoy)
+        if not fecha_envio:
+            from datetime import date
+            fecha_envio = date.today().strftime('%Y-%m-%d')
+
+        resultados = []
+        exitosos = 0
+        fallidos = 0
+
+        for envio in envios:
+            pedido_id = envio.get('pedido_id')
+            tracking_number = envio.get('tracking_number')
+
+            if not pedido_id or not tracking_number:
+                resultados.append({
+                    'pedido_id': pedido_id,
+                    'success': False,
+                    'error': 'Datos incompletos'
+                })
+                fallidos += 1
+                continue
+
+            # Procesar cada pedido usando la misma lógica que add_tracking
+            resultado = process_single_tracking(
+                order_id=pedido_id,
+                tracking_number=tracking_number,
+                shipping_provider='Shalom',
+                date_shipped=fecha_envio,
+                mark_as_shipped=True
+            )
+
+            resultados.append(resultado)
+
+            if resultado['success']:
+                exitosos += 1
+            else:
+                fallidos += 1
+
+            # Rate limiting: esperar 1 segundo entre pedidos
+            import time
+            time.sleep(1)
+
+        return jsonify({
+            'success': True,
+            'resultados': resultados,
+            'resumen': {
+                'total': len(envios),
+                'exitosos': exitosos,
+                'fallidos': fallidos
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error procesando tracking masivo: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def process_single_tracking(order_id, tracking_number, shipping_provider, date_shipped, mark_as_shipped):
+    """
+    Procesa un solo tracking (misma lógica que add_tracking pero retorna dict).
+
+    Returns:
+        dict con resultado del procesamiento
+    """
+    try:
+        # Validar que el pedido existe
+        order = Order.query.get(order_id)
+        if not order:
+            return {
+                'pedido_id': order_id,
+                'success': False,
+                'error': f'Pedido {order_id} no encontrado'
+            }
+
+        # Timestamp actual
+        timestamp = int(datetime.utcnow().timestamp())
+
+        # Crear el array de tracking items
+        tracking_items = [{
+            'tracking_number': tracking_number,
+            'tracking_provider': shipping_provider,
+            'custom_tracking_provider': '',
+            'custom_tracking_link': '',
+            'date_shipped': date_shipped,
+            'tracking_id': str(timestamp)
+        }]
+
+        # Serializar a formato PHP
+        import phpserialize
+        serialized_items = phpserialize.dumps(tracking_items).decode('utf-8')
+
+        current_app.logger.info(f"[BULK-TRACKING] Order {order_id}: Asignando tracking {tracking_number}")
+
+        # 1. ACTUALIZAR VÍA API (para disparar emails)
+        if mark_as_shipped:
+            try:
+                from woocommerce import API
+                wc_api = API(
+                    url=current_app.config['WC_API_URL'],
+                    consumer_key=current_app.config['WC_CONSUMER_KEY'],
+                    consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+                    version="wc/v3",
+                    timeout=15
+                )
+
+                payment_method = order.get_meta('_payment_method') or order.payment_method
+
+                wc_api.put(f"orders/{order_id}", {
+                    "status": "completed",
+                    "payment_method": payment_method,
+                    "meta_data": [
+                        {"key": "_tracking_number", "value": tracking_number},
+                        {"key": "_tracking_provider", "value": shipping_provider},
+                        {"key": "_wc_shipment_tracking_items", "value": tracking_items}
+                    ]
+                })
+
+                current_app.logger.info(f"[BULK-TRACKING] Order {order_id}: API update success")
+                order.status = 'wc-completed'
+                order.date_updated_gmt = datetime.utcnow()
+
+            except Exception as api_err:
+                current_app.logger.error(f"[BULK-TRACKING] API Error para {order_id}: {str(api_err)}")
+                # Continuar con actualización local
+                order.status = 'wc-completed'
+                order.date_updated_gmt = datetime.utcnow()
+
+        # 2. GUARDAR EN BASE DE DATOS (Legacy)
+        query_delete_old = text("""
+            DELETE FROM wpyz_postmeta
+            WHERE post_id = :order_id
+              AND meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+        """)
+        db.session.execute(query_delete_old, {'order_id': order_id})
+
+        query_insert = text("""
+            INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+            VALUES (:order_id, :key, :value)
+        """)
+
+        for key, value in [
+            ('_tracking_number', tracking_number),
+            ('_tracking_provider', shipping_provider),
+            ('_wc_shipment_tracking_items', serialized_items)
+        ]:
+            db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+            db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+
+        # 3. GUARDAR EN HPOS
+        query_hpos = text("""
+            INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value)
+            VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
+            ON DUPLICATE KEY UPDATE meta_value = :serialized_items
+        """)
+        db.session.execute(query_hpos, {
+            'order_id': order_id,
+            'serialized_items': serialized_items
+        })
+
+        # 4. REGISTRAR EN DISPATCH HISTORY
+        history = DispatchHistory(
+            order_id=order_id,
+            previous_shipping_method='SHALOM',
+            new_shipping_method='SHALOM',
+            changed_by=current_user.username,
+            dispatch_note=f'[TRACKING MASIVO] {tracking_number}'
+        )
+        db.session.add(history)
+
+        db.session.commit()
+
+        order_number = order.get_meta('_order_number') or f"#{order_id}"
+
+        current_app.logger.info(
+            f"[BULK-TRACKING] Tracking asignado a {order_number}: {tracking_number} "
+            f"por {current_user.username}"
+        )
+
+        return {
+            'pedido_id': order_id,
+            'pedido_numero': order_number,
+            'tracking_number': tracking_number,
+            'success': True,
+            'mensaje': 'Tracking asignado correctamente'
+        }
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"[BULK-TRACKING] Error en pedido {order_id}: {str(e)}")
+        return {
+            'pedido_id': order_id,
+            'success': False,
+            'error': str(e)
+        }
