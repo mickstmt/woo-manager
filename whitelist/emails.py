@@ -23,6 +23,7 @@ AUTHORIZED_EMAILS = [
     # Equipo de ventas
     'aherrera@izistoreperu.com',
     'dduire@izistoreperu.com',
+    'ventasizistoreperu@izistoreperu.com',
 
     # Soporte
     'msanmartin@izistoreperu.com'
