@@ -897,7 +897,9 @@ def get_order_detail(order_id):
                 sa.state as shipping_department,
                 sa.postcode as shipping_postcode,
                 -- Notas del cliente
-                o.customer_note
+                o.customer_note,
+                -- DNI del cliente (guardado en billing company)
+                ba.company as customer_dni
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -1051,6 +1053,8 @@ def get_order_detail(order_id):
             'shipping_postcode': order_result[15] or None,
             # Notas del cliente
             'customer_note': order_result[16] or None,
+            # DNI del cliente
+            'customer_dni': order_result[17] or None,
             'products': products_list
         }
 

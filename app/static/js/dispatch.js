@@ -417,6 +417,7 @@ async function showOrderDetail(orderId) {
         document.getElementById('modal-order-number').textContent = order.number;
         document.getElementById('modal-customer-name').textContent = order.customer_name;
         document.getElementById('modal-customer-phone').textContent = order.customer_phone;
+        document.getElementById('modal-customer-dni').textContent = order.customer_dni || '-';
         document.getElementById('modal-customer-email').textContent = order.email;
         document.getElementById('modal-total').textContent = order.total.toFixed(2);
         document.getElementById('modal-date-created').textContent = order.date_created;
