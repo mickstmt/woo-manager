@@ -258,6 +258,9 @@ function createOrderCard(order) {
             <button class="btn btn-outline-primary btn-icon btn-detail" data-order-id="${order.id}" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
                 <i class="bi bi-eye"></i>
             </button>
+            <a href="https://www.izistoreperu.com/wp-admin/post.php?post=${order.id}&action=edit" target="_blank" class="btn btn-outline-secondary btn-icon" title="Ver en WooCommerce">
+                <i class="bi bi-wordpress"></i>
+            </a>
             <button class="btn btn-outline-success btn-icon" onclick="showTrackingModal(${order.id}, '${order.number}')" title="Agregar Tracking">
                 <i class="bi bi-truck"></i>
             </button>

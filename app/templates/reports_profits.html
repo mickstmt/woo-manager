@@ -27,8 +27,29 @@
     .table th {
         position: sticky;
         top: 0;
-        background-color: #f8f9fa;
+        background-color: var(--bs-body-bg);
         z-index: 10;
+    }
+    /* Estilos para filas expandidas con soporte modo oscuro */
+    .details-row > td {
+        background-color: var(--bs-tertiary-bg) !important;
+    }
+    .details-row .table {
+        background-color: var(--bs-body-bg);
+    }
+    .details-row .table thead {
+        background-color: var(--bs-secondary-bg);
+    }
+    .details-row .table thead th {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+    }
+    .details-row .table tbody tr {
+        background-color: var(--bs-body-bg);
+    }
+    .details-row .table tbody td {
+        color: var(--bs-body-color);
+        border-color: var(--bs-border-color);
     }
 </style>
 {% endblock %}
@@ -428,11 +449,11 @@
             // Fila de detalles (oculta por defecto)
             html += `
                 <tr id="${detailsId}" class="details-row" style="display: none;">
-                    <td colspan="13" style="background-color: #f8f9fa;">
+                    <td colspan="13">
                         <div class="p-3">
                             <h6 class="mb-3"><i class="bi bi-box-seam"></i> Productos del pedido</h6>
                             <table class="table table-sm table-bordered mb-0">
-                                <thead class="table-light">
+                                <thead>
                                     <tr>
                                         <th>Producto</th>
                                         <th class="text-center">Cantidad</th>
