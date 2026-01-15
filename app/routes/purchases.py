@@ -426,9 +426,8 @@ def api_get_orders():
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
 
-        from sqlalchemy.orm import joinedload
-
-        query = PurchaseOrder.query.options(joinedload(PurchaseOrder.items))
+        # Query simple
+        query = PurchaseOrder.query
 
         # Filtros
         if status:
@@ -440,7 +439,6 @@ def api_get_orders():
 
         if end_date:
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            # Incluir todo el día
             end_dt = end_dt.replace(hour=23, minute=59, second=59)
             query = query.filter(PurchaseOrder.order_date <= end_dt)
 
@@ -450,11 +448,6 @@ def api_get_orders():
         orders_list = []
         for order in orders:
             order_dict = order.to_dict()
-            # Agregar items (ya cargados con joinedload)
-            items = []
-            for item in order.items:
-                items.append(item.to_dict())
-            order_dict['items'] = items
             orders_list.append(order_dict)
 
         return jsonify({

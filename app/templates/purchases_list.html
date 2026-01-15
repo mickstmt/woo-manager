@@ -7,8 +7,13 @@
     .quantity-input {
         width: 80px;
     }
+    /* Light mode */
     .selected-row {
-        background-color: #e7f1ff !important;
+        background-color: rgba(13, 110, 253, 0.15) !important;
+    }
+    /* Dark mode */
+    [data-bs-theme="dark"] .selected-row {
+        background-color: rgba(13, 110, 253, 0.3) !important;
     }
     .btn-create-order {
         position: fixed;
@@ -24,11 +29,13 @@
         bottom: 100px;
         right: 30px;
         z-index: 999;
-        background: white;
         padding: 15px 20px;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         display: none;
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        color: var(--bs-body-color);
     }
     .selection-summary.active {
         display: block;
@@ -170,9 +177,11 @@
             </div>
             <div class="modal-body">
                 <!-- Resumen de productos seleccionados -->
-                <div class="alert alert-info">
-                    <h6><i class="bi bi-info-circle"></i> Productos Seleccionados</h6>
-                    <div id="modal-products-summary"></div>
+                <div class="card border-primary mb-3">
+                    <div class="card-body">
+                        <h6><i class="bi bi-info-circle text-primary"></i> Productos Seleccionados</h6>
+                        <div id="modal-products-summary"></div>
+                    </div>
                 </div>
 
                 <!-- Formulario -->
@@ -201,7 +210,7 @@
                     </div>
 
                     <!-- Totales -->
-                    <div class="card bg-light">
+                    <div class="card border">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-6">

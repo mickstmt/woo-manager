@@ -150,13 +150,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar fechas (último mes)
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 1);
-
-    document.getElementById('filter-start-date').valueAsDate = startDate;
-    document.getElementById('filter-end-date').valueAsDate = endDate;
+    // NO inicializar fechas - cargar todas las órdenes por defecto
+    // El usuario puede filtrar manualmente si lo desea
 
     loadOrders();
     loadStats();
@@ -172,6 +167,8 @@ function loadOrders() {
     if (startDate) url += `start_date=${startDate}&`;
     if (endDate) url += `end_date=${endDate}&`;
 
+    console.log('Cargando órdenes desde:', url);
+
     document.getElementById('orders-table').innerHTML = `
         <tr>
             <td colspan="8" class="text-center py-4">
@@ -182,14 +179,21 @@ function loadOrders() {
         </tr>
     `;
 
-    fetch(url)
+    // Agregar timeout de 10 segundos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    fetch(url, { signal: controller.signal })
         .then(response => {
+            clearTimeout(timeoutId);
+            console.log('Respuesta recibida:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            console.log('Datos recibidos:', data);
             if (data.success) {
                 renderOrders(data.orders);
                 updateStats(data.orders);
@@ -198,18 +202,23 @@ function loadOrders() {
                     <tr>
                         <td colspan="8" class="text-center text-danger py-4">
                             <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
-                            <p>Error al cargar órdenes: ${data.error}</p>
+                            <p class="mb-2">Error al cargar órdenes: ${data.error}</p>
                         </td>
                     </tr>
                 `;
             }
         })
         .catch(error => {
+            clearTimeout(timeoutId);
+            const errorMsg = error.name === 'AbortError'
+                ? 'Tiempo de espera agotado (10s). El servidor no responde.'
+                : error.message;
+
             document.getElementById('orders-table').innerHTML = `
                 <tr>
                     <td colspan="8" class="text-center text-danger py-4">
                         <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
-                        <p>Error de conexión: ${error.message}</p>
+                        <p>${errorMsg}</p>
                         <button class="btn btn-sm btn-primary mt-2" onclick="loadOrders()">
                             <i class="bi bi-arrow-clockwise"></i> Reintentar
                         </button>
