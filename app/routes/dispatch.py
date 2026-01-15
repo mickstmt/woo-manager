@@ -1259,6 +1259,52 @@ def add_tracking():
 # TRACKING MASIVO SHALOM
 # ============================================
 
+
+def validar_clave_shalom(clave, dni, telefono):
+    """
+    Valida y corrige la CLAVE de Shalom según las reglas de negocio.
+
+    Reglas:
+    1. Si los 4 dígitos son iguales (ej: 7777), usar los 2 primeros dígitos en lugar de los últimos
+    2. No permitir patrones X0X0 (1010, 2020, 3030...9090)
+    3. No permitir patrones X000 (1000, 2000, 3000...9000)
+
+    Args:
+        clave: CLAVE inicial (4 dígitos)
+        dni: DNI completo del destinatario
+        telefono: Teléfono completo del destinatario
+
+    Returns:
+        CLAVE validada/corregida
+    """
+    if len(clave) != 4:
+        return clave
+
+    # Patrones no permitidos
+    patrones_x0x0 = ['1010', '2020', '3030', '4040', '5050', '6060', '7070', '8080', '9090']
+    patrones_x000 = ['1000', '2000', '3000', '4000', '5000', '6000', '7000', '8000', '9000']
+    patrones_otros = ['1234']
+
+    # Combinar todos los patrones no permitidos
+    patrones_invalidos = patrones_x0x0 + patrones_x000 + patrones_otros
+
+    # Verificar si los 4 dígitos son iguales
+    todos_iguales = len(set(clave)) == 1
+
+    # Verificar si es un patrón no permitido
+    es_patron_invalido = clave in patrones_invalidos
+
+    # Si necesita corrección, usar los 2 primeros dígitos en lugar de los últimos
+    if todos_iguales or es_patron_invalido:
+        if len(dni) >= 2 and len(telefono) >= 2:
+            clave_alternativa = dni[:2] + telefono[:2]
+            # Verificar que la alternativa tampoco sea inválida
+            if clave_alternativa not in patrones_invalidos and len(set(clave_alternativa)) > 1:
+                return clave_alternativa
+
+    return clave
+
+
 @bp.route('/bulk-tracking')
 @login_required
 @master_required
@@ -1282,16 +1328,22 @@ def bulk_tracking_preview():
     """
     try:
         from openpyxl import load_workbook
+        import glob
 
-        # Ruta del archivo Excel
-        excel_path = os.path.join(current_app.root_path, 'static', 'uploads', 'shalom_tracking.xlsx')
+        # Buscar archivos Excel que empiecen con "shalom" en la carpeta uploads
+        uploads_path = os.path.join(current_app.root_path, 'static', 'uploads')
+        excel_files = glob.glob(os.path.join(uploads_path, 'shalom*.xlsx'))
 
-        # Verificar si existe el archivo
-        if not os.path.exists(excel_path):
+        if not excel_files:
             return jsonify({
                 'success': False,
-                'error': 'Archivo no encontrado. Coloque el archivo shalom_tracking.xlsx en app/static/uploads/'
+                'error': 'Archivo no encontrado. Coloque un archivo Excel que comience con "shalom" en app/static/uploads/ (ej: shalom_tracking.xlsx o shalom 13-01-25.xlsx)'
             }), 404
+
+        # Usar el archivo más reciente si hay varios
+        excel_path = max(excel_files, key=os.path.getmtime)
+        excel_filename = os.path.basename(excel_path)
+        current_app.logger.info(f"[BULK-TRACKING] Usando archivo: {excel_filename}")
 
         # Cargar el Excel
         workbook = load_workbook(excel_path, data_only=True)
@@ -1309,16 +1361,18 @@ def bulk_tracking_preview():
                 break
 
             # Extraer datos del bloque de 26 filas
-            dni_remitente = str(sheet[f'A{fila + 7}'].value or '').strip()      # A8
-            tel_remitente = str(sheet[f'A{fila + 8}'].value or '').strip()      # A9
             dni_destinatario = str(sheet[f'A{fila + 13}'].value or '').strip()  # A14
+            tel_destinatario = str(sheet[f'A{fila + 14}'].value or '').strip()  # A15
             orden_shalom = str(sheet[f'A{fila + 22}'].value or '').strip()      # A23
             codigo_shalom = str(sheet[f'A{fila + 23}'].value or '').strip()     # A24
 
-            # Construir la CLAVE (últimos 2 dígitos de DNI remitente + últimos 2 de teléfono)
+            # Construir la CLAVE (últimos 2 dígitos de DNI destinatario + últimos 2 de teléfono destinatario)
             clave = ''
-            if len(dni_remitente) >= 2 and len(tel_remitente) >= 2:
-                clave = dni_remitente[-2:] + tel_remitente[-2:]
+            if len(dni_destinatario) >= 2 and len(tel_destinatario) >= 2:
+                clave = dni_destinatario[-2:] + tel_destinatario[-2:]
+
+                # Validar y corregir CLAVE si es necesario
+                clave = validar_clave_shalom(clave, dni_destinatario, tel_destinatario)
 
             # Construir tracking number completo
             tracking_number = f"{orden_shalom} {codigo_shalom} CLAVE: {clave}"
@@ -1327,8 +1381,7 @@ def bulk_tracking_preview():
                 'envio_num': envio_num,
                 'fila_inicio': fila,
                 'dni_destinatario': dni_destinatario,
-                'dni_remitente': dni_remitente,
-                'tel_remitente': tel_remitente,
+                'tel_destinatario': tel_destinatario,
                 'orden_shalom': orden_shalom,
                 'codigo_shalom': codigo_shalom,
                 'clave': clave,
@@ -1397,6 +1450,7 @@ def bulk_tracking_preview():
         return jsonify({
             'success': True,
             'envios': envios,
+            'archivo': excel_filename,
             'resumen': {
                 'total': len(envios),
                 'ok': total_ok,
@@ -1653,7 +1707,6 @@ def process_single_tracking(order_id, tracking_number, shipping_provider, date_s
             ('_wc_shipment_tracking_items', serialized_items)
         ]:
             db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
-            db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
 
         # 3. GUARDAR EN HPOS
         query_hpos = text("""
@@ -1667,8 +1720,12 @@ def process_single_tracking(order_id, tracking_number, shipping_provider, date_s
         })
 
         # 4. REGISTRAR EN DISPATCH HISTORY
+        # Obtener el número de orden primero
+        order_number = order.get_meta('_order_number') or f"#{order_id}"
+
         history = DispatchHistory(
             order_id=order_id,
+            order_number=order_number,
             previous_shipping_method='SHALOM',
             new_shipping_method='SHALOM',
             changed_by=current_user.username,
@@ -1677,8 +1734,6 @@ def process_single_tracking(order_id, tracking_number, shipping_provider, date_s
         db.session.add(history)
 
         db.session.commit()
-
-        order_number = order.get_meta('_order_number') or f"#{order_id}"
 
         current_app.logger.info(
             f"[BULK-TRACKING] Tracking asignado a {order_number}: {tracking_number} "

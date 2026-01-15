@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+
+{% block title %}Tracking Masivo Shalom - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-ok { background-color: #198754; color: #fff; }
+    .status-warning { background-color: #ffc107; color: #000; }
+    .status-error { background-color: #dc3545; color: #fff; }
+    .status-pending { background-color: #6c757d; color: #fff; }
+
+    .tracking-preview {
+        font-family: monospace;
+        font-size: 0.85rem;
+        background-color: var(--bs-tertiary-bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    .upload-zone {
+        border: 2px dashed var(--bs-border-color);
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        background-color: var(--bs-tertiary-bg);
+        transition: all 0.3s;
+    }
+
+    .upload-zone:hover {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-secondary-bg);
+    }
+
+    .upload-zone.dragover {
+        border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+
+    .result-success { color: #198754; }
+    .result-error { color: #dc3545; }
+
+    .processing-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .processing-overlay.active {
+        display: flex;
+    }
+
+    .processing-card {
+        background: var(--bs-body-bg);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        max-width: 400px;
+    }
+
+    .progress-text {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="bi bi-truck"></i> Tracking Masivo Shalom
+                    </h2>
+                    <p class="text-muted mb-0">Asigna tracking a m&uacute;ltiples pedidos desde archivo Excel</p>
+                </div>
+                <div>
+                    <a href="/dispatch/" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> Volver al Kanban
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instrucciones -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Instrucciones</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Coloque el archivo Excel de Shalom en la carpeta <code>app/static/uploads/</code> con nombre que empiece con "shalom" (ej: <code>shalom 13-01-25.xlsx</code>)</li>
+                        <li>El sistema leer&aacute; autom&aacute;ticamente los bloques de 26 filas por env&iacute;o</li>
+                        <li>Se har&aacute; matching por DNI del destinatario con los pedidos Shalom pendientes</li>
+                        <li>Revise los resultados del preview y seleccione los env&iacute;os a procesar</li>
+                        <li>Al procesar, cada pedido cambiar&aacute; a "Completado" y se enviar&aacute; email al cliente</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bot&oacute;n de carga y resumen -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex gap-3">
+                        <button class="btn btn-primary btn-lg" onclick="loadPreview()" id="btn-load-preview">
+                            <i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel
+                        </button>
+                        <button class="btn btn-success btn-lg" onclick="processSelected()" id="btn-process" disabled>
+                            <i class="bi bi-send"></i> Procesar Seleccionados (<span id="selected-count">0</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card" id="summary-card" style="display: none;">
+                <div class="card-body">
+                    <h6 class="mb-3">Resumen del An&aacute;lisis</h6>
+                    <div class="mb-2">
+                        <small class="text-muted">Archivo:</small>
+                        <div><code id="summary-filename">-</code></div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total env&iacute;os:</span>
+                        <strong id="summary-total">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-success">Listos para procesar:</span>
+                        <strong id="summary-ok" class="text-success">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-warning">Ya completados:</span>
+                        <strong id="summary-warning" class="text-warning">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-danger">No encontrados:</span>
+                        <strong id="summary-error" class="text-danger">0</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de env&iacute;os -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Preview de Env&iacute;os</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="selectAll(true)">
+                            <i class="bi bi-check-all"></i> Seleccionar Todos
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="selectAll(false)">
+                            <i class="bi bi-x-lg"></i> Deseleccionar
+                        </button>
+                        <button class="btn btn-outline-success" onclick="selectOnlyOk()">
+                            <i class="bi bi-check-circle"></i> Solo Listos
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" class="form-check-input" id="select-all-checkbox" onchange="selectAll(this.checked)">
+                                    </th>
+                                    <th>#</th>
+                                    <th>DNI Destinatario</th>
+                                    <th>Pedido</th>
+                                    <th>Cliente</th>
+                                    <th>Tracking a Asignar</th>
+                                    <th class="text-center">Estado</th>
+                                    <th>Mensaje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="envios-table">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-5">
+                                        <i class="bi bi-file-earmark-excel" style="font-size: 3rem;"></i>
+                                        <p class="mb-0 mt-2">Haga clic en "Cargar y Analizar Excel" para comenzar</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados del procesamiento -->
+    <div class="row mt-4" id="results-section" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Resultados del Procesamiento</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Pedido ID</th>
+                                    <th>Resultado</th>
+                                    <th>Mensaje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación -->
+<div class="modal fade" id="confirmProcessModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Procesamiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">¿Está seguro de procesar <strong id="confirm-count">0</strong> envíos?</p>
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle"></i>
+                    Cada pedido cambiará a estado <strong>"Completado"</strong> y se enviará un email al cliente con la información de tracking.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-confirm-process" onclick="executeProcess()">
+                    <i class="bi bi-check-circle"></i> Sí, Procesar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de procesamiento -->
+<div class="processing-overlay" id="processing-overlay">
+    <div class="processing-card">
+        <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+            <span class="visually-hidden">Procesando...</span>
+        </div>
+        <div class="progress-text">
+            <span id="progress-current">0</span> / <span id="progress-total">0</span>
+        </div>
+        <p class="text-muted mt-2">Procesando envíos...</p>
+        <p class="text-muted small">No cierre esta ventana</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let enviosData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Nada que inicializar
+});
+
+function loadPreview() {
+    const btn = document.getElementById('btn-load-preview');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cargando...';
+
+    document.getElementById('envios-table').innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mb-0 mt-2">Analizando archivo Excel...</p>
+            </td>
+        </tr>
+    `;
+
+    fetch('/dispatch/api/bulk-tracking/preview')
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel';
+
+            if (data.success) {
+                enviosData = data.envios;
+                renderEnvios(data.envios);
+                showSummary(data.resumen, data.archivo);
+            } else {
+                document.getElementById('envios-table').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-danger py-5">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                            <p class="mb-0 mt-2">${data.error}</p>
+                        </td>
+                    </tr>
+                `;
+                showNotification('danger', 'Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel';
+
+            document.getElementById('envios-table').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger py-5">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p class="mb-0 mt-2">Error de conexi&oacute;n: ${error.message}</p>
+                    </td>
+                </tr>
+            `;
+            showNotification('danger', 'Error de conexi&oacute;n: ' + error.message);
+        });
+}
+
+function renderEnvios(envios) {
+    const tbody = document.getElementById('envios-table');
+
+    if (envios.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mb-0 mt-2">No se encontraron env&iacute;os en el archivo</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = envios.map((envio, index) => {
+        const statusClass = `status-${envio.validacion}`;
+        const statusText = {
+            'ok': 'Listo',
+            'warning': 'Advertencia',
+            'error': 'Error',
+            'pending': 'Pendiente'
+        }[envio.validacion] || envio.validacion;
+
+        const canSelect = envio.validacion === 'ok';
+
+        return `
+            <tr data-index="${index}" class="${envio.validacion === 'error' ? 'table-danger' : envio.validacion === 'warning' ? 'table-warning' : ''}">
+                <td>
+                    <input type="checkbox" class="form-check-input envio-checkbox"
+                           data-index="${index}"
+                           ${canSelect ? '' : 'disabled'}
+                           onchange="updateSelectedCount()">
+                </td>
+                <td>${envio.envio_num}</td>
+                <td><code>${envio.dni_destinatario || '-'}</code></td>
+                <td>
+                    ${envio.pedido_id ? `<a href="/dispatch/" class="text-decoration-none">#${envio.pedido_numero}</a>` : '-'}
+                </td>
+                <td>${envio.cliente_nombre || '-'}</td>
+                <td>
+                    <div class="tracking-preview">${envio.tracking_number}</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${statusClass}">${statusText}</span>
+                </td>
+                <td>${envio.mensaje}</td>
+            </tr>
+        `;
+    }).join('');
+
+    updateSelectedCount();
+}
+
+function showSummary(resumen, archivo) {
+    document.getElementById('summary-card').style.display = 'block';
+    document.getElementById('summary-filename').textContent = archivo || '-';
+    document.getElementById('summary-total').textContent = resumen.total;
+    document.getElementById('summary-ok').textContent = resumen.ok;
+    document.getElementById('summary-warning').textContent = resumen.ya_completado;
+    document.getElementById('summary-error').textContent = resumen.no_encontrado;
+}
+
+function selectAll(checked) {
+    document.querySelectorAll('.envio-checkbox:not(:disabled)').forEach(cb => {
+        cb.checked = checked;
+    });
+    document.getElementById('select-all-checkbox').checked = checked;
+    updateSelectedCount();
+}
+
+function selectOnlyOk() {
+    document.querySelectorAll('.envio-checkbox').forEach(cb => {
+        const index = parseInt(cb.dataset.index);
+        cb.checked = enviosData[index].validacion === 'ok';
+    });
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.envio-checkbox:checked').length;
+    document.getElementById('selected-count').textContent = count;
+    document.getElementById('btn-process').disabled = count === 0;
+}
+
+// Variable global para envíos pendientes de procesar
+let pendingEnvios = [];
+
+function processSelected() {
+    pendingEnvios = [];
+
+    document.querySelectorAll('.envio-checkbox:checked').forEach(cb => {
+        const index = parseInt(cb.dataset.index);
+        const envio = enviosData[index];
+
+        if (envio.pedido_id && envio.tracking_number) {
+            pendingEnvios.push({
+                pedido_id: envio.pedido_id,
+                tracking_number: envio.tracking_number
+            });
+        }
+    });
+
+    if (pendingEnvios.length === 0) {
+        showNotification('warning', 'No hay envíos válidos seleccionados');
+        return;
+    }
+
+    // Mostrar modal de confirmación
+    document.getElementById('confirm-count').textContent = pendingEnvios.length;
+    const modal = new bootstrap.Modal(document.getElementById('confirmProcessModal'));
+    modal.show();
+}
+
+function executeProcess() {
+    // Cerrar modal de confirmación
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmProcessModal'));
+    if (confirmModal) confirmModal.hide();
+
+    // Mostrar overlay
+    const overlay = document.getElementById('processing-overlay');
+    overlay.classList.add('active');
+    document.getElementById('progress-total').textContent = pendingEnvios.length;
+    document.getElementById('progress-current').textContent = '0';
+
+    // Deshabilitar botón
+    const btn = document.getElementById('btn-process');
+    btn.disabled = true;
+
+    fetch('/dispatch/api/bulk-tracking/process', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            envios: pendingEnvios
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            overlay.classList.remove('active');
+
+            if (data.success) {
+                showResults(data.resultados, data.resumen);
+                showNotification('success', `Procesamiento completado: ${data.resumen.exitosos} exitosos, ${data.resumen.fallidos} fallidos`);
+
+                // Recargar preview para actualizar estados
+                loadPreview();
+            } else {
+                showNotification('danger', 'Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            overlay.classList.remove('active');
+            showNotification('danger', 'Error de conexi&oacute;n: ' + error.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+}
+
+function showResults(resultados, resumen) {
+    document.getElementById('results-section').style.display = 'block';
+
+    const tbody = document.getElementById('results-table');
+    tbody.innerHTML = resultados.map(r => `
+        <tr class="${r.success ? '' : 'table-danger'}">
+            <td>${r.pedido_id}</td>
+            <td>
+                ${r.success
+                    ? '<span class="result-success"><i class="bi bi-check-circle"></i> Exitoso</span>'
+                    : '<span class="result-error"><i class="bi bi-x-circle"></i> Error</span>'}
+            </td>
+            <td>${r.error || 'Tracking asignado correctamente'}</td>
+        </tr>
+    `).join('');
+
+    // Scroll a resultados
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+{% endblock %}
