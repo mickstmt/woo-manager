@@ -18,9 +18,47 @@ from sqlalchemy import text, or_
 from datetime import datetime, timedelta
 from functools import wraps
 import unicodedata
+import os
+import json
 
 # Crear blueprint
 bp = Blueprint('dispatch', __name__, url_prefix='/dispatch')
+
+# Cache para datos de ubigeo (departamentos)
+_ubigeo_cache = None
+
+
+def get_department_name(code):
+    """
+    Convierte el código del departamento a su nombre completo.
+
+    Args:
+        code: Código del departamento (ej: 'AYAC')
+
+    Returns:
+        str: Nombre completo del departamento (ej: 'Ayacucho') o el código si no se encuentra
+    """
+    global _ubigeo_cache
+
+    if not code:
+        return None
+
+    # Cargar ubigeo en cache si no está cargado
+    if _ubigeo_cache is None:
+        try:
+            ubigeo_path = os.path.join(current_app.root_path, 'static', 'data', 'ubigeo.json')
+            with open(ubigeo_path, 'r', encoding='utf-8') as f:
+                _ubigeo_cache = json.load(f)
+        except Exception as e:
+            current_app.logger.error(f"Error cargando ubigeo.json: {str(e)}")
+            return code
+
+    # Buscar el nombre del departamento por código
+    for dept in _ubigeo_cache.get('departamentos', []):
+        if dept.get('code') == code:
+            return dept.get('name', code)
+
+    return code
 
 
 # ============================================
@@ -1009,7 +1047,7 @@ def get_order_detail(order_id):
             # Nuevos campos de dirección
             'shipping_address': shipping_address_full,
             'shipping_district': order_result[13] or None,  # city = distrito
-            'shipping_department': order_result[14] or None,  # state = departamento
+            'shipping_department': get_department_name(order_result[14]),  # state = departamento (convertido a nombre)
             'shipping_postcode': order_result[15] or None,
             # Notas del cliente
             'customer_note': order_result[16] or None,
