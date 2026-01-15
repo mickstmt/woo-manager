@@ -2,127 +2,418 @@
 
 {% block title %}Mi Perfil - WooCommerce Manager{% endblock %}
 
+{% block extra_css %}
+<!-- Cropper.js CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+<style>
+    /* Estilos para el Cropper */
+    .img-container {
+        max-height: 500px;
+        background-color: #f7f7f7;
+        margin-bottom: 1rem;
+    }
+
+    .img-container img {
+        max-width: 100%;
+        display: block;
+    }
+
+    /* Efecto hover en avatar */
+    .avatar-wrapper {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .avatar-wrapper:hover {
+        transform: scale(1.02);
+    }
+
+    .avatar-overlay {
+        opacity: 0;
+        background: rgba(0, 0, 0, 0.5);
+        transition: opacity 0.2s ease;
+    }
+
+    .avatar-wrapper:hover .avatar-overlay {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row">
+<div class="row mb-4 animate__animated animate__fadeIn">
     <div class="col-12">
-        <h1 class="mb-4">
-            <i class="bi bi-person-circle"></i> Mi Perfil
+        <h1 class="display-6 fw-bold text-gray-800">
+            <i class="bi bi-person-badge me-2 text-primary"></i>Mi Perfil
         </h1>
+        <p class="text-muted">Gestiona tu información personal y seguridad</p>
+
+        <!-- Flash Messages -->
+        <!-- Toast Container -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1050">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="toast align-items-center text-white bg-{{ category if category != 'warning' else 'warning text-dark' }} border-0 shadow"
+                role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        {% if category == 'warning' and 'sesión' in message|lower %}
+                        <i class="bi bi-clock-history me-2"></i>
+                        {% elif category == 'danger' %}
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        {% elif category == 'success' %}
+                        <i class="bi bi-check-circle me-2"></i>
+                        {% else %}
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                    <button type="button"
+                        class="btn-close {{ 'btn-close-white' if category != 'warning' else '' }} me-2 m-auto"
+                        data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Scripts para inicializar Toasts -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+                var toastList = toastElList.map(function (toastEl) {
+                    return new bootstrap.Toast(toastEl, { delay: 4000 }); // 4 segundos
+                });
+                toastList.forEach(toast => toast.show());
+            });
+        </script>
     </div>
 </div>
 
-<div class="row">
-    <!-- Información del perfil -->
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-info-circle"></i> Información Personal
-                </h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless">
-                    <tr>
-                        <th style="width: 200px;">Nombre Completo:</th>
-                        <td>{{ current_user.full_name or 'No especificado' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Usuario:</th>
-                        <td><code>{{ current_user.username }}</code></td>
-                    </tr>
-                    <tr>
-                        <th>Email:</th>
-                        <td>{{ current_user.email }}</td>
-                    </tr>
-                    <tr>
-                        <th>Rol:</th>
-                        <td>
-                            {% if current_user.role == 'master' %}
-                                <span class="badge bg-dark">
-                                    <i class="bi bi-star-fill"></i> Master
-                                </span>
-                            {% elif current_user.role == 'admin' %}
-                                <span class="badge bg-danger">
-                                    <i class="bi bi-shield-fill-check"></i> Administrador
-                                </span>
-                            {% elif current_user.role == 'advisor' %}
-                                <span class="badge bg-warning">
-                                    <i class="bi bi-headset"></i> Asesor
-                                </span>
+<div class="row animate__animated animate__fadeInUp">
+    <!-- Left Column: Identity Card -->
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-lg h-100">
+            <div class="card-body text-center p-5 position-relative">
+                <!-- Background decoration -->
+                <div class="position-absolute top-0 start-0 w-100 bg-primary rounded-top"
+                    style="height: 100px; opacity: 0.1;">
+                </div>
+
+                <div class="position-relative mb-4 mt-3">
+                    <!-- Avatar Wrapper con Dropdown -->
+                    <!-- Avatar Wrapper con Dropdown -->
+                    <!-- Usamos 'dropend' y un poco de margen para que el menú salga a la derecha y centrado verticalmente -->
+                    <!-- Nota: Para centrar verticalmente el dropend respecto al avatar, usamos d-inline-block o flex -->
+                    <div class="btn-group dropend d-inline-block">
+                        <div class="avatar-container mx-auto avatar-wrapper rounded-circle position-relative shadow overflow-hidden"
+                            style="width: 150px; height: 150px;" id="avatarDropdown" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+
+                            {% if current_user.avatar_file %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_file) }}"
+                                class="object-fit-cover w-100 h-100" alt="Avatar" id="currentAvatarImg">
                             {% else %}
-                                <span class="badge bg-primary">
-                                    <i class="bi bi-person"></i> Usuario
-                                </span>
+                            <div class="bg-light d-flex align-items-center justify-content-center w-100 h-100">
+                                <span class="display-1 text-secondary"><i class="bi bi-person"></i></span>
+                            </div>
                             {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Estado:</th>
-                        <td>
-                            {% if current_user.is_active %}
-                                <span class="badge bg-success">
-                                    <i class="bi bi-check-circle"></i> Activo
-                                </span>
-                            {% else %}
-                                <span class="badge bg-danger">
-                                    <i class="bi bi-x-circle"></i> Inactivo
-                                </span>
+
+                            <!-- Overlay con icono de cámara -->
+                            <div
+                                class="avatar-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-white">
+                                <i class="bi bi-camera-fill fs-3"></i>
+                            </div>
+                        </div>
+
+                        <!-- Menú de Opciones -->
+                        <!-- Agregamos 'dropdown-menu-dark' para modo oscuro o un estilo específico si se requiere -->
+                        <style>
+                            .custom-dark-dropdown .dropdown-item:hover {
+                                background-color: rgba(255, 255, 255, 0.1);
+                                color: #fff;
+                            }
+
+                            .custom-dark-dropdown .dropdown-item {
+                                font-size: 0.9rem;
+                                padding: 0.5rem 1rem;
+                            }
+                        </style>
+                        <ul class="dropdown-menu shadow-lg border-0 ms-1 custom-dark-dropdown"
+                            aria-labelledby="avatarDropdown"
+                            style="background-color: #1e293b; min-width: 160px; z-index: 1050;">
+                            {% if current_user.avatar_file %}
+                            <li>
+                                <a class="dropdown-item text-light" href="#" data-bs-toggle="modal"
+                                    data-bs-target="#viewAvatarModal">
+                                    <i class="bi bi-eye me-2"></i>Ver Foto
+                                </a>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider bg-secondary">
+                            </li>
                             {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Fecha de Registro:</th>
-                        <td>{{ current_user.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                    </tr>
-                    <tr>
-                        <th>Último Acceso:</th>
-                        <td>
-                            {% if current_user.last_login %}
-                                {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }}
-                            {% else %}
-                                Primera vez
-                            {% endif %}
-                        </td>
-                    </tr>
-                </table>
-                
-                <hr>
-                
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-warning">
-                        <i class="bi bi-key"></i> Cambiar Contraseña
-                    </a>
+                            <li>
+                                <a class="dropdown-item text-light" href="#"
+                                    onclick="document.getElementById('avatarInput').click()">
+                                    <i class="bi bi-upload me-2"></i>{{ 'Cambiar Foto' if current_user.avatar_file else
+                                    'Subir Foto' }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Hidden Input -->
+                <input type="file" id="avatarInput" class="d-none" accept="image/*">
+
+                <div class="small text-muted mb-3">
+                    <i class="bi bi-info-circle me-1"></i>Formatos: JPG, PNG, GIF
+                </div>
+
+                <h3 class="fw-bold mb-1">{{ current_user.full_name or 'Usuario' }}</h3>
+                <p class="text-muted mb-3">@{{ current_user.username }}</p>
+
+                <div class="mb-4">
+                    {% if current_user.role == 'master' %}
+                    <span class="badge rounded-pill bg-dark px-3 py-2"><i class="bi bi-star-fill me-1"></i>
+                        Master</span>
+                    {% elif current_user.role == 'admin' %}
+                    <span class="badge rounded-pill bg-danger px-3 py-2"><i class="bi bi-shield-check me-1"></i>
+                        Administrador</span>
+                    {% elif current_user.role == 'advisor' %}
+                    <span class="badge rounded-pill bg-warning text-dark px-3 py-2"><i class="bi bi-headset me-1"></i>
+                        Asesor</span>
+                    {% else %}
+                    <span class="badge rounded-pill bg-primary px-3 py-2"><i class="bi bi-person me-1"></i>
+                        Usuario</span>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex justify-content-center gap-2">
+                    <span class="badge bg-light text-dark border">
+                        <i class="bi bi-calendar-check me-1"></i> Registrado: {{
+                        current_user.created_at.strftime('%d/%m/%Y') }}
+                    </span>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Estadísticas rápidas -->
-    <div class="col-md-4">
-        <div class="card mb-3">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-speedometer2"></i> Acceso Rápido
-                </h5>
+
+    <!-- Right Column: Details & Settings -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-0">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Información Personal</h5>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('products.index') }}" class="btn btn-outline-primary">
-                        <i class="bi bi-box"></i> Productos
+                <form action="{{ url_for('auth.profile') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Nombre Completo</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i
+                                    class="bi bi-person-vcard text-muted"></i></span>
+                            <input type="text" name="full_name" class="form-control border-start-0"
+                                value="{{ current_user.full_name or '' }}" placeholder="Tu nombre completo">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small">Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                                <input type="text" class="form-control" value="{{ current_user.email }}" disabled
+                                    readonly>
+                            </div>
+                            <div class="form-text">El email no se puede cambiar.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small">Usuario</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-at"></i></span>
+                                <input type="text" class="form-control" value="{{ current_user.username }}" disabled
+                                    readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-3">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-save me-2"></i>Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Security Section -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 border-0">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-shield-lock me-2 text-primary"></i>Seguridad</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between p-3 border rounded mb-3 bg-light">
+                    <div>
+                        <h6 class="mb-1 fw-bold">Contraseña</h6>
+                        <small class="text-muted">Se recomienda cambiarla periódicamente para mantener tu cuenta
+                            segura.</small>
+                    </div>
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-warning">
+                        <i class="bi bi-key me-2"></i>Cambiar
                     </a>
-                    <a href="{{ url_for('stock.index') }}" class="btn btn-outline-success">
-                        <i class="bi bi-boxes"></i> Stock
-                    </a>
-                    {% if current_user.is_admin() %}
-                    <hr>
-                    <small class="text-muted">Panel de Administrador</small>
-                    <a href="{{ url_for('auth.admin_users') }}" class="btn btn-outline-danger">
-                        <i class="bi bi-people"></i> Usuarios
-                    </a>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Recorte (Cropper) -->
+<div class="modal fade" id="cropModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-crop me-2"></i>Ajustar Imagen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="img-container">
+                    <img id="imageToCrop" src="" alt="Imagen para recortar">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="cropAndSave">
+                    <span id="saveSpinner" class="spinner-border spinner-border-sm d-none me-1" role="status"
+                        aria-hidden="true"></span>
+                    Guardar Recorte
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver Avatar -->
+<div class="modal fade" id="viewAvatarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-transparent border-0 shadow-none">
+            <div class="modal-body text-center position-relative p-0">
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+                {% if current_user.avatar_file %}
+                <img src="{{ url_for('static', filename='uploads/avatars/' + current_user.avatar_file) }}"
+                    class="img-fluid rounded shadow-lg" style="max-height: 80vh;" alt="Avatar Completo">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts especificos -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const avatarInput = document.getElementById('avatarInput');
+        const imageToCrop = document.getElementById('imageToCrop');
+        const cropModalEl = document.getElementById('cropModal');
+        const cropModal = new bootstrap.Modal(cropModalEl);
+        let cropper;
+
+        // 1. Al seleccionar archivo
+        avatarInput.addEventListener('change', function (e) {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+
+                // Validar tipo
+                if (!file.type.startsWith('image/')) {
+                    alert('Por favor selecciona una imagen válida');
+                    return;
+                }
+
+                // Leer y mostrar en modal
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    imageToCrop.src = evt.target.result;
+                    cropModal.show();
+                }
+                reader.readAsDataURL(file);
+
+                // Limpiar input para permitir seleccionar la misma imagen de nuevo si falla
+                avatarInput.value = '';
+            }
+        });
+
+        // 2. Al abrir el modal, iniciar Cropper
+        cropModalEl.addEventListener('shown.bs.modal', function () {
+            cropper = new Cropper(imageToCrop, {
+                aspectRatio: 1, // Cuadrado
+                viewMode: 1,
+                autoCropArea: 0.8,
+                dragMode: 'move',
+                guides: true,
+                center: true,
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: false,
+            });
+        });
+
+        // 3. Al cerrar el modal, destruir Cropper
+        cropModalEl.addEventListener('hidden.bs.modal', function () {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            imageToCrop.src = "";
+        });
+
+        // 4. Guardar recorte
+        document.getElementById('cropAndSave').addEventListener('click', function () {
+            if (!cropper) return;
+
+            const btn = this;
+            const spinner = document.getElementById('saveSpinner');
+
+            // UI Loading
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            // Obtener blob
+            cropper.getCroppedCanvas({
+                width: 400, // Redimensionar a tamaño razonable
+                height: 400
+            }).toBlob((blob) => {
+                const formData = new FormData();
+                // Usamos 'avatar.jpg' genérico, el backend lo renombra
+                formData.append('avatar', blob, 'avatar.jpg');
+
+                // Enviar via AJAX
+                fetch("{{ url_for('auth.profile') }}", {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            // Recargar para ver cambios
+                            window.location.reload();
+                        } else {
+                            alert('Error al subir la imagen. Intenta de nuevo.');
+                            btn.disabled = false;
+                            spinner.classList.add('d-none');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Error de conexión.');
+                        btn.disabled = false;
+                        spinner.classList.add('d-none');
+                    });
+            }, 'image/jpeg', 0.9); // Calidad 90% JPEG
+        });
+    });
+</script>
 {% endblock %}

@@ -4,7 +4,17 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app import db
 from app.models import User  # ← Import desde models.py
 from functools import wraps
+from functools import wraps
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+from flask import current_app
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -204,10 +214,48 @@ def register():
     
     return render_template('auth/register.html', authorized_count=authorized_count)
 
-@bp.route('/profile')
+@bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
     """Perfil de usuario"""
+    if request.method == 'POST':
+        # 1. Actualizar Info Básica (Formulario de texto)
+        if 'full_name' in request.form:
+            full_name = request.form.get('full_name')
+            if full_name and full_name != current_user.full_name:
+                current_user.full_name = full_name
+                db.session.commit()
+                flash('Información personal actualizada.', 'success')
+            else:
+                flash('No se detectaron cambios en la información.', 'info')
+
+        # 2. Manejar Avatar (Formulario de imagen)
+        if 'avatar' in request.files:
+            file = request.files['avatar']
+            if file and file.filename != '':
+                if allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    # Renombrar: user_{id}.ext
+                    ext = filename.rsplit('.', 1)[1].lower()
+                    new_filename = f"user_{current_user.id}.{ext}"
+                    
+                    # Ruta: app/static/uploads/avatars
+                    upload_folder = os.path.join(current_app.static_folder, 'uploads', 'avatars')
+                    os.makedirs(upload_folder, exist_ok=True)
+                    
+                    file.save(os.path.join(upload_folder, new_filename))
+                    
+                    # Actualizar DB (guardamos solo el nombre del archivo)
+                    # Adicional: forzar actualización de cache del navegador agregando timestamp si se quisiera, 
+                    # pero aquí solo guardamos el nombre.
+                    current_user.avatar_file = new_filename
+                    db.session.commit()
+                    flash('Foto de perfil actualizada.', 'success')
+                else:
+                    flash('Formato de imagen no permitido (solo png, jpg, jpeg, gif).', 'danger')
+
+        return redirect(url_for('auth.profile'))
+
     return render_template('auth/profile.html')
 
 @bp.route('/admin/users', methods=['GET'])

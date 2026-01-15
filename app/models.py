@@ -322,6 +322,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100))
+    avatar_file = db.Column(db.String(255), nullable=True)
     role = db.Column(db.Enum('master', 'admin', 'advisor', 'user'), default='user')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=get_local_time)

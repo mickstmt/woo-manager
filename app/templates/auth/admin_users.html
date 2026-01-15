@@ -150,8 +150,13 @@
         <div class="card user-card h-100 shadow-sm">
             <div class="card-body">
                 <div class="d-flex align-items-start mb-3">
-                    <div class="user-avatar me-3 flex-shrink-0">
+                    <div class="user-avatar me-3 flex-shrink-0" style="overflow: hidden;">
+                        {% if user.avatar_file %}
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar_file) }}" alt="Avatar"
+                            class="w-100 h-100 object-fit-cover">
+                        {% else %}
                         {{ user.username[0]|upper }}
+                        {% endif %}
                     </div>
                     <div class="flex-grow-1 min-w-0">
                         <h5 class="mb-1 text-truncate">
