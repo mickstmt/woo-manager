@@ -17,12 +17,14 @@
     <!-- Tabs -->
     <ul class="nav nav-tabs mb-4" id="catalogTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="types-tab" data-bs-toggle="tab" data-bs-target="#types" type="button" role="tab">
+            <button class="nav-link active" id="types-tab" data-bs-toggle="tab" data-bs-target="#types" type="button"
+                role="tab">
                 <i class="bi bi-folder"></i> Tipos de Gasto
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button" role="tab">
+            <button class="nav-link" id="categories-tab" data-bs-toggle="tab" data-bs-target="#categories" type="button"
+                role="tab">
                 <i class="bi bi-tag"></i> Categorías
             </button>
         </li>
@@ -119,7 +121,8 @@
                 </div>
                 <div class="mb-3">
                     <label for="typeDescription" class="form-label">Descripción</label>
-                    <textarea class="form-control" id="typeDescription" rows="3" placeholder="Descripción opcional"></textarea>
+                    <textarea class="form-control" id="typeDescription" rows="3"
+                        placeholder="Descripción opcional"></textarea>
                 </div>
                 <div class="mb-3">
                     <label for="typeOrder" class="form-label">Orden</label>
@@ -147,7 +150,8 @@
             <div class="modal-body">
                 <input type="hidden" id="categoryId">
                 <div class="mb-3">
-                    <label for="categoryType" class="form-label">Tipo de Gasto <span class="text-danger">*</span></label>
+                    <label for="categoryType" class="form-label">Tipo de Gasto <span
+                            class="text-danger">*</span></label>
                     <select class="form-select" id="categoryType">
                         <option value="">-- Seleccione un tipo --</option>
                     </select>
@@ -160,7 +164,8 @@
                 </div>
                 <div class="mb-3">
                     <label for="categoryDescription" class="form-label">Descripción</label>
-                    <textarea class="form-control" id="categoryDescription" rows="3" placeholder="Descripción opcional"></textarea>
+                    <textarea class="form-control" id="categoryDescription" rows="3"
+                        placeholder="Descripción opcional"></textarea>
                 </div>
                 <div class="mb-3">
                     <label for="categoryOrder" class="form-label">Orden</label>
@@ -199,78 +204,67 @@
     </div>
 </div>
 
-<!-- Toast Container -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
-    <div id="notificationToast" class="toast" role="alert">
-        <div class="toast-header" id="toastHeader">
-            <i class="bi me-2" id="toastIcon"></i>
-            <strong class="me-auto" id="toastTitle">Notificación</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-        </div>
-        <div class="toast-body" id="toastBody">Mensaje</div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Variables globales
-let types = [];
-let categories = [];
-let typeModal, categoryModal, confirmDeleteModal;
-let deleteAction = null;
+    // Variables globales
+    let types = [];
+    let categories = [];
+    let typeModal, categoryModal, confirmDeleteModal;
+    let deleteAction = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar modales
-    typeModal = new bootstrap.Modal(document.getElementById('typeModal'));
-    categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
-    confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+    document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar modales
+        typeModal = new bootstrap.Modal(document.getElementById('typeModal'));
+        categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        confirmDeleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
 
-    // Cargar datos
-    loadTypes();
-    loadCategories();
+        // Cargar datos
+        loadTypes();
+        loadCategories();
 
-    // Event listeners
-    document.getElementById('btnSaveType').addEventListener('click', saveType);
-    document.getElementById('btnSaveCategory').addEventListener('click', saveCategory);
-    document.getElementById('btnConfirmDelete').addEventListener('click', executeDelete);
-});
+        // Event listeners
+        document.getElementById('btnSaveType').addEventListener('click', saveType);
+        document.getElementById('btnSaveCategory').addEventListener('click', saveCategory);
+        document.getElementById('btnConfirmDelete').addEventListener('click', executeDelete);
+    });
 
-// === TIPOS DE GASTO ===
+    // === TIPOS DE GASTO ===
 
-async function loadTypes() {
-    try {
-        const response = await fetch('/expenses/types');
-        const data = await response.json();
+    async function loadTypes() {
+        try {
+            const response = await fetch('/expenses/types');
+            const data = await response.json();
 
-        if (data.success) {
-            types = data.types;
-            renderTypes();
-            populateTypeSelect();
+            if (data.success) {
+                types = data.types;
+                renderTypes();
+                populateTypeSelect();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('error', 'Error al cargar tipos');
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('error', 'Error al cargar tipos');
     }
-}
 
-function renderTypes() {
-    const tbody = document.getElementById('types-tbody');
+    function renderTypes() {
+        const tbody = document.getElementById('types-tbody');
 
-    if (types.length === 0) {
-        tbody.innerHTML = `
+        if (types.length === 0) {
+            tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="text-center py-4 text-muted">
                     No hay tipos registrados
                 </td>
             </tr>
         `;
-        return;
-    }
+            return;
+        }
 
-    tbody.innerHTML = types.map(type => {
-        const catCount = categories.filter(c => c.expense_type_id === type.id).length;
-        return `
+        tbody.innerHTML = types.map(type => {
+            const catCount = categories.filter(c => c.expense_type_id === type.id).length;
+            return `
             <tr>
                 <td class="text-center">${type.orden}</td>
                 <td><strong>${type.nombre}</strong></td>
@@ -288,108 +282,71 @@ function renderTypes() {
                 </td>
             </tr>
         `;
-    }).join('');
-}
-
-function showAddTypeModal() {
-    document.getElementById('typeModalTitle').textContent = 'Agregar Tipo de Gasto';
-    document.getElementById('typeId').value = '';
-    document.getElementById('typeName').value = '';
-    document.getElementById('typeDescription').value = '';
-    document.getElementById('typeOrder').value = '0';
-    document.getElementById('typeName').classList.remove('is-invalid');
-    typeModal.show();
-}
-
-function editType(typeId) {
-    const type = types.find(t => t.id === typeId);
-    if (!type) return;
-
-    document.getElementById('typeModalTitle').textContent = 'Editar Tipo de Gasto';
-    document.getElementById('typeId').value = type.id;
-    document.getElementById('typeName').value = type.nombre;
-    document.getElementById('typeDescription').value = type.descripcion || '';
-    document.getElementById('typeOrder').value = type.orden;
-    document.getElementById('typeName').classList.remove('is-invalid');
-    typeModal.show();
-}
-
-async function saveType() {
-    const id = document.getElementById('typeId').value;
-    const nombre = document.getElementById('typeName').value.trim();
-    const descripcion = document.getElementById('typeDescription').value.trim();
-    const orden = parseInt(document.getElementById('typeOrder').value);
-
-    const nameInput = document.getElementById('typeName');
-    const errorDiv = document.getElementById('typeNameError');
-
-    if (!nombre) {
-        nameInput.classList.add('is-invalid');
-        errorDiv.textContent = 'El nombre es requerido';
-        return;
+        }).join('');
     }
 
-    const btn = document.getElementById('btnSaveType');
-    btn.disabled = true;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+    function showAddTypeModal() {
+        document.getElementById('typeModalTitle').textContent = 'Agregar Tipo de Gasto';
+        document.getElementById('typeId').value = '';
+        document.getElementById('typeName').value = '';
+        document.getElementById('typeDescription').value = '';
+        document.getElementById('typeOrder').value = '0';
+        document.getElementById('typeName').classList.remove('is-invalid');
+        typeModal.show();
+    }
 
-    try {
-        const url = id ? `/expenses/types/${id}` : '/expenses/types/create';
-        const method = id ? 'PUT' : 'POST';
+    function editType(typeId) {
+        const type = types.find(t => t.id === typeId);
+        if (!type) return;
 
-        const response = await fetch(url, {
-            method: method,
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ nombre, descripcion, orden })
-        });
+        document.getElementById('typeModalTitle').textContent = 'Editar Tipo de Gasto';
+        document.getElementById('typeId').value = type.id;
+        document.getElementById('typeName').value = type.nombre;
+        document.getElementById('typeDescription').value = type.descripcion || '';
+        document.getElementById('typeOrder').value = type.orden;
+        document.getElementById('typeName').classList.remove('is-invalid');
+        typeModal.show();
+    }
 
-        const data = await response.json();
+    async function saveType() {
+        const id = document.getElementById('typeId').value;
+        const nombre = document.getElementById('typeName').value.trim();
+        const descripcion = document.getElementById('typeDescription').value.trim();
+        const orden = parseInt(document.getElementById('typeOrder').value);
 
-        if (data.success) {
-            showNotification('success', data.message);
-            typeModal.hide();
-            loadTypes();
-        } else {
+        const nameInput = document.getElementById('typeName');
+        const errorDiv = document.getElementById('typeNameError');
+
+        if (!nombre) {
             nameInput.classList.add('is-invalid');
-            errorDiv.textContent = data.error;
+            errorDiv.textContent = 'El nombre es requerido';
+            return;
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('error', 'Error de conexión');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-    }
-}
 
-function confirmDeleteType(typeId) {
-    const type = types.find(t => t.id === typeId);
-    if (!type) return;
-
-    document.getElementById('deleteMessage').textContent =
-        `¿Está seguro de eliminar el tipo "${type.nombre}"?`;
-
-    deleteAction = async () => {
-        const btn = document.getElementById('btnConfirmDelete');
+        const btn = document.getElementById('btnSaveType');
         btn.disabled = true;
         const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
 
         try {
-            const response = await fetch(`/expenses/types/${typeId}`, {
-                method: 'DELETE'
+            const url = id ? `/expenses/types/${id}` : '/expenses/types/create';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, descripcion, orden })
             });
 
             const data = await response.json();
 
             if (data.success) {
                 showNotification('success', data.message);
-                confirmDeleteModal.hide();
+                typeModal.hide();
                 loadTypes();
-                loadCategories();
             } else {
-                showNotification('error', data.error);
+                nameInput.classList.add('is-invalid');
+                errorDiv.textContent = data.error;
             }
         } catch (error) {
             console.error('Error:', error);
@@ -398,43 +355,80 @@ function confirmDeleteType(typeId) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
         }
-    };
-
-    confirmDeleteModal.show();
-}
-
-// === CATEGORÍAS ===
-
-async function loadCategories() {
-    try {
-        const response = await fetch('/expenses/categories');
-        const data = await response.json();
-
-        if (data.success) {
-            categories = data.categories;
-            renderCategories();
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('error', 'Error al cargar categorías');
     }
-}
 
-function renderCategories() {
-    const tbody = document.getElementById('categories-tbody');
+    function confirmDeleteType(typeId) {
+        const type = types.find(t => t.id === typeId);
+        if (!type) return;
 
-    if (categories.length === 0) {
-        tbody.innerHTML = `
+        document.getElementById('deleteMessage').textContent =
+            `¿Está seguro de eliminar el tipo "${type.nombre}"?`;
+
+        deleteAction = async () => {
+            const btn = document.getElementById('btnConfirmDelete');
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+
+            try {
+                const response = await fetch(`/expenses/types/${typeId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('success', data.message);
+                    confirmDeleteModal.hide();
+                    loadTypes();
+                    loadCategories();
+                } else {
+                    showNotification('error', data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('error', 'Error de conexión');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        confirmDeleteModal.show();
+    }
+
+    // === CATEGORÍAS ===
+
+    async function loadCategories() {
+        try {
+            const response = await fetch('/expenses/categories');
+            const data = await response.json();
+
+            if (data.success) {
+                categories = data.categories;
+                renderCategories();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('error', 'Error al cargar categorías');
+        }
+    }
+
+    function renderCategories() {
+        const tbody = document.getElementById('categories-tbody');
+
+        if (categories.length === 0) {
+            tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="text-center py-4 text-muted">
                     No hay categorías registradas
                 </td>
             </tr>
         `;
-        return;
-    }
+            return;
+        }
 
-    tbody.innerHTML = categories.map(cat => `
+        tbody.innerHTML = categories.map(cat => `
         <tr>
             <td class="text-center">${cat.orden}</td>
             <td><span class="badge bg-primary">${cat.expense_type_nombre || 'N/A'}</span></td>
@@ -450,130 +444,93 @@ function renderCategories() {
             </td>
         </tr>
     `).join('');
-}
-
-function populateTypeSelect() {
-    const select = document.getElementById('categoryType');
-    select.innerHTML = '<option value="">-- Seleccione un tipo --</option>' +
-        types.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
-}
-
-function showAddCategoryModal() {
-    document.getElementById('categoryModalTitle').textContent = 'Agregar Categoría';
-    document.getElementById('categoryId').value = '';
-    document.getElementById('categoryType').value = '';
-    document.getElementById('categoryName').value = '';
-    document.getElementById('categoryDescription').value = '';
-    document.getElementById('categoryOrder').value = '0';
-    document.getElementById('categoryType').classList.remove('is-invalid');
-    document.getElementById('categoryName').classList.remove('is-invalid');
-    categoryModal.show();
-}
-
-function editCategory(categoryId) {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return;
-
-    document.getElementById('categoryModalTitle').textContent = 'Editar Categoría';
-    document.getElementById('categoryId').value = category.id;
-    document.getElementById('categoryType').value = category.expense_type_id;
-    document.getElementById('categoryName').value = category.nombre;
-    document.getElementById('categoryDescription').value = category.descripcion || '';
-    document.getElementById('categoryOrder').value = category.orden;
-    document.getElementById('categoryType').classList.remove('is-invalid');
-    document.getElementById('categoryName').classList.remove('is-invalid');
-    categoryModal.show();
-}
-
-async function saveCategory() {
-    const id = document.getElementById('categoryId').value;
-    const expense_type_id = parseInt(document.getElementById('categoryType').value);
-    const nombre = document.getElementById('categoryName').value.trim();
-    const descripcion = document.getElementById('categoryDescription').value.trim();
-    const orden = parseInt(document.getElementById('categoryOrder').value);
-
-    const typeInput = document.getElementById('categoryType');
-    const nameInput = document.getElementById('categoryName');
-    const typeError = document.getElementById('categoryTypeError');
-    const nameError = document.getElementById('categoryNameError');
-
-    let isValid = true;
-
-    if (!expense_type_id) {
-        typeInput.classList.add('is-invalid');
-        typeError.textContent = 'Debe seleccionar un tipo';
-        isValid = false;
     }
 
-    if (!nombre) {
-        nameInput.classList.add('is-invalid');
-        nameError.textContent = 'El nombre es requerido';
-        isValid = false;
+    function populateTypeSelect() {
+        const select = document.getElementById('categoryType');
+        select.innerHTML = '<option value="">-- Seleccione un tipo --</option>' +
+            types.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
     }
 
-    if (!isValid) return;
+    function showAddCategoryModal() {
+        document.getElementById('categoryModalTitle').textContent = 'Agregar Categoría';
+        document.getElementById('categoryId').value = '';
+        document.getElementById('categoryType').value = '';
+        document.getElementById('categoryName').value = '';
+        document.getElementById('categoryDescription').value = '';
+        document.getElementById('categoryOrder').value = '0';
+        document.getElementById('categoryType').classList.remove('is-invalid');
+        document.getElementById('categoryName').classList.remove('is-invalid');
+        categoryModal.show();
+    }
 
-    const btn = document.getElementById('btnSaveCategory');
-    btn.disabled = true;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+    function editCategory(categoryId) {
+        const category = categories.find(c => c.id === categoryId);
+        if (!category) return;
 
-    try {
-        const url = id ? `/expenses/categories/${id}` : '/expenses/categories/create';
-        const method = id ? 'PUT' : 'POST';
+        document.getElementById('categoryModalTitle').textContent = 'Editar Categoría';
+        document.getElementById('categoryId').value = category.id;
+        document.getElementById('categoryType').value = category.expense_type_id;
+        document.getElementById('categoryName').value = category.nombre;
+        document.getElementById('categoryDescription').value = category.descripcion || '';
+        document.getElementById('categoryOrder').value = category.orden;
+        document.getElementById('categoryType').classList.remove('is-invalid');
+        document.getElementById('categoryName').classList.remove('is-invalid');
+        categoryModal.show();
+    }
 
-        const response = await fetch(url, {
-            method: method,
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ expense_type_id, nombre, descripcion, orden })
-        });
+    async function saveCategory() {
+        const id = document.getElementById('categoryId').value;
+        const expense_type_id = parseInt(document.getElementById('categoryType').value);
+        const nombre = document.getElementById('categoryName').value.trim();
+        const descripcion = document.getElementById('categoryDescription').value.trim();
+        const orden = parseInt(document.getElementById('categoryOrder').value);
 
-        const data = await response.json();
+        const typeInput = document.getElementById('categoryType');
+        const nameInput = document.getElementById('categoryName');
+        const typeError = document.getElementById('categoryTypeError');
+        const nameError = document.getElementById('categoryNameError');
 
-        if (data.success) {
-            showNotification('success', data.message);
-            categoryModal.hide();
-            loadCategories();
-        } else {
-            nameInput.classList.add('is-invalid');
-            nameError.textContent = data.error;
+        let isValid = true;
+
+        if (!expense_type_id) {
+            typeInput.classList.add('is-invalid');
+            typeError.textContent = 'Debe seleccionar un tipo';
+            isValid = false;
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('error', 'Error de conexión');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-    }
-}
 
-function confirmDeleteCategory(categoryId) {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return;
+        if (!nombre) {
+            nameInput.classList.add('is-invalid');
+            nameError.textContent = 'El nombre es requerido';
+            isValid = false;
+        }
 
-    document.getElementById('deleteMessage').textContent =
-        `¿Está seguro de eliminar la categoría "${category.nombre}"?`;
+        if (!isValid) return;
 
-    deleteAction = async () => {
-        const btn = document.getElementById('btnConfirmDelete');
+        const btn = document.getElementById('btnSaveCategory');
         btn.disabled = true;
         const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
 
         try {
-            const response = await fetch(`/expenses/categories/${categoryId}`, {
-                method: 'DELETE'
+            const url = id ? `/expenses/categories/${id}` : '/expenses/categories/create';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expense_type_id, nombre, descripcion, orden })
             });
 
             const data = await response.json();
 
             if (data.success) {
                 showNotification('success', data.message);
-                confirmDeleteModal.hide();
+                categoryModal.hide();
                 loadCategories();
-                loadTypes(); // Recargar para actualizar contadores
             } else {
-                showNotification('error', data.error);
+                nameInput.classList.add('is-invalid');
+                nameError.textContent = data.error;
             }
         } catch (error) {
             console.error('Error:', error);
@@ -582,63 +539,70 @@ function confirmDeleteCategory(categoryId) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
         }
-    };
-
-    confirmDeleteModal.show();
-}
-
-async function executeDelete() {
-    if (deleteAction) {
-        await deleteAction();
-        deleteAction = null;
-    }
-}
-
-// Notificaciones
-function showNotification(type, message) {
-    const toastEl = document.getElementById('notificationToast');
-    const toastHeader = document.getElementById('toastHeader');
-    const toastIcon = document.getElementById('toastIcon');
-    const toastTitle = document.getElementById('toastTitle');
-    const toastBody = document.getElementById('toastBody');
-
-    let bgClass, iconClass, title;
-
-    switch (type) {
-        case 'success':
-            bgClass = 'bg-success text-white';
-            iconClass = 'bi-check-circle-fill text-white';
-            title = 'Éxito';
-            break;
-        case 'error':
-            bgClass = 'bg-danger text-white';
-            iconClass = 'bi-x-circle-fill text-white';
-            title = 'Error';
-            break;
-        default:
-            bgClass = 'bg-info text-white';
-            iconClass = 'bi-info-circle-fill text-white';
-            title = 'Información';
-            break;
     }
 
-    toastHeader.className = `toast-header ${bgClass}`;
-    toastIcon.className = `bi me-2 ${iconClass}`;
-    toastTitle.textContent = title;
-    toastBody.textContent = message;
+    function confirmDeleteCategory(categoryId) {
+        const category = categories.find(c => c.id === categoryId);
+        if (!category) return;
 
-    const closeBtn = toastHeader.querySelector('.btn-close');
-    if (bgClass.includes('text-white')) {
-        closeBtn.classList.add('btn-close-white');
-    } else {
-        closeBtn.classList.remove('btn-close-white');
+        document.getElementById('deleteMessage').textContent =
+            `¿Está seguro de eliminar la categoría "${category.nombre}"?`;
+
+        deleteAction = async () => {
+            const btn = document.getElementById('btnConfirmDelete');
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Eliminando...';
+
+            try {
+                const response = await fetch(`/expenses/categories/${categoryId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('success', data.message);
+                    confirmDeleteModal.hide();
+                    loadCategories();
+                    loadTypes(); // Recargar para actualizar contadores
+                } else {
+                    showNotification('error', data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('error', 'Error de conexión');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        confirmDeleteModal.show();
     }
 
-    const toast = new bootstrap.Toast(toastEl, {
-        autohide: true,
-        delay: 4000
-    });
-    toast.show();
-}
+    async function executeDelete() {
+        if (deleteAction) {
+            await deleteAction();
+            deleteAction = null;
+        }
+    }
+
+    /**
+     * Mostrar notificación global
+     * @param {string} type - 'success', 'error', 'warning', 'info'
+     * @param {string} message - Mensaje del toast
+     */
+    function showNotification(type, message) {
+        // Mapear 'error' a 'danger' para consistencia con Bootstrap
+        const category = type === 'error' ? 'danger' : type;
+
+        // Usar la función global centralizada en base.html
+        if (window.showNotification) {
+            window.showNotification(category, message);
+        } else {
+            console.log(`Notification (${category}): ${message}`);
+        }
+    }
 </script>
 {% endblock %}

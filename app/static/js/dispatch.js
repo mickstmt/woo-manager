@@ -671,54 +671,18 @@ async function addDispatchNote() {
 }
 
 /**
- * Mostrar toast de Bootstrap
+ * Mostrar notificación global
  * @param {string} type - 'success', 'danger', 'warning', 'info'
  * @param {string} title - Título del toast
  * @param {string} message - Mensaje del toast
  */
 function showToast(type, title, message) {
-    const toastContainer = document.querySelector('.toast-container');
-
-    // Determinar ícono según tipo
-    const icons = {
-        'success': 'bi-check-circle-fill',
-        'danger': 'bi-x-circle-fill',
-        'warning': 'bi-exclamation-triangle-fill',
-        'info': 'bi-info-circle-fill'
-    };
-
-    const icon = icons[type] || icons['info'];
-
-    // Crear el toast
-    const toastId = 'toast-' + Date.now();
-    const toastHtml = `
-        <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    <i class="bi ${icon} me-2"></i>
-                    <strong>${title}:</strong> ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-
-    // Insertar en el contenedor
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-
-    // Obtener el elemento y mostrarlo
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, {
-        autohide: true,
-        delay: 3000
-    });
-
-    toast.show();
-
-    // Eliminar el toast del DOM después de ocultarse
-    toastElement.addEventListener('hidden.bs.toast', function() {
-        toastElement.remove();
-    });
+    // Usar la función global centralizada en base.html
+    if (typeof showNotification === 'function') {
+        showNotification(type, `${title}: ${message}`);
+    } else {
+        console.log(`Notification (${type}): ${title} - ${message}`);
+    }
 }
 
 /**

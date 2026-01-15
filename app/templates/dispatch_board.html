@@ -45,11 +45,13 @@
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Fecha desde</label>
-                            <input type="date" class="form-control" id="filter-date-from" autocomplete="off" placeholder="dd/mm/aaaa">
+                            <input type="date" class="form-control" id="filter-date-from" autocomplete="off"
+                                placeholder="dd/mm/aaaa">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Fecha hasta</label>
-                            <input type="date" class="form-control" id="filter-date-to" autocomplete="off" placeholder="dd/mm/aaaa">
+                            <input type="date" class="form-control" id="filter-date-to" autocomplete="off"
+                                placeholder="dd/mm/aaaa">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Filtros</label>
@@ -188,14 +190,16 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-prev-order" onclick="navigateOrder('prev')" title="Pedido anterior">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-prev-order"
+                        onclick="navigateOrder('prev')" title="Pedido anterior">
                         <i class="bi bi-chevron-left"></i>
                     </button>
                     <h5 class="modal-title mb-0">
                         <i class="bi bi-receipt"></i>
                         Pedido <span id="modal-order-number"></span>
                     </h5>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-next-order" onclick="navigateOrder('next')" title="Pedido siguiente">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-next-order"
+                        onclick="navigateOrder('next')" title="Pedido siguiente">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>
@@ -321,7 +325,8 @@
                 <div class="mb-4">
                     <h6 class="border-bottom pb-2">Nota de Despacho</h6>
                     <div class="mb-3">
-                        <textarea class="form-control" id="dispatch-note-input" rows="3" placeholder="Escribir nota sobre el despacho..."></textarea>
+                        <textarea class="form-control" id="dispatch-note-input" rows="3"
+                            placeholder="Escribir nota sobre el despacho..."></textarea>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="addDispatchNote()">
                         <i class="bi bi-plus-circle"></i> Guardar Nota
@@ -360,7 +365,8 @@
                 <form id="tracking-form">
                     <div class="mb-3">
                         <label for="tracking-number" class="form-label">Número de Tracking *</label>
-                        <input type="text" class="form-control" id="tracking-number" placeholder="Ej: IZI26010841608660" required>
+                        <input type="text" class="form-control" id="tracking-number" placeholder="Ej: IZI26010841608660"
+                            required>
                         <small class="form-text text-muted">Ingrese el código de seguimiento del envío</small>
                     </div>
 
@@ -389,7 +395,8 @@
                             Marcar como "Completado" y enviar email al cliente
                         </label>
                         <small class="form-text text-muted d-block">
-                            Al activar esta opción, el pedido cambiará a estado "Completado" y se enviará un email al cliente con la información de tracking.
+                            Al activar esta opción, el pedido cambiará a estado "Completado" y se enviará un email al
+                            cliente con la información de tracking.
                         </small>
                     </div>
                 </form>
@@ -404,13 +411,9 @@
     </div>
 </div>
 
-<!-- Contenedor de Toasts para notificaciones -->
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    <!-- Los toasts se insertarán aquí dinámicamente -->
-</div>
-
 <!-- Loading overlay para drag & drop -->
-<div id="drag-loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9998; align-items: center; justify-content: center;">
+<div id="drag-loading-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9998; align-items: center; justify-content: center;">
     <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
         <span class="visually-hidden">Moviendo pedido...</span>
     </div>
