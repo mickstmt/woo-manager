@@ -5,39 +5,39 @@
 {% block extra_css %}
 <style>
     .product-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
         color: white;
         padding: 30px;
         border-radius: 15px;
         margin-bottom: 30px;
     }
-    
+
     .product-image {
         width: 100%;
         max-width: 400px;
         border-radius: 15px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     }
-    
+
     .info-card {
         border-radius: 10px;
         border: none;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         margin-bottom: 20px;
     }
-    
+
     .info-card .card-header {
         background-color: #f8f9fa;
         border-bottom: 2px solid #e9ecef;
         font-weight: 600;
     }
-    
+
     .badge-custom {
         padding: 8px 15px;
         border-radius: 20px;
         font-size: 0.9rem;
     }
-    
+
     .variation-item {
         border: 1px solid #e9ecef;
         border-radius: 10px;
@@ -45,17 +45,17 @@
         margin-bottom: 10px;
         transition: all 0.3s;
     }
-    
+
     .variation-item:hover {
-        border-color: #667eea;
+        border-color: #F39200;
         background-color: #f8f9ff;
     }
-    
+
     .history-timeline {
         position: relative;
         padding-left: 30px;
     }
-    
+
     .history-timeline::before {
         content: '';
         position: absolute;
@@ -65,7 +65,7 @@
         width: 2px;
         background: #e9ecef;
     }
-    
+
     .history-item {
         position: relative;
         padding: 15px;
@@ -74,7 +74,7 @@
         border-radius: 10px;
         border: 1px solid #e9ecef;
     }
-    
+
     .history-item::before {
         content: '';
         position: absolute;
@@ -83,9 +83,9 @@
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background: #667eea;
+        background: #F39200;
         border: 3px solid white;
-        box-shadow: 0 0 0 2px #667eea;
+        box-shadow: 0 0 0 2px #F39200;
     }
 </style>
 {% endblock %}
@@ -100,7 +100,8 @@
             </a>
             <h2 class="mb-2">{{ product.title }}</h2>
             <p class="mb-0">
-                <span class="badge badge-custom {% if product.status == 'publish' %}bg-success{% else %}bg-secondary{% endif %}">
+                <span
+                    class="badge badge-custom {% if product.status == 'publish' %}bg-success{% else %}bg-secondary{% endif %}">
                     {{ product.status|upper }}
                 </span>
                 <span class="badge badge-custom bg-info">
@@ -132,7 +133,7 @@
                 {% endif %}
             </div>
         </div>
-        
+
         <!-- Acciones rápidas -->
         <div class="card info-card">
             <div class="card-header">
@@ -148,15 +149,15 @@
                         <i class="bi bi-tag"></i> Actualizar Precio
                     </button>
                     {% endif %}
-                    <a href="https://www.izistoreperu.com/wp-admin/post.php?post={{ product.id }}&action=edit" 
-                       target="_blank" class="btn btn-secondary">
+                    <a href="https://www.izistoreperu.com/wp-admin/post.php?post={{ product.id }}&action=edit"
+                        target="_blank" class="btn btn-secondary">
                         <i class="bi bi-pencil"></i> Editar en WordPress
                     </a>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Columna derecha - Detalles -->
     <div class="col-md-8">
         <!-- Información de precios -->
@@ -183,7 +184,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Información de stock -->
         <div class="card info-card">
             <div class="card-header">
@@ -199,7 +200,9 @@
                     </div>
                     <div class="col-md-3">
                         <h6 class="text-muted">Estado</h6>
-                        <span class="badge {% if product.stock_status == 'instock' %}bg-success{% else %}bg-danger{% endif %}" style="font-size: 1rem;">
+                        <span
+                            class="badge {% if product.stock_status == 'instock' %}bg-success{% else %}bg-danger{% endif %}"
+                            style="font-size: 1rem;">
                             {% if product.stock_status == 'instock' %}
                             En Stock
                             {% else %}
@@ -209,7 +212,8 @@
                     </div>
                     <div class="col-md-3">
                         <h6 class="text-muted">Gestionar Stock</h6>
-                        <span class="badge {% if product.manage_stock == 'yes' %}bg-primary{% else %}bg-secondary{% endif %}">
+                        <span
+                            class="badge {% if product.manage_stock == 'yes' %}bg-primary{% else %}bg-secondary{% endif %}">
                             {{ 'SÍ' if product.manage_stock == 'yes' else 'NO' }}
                         </span>
                     </div>
@@ -222,7 +226,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Categorías -->
         {% if categories %}
         <div class="card info-card">
@@ -238,7 +242,7 @@
             </div>
         </div>
         {% endif %}
-        
+
         <!-- Descripción -->
         {% if product.short_description %}
         <div class="card info-card">
@@ -250,7 +254,7 @@
             </div>
         </div>
         {% endif %}
-        
+
         <!-- Dimensiones -->
         {% if product.weight or product.length or product.width or product.height %}
         <div class="card info-card">
@@ -287,7 +291,7 @@
             </div>
         </div>
         {% endif %}
-        
+
         <!-- Variaciones -->
         {% if variations %}
         <div class="card info-card">
@@ -308,7 +312,8 @@
                             {% endif %}
                         </div>
                         <div class="col-md-4">
-                            <a href="{{ url_for('products.view_product', product_id=var.id) }}" class="text-decoration-none">
+                            <a href="{{ url_for('products.view_product', product_id=var.id) }}"
+                                class="text-decoration-none">
                                 <strong>{{ var.title }}</strong>
                             </a>
                             <br>
@@ -325,7 +330,8 @@
                             </strong>
                         </div>
                         <div class="col-md-2 text-end">
-                            <a href="{{ url_for('products.view_product', product_id=var.id) }}" class="btn btn-sm btn-primary">
+                            <a href="{{ url_for('products.view_product', product_id=var.id) }}"
+                                class="btn btn-sm btn-primary">
                                 Ver Detalles
                             </a>
                         </div>
@@ -335,7 +341,7 @@
             </div>
         </div>
         {% endif %}
-        
+
         <!-- Historial de Stock -->
         {% if stock_history %}
         <div class="card info-card">
@@ -349,7 +355,8 @@
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <strong>{{ history.changed_by }}</strong>
-                                <small class="text-muted d-block">{{ history.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                <small class="text-muted d-block">{{ history.created_at.strftime('%d/%m/%Y %H:%M')
+                                    }}</small>
                                 <p class="mb-0 mt-2">{{ history.change_reason }}</p>
                             </div>
                             <div class="text-end">
@@ -358,7 +365,8 @@
                                     <i class="bi bi-arrow-right mx-1"></i>
                                     <span class="badge bg-primary">{{ history.new_stock }}</span>
                                 </div>
-                                <small class="text-{% if history.change_amount > 0 %}success{% else %}danger{% endif %}">
+                                <small
+                                    class="text-{% if history.change_amount > 0 %}success{% else %}danger{% endif %}">
                                     {% if history.change_amount > 0 %}+{% endif %}{{ history.change_amount }}
                                 </small>
                             </div>
@@ -369,7 +377,7 @@
             </div>
         </div>
         {% endif %}
-        
+
         <!-- Producto Padre (si es variación) -->
         {% if parent_product %}
         <div class="card info-card">
@@ -377,7 +385,8 @@
                 <i class="bi bi-link-45deg"></i> Producto Padre
             </div>
             <div class="card-body">
-                <a href="{{ url_for('products.view_product', product_id=parent_product.ID) }}" class="btn btn-outline-primary">
+                <a href="{{ url_for('products.view_product', product_id=parent_product.ID) }}"
+                    class="btn btn-outline-primary">
                     <i class="bi bi-box"></i> {{ parent_product.post_title }}
                 </a>
             </div>
@@ -423,11 +432,13 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">Precio Regular</label>
-                    <input type="number" class="form-control" id="new-regular-price" step="0.01" value="{{ product.regular_price }}">
+                    <input type="number" class="form-control" id="new-regular-price" step="0.01"
+                        value="{{ product.regular_price }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Precio Oferta (opcional)</label>
-                    <input type="number" class="form-control" id="new-sale-price" step="0.01" value="{{ product.sale_price }}">
+                    <input type="number" class="form-control" id="new-sale-price" step="0.01"
+                        value="{{ product.sale_price }}">
                 </div>
             </div>
             <div class="modal-footer">
@@ -441,71 +452,71 @@
 
 {% block extra_js %}
 <script>
-function showEditStockModal() {
-    let modal = new bootstrap.Modal(document.getElementById('editStockModal'));
-    modal.show();
-}
+    function showEditStockModal() {
+        let modal = new bootstrap.Modal(document.getElementById('editStockModal'));
+        modal.show();
+    }
 
-function showEditPriceModal() {
-    let modal = new bootstrap.Modal(document.getElementById('editPriceModal'));
-    modal.show();
-}
+    function showEditPriceModal() {
+        let modal = new bootstrap.Modal(document.getElementById('editPriceModal'));
+        modal.show();
+    }
 
-function updateStock() {
-    let newStock = $('#new-stock').val();
-    let reason = $('#stock-reason').val() || 'Actualización manual';
-    
-    $.ajax({
-        url: '/stock/update/{{ product.id }}',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            stock: parseInt(newStock),
-            reason: reason
-        }),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', 'Stock actualizado correctamente');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showNotification('error', response.error || 'Error al actualizar');
+    function updateStock() {
+        let newStock = $('#new-stock').val();
+        let reason = $('#stock-reason').val() || 'Actualización manual';
+
+        $.ajax({
+            url: '/stock/update/{{ product.id }}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                stock: parseInt(newStock),
+                reason: reason
+            }),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', 'Stock actualizado correctamente');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification('error', response.error || 'Error al actualizar');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error al actualizar el stock');
             }
-        },
-        error: function() {
-            showNotification('error', 'Error al actualizar el stock');
-        }
-    });
-}
+        });
+    }
 
-function updatePrice() {
-    let regularPrice = $('#new-regular-price').val();
-    let salePrice = $('#new-sale-price').val();
-    
-    $.ajax({
-        url: '/prices/update/{{ product.id }}',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            regular_price: parseFloat(regularPrice),
-            sale_price: salePrice ? parseFloat(salePrice) : null
-        }),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', 'Precio actualizado correctamente');
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                showNotification('error', response.error || 'Error al actualizar');
+    function updatePrice() {
+        let regularPrice = $('#new-regular-price').val();
+        let salePrice = $('#new-sale-price').val();
+
+        $.ajax({
+            url: '/prices/update/{{ product.id }}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                regular_price: parseFloat(regularPrice),
+                sale_price: salePrice ? parseFloat(salePrice) : null
+            }),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', 'Precio actualizado correctamente');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification('error', response.error || 'Error al actualizar');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error al actualizar el precio');
             }
-        },
-        error: function() {
-            showNotification('error', 'Error al actualizar el precio');
-        }
-    });
-}
+        });
+    }
 
-function showNotification(type, message) {
-    // Puedes reutilizar la función de notificaciones que ya tienes
-    alert(message);
-}
+    function showNotification(type, message) {
+        // Puedes reutilizar la función de notificaciones que ya tienes
+        alert(message);
+    }
 </script>
 {% endblock %}

@@ -8,26 +8,26 @@
         max-width: 500px;
         margin: 50px auto;
     }
-    
+
     .register-card {
         border: none;
         border-radius: 15px;
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     }
-    
+
     .register-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
         color: white;
         border-radius: 15px 15px 0 0;
         padding: 30px;
         text-align: center;
     }
-    
+
     .register-header i {
         font-size: 3rem;
         margin-bottom: 10px;
     }
-    
+
     .corporate-badge {
         background: rgba(255, 255, 255, 0.2);
         padding: 8px 16px;
@@ -36,48 +36,48 @@
         margin-top: 10px;
         font-size: 0.9rem;
     }
-    
+
     .register-body {
         padding: 30px;
     }
-    
+
     .form-control {
         border-radius: 10px;
         padding: 12px 15px;
         border: 1px solid #e0e0e0;
     }
-    
+
     .form-control:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        border-color: #F39200;
+        box-shadow: 0 0 0 0.2rem rgba(243, 146, 0, 0.25);
     }
-    
+
     .btn-register {
         border-radius: 10px;
         padding: 12px;
         font-weight: 600;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
         border: none;
         transition: transform 0.2s;
     }
-    
+
     .btn-register:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
-    
+
     .password-strength {
         height: 5px;
         border-radius: 3px;
         margin-top: 5px;
         transition: all 0.3s;
     }
-    
+
     .email-domain {
         background-color: #f8f9fa;
         border-left: none;
         font-weight: 600;
-        color: #667eea;
+        color: #F39200;
     }
 </style>
 {% endblock %}
@@ -90,24 +90,25 @@
             <h3 class="mb-0">Crear Cuenta</h3>
             <p class="mb-0 mt-2" style="opacity: 0.9;">Únete a WooCommerce Manager</p>
             <div class="corporate-badge">
-                <i class="bi bi-shield-check"></i> 
+                <i class="bi bi-shield-check"></i>
                 Solo correos corporativos
             </div>
         </div>
-        
+
         <div class="register-body">
             <!-- Mostrar mensajes flash -->
             {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} alert-dismissible fade show"
+                role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
             {% endwith %}
-            
+
             <!-- Alerta informativa -->
             <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i>
@@ -116,96 +117,71 @@
                 Solo correos corporativos <code>@izistoreperu.com</code> previamente autorizados pueden registrarse.
                 <br>
                 <small class="text-muted">
-                    <i class="bi bi-shield-check"></i> 
+                    <i class="bi bi-shield-check"></i>
                     Actualmente hay <strong>{{ authorized_count }}</strong> correos autorizados en el sistema.
                 </small>
             </div>
-            
-            <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">  
+
+            <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
                 <div class="mb-3">
                     <label for="full_name" class="form-label">
                         <i class="bi bi-person"></i> Nombre Completo
                     </label>
-                    <input type="text" 
-                           class="form-control" 
-                           id="full_name" 
-                           name="full_name" 
-                           placeholder="Ej: Juan Pérez García"
-                           required 
-                           autofocus>
+                    <input type="text" class="form-control" id="full_name" name="full_name"
+                        placeholder="Ej: Juan Pérez García" required autofocus>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="username" class="form-label">
                         <i class="bi bi-at"></i> Usuario
                     </label>
-                    <input type="text" 
-                           class="form-control" 
-                           id="username" 
-                           name="username" 
-                           placeholder="Elige un nombre de usuario"
-                           pattern="[a-zA-Z0-9_]{3,20}"
-                           title="Solo letras, números y guiones bajos. Entre 3 y 20 caracteres."
-                           required>
+                    <input type="text" class="form-control" id="username" name="username"
+                        placeholder="Elige un nombre de usuario" pattern="[a-zA-Z0-9_]{3,20}"
+                        title="Solo letras, números y guiones bajos. Entre 3 y 20 caracteres." required>
                     <small class="text-muted">Solo letras, números y guiones bajos (3-20 caracteres)</small>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="email" class="form-label">
                         <i class="bi bi-envelope"></i> Correo Corporativo
                     </label>
                     <div class="input-group">
-                        <input type="text" 
-                               class="form-control" 
-                               id="email" 
-                               name="email" 
-                               placeholder="tu.nombre"
-                               pattern="[a-zA-Z0-9._%+-]+@izistoreperu\.com"
-                               title="Debe ser un correo @izistoreperu.com"
-                               required>
+                        <input type="text" class="form-control" id="email" name="email" placeholder="tu.nombre"
+                            pattern="[a-zA-Z0-9._%+-]+@izistoreperu\.com" title="Debe ser un correo @izistoreperu.com"
+                            required>
                         <span class="input-group-text email-domain">@izistoreperu.com</span>
                     </div>
                     <small class="text-muted">Solo escribe tu nombre, el dominio se agregará automáticamente</small>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="password" class="form-label">
                         <i class="bi bi-lock"></i> Contraseña
                     </label>
-                    <input type="password" 
-                           class="form-control" 
-                           id="password" 
-                           name="password" 
-                           placeholder="Mínimo 6 caracteres"
-                           minlength="6"
-                           required>
+                    <input type="password" class="form-control" id="password" name="password"
+                        placeholder="Mínimo 6 caracteres" minlength="6" required>
                     <div class="password-strength" id="strength-bar"></div>
                     <small class="text-muted">Mínimo 6 caracteres</small>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="password_confirm" class="form-label">
                         <i class="bi bi-lock-fill"></i> Confirmar Contraseña
                     </label>
-                    <input type="password" 
-                           class="form-control" 
-                           id="password_confirm" 
-                           name="password_confirm" 
-                           placeholder="Repite la contraseña"
-                           minlength="6"
-                           required>
+                    <input type="password" class="form-control" id="password_confirm" name="password_confirm"
+                        placeholder="Repite la contraseña" minlength="6" required>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary btn-register w-100">
                     <i class="bi bi-person-check"></i> Crear Cuenta
                 </button>
             </form>
-            
+
             <hr class="my-4">
-            
+
             <div class="text-center">
                 <p class="mb-0">
-                    ¿Ya tienes una cuenta? 
+                    ¿Ya tienes una cuenta?
                     <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-bold">
                         Inicia sesión aquí
                     </a>
@@ -218,104 +194,104 @@
 
 {% block extra_js %}
 <script>
-// Verificar fortaleza de contraseña
-$('#password').on('input', function() {
-    let password = $(this).val();
-    let strength = 0;
-    let strengthBar = $('#strength-bar');
-    
-    if (password.length >= 6) strength++;
-    if (password.length >= 10) strength++;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-    if (/\d/.test(password)) strength++;
-    if (/[^a-zA-Z0-9]/.test(password)) strength++;
-    
-    strengthBar.removeClass('bg-danger bg-warning bg-info bg-success');
-    
-    if (strength <= 1) {
-        strengthBar.addClass('bg-danger').css('width', '25%');
-    } else if (strength === 2) {
-        strengthBar.addClass('bg-warning').css('width', '50%');
-    } else if (strength === 3) {
-        strengthBar.addClass('bg-info').css('width', '75%');
-    } else {
-        strengthBar.addClass('bg-success').css('width', '100%');
-    }
-});
+    // Verificar fortaleza de contraseña
+    $('#password').on('input', function () {
+        let password = $(this).val();
+        let strength = 0;
+        let strengthBar = $('#strength-bar');
 
-// Verificar que las contraseñas coincidan
-$('#password_confirm').on('input', function() {
-    let password = $('#password').val();
-    let password2 = $(this).val();
-    
-    if (password !== password2 && password2.length > 0) {
-        $(this).addClass('is-invalid');
-    } else {
-        $(this).removeClass('is-invalid');
-        if (password === password2 && password2.length > 0) {
-            $(this).addClass('is-valid');
+        if (password.length >= 6) strength++;
+        if (password.length >= 10) strength++;
+        if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+        if (/\d/.test(password)) strength++;
+        if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+        strengthBar.removeClass('bg-danger bg-warning bg-info bg-success');
+
+        if (strength <= 1) {
+            strengthBar.addClass('bg-danger').css('width', '25%');
+        } else if (strength === 2) {
+            strengthBar.addClass('bg-warning').css('width', '50%');
+        } else if (strength === 3) {
+            strengthBar.addClass('bg-info').css('width', '75%');
+        } else {
+            strengthBar.addClass('bg-success').css('width', '100%');
         }
-    }
-});
+    });
 
-// Autocompletar dominio de email
-$('#email').on('blur', function() {
-    let email = $(this).val().trim();
-    
-    // Si no tiene @, agregar el dominio automáticamente
-    if (email && !email.includes('@')) {
-        $(this).val(email + '@izistoreperu.com');
-    }
-});
+    // Verificar que las contraseñas coincidan
+    $('#password_confirm').on('input', function () {
+        let password = $('#password').val();
+        let password2 = $(this).val();
 
-// Validación en tiempo real del email
-$('#email').on('input', function() {
-    let email = $(this).val();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@izistoreperu\.com$/;
-    
-    // Si tiene contenido y no coincide con el patrón
-    if (email && email.includes('@') && !emailRegex.test(email)) {
-        $(this).addClass('is-invalid').removeClass('is-valid');
-    } else if (email && emailRegex.test(email)) {
-        $(this).addClass('is-valid').removeClass('is-invalid');
-    } else {
-        $(this).removeClass('is-invalid is-valid');
-    }
-});
+        if (password !== password2 && password2.length > 0) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+            if (password === password2 && password2.length > 0) {
+                $(this).addClass('is-valid');
+            }
+        }
+    });
 
-// Validación antes de enviar el formulario
-$('#registerForm').on('submit', function(e) {
-    const email = $('#email').val();
-    const password = $('#password').val();
-    const passwordConfirm = $('#password_confirm').val();
-    
-    // Validar dominio de correo
-    if (!email.endsWith('@izistoreperu.com')) {
-        e.preventDefault();
-        alert('❌ Solo se permiten correos corporativos @izistoreperu.com');
-        $('#email').focus();
-        return false;
-    }
-    
-    // Validar que las contraseñas coincidan
-    if (password !== passwordConfirm) {
-        e.preventDefault();
-        alert('❌ Las contraseñas no coinciden');
-        $('#password_confirm').focus();
-        return false;
-    }
-    
-    // Validar longitud de contraseña
-    if (password.length < 6) {
-        e.preventDefault();
-        alert('❌ La contraseña debe tener al menos 6 caracteres');
-        $('#password').focus();
-        return false;
-    }
-    
-    // Advertencia sobre validación de lista blanca
-    // (El backend validará si está autorizado)
-    return true;
-});
+    // Autocompletar dominio de email
+    $('#email').on('blur', function () {
+        let email = $(this).val().trim();
+
+        // Si no tiene @, agregar el dominio automáticamente
+        if (email && !email.includes('@')) {
+            $(this).val(email + '@izistoreperu.com');
+        }
+    });
+
+    // Validación en tiempo real del email
+    $('#email').on('input', function () {
+        let email = $(this).val();
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@izistoreperu\.com$/;
+
+        // Si tiene contenido y no coincide con el patrón
+        if (email && email.includes('@') && !emailRegex.test(email)) {
+            $(this).addClass('is-invalid').removeClass('is-valid');
+        } else if (email && emailRegex.test(email)) {
+            $(this).addClass('is-valid').removeClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid is-valid');
+        }
+    });
+
+    // Validación antes de enviar el formulario
+    $('#registerForm').on('submit', function (e) {
+        const email = $('#email').val();
+        const password = $('#password').val();
+        const passwordConfirm = $('#password_confirm').val();
+
+        // Validar dominio de correo
+        if (!email.endsWith('@izistoreperu.com')) {
+            e.preventDefault();
+            alert('❌ Solo se permiten correos corporativos @izistoreperu.com');
+            $('#email').focus();
+            return false;
+        }
+
+        // Validar que las contraseñas coincidan
+        if (password !== passwordConfirm) {
+            e.preventDefault();
+            alert('❌ Las contraseñas no coinciden');
+            $('#password_confirm').focus();
+            return false;
+        }
+
+        // Validar longitud de contraseña
+        if (password.length < 6) {
+            e.preventDefault();
+            alert('❌ La contraseña debe tener al menos 6 caracteres');
+            $('#password').focus();
+            return false;
+        }
+
+        // Advertencia sobre validación de lista blanca
+        // (El backend validará si está autorizado)
+        return true;
+    });
 </script>
 {% endblock %}

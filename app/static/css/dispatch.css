@@ -5,7 +5,7 @@
    ============================================ */
 
 .stat-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
     color: white;
     padding: 15px 25px;
     border-radius: 10px;
@@ -81,7 +81,7 @@
 }
 
 .column-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
     color: white;
     padding: 15px;
     border-radius: 12px 12px 0 0;
@@ -146,7 +146,7 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: move;
-    border-left: 3px solid #667eea;
+    border-left: 3px solid var(--primary-color);
 }
 
 .order-card:hover {
@@ -195,7 +195,7 @@
 
 .order-number {
     font-weight: 700;
-    color: #667eea;
+    color: var(--primary-color);
     font-size: 13px;
 }
 
@@ -264,7 +264,7 @@
    ============================================ */
 
 #orderDetailModal .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
     color: white;
 }
 
@@ -273,7 +273,7 @@
 }
 
 #orderDetailModal h6 {
-    color: #667eea;
+    color: var(--primary-color);
     font-weight: 600;
     display: block;
 }
@@ -317,7 +317,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #667eea;
+    background: var(--primary-color);
     color: white;
     display: flex;
     align-items: center;
@@ -352,7 +352,7 @@
 }
 
 .timeline-change i {
-    color: #667eea;
+    color: var(--primary-color);
 }
 
 .timeline-note {
@@ -360,7 +360,7 @@
     padding: 10px;
     border-radius: 6px;
     margin-top: 8px;
-    border-left: 3px solid #667eea;
+    border-left: 3px solid var(--primary-color);
     font-style: italic;
     color: #495057;
 }
@@ -471,7 +471,7 @@
 }
 
 [data-theme="dark"] .order-number {
-    color: #818cf8;
+    color: var(--primary-color);
     /* Lighter indigo */
 }
 
@@ -536,7 +536,7 @@
 }
 
 [data-theme="dark"] #orderDetailModal h6 {
-    color: #818cf8;
+    color: var(--primary-color);
     /* Light indigo */
 }
 
