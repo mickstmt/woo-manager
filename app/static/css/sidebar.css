@@ -181,9 +181,9 @@ h6 {
     align-items: center;
     justify-content: center;
     /* Centrado cuando está colapsado */
-    padding: 20px 16px;
+    padding: 21px 16px;
     border-bottom: 1px solid var(--sidebar-border);
-    min-height: 73px;
+    min-height: 81px;
 }
 
 .sidebar-brand {
@@ -377,6 +377,47 @@ h6 {
     border: 2px solid var(--sidebar-bg);
 }
 
+/* Centrado de iconos al colapsar */
+.sidebar.collapsed .nav-item {
+    margin: 4px 0;
+    /* Vertical margin only, horizontal handled by flex align or auto margins */
+    display: flex;
+    justify-content: center;
+}
+
+.sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 0;
+    width: 46px;
+    /* Fixed square size */
+    height: 46px;
+    gap: 0;
+    /* Remove gap so icon is perfectly centered */
+    border-radius: 12px;
+    /* Soft square look */
+}
+
+/* Ensure icon font size is good in the square */
+.sidebar.collapsed .nav-link .nav-link-icon {
+    font-size: 20px;
+}
+
+
+/* Tooltips personalizados del sidebar */
+.custom-sidebar-tooltip .tooltip-arrow {
+    display: none !important;
+}
+
+.custom-sidebar-tooltip .tooltip-inner {
+    background-color: #1e293b;
+    /* Mismo tono que el dropdown anterior para coherencia */
+    color: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
 /* ============================================
    FOOTER DEL SIDEBAR
    ============================================ */
@@ -384,6 +425,16 @@ h6 {
 .sidebar-footer {
     border-top: 1px solid var(--sidebar-border);
     padding: 16px;
+}
+
+.sidebar.collapsed .sidebar-footer {
+    padding: 16px 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-footer .nav-items {
+    width: 100%;
 }
 
 /* ============================================
