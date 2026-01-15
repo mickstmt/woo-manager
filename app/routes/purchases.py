@@ -426,6 +426,22 @@ def api_get_orders():
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
 
+        # Función para parsear fechas en múltiples formatos
+        def parse_date(date_str):
+            if not date_str:
+                return None
+            # Intentar formato yyyy-mm-dd
+            try:
+                return datetime.strptime(date_str, '%Y-%m-%d')
+            except ValueError:
+                pass
+            # Intentar formato dd/mm/yyyy
+            try:
+                return datetime.strptime(date_str, '%d/%m/%Y')
+            except ValueError:
+                pass
+            return None
+
         # Query simple
         query = PurchaseOrder.query
 
@@ -434,13 +450,15 @@ def api_get_orders():
             query = query.filter(PurchaseOrder.status == status)
 
         if start_date:
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            query = query.filter(PurchaseOrder.order_date >= start_dt)
+            start_dt = parse_date(start_date)
+            if start_dt:
+                query = query.filter(PurchaseOrder.order_date >= start_dt)
 
         if end_date:
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            end_dt = end_dt.replace(hour=23, minute=59, second=59)
-            query = query.filter(PurchaseOrder.order_date <= end_dt)
+            end_dt = parse_date(end_date)
+            if end_dt:
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(PurchaseOrder.order_date <= end_dt)
 
         # Ordenar por fecha más reciente primero
         orders = query.order_by(PurchaseOrder.order_date.desc()).all()
