@@ -421,6 +421,24 @@ async function showOrderDetail(orderId) {
         document.getElementById('modal-shipping-method').textContent = order.shipping_method;
         document.getElementById('modal-created-by').textContent = order.created_by;
 
+        // Dirección de envío
+        document.getElementById('modal-shipping-address').textContent = order.shipping_address || '-';
+        document.getElementById('modal-shipping-district').textContent = order.shipping_district || '-';
+        document.getElementById('modal-shipping-department').textContent = order.shipping_department || '-';
+
+        // Notas del cliente - prellenar en el textarea de notas de despacho
+        const dispatchNoteInput = document.getElementById('dispatch-note-input');
+        if (dispatchNoteInput) {
+            // Si hay notas del cliente, mostrarlas como prefijo editable
+            if (order.customer_note) {
+                dispatchNoteInput.value = `[Nota del cliente]: ${order.customer_note}`;
+                dispatchNoteInput.placeholder = 'Notas del cliente cargadas. Puedes editar o agregar más información...';
+            } else {
+                dispatchNoteInput.value = '';
+                dispatchNoteInput.placeholder = 'Escribir nota sobre el despacho...';
+            }
+        }
+
         // Renderizar lista de productos con imágenes y atributos
         const productsHtml = order.products.length > 0
             ? `<ul class="list-group list-group-flush">

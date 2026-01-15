@@ -851,7 +851,15 @@ def get_order_detail(order_id):
                  WHERE oi.order_id = o.id
                    AND oi.order_item_type = 'shipping'
                  LIMIT 1) as shipping_method,
-                om_created.meta_value as created_by
+                om_created.meta_value as created_by,
+                -- Dirección de envío
+                sa.address_1 as shipping_address,
+                sa.address_2 as shipping_address_2,
+                sa.city as shipping_district,
+                sa.state as shipping_department,
+                sa.postcode as shipping_postcode,
+                -- Notas del cliente
+                o.customer_note
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -859,6 +867,9 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_wc_order_addresses ba
                 ON o.id = ba.order_id
                 AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_order_addresses sa
+                ON o.id = sa.order_id
+                AND sa.address_type = 'shipping'
             LEFT JOIN wpyz_wc_orders_meta om_created
                 ON o.id = om_created.order_id
                 AND om_created.meta_key = '_created_by'
@@ -975,6 +986,14 @@ def get_order_detail(order_id):
                 'image': image_url
             })
 
+        # Construir dirección completa
+        address_parts = []
+        if order_result[11]:  # shipping_address
+            address_parts.append(order_result[11])
+        if order_result[12]:  # shipping_address_2
+            address_parts.append(order_result[12])
+        shipping_address_full = ', '.join(address_parts) if address_parts else None
+
         # Construir respuesta
         order_data = {
             'id': order_result[0],
@@ -987,6 +1006,13 @@ def get_order_detail(order_id):
             'customer_phone': order_result[8] or 'N/A',
             'shipping_method': order_result[9] or 'Sin método',
             'created_by': order_result[10] or 'Desconocido',
+            # Nuevos campos de dirección
+            'shipping_address': shipping_address_full,
+            'shipping_district': order_result[13] or None,  # city = distrito
+            'shipping_department': order_result[14] or None,  # state = departamento
+            'shipping_postcode': order_result[15] or None,
+            # Notas del cliente
+            'customer_note': order_result[16] or None,
             'products': products_list
         }
 
