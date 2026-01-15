@@ -8,13 +8,13 @@
         max-width: 450px;
         margin: 80px auto;
     }
-    
+
     .login-card {
         border: none;
         border-radius: 15px;
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
     }
-    
+
     .login-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -22,27 +22,27 @@
         padding: 30px;
         text-align: center;
     }
-    
+
     .login-header i {
         font-size: 3rem;
         margin-bottom: 10px;
     }
-    
+
     .login-body {
         padding: 30px;
     }
-    
+
     .form-control {
         border-radius: 10px;
         padding: 12px 15px;
         border: 1px solid #e0e0e0;
     }
-    
+
     .form-control:focus {
         border-color: #667eea;
         box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
     }
-    
+
     .btn-login {
         border-radius: 10px;
         padding: 12px;
@@ -51,18 +51,18 @@
         border: none;
         transition: transform 0.2s;
     }
-    
+
     .btn-login:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
-    
+
     .divider {
         text-align: center;
         margin: 20px 0;
         position: relative;
     }
-    
+
     .divider::before {
         content: "";
         position: absolute;
@@ -72,7 +72,7 @@
         height: 1px;
         background: #e0e0e0;
     }
-    
+
     .divider span {
         background: white;
         padding: 0 15px;
@@ -90,13 +90,18 @@
             <h3 class="mb-0">Iniciar Sesión</h3>
             <p class="mb-0 mt-2" style="opacity: 0.9;">WooCommerce Manager</p>
         </div>
-        
+
         <div class="login-body">
             <!-- Mostrar mensajes flash -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
+            <!-- Toast Container -->
+            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1050">
+                {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {% for category, message in messages %}
+                <div class="toast align-items-center text-white bg-{{ category if category != 'warning' else 'warning text-dark' }} border-0 shadow"
+                    role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
                             {% if category == 'warning' and 'sesión' in message|lower %}
                             <i class="bi bi-clock-history me-2"></i>
                             {% elif category == 'danger' %}
@@ -107,45 +112,48 @@
                             <i class="bi bi-info-circle me-2"></i>
                             {% endif %}
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
-                    {% endfor %}
+                        <button type="button"
+                            class="btn-close {{ 'btn-close-white' if category != 'warning' else '' }} me-2 m-auto"
+                            data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+                {% endfor %}
                 {% endif %}
-            {% endwith %}
-            
+                {% endwith %}
+            </div>
+
+            <!-- Scripts para inicializar Toasts -->
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+                    var toastList = toastElList.map(function (toastEl) {
+                        return new bootstrap.Toast(toastEl, { delay: 4000 }); // 4 segundos
+                    });
+                    toastList.forEach(toast => toast.show());
+                });
+            </script>
+
             <form method="POST" action="{{ url_for('auth.login') }}">
                 <div class="mb-3">
                     <label for="username" class="form-label">
                         <i class="bi bi-person"></i> Usuario
                     </label>
-                    <input type="text" 
-                           class="form-control" 
-                           id="username" 
-                           name="username" 
-                           placeholder="Ingresa tu usuario"
-                           required 
-                           autofocus>
+                    <input type="text" class="form-control" id="username" name="username"
+                        placeholder="Ingresa tu usuario" required autofocus>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="password" class="form-label">
                         <i class="bi bi-lock"></i> Contraseña
                     </label>
-                    <input type="password" 
-                           class="form-control" 
-                           id="password" 
-                           name="password" 
-                           placeholder="Ingresa tu contraseña"
-                           required>
+                    <input type="password" class="form-control" id="password" name="password"
+                        placeholder="Ingresa tu contraseña" required>
                 </div>
-                
+
                 <div class="mb-3 d-flex justify-content-between align-items-center">
                     <div class="form-check">
-                        <input type="checkbox"
-                               class="form-check-input"
-                               id="remember"
-                               name="remember"
-                               value="1">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember" value="1">
                         <label class="form-check-label" for="remember">
                             Recordarme
                         </label>
@@ -161,14 +169,14 @@
                     <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
                 </button>
             </form>
-            
+
             <div class="divider">
                 <span>o</span>
             </div>
-            
+
             <div class="text-center">
                 <p class="mb-0">
-                    ¿No tienes una cuenta? 
+                    ¿No tienes una cuenta?
                     <a href="{{ url_for('auth.register') }}" class="text-decoration-none fw-bold">
                         Regístrate aquí
                     </a>
@@ -176,10 +184,10 @@
             </div>
         </div>
     </div>
-    
+
     <div class="text-center mt-4 text-muted">
         <small>
-            <i class="bi bi-shield-lock"></i> 
+            <i class="bi bi-shield-lock"></i>
             Tus datos están protegidos y seguros
         </small>
     </div>
