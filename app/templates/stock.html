@@ -55,10 +55,60 @@
         cursor: not-allowed;
         opacity: 0.6;
     }
+
+    /* Estilos Responsive para Stock */
+    @media (max-width: 768px) {
+        .stock-control-group {
+            width: 100% !important;
+            flex-grow: 1;
+        }
+
+        .stock-control-group .btn {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .stock-control-group input {
+            height: 44px;
+            font-size: 1.1rem !important;
+        }
+
+        #search-input {
+            font-size: 16px;
+            /* Evita zoom en iOS */
+        }
+    }
+
+    @media (max-width: 576px) {
+        .card-header h5 {
+            font-size: 1.1rem;
+        }
+
+        .bulk-actions-bar {
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .bulk-actions-bar div {
+            width: 100%;
+        }
+
+        .bulk-actions-bar .btn {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<div id="permissions-data" data-can-bulk-update="{{ current_user.is_admin_or_advisor()|tojson }}"
+    style="display: none;"></div>
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -83,49 +133,49 @@
         <!-- Filtros y búsqueda -->
         <div class="card mb-3">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-5">
+                <div class="row g-2">
+                    <div class="col-12 col-lg-5">
                         <div class="input-group">
                             <span class="input-group-text">
                                 <i class="bi bi-search"></i>
                             </span>
                             <input type="text" class="form-control" id="search-input"
-                                placeholder="Buscar por nombre, SKU, ID producto o ID padre...">
+                                placeholder="Buscar por nombre, SKU, ID...">
                             <button class="btn btn-primary" onclick="searchProducts()">
-                                Buscar
+                                <i class="bi bi-search d-sm-none"></i>
+                                <span class="d-none d-sm-inline">Buscar</span>
                             </button>
                             <button class="btn btn-secondary" onclick="clearSearch()">
-                                Limpiar
+                                <i class="bi bi-x-lg d-sm-none"></i>
+                                <span class="d-none d-sm-inline">Limpiar</span>
                             </button>
                         </div>
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-4 col-lg-3">
                         <select class="form-select" id="stock-filter">
-                            <option value="all">Todos</option>
+                            <option value="all">Todos los stocks</option>
                             <option value="instock">En stock</option>
                             <option value="outofstock">Sin stock</option>
                             <option value="low">Stock bajo</option>
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-4 col-lg-2">
                         <div class="input-group">
                             <span class="input-group-text">
                                 <i class="bi bi-exclamation-triangle"></i>
                             </span>
                             <input type="number" class="form-control" id="low-threshold" value="2" min="1"
-                                title="Stock bajo cuando es menor o igual a este número">
+                                title="Umbral stock bajo">
                         </div>
-                        <small class="text-muted">Umbral stock bajo</small>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-4 col-lg-2">
                         <select class="form-select" id="per-page-select">
-                            <option value="25">25 por página</option>
-                            <option value="50" selected>50 por página</option>
-                            <option value="100">100 por página</option>
-                            <option value="200">200 por página</option>
+                            <option value="25">25 x pág</option>
+                            <option value="50" selected>50 x pág</option>
+                            <option value="100">100 x pág</option>
                         </select>
                     </div>
                 </div>
@@ -174,7 +224,9 @@
                     <p class="mt-2">Cargando inventario...</p>
                 </div>
 
-                <div id="stock-table-container"></div>
+                <div class="table-responsive">
+                    <div id="stock-table-container"></div>
+                </div>
 
                 <!-- Paginación -->
                 <div id="pagination-container" class="mt-3"></div>
@@ -511,13 +563,13 @@
         html += '<tr>';
         html += '<th style="width: 50px;"><input type="checkbox" id="select-all"></th>';
         html += '<th style="width: 80px;">ID</th>';
-        html += '<th style="width: 100px;">Tipo</th>';
-        html += '<th style="width: 100px;">Padre</th>';
+        html += '<th class="d-none d-sm-table-cell" style="width: 100px;">Tipo</th>';
+        html += '<th class="d-none d-lg-table-cell" style="width: 100px;">Padre</th>';
         html += '<th>Producto</th>';
-        html += '<th style="width: 120px;">SKU</th>';
-        html += '<th style="width: 100px;">Precio</th>';
+        html += '<th class="d-none d-md-table-cell" style="width: 120px;">SKU</th>';
+        html += '<th class="d-none d-md-table-cell" style="width: 100px;">Precio</th>';
         html += '<th style="width: 200px;" class="text-center">Stock</th>';
-        html += '<th style="width: 120px;">Estado</th>';
+        html += '<th class="d-none d-lg-table-cell" style="width: 120px;">Estado</th>';
         html += '<th style="width: 150px;">Acciones</th>';
         html += '</tr>';
         html += '</thead>';
@@ -548,45 +600,57 @@
             html += '<tr class="' + rowClass + '">';
             html += '<td><input type="checkbox" class="product-checkbox" value="' + product.id + '" data-product=\'' + JSON.stringify(product) + '\'></td>';
             html += '<td><strong>' + product.id + '</strong></td>';
-            html += '<td>' + typeBadge + '</td>';
+            html += '<td class="d-none d-sm-table-cell">' + typeBadge + '</td>';
 
             // Padre
             if (product.parent_id) {
-                html += '<td><a href="/products/' + product.parent_id + '" class="parent-link">#' + product.parent_id + '</a></td>';
+                html += '<td class="d-none d-lg-table-cell"><a href="/products/' + product.parent_id + '" class="parent-link">#' + product.parent_id + '</a></td>';
             } else {
-                html += '<td>-</td>';
+                html += '<td class="d-none d-lg-table-cell">-</td>';
             }
 
-            html += '<td>' + product.title + '</td>';
-            html += '<td><code>' + product.sku + '</code></td>';
-            html += '<td>S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
+            // Título
+            html += '<td>';
+            html += '<div class="fw-bold d-md-none small text-muted">ID: ' + product.id + '</div>';
+            html += product.title;
+            html += '<div class="d-md-none mt-1">';
+            html += '<span class="badge bg-light text-dark border me-1">' + product.sku + '</span>';
+            html += '</div>';
+            html += '</td>';
+
+            // SKU
+            html += '<td class="d-none d-md-table-cell"><code>' + product.sku + '</code></td>';
+
+            // Precio
+            html += '<td class="d-none d-md-table-cell">S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
 
             // Columna de stock con botones +/-
             html += '<td class="text-center">';
-            html += '<div class="input-group input-group-sm">';
+            html += '<div class="input-group stock-control-group mx-auto" style="max-width: 140px;">';
             html += '<button class="btn btn-outline-secondary" onclick="adjustStock(' + product.id + ', -1)">';
             html += '<i class="bi bi-dash"></i>';
             html += '</button>';
-            html += '<input type="number" class="form-control text-center" id="stock-' + product.id + '" ';
-            html += 'value="' + product.stock + '" style="max-width: 80px;">';
+            html += '<input type="number" class="form-control text-center px-1" id="stock-' + product.id + '" ';
+            html += 'value="' + product.stock + '">';
             html += '<button class="btn btn-outline-secondary" onclick="adjustStock(' + product.id + ', 1)">';
             html += '<i class="bi bi-plus"></i>';
             html += '</button>';
             html += '</div>';
+            html += '<div class="d-md-none mt-1 small">' + stockBadge + '</div>';
             html += '</td>';
 
-            html += '<td><span class="stock-status-badge">' + stockBadge + '</span></td>';
+            html += '<td class="d-none d-lg-table-cell"><span class="stock-status-badge">' + stockBadge + '</span></td>';
 
             // Acciones
             html += '<td>';
-            html += '<div class="btn-group" role="group">';
-            html += '<button class="btn btn-sm btn-primary" onclick="updateStock(' + product.id + ')" title="Guardar cambios">';
+            html += '<div class="btn-group btn-group-sm" role="group">';
+            html += '<button class="btn btn-primary" onclick="updateStock(' + product.id + ')" title="Guardar cambios">';
             html += '<i class="bi bi-save"></i>';
             html += '</button>';
-            html += '<button class="btn btn-sm btn-info" onclick="viewHistory(' + product.id + ')" title="Ver historial">';
+            html += '<button class="btn btn-info" onclick="viewHistory(' + product.id + ')" title="Ver historial">';
             html += '<i class="bi bi-clock-history"></i>';
             html += '</button>';
-            html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-secondary" title="Ver detalles">';
+            html += '<a href="/products/' + product.id + '" class="btn btn-secondary d-none d-sm-inline-block" title="Ver detalles">';
             html += '<i class="bi bi-eye"></i>';
             html += '</a>';
             html += '</div>';
@@ -644,10 +708,11 @@
             return;
         }
 
-        {% if not current_user.is_admin_or_advisor() %}
-        showNotification('error', 'Solo los administradores y asesores pueden actualizar stock masivamente');
-        return;
-        {% endif %}
+        const canBulkUpdate = $('#permissions-data').data('can-bulk-update') === true;
+        if (!canBulkUpdate) {
+            showNotification('error', 'Solo los administradores y asesores pueden actualizar stock masivamente');
+            return;
+        }
 
         $('#modal-count').text(selectedProducts.length);
         $('#bulk-stock-value').val(0);
