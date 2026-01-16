@@ -1315,12 +1315,12 @@ def bulk_tracking_page():
     return render_template('dispatch_bulk_tracking.html')
 
 
-@bp.route('/api/bulk-tracking/preview', methods=['GET'])
+@bp.route('/api/bulk-tracking/preview', methods=['POST'])
 @login_required
 @master_required
 def bulk_tracking_preview():
     """
-    Lee el archivo Excel de Shalom y muestra preview de los envíos.
+    Lee el archivo Excel de Shalom subido por el usuario y muestra preview de los envíos.
     Hace matching por DNI con pedidos Shalom en estado processing.
 
     Returns:
@@ -1328,25 +1328,35 @@ def bulk_tracking_preview():
     """
     try:
         from openpyxl import load_workbook
-        import glob
+        from io import BytesIO
 
-        # Buscar archivos Excel que empiecen con "shalom" en la carpeta uploads
-        uploads_path = os.path.join(current_app.root_path, 'static', 'uploads')
-        excel_files = glob.glob(os.path.join(uploads_path, 'shalom*.xlsx'))
-
-        if not excel_files:
+        # Verificar que se envió un archivo
+        if 'file' not in request.files:
             return jsonify({
                 'success': False,
-                'error': 'Archivo no encontrado. Coloque un archivo Excel que comience con "shalom" en app/static/uploads/ (ej: shalom_tracking.xlsx o shalom 13-01-25.xlsx)'
-            }), 404
+                'error': 'No se envió ningún archivo'
+            }), 400
 
-        # Usar el archivo más reciente si hay varios
-        excel_path = max(excel_files, key=os.path.getmtime)
-        excel_filename = os.path.basename(excel_path)
-        current_app.logger.info(f"[BULK-TRACKING] Usando archivo: {excel_filename}")
+        file = request.files['file']
 
-        # Cargar el Excel
-        workbook = load_workbook(excel_path, data_only=True)
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No se seleccionó ningún archivo'
+            }), 400
+
+        # Validar extensión
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({
+                'success': False,
+                'error': 'El archivo debe ser un Excel (.xlsx o .xls)'
+            }), 400
+
+        excel_filename = file.filename
+        current_app.logger.info(f"[BULK-TRACKING] Procesando archivo: {excel_filename}")
+
+        # Cargar el Excel desde memoria (sin guardar en disco)
+        workbook = load_workbook(BytesIO(file.read()), data_only=True)
         sheet = workbook.active
 
         # Parsear envíos (cada 26 filas)

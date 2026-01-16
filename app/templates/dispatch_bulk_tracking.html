@@ -102,25 +102,33 @@
                 </div>
                 <div class="card-body">
                     <ol class="mb-0">
-                        <li>Coloque el archivo Excel de Shalom en la carpeta <code>app/static/uploads/</code> con nombre que empiece con "shalom" (ej: <code>shalom 13-01-25.xlsx</code>)</li>
-                        <li>El sistema leer&aacute; autom&aacute;ticamente los bloques de 26 filas por env&iacute;o</li>
-                        <li>Se har&aacute; matching por DNI del destinatario con los pedidos Shalom pendientes</li>
-                        <li>Revise los resultados del preview y seleccione los env&iacute;os a procesar</li>
-                        <li>Al procesar, cada pedido cambiar&aacute; a "Completado" y se enviar&aacute; email al cliente</li>
+                        <li>Seleccione el archivo Excel de Shalom usando el botón de carga</li>
+                        <li>El sistema leerá automáticamente los bloques de 26 filas por envío</li>
+                        <li>Se hará matching por DNI del destinatario con los pedidos Shalom pendientes</li>
+                        <li>Revise los resultados del preview y seleccione los envíos a procesar</li>
+                        <li>Al procesar, cada pedido cambiará a "Completado" y se enviará email al cliente</li>
                     </ol>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bot&oacute;n de carga y resumen -->
+    <!-- Carga de archivo y resumen -->
     <div class="row mb-4">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-body">
+                    <div class="mb-3">
+                        <label for="excel-file" class="form-label fw-bold">
+                            <i class="bi bi-file-earmark-excel text-success"></i> Archivo Excel de Shalom
+                        </label>
+                        <input type="file" class="form-control" id="excel-file"
+                               accept=".xlsx,.xls" onchange="onFileSelected()">
+                        <div class="form-text">Seleccione el archivo .xlsx generado por Shalom</div>
+                    </div>
                     <div class="d-flex gap-3">
-                        <button class="btn btn-primary btn-lg" onclick="loadPreview()" id="btn-load-preview">
-                            <i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel
+                        <button class="btn btn-primary btn-lg" onclick="loadPreview()" id="btn-load-preview" disabled>
+                            <i class="bi bi-search"></i> Analizar Archivo
                         </button>
                         <button class="btn btn-success btn-lg" onclick="processSelected()" id="btn-process" disabled>
                             <i class="bi bi-send"></i> Procesar Seleccionados (<span id="selected-count">0</span>)
@@ -287,10 +295,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // Nada que inicializar
 });
 
-function loadPreview() {
+function onFileSelected() {
+    const fileInput = document.getElementById('excel-file');
     const btn = document.getElementById('btn-load-preview');
+
+    if (fileInput.files.length > 0) {
+        btn.disabled = false;
+    } else {
+        btn.disabled = true;
+    }
+}
+
+function loadPreview() {
+    const fileInput = document.getElementById('excel-file');
+    const btn = document.getElementById('btn-load-preview');
+
+    if (!fileInput.files.length) {
+        showNotification('warning', 'Por favor seleccione un archivo Excel');
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    // Validar extensión
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        showNotification('danger', 'El archivo debe ser un Excel (.xlsx o .xls)');
+        return;
+    }
+
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cargando...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analizando...';
 
     document.getElementById('envios-table').innerHTML = `
         <tr>
@@ -303,11 +337,18 @@ function loadPreview() {
         </tr>
     `;
 
-    fetch('/dispatch/api/bulk-tracking/preview')
+    // Enviar archivo por FormData
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/dispatch/api/bulk-tracking/preview', {
+        method: 'POST',
+        body: formData
+    })
         .then(response => response.json())
         .then(data => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel';
+            btn.innerHTML = '<i class="bi bi-search"></i> Analizar Archivo';
 
             if (data.success) {
                 enviosData = data.envios;
@@ -327,17 +368,17 @@ function loadPreview() {
         })
         .catch(error => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-file-earmark-excel"></i> Cargar y Analizar Excel';
+            btn.innerHTML = '<i class="bi bi-search"></i> Analizar Archivo';
 
             document.getElementById('envios-table').innerHTML = `
                 <tr>
                     <td colspan="8" class="text-center text-danger py-5">
                         <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
-                        <p class="mb-0 mt-2">Error de conexi&oacute;n: ${error.message}</p>
+                        <p class="mb-0 mt-2">Error de conexión: ${error.message}</p>
                     </td>
                 </tr>
             `;
-            showNotification('danger', 'Error de conexi&oacute;n: ' + error.message);
+            showNotification('danger', 'Error de conexión: ' + error.message);
         });
 }
 
