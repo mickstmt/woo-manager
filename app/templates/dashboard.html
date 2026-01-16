@@ -263,6 +263,31 @@
     }
 
     /* Responsive adjustments */
+    @media (max-width: 576px) {
+        .welcome-header {
+            padding: 1.5rem 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .welcome-header h1 {
+            font-size: 1.4rem;
+        }
+
+        .stat-number {
+            font-size: 1.4rem;
+        }
+
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+        }
+
+        .quick-action-card {
+            padding: 1rem;
+        }
+    }
+
     @media (min-width: 992px) {
         .welcome-header {
             padding: 3rem;
@@ -433,34 +458,36 @@
                     <small class="text-muted">Información del entorno</small>
                 </div>
             </div>
-            <table class="table table-sm table-borderless mb-0">
-                <tr>
-                    <td class="text-muted" style="width: 140px;">Entorno:</td>
-                    <td>
-                        {% if environment == 'production' %}
-                        <span class="badge bg-success">
-                            {{ environment|upper }}
-                        </span>
-                        {% else %}
-                        <span class="badge bg-warning text-dark">
-                            {{ environment|upper }}
-                        </span>
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <td class="text-muted">Base de Datos:</td>
-                    <td><code style="color: var(--text-main);">{{ db_prefix }}</code></td>
-                </tr>
-                <tr>
-                    <td class="text-muted">Usuario Actual:</td>
-                    <td style="color: var(--text-main);">{{ current_user.username }}</td>
-                </tr>
-                <tr>
-                    <td class="text-muted">Email:</td>
-                    <td style="color: var(--text-main);">{{ current_user.email }}</td>
-                </tr>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted" style="width: 140px;">Entorno:</td>
+                        <td>
+                            {% if environment == 'production' %}
+                            <span class="badge bg-success">
+                                {{ environment|upper }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">
+                                {{ environment|upper }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Base de Datos:</td>
+                        <td><code style="color: var(--text-main);">{{ db_prefix }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Usuario Actual:</td>
+                        <td style="color: var(--text-main);">{{ current_user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Email:</td>
+                        <td style="color: var(--text-main);">{{ current_user.email }}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
     </div>
 

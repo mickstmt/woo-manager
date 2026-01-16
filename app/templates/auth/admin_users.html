@@ -70,74 +70,74 @@
 </div>
 
 <!-- Estadísticas Modernas -->
-<div class="row g-4 mb-4">
-    <div class="col-xl-2 col-md-4">
+<div class="row g-2 g-md-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2">
         <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex align-items-center mb-1 mb-md-2">
                     <div class="avatar-sm rounded-circle bg-primary-subtle text-primary p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 40px; height: 40px;">
-                        <i class="bi bi-people fs-5"></i>
+                        style="width: 32px; height: 32px; min-width: 32px;">
+                        <i class="bi bi-people fs-6"></i>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold">Total</span>
+                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Total</span>
                 </div>
-                <h2 class="mb-0 fw-bold">{{ users|length }}</h2>
+                <h3 class="mb-0 fw-bold">{{ users|length }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4">
+    <div class="col-6 col-md-4 col-xl-2">
         <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex align-items-center mb-1 mb-md-2">
                     <div class="avatar-sm rounded-circle bg-success-subtle text-success p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 40px; height: 40px;">
-                        <i class="bi bi-person-check fs-5"></i>
+                        style="width: 32px; height: 32px; min-width: 32px;">
+                        <i class="bi bi-person-check fs-6"></i>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold">Activos</span>
+                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Activos</span>
                 </div>
-                <h2 class="mb-0 fw-bold">{{ users|selectattr('is_active')|list|length }}</h2>
+                <h3 class="mb-0 fw-bold">{{ users|selectattr('is_active')|list|length }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-xl-3 col-md-4">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex align-items-center mb-1 mb-md-2">
                     <div class="avatar-sm rounded-circle bg-danger-subtle text-danger p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 40px; height: 40px;">
-                        <i class="bi bi-shield-lock fs-5"></i>
+                        style="width: 32px; height: 32px; min-width: 32px;">
+                        <i class="bi bi-shield-lock fs-6"></i>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold">Administradores</span>
+                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Admins</span>
                 </div>
-                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h2>
+                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
+    <div class="col-6 col-md-6 col-xl-3">
         <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex align-items-center mb-1 mb-md-2">
                     <div class="avatar-sm rounded-circle bg-warning-subtle text-warning p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 40px; height: 40px;">
-                        <i class="bi bi-headset fs-5"></i>
+                        style="width: 32px; height: 32px; min-width: 32px;">
+                        <i class="bi bi-headset fs-6"></i>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold">Asesores</span>
+                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Asesores</span>
                 </div>
-                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h2>
+                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-6">
+    <div class="col-12 col-md-6 col-xl-2">
         <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
+            <div class="card-body p-2 p-md-3">
+                <div class="d-flex align-items-center mb-1 mb-md-2">
                     <div class="avatar-sm rounded-circle bg-info-subtle text-info p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 40px; height: 40px;">
-                        <i class="bi bi-person fs-5"></i>
+                        style="width: 32px; height: 32px; min-width: 32px;">
+                        <i class="bi bi-person fs-6"></i>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold">Usuarios</span>
+                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Usuarios</span>
                 </div>
-                <h2 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h2>
+                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h3>
             </div>
         </div>
     </div>
@@ -245,8 +245,8 @@
                         </button>
                     </form>
 
-                    <button class="btn btn-outline-secondary btn-sm btn-action-square"
-                        onclick="togglePasswordForm({{ user.id }})" data-bs-toggle="tooltip" title="Cambiar contraseña">
+                    <button class="btn btn-outline-secondary btn-sm btn-action-square toggle-password-btn"
+                        data-user-id="{{ user.id }}" data-bs-toggle="tooltip" title="Cambiar contraseña">
                         <i class="bi bi-key"></i>
                     </button>
                 </div>
@@ -268,8 +268,8 @@
                             <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
                                 Guardar
                             </button>
-                            <button type="button" class="btn btn-light btn-sm"
-                                onclick="togglePasswordForm({{ user.id }})">
+                            <button type="button" class="btn btn-light btn-sm cancel-password-btn"
+                                data-user-id="{{ user.id }}">
                                 Cancelar
                             </button>
                         </div>
@@ -298,5 +298,15 @@
             form.style.display = 'none';
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Event listeners para botones de contraseña
+        document.querySelectorAll('.toggle-password-btn, .cancel-password-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const userId = this.getAttribute('data-user-id');
+                togglePasswordForm(userId);
+            });
+        });
+    });
 </script>
 {% endblock %}
