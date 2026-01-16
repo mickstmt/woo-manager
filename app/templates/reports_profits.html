@@ -7,46 +7,58 @@
     .metric-card {
         transition: transform 0.2s;
     }
+
     .metric-card:hover {
         transform: translateY(-5px);
     }
+
     .metric-value {
         font-size: 2rem;
         font-weight: bold;
     }
+
     .profit-positive {
         color: #28a745;
     }
+
     .profit-negative {
         color: #dc3545;
     }
+
     .table-responsive {
         max-height: 600px;
         overflow-y: auto;
     }
+
     .table th {
         position: sticky;
         top: 0;
         background-color: var(--bs-body-bg);
         z-index: 10;
     }
+
     /* Estilos para filas expandidas con soporte modo oscuro */
-    .details-row > td {
+    .details-row>td {
         background-color: var(--bs-tertiary-bg) !important;
     }
+
     .details-row .table {
         background-color: var(--bs-body-bg);
     }
+
     .details-row .table thead {
         background-color: var(--bs-secondary-bg);
     }
+
     .details-row .table thead th {
         background-color: var(--bs-secondary-bg);
         color: var(--bs-body-color);
     }
+
     .details-row .table tbody tr {
         background-color: var(--bs-body-bg);
     }
+
     .details-row .table tbody td {
         color: var(--bs-body-color);
         border-color: var(--bs-border-color);
@@ -71,6 +83,7 @@
     }
 
     @media (max-width: 768px) {
+
         /* Header responsive */
         .col-12.d-flex.justify-content-between {
             flex-direction: column;
@@ -78,7 +91,7 @@
         }
 
         /* Filtros responsive */
-        .row.align-items-end > div {
+        .row.align-items-end>div {
             margin-bottom: 10px;
         }
 
@@ -106,13 +119,15 @@
         }
 
         /* Tabla más compacta */
-        .table th, .table td {
+        .table th,
+        .table td {
             font-size: 0.8rem;
             padding: 0.4rem;
         }
     }
 
     @media (max-width: 576px) {
+
         /* Título más pequeño */
         h1 {
             font-size: 1.3rem;
@@ -157,7 +172,8 @@
             font-size: 0.75rem;
         }
 
-        .table th, .table td {
+        .table th,
+        .table td {
             padding: 0.3rem;
         }
 
@@ -171,16 +187,19 @@
 
 {% block content %}
 <div class="row mb-3 mb-md-4">
-    <div class="col-12 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+    <div
+        class="col-12 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
         <div>
             <h1 class="mb-0">
-                <i class="bi bi-currency-dollar"></i> <span class="d-none d-sm-inline">Reporte de Ganancias</span><span class="d-sm-none">Ganancias</span>
+                <i class="bi bi-currency-dollar"></i> <span class="d-none d-sm-inline">Reporte de Ganancias</span><span
+                    class="d-sm-none">Ganancias</span>
             </h1>
             <p class="text-muted mb-0 d-none d-md-block">Análisis de costos y ganancias por pedidos</p>
         </div>
         <div>
             <a href="/reports/profits/dashboard" class="btn btn-primary btn-sm btn-md-normal">
-                <i class="bi bi-bar-chart-line-fill"></i> <span class="d-none d-sm-inline">Ver Dashboard</span><span class="d-sm-none">Dashboard</span>
+                <i class="bi bi-bar-chart-line-fill"></i> <span class="d-none d-sm-inline">Ver Dashboard</span><span
+                    class="d-sm-none">Dashboard</span>
             </a>
         </div>
     </div>
@@ -221,22 +240,26 @@
     <div class="col-12">
         <ul class="nav nav-tabs" id="sourceTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-source="all" type="button" role="tab" onclick="changeSource('all')">
+                <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-source="all" type="button"
+                    role="tab" onclick="changeSource('all')">
                     <i class="bi bi-globe"></i> Todos los Pedidos
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="whatsapp-tab" data-bs-toggle="tab" data-source="whatsapp" type="button" role="tab" onclick="changeSource('whatsapp')">
+                <button class="nav-link" id="whatsapp-tab" data-bs-toggle="tab" data-source="whatsapp" type="button"
+                    role="tab" onclick="changeSource('whatsapp')">
                     <i class="bi bi-whatsapp"></i> WhatsApp
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="woocommerce-tab" data-bs-toggle="tab" data-source="woocommerce" type="button" role="tab" onclick="changeSource('woocommerce')">
+                <button class="nav-link" id="woocommerce-tab" data-bs-toggle="tab" data-source="woocommerce"
+                    type="button" role="tab" onclick="changeSource('woocommerce')">
                     <i class="bi bi-shop"></i> WooCommerce
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="externos-tab" data-bs-toggle="tab" data-source="externos" type="button" role="tab" onclick="changeSource('externos')">
+                <button class="nav-link" id="externos-tab" data-bs-toggle="tab" data-source="externos" type="button"
+                    role="tab" onclick="changeSource('externos')">
                     <i class="bi bi-file-earmark-text"></i> Externos
                 </button>
             </li>
@@ -317,24 +340,26 @@
                                 <th>Pedido</th>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
-                                <th>Estado</th>
-                                <th class="text-center">Items</th>
+                                <th class="hide-mobile">Estado</th>
+                                <th class="text-center hide-mobile">Items</th>
                                 <th class="text-end">Venta (PEN)</th>
-                                <th class="text-end">Tipo Cambio</th>
-                                <th class="text-end">Costo (USD)</th>
-                                <th class="text-end">Costo (PEN)</th>
-                                <th class="text-end">Envío (PEN)</th>
+                                <th class="text-end hide-mobile">Tipo Cambio</th>
+                                <th class="text-end hide-mobile">Costo (USD)</th>
+                                <th class="text-end hide-mobile">Costo (PEN)</th>
+                                <th class="text-end hide-mobile">Envío (PEN)</th>
                                 <th class="text-end">Ganancia (PEN)</th>
-                                <th class="text-end">Margen %</th>
+                                <th class="text-end hide-mobile">Margen %</th>
                             </tr>
                         </thead>
                         <tbody id="orders-table">
                             <tr>
                                 <td colspan="13" class="text-center py-5">
                                     <div class="text-muted">
-                                        <i class="bi bi-file-earmark-bar-graph display-1 d-block mb-3 text-secondary opacity-25"></i>
+                                        <i
+                                            class="bi bi-file-earmark-bar-graph display-1 d-block mb-3 text-secondary opacity-25"></i>
                                         <h5 class="text-muted">No hay datos para mostrar</h5>
-                                        <p class="mb-0">Selecciona un rango de fechas y haz clic en "Generar Reporte"</p>
+                                        <p class="mb-0">Selecciona un rango de fechas y haz clic en "Generar Reporte"
+                                        </p>
                                     </div>
                                 </td>
                             </tr>
@@ -348,7 +373,7 @@
 
 <!-- Botón flotante para ir arriba -->
 <button id="back-to-top" class="btn btn-primary rounded-circle"
-        style="position: fixed; bottom: 20px; right: 20px; display: none; z-index: 1000;">
+    style="position: fixed; bottom: 20px; right: 20px; display: none; z-index: 1000;">
     <i class="bi bi-arrow-up"></i>
 </button>
 
@@ -357,7 +382,7 @@
 {% block extra_js %}
 <script>
     // Inicializar fechas (SIN cargar reporte automáticamente)
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(1); // Primer día del mes actual
@@ -545,17 +570,17 @@
                     <td><a href="/orders/${order.pedido_id}" onclick="event.stopPropagation();">${order.numero_pedido}</a></td>
                     <td>${formatDate(order.fecha_pedido)}</td>
                     <td>${clienteNombre}</td>
-                    <td>${statusBadge}</td>
-                    <td class="text-center"><span class="badge bg-secondary">${order.total_items}</span></td>
+                    <td class="hide-mobile">${statusBadge}</td>
+                    <td class="text-center hide-mobile"><span class="badge bg-secondary">${order.total_items}</span></td>
                     <td class="text-end">S/. ${formatNumber(order.total_venta_pen)}</td>
-                    <td class="text-end">${formatNumber(order.tipo_cambio)}</td>
-                    <td class="text-end">$ ${formatNumber(order.costo_total_usd)}</td>
-                    <td class="text-end">S/. ${formatNumber(order.costo_total_pen)}</td>
-                    <td class="text-end">S/. ${formatNumber(order.costo_envio_pen)}</td>
+                    <td class="text-end hide-mobile">${formatNumber(order.tipo_cambio)}</td>
+                    <td class="text-end hide-mobile">$ ${formatNumber(order.costo_total_usd)}</td>
+                    <td class="text-end hide-mobile">S/. ${formatNumber(order.costo_total_pen)}</td>
+                    <td class="text-end hide-mobile">S/. ${formatNumber(order.costo_envio_pen)}</td>
                     <td class="text-end ${profitClass}">
                         <strong>S/. ${formatNumber(order.ganancia_pen)}</strong>
                     </td>
-                    <td class="text-end ${profitClass}">
+                    <td class="text-end hide-mobile ${profitClass}">
                         <strong>${formatNumber(order.margen_porcentaje)}%</strong>
                     </td>
                 </tr>
@@ -582,14 +607,14 @@
                                 </thead>
                                 <tbody>
                                     ${(order.items && order.items.length > 0) ? order.items.map(item => {
-                                        const statusClass = !item.tiene_sku ? 'text-danger' : (!item.tiene_costo ? 'text-warning' : 'text-success');
-                                        const statusText = !item.tiene_sku ? 'Sin SKU' : (!item.tiene_costo ? 'Sin costo en FC' : 'OK');
-                                        const statusIcon = !item.tiene_sku ? 'x-circle-fill' : (!item.tiene_costo ? 'exclamation-triangle-fill' : 'check-circle-fill');
+                const statusClass = !item.tiene_sku ? 'text-danger' : (!item.tiene_costo ? 'text-warning' : 'text-success');
+                const statusText = !item.tiene_sku ? 'Sin SKU' : (!item.tiene_costo ? 'Sin costo en FC' : 'OK');
+                const statusIcon = !item.tiene_sku ? 'x-circle-fill' : (!item.tiene_costo ? 'exclamation-triangle-fill' : 'check-circle-fill');
 
-                                        const costoUnitPen = item.costo_unitario_usd * order.tipo_cambio;
-                                        const costoTotalPen = item.costo_total_usd * order.tipo_cambio;
+                const costoUnitPen = item.costo_unitario_usd * order.tipo_cambio;
+                const costoTotalPen = item.costo_total_usd * order.tipo_cambio;
 
-                                        return `
+                return `
                                             <tr>
                                                 <td>${item.producto}</td>
                                                 <td class="text-center">${item.cantidad}</td>
@@ -603,7 +628,7 @@
                                                 </td>
                                             </tr>
                                         `;
-                                    }).join('') : '<tr><td colspan="8" class="text-center text-muted">No hay items en este pedido</td></tr>'}
+            }).join('') : '<tr><td colspan="8" class="text-center text-muted">No hay items en este pedido</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
@@ -671,7 +696,7 @@
     }
 
     // Botón para volver arriba
-    window.onscroll = function() {
+    window.onscroll = function () {
         const backToTop = document.getElementById('back-to-top');
         if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
             backToTop.style.display = 'block';
@@ -680,7 +705,7 @@
         }
     };
 
-    document.getElementById('back-to-top').addEventListener('click', function() {
+    document.getElementById('back-to-top').addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 </script>
