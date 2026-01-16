@@ -1256,6 +1256,203 @@ def add_tracking():
 
 
 # ============================================
+# TRACKING MASIVO CHAMO/DINSIDES
+# ============================================
+
+
+@bp.route('/api/bulk-tracking-simple', methods=['POST'])
+@login_required
+@master_required
+def bulk_tracking_simple():
+    """
+    Procesa tracking masivo para CHAMO o DINSIDES con mensaje fijo.
+
+    A diferencia de Shalom que requiere un Excel con claves, CHAMO y DINSIDES
+    usan mensajes de tracking fijos y no requieren claves individuales.
+
+    Request JSON:
+    {
+        "orders": [41608, 41609, 41610],  # Lista de order IDs
+        "column": "chamo" | "dinsides"
+    }
+
+    Returns:
+        JSON con resultado del proceso masivo
+    """
+    import time
+    import phpserialize
+
+    try:
+        data = request.get_json()
+        order_ids = data.get('orders', [])
+        column = data.get('column')
+
+        if not order_ids:
+            return jsonify({'success': False, 'error': 'No se especificaron pedidos'}), 400
+
+        if column not in ['chamo', 'dinsides']:
+            return jsonify({'success': False, 'error': 'Columna inválida'}), 400
+
+        # Configuración por columna
+        config = {
+            'chamo': {
+                'tracking_message': "Hola, somos izistore. Su pedido estará llegando HOY entre las 11:00 am y 7:00 pm. El courier se contactará por WhatsApp o llamada. Por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención",
+                'shipping_provider': "Motorizado Izi"
+            },
+            'dinsides': {
+                'tracking_message': "Hola, somos izistore. Su pedido está programado para ser entregado MAÑANA entre las 11:00 AM y 7:00 PM. Recibirá un mensaje vía WhatsApp de parte de la empresa encargada de la entrega(DINSIDES) con las indicaciones a seguir. Al confirmar por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: Cualquier indicación adicional o coordinación lo puede realizar directamente con la empresa courier al momento que se le contacte para la confirmación. Importante: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención.",
+                'shipping_provider': "Dinsides Courier"
+            }
+        }
+
+        tracking_message = config[column]['tracking_message']
+        shipping_provider = config[column]['shipping_provider']
+        date_shipped = datetime.now().strftime('%Y-%m-%d')
+        timestamp = int(datetime.utcnow().timestamp())
+
+        # Inicializar API de WooCommerce
+        from woocommerce import API
+        wc_api = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=15
+        )
+
+        resultados = []
+        exitosos = 0
+        fallidos = 0
+
+        current_app.logger.info(f"[BULK-TRACKING-SIMPLE] Iniciando proceso para {len(order_ids)} pedidos de {column.upper()}")
+
+        for order_id in order_ids:
+            try:
+                # Validar que el pedido existe
+                order = Order.query.get(order_id)
+                if not order:
+                    fallidos += 1
+                    resultados.append({
+                        'order_id': order_id,
+                        'success': False,
+                        'error': 'Pedido no encontrado'
+                    })
+                    continue
+
+                # Obtener número de pedido
+                order_number = order.get_meta('_order_number') or f"#{order_id}"
+
+                # Crear tracking items en formato PHP serializado
+                tracking_items = [{
+                    'tracking_number': tracking_message,
+                    'tracking_provider': shipping_provider,
+                    'custom_tracking_provider': '',
+                    'custom_tracking_link': '',
+                    'date_shipped': date_shipped,
+                    'tracking_id': str(timestamp)
+                }]
+                serialized_items = phpserialize.dumps(tracking_items).decode('utf-8')
+
+                # 1. ACTUALIZAR VÍA API (cambia estado y envía email)
+                try:
+                    payment_method = order.get_meta('_payment_method') or order.payment_method
+                    wc_api.put(f"orders/{order_id}", {
+                        "status": "completed",
+                        "payment_method": payment_method,
+                        "meta_data": [
+                            {"key": "_tracking_number", "value": tracking_message},
+                            {"key": "_tracking_provider", "value": shipping_provider},
+                            {"key": "_wc_shipment_tracking_items", "value": tracking_items}
+                        ]
+                    })
+                    current_app.logger.info(f"[BULK-TRACKING-SIMPLE] Order {order_number}: API update success")
+                    order.status = 'wc-completed'
+                    order.date_updated_gmt = datetime.utcnow()
+
+                except Exception as api_err:
+                    current_app.logger.error(f"[BULK-TRACKING-SIMPLE] Order {order_number}: API Error - {str(api_err)}")
+                    order.status = 'wc-completed'
+                    order.date_updated_gmt = datetime.utcnow()
+
+                # 2. GUARDAR EN BASE DE DATOS (duplicados para plugin)
+                query_delete_old = text("""
+                    DELETE FROM wpyz_postmeta
+                    WHERE post_id = :order_id
+                      AND meta_key IN ('_tracking_number', '_tracking_provider', '_wc_shipment_tracking_items')
+                """)
+                db.session.execute(query_delete_old, {'order_id': order_id})
+
+                query_insert = text("""
+                    INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                    VALUES (:order_id, :key, :value)
+                """)
+
+                for key, value in [
+                    ('_tracking_number', tracking_message),
+                    ('_tracking_provider', shipping_provider),
+                    ('_wc_shipment_tracking_items', serialized_items)
+                ]:
+                    db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+                    db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
+
+                # 3. GUARDAR EN HPOS
+                query_hpos = text("""
+                    INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value)
+                    VALUES (:order_id, '_wc_shipment_tracking_items', :serialized_items)
+                    ON DUPLICATE KEY UPDATE meta_value = :serialized_items
+                """)
+                db.session.execute(query_hpos, {
+                    'order_id': order_id,
+                    'serialized_items': serialized_items
+                })
+
+                db.session.commit()
+
+                exitosos += 1
+                resultados.append({
+                    'order_id': order_id,
+                    'order_number': order_number,
+                    'success': True
+                })
+
+                current_app.logger.info(
+                    f"[BULK-TRACKING-SIMPLE] Tracking asignado a {order_number} ({column.upper()}) por {current_user.username}"
+                )
+
+                # Rate limiting - esperar 1 segundo entre pedidos
+                if len(order_ids) > 1:
+                    time.sleep(1)
+
+            except Exception as e:
+                db.session.rollback()
+                fallidos += 1
+                resultados.append({
+                    'order_id': order_id,
+                    'success': False,
+                    'error': str(e)
+                })
+                current_app.logger.error(f"[BULK-TRACKING-SIMPLE] Error procesando order {order_id}: {str(e)}")
+
+        current_app.logger.info(
+            f"[BULK-TRACKING-SIMPLE] Proceso completado: {exitosos} exitosos, {fallidos} fallidos"
+        )
+
+        return jsonify({
+            'success': True,
+            'exitosos': exitosos,
+            'fallidos': fallidos,
+            'total': len(order_ids),
+            'resultados': resultados
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error en bulk_tracking_simple: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
 # TRACKING MASIVO SHALOM
 # ============================================
 

@@ -7,6 +7,25 @@ let sortableInstances = [];
 let currentVisibleOrderIds = []; // Lista de IDs de pedidos visibles
 let orderDetailModalInstance = null; // Instancia única del modal
 
+// ============================================
+// SELECCIÓN MASIVA CHAMO/DINSIDES
+// ============================================
+
+// Variables para selección masiva
+let bulkSelectedOrders = [];  // Array de {orderId, orderNumber}
+let bulkSelectedColumn = null; // 'chamo' o 'dinsides'
+
+// Mensajes de tracking por columna
+const BULK_TRACKING_MESSAGES = {
+    chamo: "Hola, somos izistore. Su pedido estará llegando HOY entre las 11:00 am y 7:00 pm. El courier se contactará por WhatsApp o llamada. Por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención",
+    dinsides: "Hola, somos izistore. Su pedido está programado para ser entregado MAÑANA entre las 11:00 AM y 7:00 PM. Recibirá un mensaje vía WhatsApp de parte de la empresa encargada de la entrega(DINSIDES) con las indicaciones a seguir. Al confirmar por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: Cualquier indicación adicional o coordinación lo puede realizar directamente con la empresa courier al momento que se le contacte para la confirmación. Importante: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención."
+};
+
+const BULK_TRACKING_PROVIDERS = {
+    chamo: "Motorizado Izi",
+    dinsides: "Dinsides Courier"
+};
+
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Módulo de Despacho inicializado');
@@ -156,9 +175,9 @@ function renderOrders(ordersByMethod) {
             continue;
         }
 
-        // Crear tarjetas de pedidos
+        // Crear tarjetas de pedidos (pasando el método de la columna)
         orders.forEach(order => {
-            const card = createOrderCard(order);
+            const card = createOrderCard(order, method);
             column.appendChild(card);
         });
 
@@ -173,8 +192,10 @@ function renderOrders(ordersByMethod) {
 
 /**
  * Crear tarjeta de pedido
+ * @param {Object} order - Datos del pedido
+ * @param {string} columnMethod - Método de envío de la columna (opcional)
  */
-function createOrderCard(order) {
+function createOrderCard(order, columnMethod) {
     const card = document.createElement('div');
     card.className = 'order-card';
     card.dataset.orderId = order.id;
@@ -188,10 +209,22 @@ function createOrderCard(order) {
         card.classList.add('stale');
     }
 
+    // Determinar si es columna con selección masiva (CHAMO o DINSIDES)
+    const isBulkColumn = columnMethod === 'Motorizado (CHAMO)' || columnMethod === 'DINSIDES';
+    const columnKey = columnMethod === 'Motorizado (CHAMO)' ? 'chamo' :
+                      columnMethod === 'DINSIDES' ? 'dinsides' : null;
+
     // Construir HTML de la tarjeta
     let html = `
         <div class="card-header">
             <div class="order-number">
+                ${isBulkColumn ? `
+                    <input type="checkbox" class="form-check-input bulk-order-checkbox me-1"
+                           data-order-id="${order.id}"
+                           data-order-number="${order.number}"
+                           data-column="${columnKey}"
+                           onchange="onOrderCheckboxChange(this)">
+                ` : ''}
                 ${order.number}
                 ${order.whatsapp_number ? `<span style="color: #999; font-size: 0.85em; margin-left: 4px;">${order.whatsapp_number}</span>` : ''}
             </div>
@@ -918,5 +951,197 @@ function updateNavigationButtons() {
     } else {
         btnPrev.title = 'No hay más pedidos';
         btnNext.title = 'No hay más pedidos';
+    }
+}
+
+// ============================================
+// FUNCIONES DE SELECCIÓN MASIVA CHAMO/DINSIDES
+// ============================================
+
+/**
+ * Toggle seleccionar todos de una columna
+ */
+function toggleSelectAllColumn(column) {
+    const selectAllCheckbox = document.getElementById(`select-all-${column}`);
+    const isChecked = selectAllCheckbox.checked;
+
+    // Si se está seleccionando y hay otra columna activa, deshabilitarla
+    if (isChecked && bulkSelectedColumn && bulkSelectedColumn !== column) {
+        clearBulkSelection();
+    }
+
+    // Seleccionar/deseleccionar todos los checkboxes de la columna
+    const checkboxes = document.querySelectorAll(`.bulk-order-checkbox[data-column="${column}"]`);
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+
+    // Actualizar estado
+    updateBulkSelection();
+}
+
+/**
+ * Cuando cambia un checkbox individual
+ */
+function onOrderCheckboxChange(checkbox) {
+    const column = checkbox.dataset.column;
+
+    // Si se está seleccionando y hay otra columna activa, deshabilitarla
+    if (checkbox.checked && bulkSelectedColumn && bulkSelectedColumn !== column) {
+        clearBulkSelection();
+        checkbox.checked = true; // Re-marcar este
+    }
+
+    updateBulkSelection();
+}
+
+/**
+ * Actualizar estado de selección masiva
+ */
+function updateBulkSelection() {
+    // Recolectar pedidos seleccionados
+    bulkSelectedOrders = [];
+    bulkSelectedColumn = null;
+
+    const checkedBoxes = document.querySelectorAll('.bulk-order-checkbox:checked');
+
+    checkedBoxes.forEach(cb => {
+        bulkSelectedOrders.push({
+            orderId: parseInt(cb.dataset.orderId),
+            orderNumber: cb.dataset.orderNumber
+        });
+        bulkSelectedColumn = cb.dataset.column;
+    });
+
+    // Actualizar UI
+    const actionBar = document.getElementById('bulk-action-bar');
+    const countSpan = document.getElementById('bulk-selected-count');
+    const columnSpan = document.getElementById('bulk-selected-column');
+
+    if (bulkSelectedOrders.length > 0) {
+        actionBar.style.display = 'block';
+        countSpan.textContent = bulkSelectedOrders.length;
+        columnSpan.textContent = bulkSelectedColumn === 'chamo' ? 'CHAMO' : 'DINSIDES';
+
+        // Deshabilitar checkboxes de la otra columna
+        const otherColumn = bulkSelectedColumn === 'chamo' ? 'dinsides' : 'chamo';
+        document.querySelectorAll(`.bulk-order-checkbox[data-column="${otherColumn}"]`).forEach(cb => {
+            cb.disabled = true;
+        });
+        const otherSelectAll = document.getElementById(`select-all-${otherColumn}`);
+        if (otherSelectAll) {
+            otherSelectAll.disabled = true;
+        }
+    } else {
+        actionBar.style.display = 'none';
+
+        // Habilitar todos los checkboxes
+        document.querySelectorAll('.bulk-order-checkbox').forEach(cb => {
+            cb.disabled = false;
+        });
+        document.querySelectorAll('.bulk-select-all').forEach(cb => {
+            cb.disabled = false;
+        });
+    }
+
+    // Actualizar estado del checkbox "seleccionar todos"
+    ['chamo', 'dinsides'].forEach(col => {
+        const allCheckbox = document.getElementById(`select-all-${col}`);
+        if (!allCheckbox) return;
+
+        const columnCheckboxes = document.querySelectorAll(`.bulk-order-checkbox[data-column="${col}"]`);
+        const checkedCount = document.querySelectorAll(`.bulk-order-checkbox[data-column="${col}"]:checked`).length;
+
+        if (columnCheckboxes.length > 0) {
+            allCheckbox.checked = checkedCount === columnCheckboxes.length;
+            allCheckbox.indeterminate = checkedCount > 0 && checkedCount < columnCheckboxes.length;
+        } else {
+            allCheckbox.checked = false;
+            allCheckbox.indeterminate = false;
+        }
+    });
+}
+
+/**
+ * Limpiar selección masiva
+ */
+function clearBulkSelection() {
+    // Desmarcar todos los checkboxes
+    document.querySelectorAll('.bulk-order-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.disabled = false;
+    });
+    document.querySelectorAll('.bulk-select-all').forEach(cb => {
+        cb.checked = false;
+        cb.indeterminate = false;
+        cb.disabled = false;
+    });
+
+    bulkSelectedOrders = [];
+    bulkSelectedColumn = null;
+
+    document.getElementById('bulk-action-bar').style.display = 'none';
+}
+
+/**
+ * Mostrar modal de confirmación para tracking masivo
+ */
+function processBulkTracking() {
+    if (bulkSelectedOrders.length === 0) return;
+
+    // Llenar datos del modal
+    document.getElementById('confirm-count').textContent = bulkSelectedOrders.length;
+    document.getElementById('confirm-column').textContent =
+        bulkSelectedColumn === 'chamo' ? 'CHAMO' : 'DINSIDES';
+    document.getElementById('confirm-message').textContent =
+        BULK_TRACKING_MESSAGES[bulkSelectedColumn];
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('bulkTrackingConfirmModal'));
+    modal.show();
+}
+
+/**
+ * Confirmar y procesar tracking masivo
+ */
+async function confirmBulkTracking() {
+    const btn = document.getElementById('btn-confirm-bulk');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+    try {
+        const response = await fetch('/dispatch/api/bulk-tracking-simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orders: bulkSelectedOrders.map(o => o.orderId),
+                column: bulkSelectedColumn
+            })
+        });
+
+        const data = await response.json();
+
+        // Cerrar modal
+        bootstrap.Modal.getInstance(document.getElementById('bulkTrackingConfirmModal')).hide();
+
+        if (data.success) {
+            let msg = `Tracking asignado a ${data.exitosos} pedido(s).`;
+            if (data.fallidos > 0) {
+                msg += ` ${data.fallidos} fallido(s).`;
+            }
+            showSuccess(msg);
+            clearBulkSelection();
+            await loadOrders();
+        } else {
+            showError(data.error || 'Error al procesar tracking masivo');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        showError('Error de conexión: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }

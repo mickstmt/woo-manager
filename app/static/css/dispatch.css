@@ -749,3 +749,84 @@
 [data-theme="dark"] .product-thumbnail-placeholder i {
     color: var(--text-tertiary) !important;
 }
+
+/* ============================================
+   SELECCIÓN MASIVA CHAMO/DINSIDES - CHECKBOXES
+   ============================================ */
+
+/* Checkbox en header de columna */
+.column-header .bulk-select-all {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin-top: 2px;
+    accent-color: #fff;
+}
+
+/* Checkbox en tarjeta de pedido */
+.bulk-order-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.bulk-order-checkbox:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Resaltar tarjetas seleccionadas */
+.order-card:has(.bulk-order-checkbox:checked) {
+    background: linear-gradient(to right, #d4edda 0%, white 15%);
+    border-left-color: #28a745;
+}
+
+/* Barra de acción masiva */
+#bulk-action-bar .alert {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark mode para selección masiva */
+[data-theme="dark"] .order-card:has(.bulk-order-checkbox:checked) {
+    background: linear-gradient(to right, rgba(40, 167, 69, 0.2) 0%, var(--bg-body) 15%);
+}
+
+[data-theme="dark"] .bulk-order-checkbox {
+    accent-color: var(--primary-color);
+}
+
+[data-theme="dark"] #bulk-action-bar .alert-info {
+    background-color: rgba(13, 110, 253, 0.15);
+    border-color: rgba(13, 110, 253, 0.3);
+    color: var(--text-primary);
+}
+
+/* Responsive - checkboxes más grandes en móvil */
+@media (max-width: 576px) {
+    .column-header .bulk-select-all {
+        width: 20px;
+        height: 20px;
+    }
+
+    .bulk-order-checkbox {
+        width: 18px;
+        height: 18px;
+    }
+
+    #bulk-action-bar .btn {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
