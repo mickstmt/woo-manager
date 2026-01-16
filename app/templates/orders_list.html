@@ -102,6 +102,30 @@
             margin-bottom: 1.5rem;
         }
     }
+
+    /* Responsive: Tarjetas de pedidos en móvil */
+    @media (max-width: 767px) {
+        .order-card {
+            padding: 10px;
+        }
+
+        .order-card h5 {
+            font-size: 1rem;
+        }
+
+        .order-customer-name {
+            font-size: 0.9rem;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        .order-card .row {
+            row-gap: 8px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -717,24 +741,30 @@ function renderOrders(orders) {
         html += `
             <div class="order-card">
                 <div class="row align-items-center">
-                    <div class="col-md-1">
+                    <div class="col-6 col-md-1">
                         <h5 class="mb-0 text-primary">${order.order_number || '#' + order.id}</h5>
-                        <small class="text-muted">ID: ${order.id}</small>
+                        <small class="text-muted d-none d-md-inline">ID: ${order.id}</small>
+                        <!-- Info condensada solo en móvil -->
+                        <div class="d-md-none mt-1">
+                            <span class="badge bg-${statusClass} status-badge">${statusText}</span>
+                        </div>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 d-none d-md-block">
                         <span class="badge bg-${statusClass} status-badge">${statusText}</span><br>
                         <small class="text-muted"><i class="bi bi-person-badge"></i> ${order.created_by}</small>
                     </div>
-                    <div class="col-md-3">
-                        <strong>${order.customer_name}</strong><br>
-                        <small class="text-muted">${order.billing_email}</small><br>
-                        <small class="text-muted"><i class="bi bi-phone"></i> ${order.customer_phone}</small>
+                    <div class="col-6 col-md-3">
+                        <strong class="order-customer-name">${order.customer_name}</strong><br>
+                        <small class="text-muted d-none d-md-inline">${order.billing_email}</small>
+                        <small class="text-muted d-none d-md-inline"><br><i class="bi bi-phone"></i> ${order.customer_phone}</small>
+                        <!-- Solo teléfono en móvil -->
+                        <small class="text-muted d-md-none"><i class="bi bi-phone"></i> ${order.customer_phone}</small>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-2">
                         <strong>${order.currency} ${order.total.toFixed(2)}</strong><br>
-                        <small class="text-muted">${order.payment_method}</small>
+                        <small class="text-muted d-none d-md-inline">${order.payment_method}</small>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-2 d-none d-md-block">
                         <small class="text-muted">${order.date_created}</small><br>
                         <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small><br>
                         <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method}</small><br>
@@ -743,11 +773,11 @@ function renderOrders(orders) {
                             `<small class="text-muted"><i class="bi bi-dash-circle"></i> Sin tracking</small>`
                         }
                     </div>
-                    <div class="col-md-2 text-end">
+                    <div class="col-6 col-md-2 text-end">
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
                            target="_blank"
                            class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
+                            <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-lg-inline">Ver en WooCommerce</span>
                         </a>
                     </div>
                 </div>

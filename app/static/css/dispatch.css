@@ -61,10 +61,88 @@
     }
 }
 
-/* Responsivo para móviles */
+/* Responsivo para móviles - 2 columnas compactas */
 @media (max-width: 576px) {
     .kanban-board {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* Columnas más compactas */
+    .kanban-column {
+        min-height: 300px;
+    }
+
+    .column-header {
+        padding: 8px 10px;
+    }
+
+    .column-title {
+        font-size: 12px;
+    }
+
+    .column-title i {
+        font-size: 14px;
+    }
+
+    .column-count {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+
+    .column-cards {
+        padding: 6px;
+        max-height: calc(100vh - 320px);
+    }
+
+    /* Tarjetas más compactas */
+    .order-card {
+        margin-bottom: 6px;
+        border-radius: 4px;
+    }
+
+    .order-card .card-header {
+        padding: 4px 6px;
+    }
+
+    .order-card .card-body {
+        padding: 6px;
+    }
+
+    .order-card .card-footer {
+        padding: 4px 6px;
+    }
+
+    .order-number {
+        font-size: 11px;
+    }
+
+    .customer-name {
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .order-total {
+        font-size: 13px;
+    }
+
+    .order-date {
+        font-size: 9px;
+    }
+
+    /* Badges más pequeños */
+    .order-badges .badge {
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+
+    /* Botones de acción más pequeños */
+    .card-footer .btn-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
     }
 }
 
