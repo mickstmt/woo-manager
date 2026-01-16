@@ -12,28 +12,30 @@
     <!-- Header con título y estadísticas -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 dispatch-header">
                 <div>
                     <h2 class="mb-0">
                         <i class="bi bi-kanban"></i> Módulo de Despacho
                     </h2>
-                    <p class="text-muted mb-0">Gestión visual de pedidos por método de envío</p>
+                    <p class="text-muted mb-0 d-none d-sm-block">Gestión visual de pedidos por método de envío</p>
                 </div>
-                <div class="d-flex align-items-center gap-3">
-                    <a href="/dispatch/bulk-tracking" class="btn btn-outline-primary" title="Tracking Masivo Shalom">
-                        <i class="bi bi-truck"></i> Tracking Masivo
+                <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 w-100 w-md-auto justify-content-between justify-content-md-end">
+                    <a href="/dispatch/bulk-tracking" class="btn btn-outline-primary btn-sm btn-md-normal order-last order-md-first" title="Tracking Masivo Shalom">
+                        <i class="bi bi-truck"></i> <span class="d-none d-sm-inline">Tracking Masivo</span><span class="d-sm-none">Masivo</span>
                     </a>
-                    <div class="stat-card">
-                        <div class="stat-label">Total</div>
-                        <div class="stat-value" id="stat-total">0</div>
-                    </div>
-                    <div class="stat-card stat-priority">
-                        <div class="stat-label">Prioritarios</div>
-                        <div class="stat-value" id="stat-priority">0</div>
-                    </div>
-                    <div class="stat-card stat-stale">
-                        <div class="stat-label">Estancados</div>
-                        <div class="stat-value" id="stat-stale">0</div>
+                    <div class="d-flex gap-2">
+                        <div class="stat-card">
+                            <div class="stat-label">Total</div>
+                            <div class="stat-value" id="stat-total">0</div>
+                        </div>
+                        <div class="stat-card stat-priority">
+                            <div class="stat-label">Prioritarios</div>
+                            <div class="stat-value" id="stat-priority">0</div>
+                        </div>
+                        <div class="stat-card stat-stale">
+                            <div class="stat-label">Estancados</div>
+                            <div class="stat-value" id="stat-stale">0</div>
+                        </div>
                     </div>
                 </div>
             </div>

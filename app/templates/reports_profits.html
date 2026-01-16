@@ -51,21 +51,136 @@
         color: var(--bs-body-color);
         border-color: var(--bs-border-color);
     }
+
+    /* ============================================
+       RESPONSIVE STYLES
+       ============================================ */
+
+    @media (max-width: 992px) {
+        .metric-value {
+            font-size: 1.5rem;
+        }
+
+        .metric-card .card-body {
+            padding: 0.75rem;
+        }
+
+        .metric-card h6 {
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        /* Header responsive */
+        .col-12.d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Filtros responsive */
+        .row.align-items-end > div {
+            margin-bottom: 10px;
+        }
+
+        /* Métricas en 2 columnas */
+        #metrics-container .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .metric-value {
+            font-size: 1.3rem;
+        }
+
+        /* Tabs scrollables */
+        .nav-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-tabs .nav-link {
+            white-space: nowrap;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        /* Tabla más compacta */
+        .table th, .table td {
+            font-size: 0.8rem;
+            padding: 0.4rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        /* Título más pequeño */
+        h1 {
+            font-size: 1.3rem;
+        }
+
+        /* Métricas en 1 columna o 2 muy compactas */
+        #metrics-container .col-md-3 {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+
+        .metric-value {
+            font-size: 1.1rem;
+        }
+
+        .metric-card .card-body {
+            padding: 0.5rem;
+        }
+
+        .metric-card h6 {
+            font-size: 0.7rem;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Botones apilados */
+        .row.align-items-end .col-md-2 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* Ocultar texto en tabs, solo iconos */
+        .nav-tabs .nav-link {
+            padding: 0.5rem;
+        }
+
+        .nav-tabs .nav-link i {
+            margin-right: 0;
+        }
+
+        /* Tabla ultra compacta */
+        .table-responsive {
+            font-size: 0.75rem;
+        }
+
+        .table th, .table td {
+            padding: 0.3rem;
+        }
+
+        /* Ocultar columnas no esenciales en mobile */
+        .table .hide-mobile {
+            display: none;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
+<div class="row mb-3 mb-md-4">
+    <div class="col-12 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
         <div>
             <h1 class="mb-0">
-                <i class="bi bi-currency-dollar"></i> Reporte de Ganancias
+                <i class="bi bi-currency-dollar"></i> <span class="d-none d-sm-inline">Reporte de Ganancias</span><span class="d-sm-none">Ganancias</span>
             </h1>
-            <p class="text-muted mb-0">Análisis de costos y ganancias por pedidos</p>
+            <p class="text-muted mb-0 d-none d-md-block">Análisis de costos y ganancias por pedidos</p>
         </div>
         <div>
-            <a href="/reports/profits/dashboard" class="btn btn-primary">
-                <i class="bi bi-bar-chart-line-fill"></i> Ver Dashboard
+            <a href="/reports/profits/dashboard" class="btn btn-primary btn-sm btn-md-normal">
+                <i class="bi bi-bar-chart-line-fill"></i> <span class="d-none d-sm-inline">Ver Dashboard</span><span class="d-sm-none">Dashboard</span>
             </a>
         </div>
     </div>

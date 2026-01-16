@@ -69,6 +69,120 @@
 }
 
 /* ============================================
+   RESPONSIVE - HEADER Y ESTADÍSTICAS
+   ============================================ */
+
+@media (max-width: 992px) {
+    .stat-card {
+        padding: 10px 15px;
+        min-width: 80px;
+    }
+
+    .stat-value {
+        font-size: 20px;
+    }
+
+    .stat-label {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Header del módulo */
+    .dispatch-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start !important;
+    }
+
+    .dispatch-header .d-flex.align-items-center.gap-3 {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    /* Botón tracking masivo */
+    .dispatch-header .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    /* Estadísticas en mobile */
+    .stat-card {
+        padding: 8px 12px;
+        min-width: 70px;
+        flex: 1;
+    }
+
+    .stat-value {
+        font-size: 18px;
+    }
+
+    /* Filtros */
+    .filter-card .row {
+        gap: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    /* Título más pequeño en mobile */
+    h2 {
+        font-size: 1.3rem;
+    }
+
+    /* Estadísticas compactas */
+    .stat-card {
+        padding: 6px 10px;
+        min-width: 60px;
+    }
+
+    .stat-value {
+        font-size: 16px;
+    }
+
+    .stat-label {
+        font-size: 9px;
+    }
+
+    /* Columnas del kanban más altura */
+    .column-cards {
+        max-height: calc(100vh - 280px);
+    }
+
+    /* Tarjetas más compactas */
+    .order-card .card-header {
+        padding: 6px 8px;
+    }
+
+    .order-card .card-body {
+        padding: 8px;
+    }
+
+    .order-card .card-footer {
+        padding: 6px 8px;
+    }
+
+    .customer-name {
+        font-size: 12px;
+    }
+
+    .order-total {
+        font-size: 14px;
+    }
+
+    .order-date {
+        font-size: 10px;
+    }
+
+    /* Botones de acción más pequeños */
+    .card-footer .btn-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================
    COLUMNAS DEL KANBAN
    ============================================ */
 
