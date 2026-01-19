@@ -384,6 +384,9 @@ async function moveOrder(orderId, orderNumber, newMethod, oldMethod, evt) {
         // Mostrar notificación de éxito con toast
         showToast('success', 'Pedido Movido', `Pedido ${orderNumber} movido a ${newMethod}`);
 
+        // Actualizar el data-column del checkbox de la tarjeta movida
+        updateCardCheckboxColumn(evt.item, newMethod);
+
         // Actualizar contadores
         updateColumnCounts();
 
@@ -957,6 +960,52 @@ function updateNavigationButtons() {
 // ============================================
 // FUNCIONES DE SELECCIÓN MASIVA CHAMO/DINSIDES
 // ============================================
+
+/**
+ * Actualizar el checkbox de una tarjeta después de moverla a otra columna.
+ * Agrega/elimina checkbox según si la nueva columna es CHAMO/DINSIDES o no.
+ * @param {HTMLElement} cardElement - El elemento de la tarjeta movida
+ * @param {string} newMethod - El nuevo método de envío de la columna destino
+ */
+function updateCardCheckboxColumn(cardElement, newMethod) {
+    const isBulkColumn = newMethod === 'Motorizado (CHAMO)' || newMethod === 'DINSIDES';
+    const newColumnKey = newMethod === 'Motorizado (CHAMO)' ? 'chamo' :
+                         newMethod === 'DINSIDES' ? 'dinsides' : null;
+
+    const existingCheckbox = cardElement.querySelector('.bulk-order-checkbox');
+    const orderNumberDiv = cardElement.querySelector('.order-number');
+
+    if (isBulkColumn) {
+        // La tarjeta va a una columna con selección masiva
+        if (existingCheckbox) {
+            // Ya tiene checkbox, solo actualizar data-column
+            existingCheckbox.dataset.column = newColumnKey;
+            existingCheckbox.checked = false;
+            existingCheckbox.disabled = false;
+        } else {
+            // No tiene checkbox, crear uno nuevo
+            const orderId = cardElement.dataset.orderId;
+            const orderNumber = cardElement.dataset.orderNumber;
+            const newCheckbox = document.createElement('input');
+            newCheckbox.type = 'checkbox';
+            newCheckbox.className = 'form-check-input bulk-order-checkbox me-1';
+            newCheckbox.dataset.orderId = orderId;
+            newCheckbox.dataset.orderNumber = orderNumber;
+            newCheckbox.dataset.column = newColumnKey;
+            newCheckbox.onchange = function() { onOrderCheckboxChange(this); };
+            orderNumberDiv.insertBefore(newCheckbox, orderNumberDiv.firstChild);
+        }
+    } else {
+        // La tarjeta va a una columna sin selección masiva
+        if (existingCheckbox) {
+            // Remover el checkbox
+            existingCheckbox.remove();
+        }
+    }
+
+    // Limpiar selección si había algo seleccionado (para evitar estados inconsistentes)
+    clearBulkSelection();
+}
 
 /**
  * Toggle seleccionar todos de una columna
