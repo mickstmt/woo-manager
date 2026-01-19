@@ -35,6 +35,11 @@
     font-weight: bold;
 }
 
+/* Título del header - en una línea por defecto */
+.dispatch-header h2 {
+    white-space: nowrap;
+}
+
 /* ============================================
    TABLERO KANBAN
    ============================================ */
@@ -203,9 +208,10 @@
 }
 
 @media (max-width: 576px) {
-    /* Título más pequeño en mobile */
-    h2 {
+    /* Título más pequeño en mobile - permitir wrap */
+    .dispatch-header h2 {
         font-size: 1.3rem;
+        white-space: normal;
     }
 
     /* Estadísticas compactas */
