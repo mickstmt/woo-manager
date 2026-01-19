@@ -377,6 +377,86 @@
     <i class="bi bi-arrow-up"></i>
 </button>
 
+<!-- Modal: Filtro de Estados para Exportación -->
+<div class="modal fade" id="exportFilterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Selecciona los estados de pedidos que deseas incluir en la exportación:</p>
+
+                <div class="mb-3">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="status-select-all" checked onchange="toggleAllStatuses(this)">
+                        <label class="form-check-label fw-bold" for="status-select-all">
+                            Seleccionar todos
+                        </label>
+                    </div>
+                    <hr class="my-2">
+                </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-completed" id="status-completed" checked>
+                            <label class="form-check-label" for="status-completed">
+                                <span class="badge bg-success">Completado</span>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-processing" id="status-processing" checked>
+                            <label class="form-check-label" for="status-processing">
+                                <span class="badge bg-primary">Procesando</span>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-on-hold" id="status-on-hold" checked>
+                            <label class="form-check-label" for="status-on-hold">
+                                <span class="badge bg-info">En espera</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-pending" id="status-pending" checked>
+                            <label class="form-check-label" for="status-pending">
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-cancelled" id="status-cancelled">
+                            <label class="form-check-label" for="status-cancelled">
+                                <span class="badge bg-danger">Cancelado</span>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-refunded" id="status-refunded">
+                            <label class="form-check-label" for="status-refunded">
+                                <span class="badge bg-secondary">Reembolsado</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    <small><i class="bi bi-info-circle"></i> Los estados "Cancelado" y "Reembolsado" están desmarcados por defecto.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmExport()">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -504,15 +584,74 @@
             return;
         }
 
+        // Mostrar modal de filtro de estados
+        const modal = new bootstrap.Modal(document.getElementById('exportFilterModal'));
+        modal.show();
+    }
+
+    // Toggle todos los checkboxes de estado
+    function toggleAllStatuses(checkbox) {
+        const isChecked = checkbox.checked;
+        document.querySelectorAll('.export-status-check').forEach(cb => {
+            cb.checked = isChecked;
+        });
+    }
+
+    // Actualizar estado del "seleccionar todos" cuando cambian checkboxes individuales
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.export-status-check').forEach(cb => {
+            cb.addEventListener('change', function() {
+                updateSelectAllCheckbox();
+            });
+        });
+    });
+
+    function updateSelectAllCheckbox() {
+        const allCheckboxes = document.querySelectorAll('.export-status-check');
+        const checkedCheckboxes = document.querySelectorAll('.export-status-check:checked');
+        const selectAllCb = document.getElementById('status-select-all');
+
+        if (checkedCheckboxes.length === allCheckboxes.length) {
+            selectAllCb.checked = true;
+            selectAllCb.indeterminate = false;
+        } else if (checkedCheckboxes.length === 0) {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = false;
+        } else {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = true;
+        }
+    }
+
+    // Confirmar exportación con los estados seleccionados
+    function confirmExport() {
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
+
+        // Obtener estados seleccionados
+        const selectedStatuses = [];
+        document.querySelectorAll('.export-status-check:checked').forEach(cb => {
+            selectedStatuses.push(cb.value);
+        });
+
+        if (selectedStatuses.length === 0) {
+            showAlert('Debes seleccionar al menos un estado', 'warning');
+            return;
+        }
+
+        // Cerrar modal
+        bootstrap.Modal.getInstance(document.getElementById('exportFilterModal')).hide();
+
         // Mostrar mensaje de descarga
         showAlert('Generando archivo Excel... Por favor espera', 'info');
 
         // Crear URL con parámetros según el source
+        const statusesParam = selectedStatuses.join(',');
         let url;
         if (currentSource === 'externos') {
-            url = `/reports/api/profits/externos/export?start_date=${startDate}&end_date=${endDate}`;
+            url = `/reports/api/profits/externos/export?start_date=${startDate}&end_date=${endDate}&statuses=${statusesParam}`;
         } else {
-            url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`;
+            url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}&statuses=${statusesParam}`;
         }
 
         // Crear elemento <a> temporal para descargar

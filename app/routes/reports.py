@@ -1087,18 +1087,31 @@ def export_profits_externos_excel():
     Query params:
     - start_date: fecha inicio (YYYY-MM-DD)
     - end_date: fecha fin (YYYY-MM-DD)
+    - statuses: estados a incluir separados por coma (ej: 'wc-completed,wc-processing')
     """
     try:
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
+        statuses_param = request.args.get('statuses', type=str, default='')
 
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
+        # Procesar filtro de estados
+        if statuses_param:
+            status_list = [s.strip() for s in statuses_param.split(',') if s.strip()]
+            if status_list:
+                status_placeholders = ', '.join([f"'{s}'" for s in status_list])
+                status_filter = f"AND oext.status IN ({status_placeholders})"
+            else:
+                status_filter = "AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
+        else:
+            status_filter = "AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
+
         # Query simplificado - solo pedidos básicos
-        orders_query = text("""
+        orders_query_template = """
             SELECT
                 oext.id as pedido_id,
                 oext.order_number as numero_pedido,
@@ -1112,10 +1125,12 @@ def export_profits_externos_excel():
             FROM woo_orders_ext oext
             WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND oext.status != 'trash'
-                AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+                {status_filter}
             ORDER BY fecha_pedido DESC, oext.id DESC
             LIMIT 1000
-        """)
+        """
+
+        orders_query = text(orders_query_template.replace('{status_filter}', status_filter))
 
         orders = db.session.execute(orders_query, {
             'start_date': start_date,
@@ -1326,17 +1341,34 @@ def export_profits_excel():
     - start_date: fecha inicio (YYYY-MM-DD)
     - end_date: fecha fin (YYYY-MM-DD)
     - source: filtro de origen ('all', 'whatsapp', 'woocommerce') - default: 'all'
+    - statuses: estados a incluir separados por coma (ej: 'wc-completed,wc-processing')
     """
     try:
         # Obtener parámetros (mismo código que api_profits)
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
         source = request.args.get('source', type=str, default='all')
+        statuses_param = request.args.get('statuses', type=str, default='')
 
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+
+        # Procesar filtro de estados
+        if statuses_param:
+            # Convertir string de estados a lista y limpiar
+            status_list = [s.strip() for s in statuses_param.split(',') if s.strip()]
+            if status_list:
+                # Crear filtro IN con los estados seleccionados
+                status_placeholders = ', '.join([f"'{s}'" for s in status_list])
+                status_filter = f"AND o.status IN ({status_placeholders})"
+            else:
+                # Por defecto excluir cancelados, reembolsados y fallidos
+                status_filter = "AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
+        else:
+            # Por defecto excluir cancelados, reembolsados y fallidos
+            status_filter = "AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
 
         # Determinar filtro de origen
         source_filter = ""
@@ -1512,7 +1544,7 @@ def export_profits_excel():
 
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
-                AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+                {status_filter}
                 {source_filter}
 
             HAVING costo_total_usd IS NOT NULL
@@ -1520,7 +1552,7 @@ def export_profits_excel():
             ORDER BY fecha_pedido DESC, o.id DESC
         """
 
-        orders_query_str = orders_query_template.replace('{source_filter}', source_filter)
+        orders_query_str = orders_query_template.replace('{source_filter}', source_filter).replace('{status_filter}', status_filter)
         orders_query = text(orders_query_str)
         orders = db.session.execute(orders_query, {
             'start_date': start_date,
