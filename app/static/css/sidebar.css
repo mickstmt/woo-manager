@@ -384,6 +384,88 @@ h6 {
     width: 0;
 }
 
+/* ============================================
+   SUBMENÚS EXPANDIBLES
+   ============================================ */
+
+/* Contenedor del item con submenú */
+.nav-item.has-submenu {
+    position: relative;
+}
+
+/* Flecha del submenú */
+.submenu-arrow {
+    margin-left: auto;
+    font-size: 12px;
+    transition: transform var(--transition-fast);
+    color: var(--sidebar-text);
+}
+
+.nav-item.has-submenu.open .submenu-arrow {
+    transform: rotate(180deg);
+}
+
+.sidebar.collapsed .submenu-arrow {
+    display: none;
+}
+
+/* Submenú oculto por defecto */
+.submenu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    opacity: 0;
+    background: var(--sidebar-hover-bg);
+    border-radius: var(--radius-md);
+    margin-top: 4px;
+}
+
+/* Submenú abierto */
+.nav-item.has-submenu.open .submenu {
+    max-height: 200px;
+    opacity: 1;
+}
+
+/* Items dentro del submenú */
+.submenu .nav-item {
+    margin: 0;
+}
+
+.submenu .nav-link {
+    padding: 9px 16px 9px 44px;
+    font-size: 13px;
+}
+
+.submenu .nav-link-icon {
+    font-size: 14px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Hover en items del submenú */
+.submenu .nav-link:hover {
+    background: var(--sidebar-active-bg);
+    transform: translateX(2px);
+}
+
+/* Item activo en submenú */
+.submenu .nav-link.active {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+}
+
+/* Sidebar colapsado: ocultar submenú y mostrar como tooltip */
+.sidebar.collapsed .submenu {
+    display: none;
+}
+
+.sidebar.collapsed .nav-item.has-submenu .submenu-toggle {
+    justify-content: center;
+}
+
 /* Badge de notificaciones */
 .nav-badge {
     margin-left: auto;
