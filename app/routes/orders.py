@@ -14,6 +14,187 @@ import os
 bp = Blueprint('orders', __name__, url_prefix='/orders')
 
 
+def get_order_for_edit(order_id):
+    """
+    Helper para obtener todos los datos de un pedido para edición.
+    Retorna un diccionario estructurado o None si no existe.
+    """
+    from sqlalchemy import text
+    
+    # 1. Obtener datos principales del pedido
+    order_query = text("""
+        SELECT 
+            o.id, 
+            o.status, 
+            o.currency, 
+            o.total_amount, 
+            o.tax_amount, 
+            o.billing_email, 
+            o.date_created_gmt,
+            o.payment_method, 
+            o.payment_method_title, 
+            o.customer_note,
+            om_number.meta_value as order_number
+        FROM wpyz_wc_orders o
+        LEFT JOIN wpyz_wc_orders_meta om_number ON o.id = om_number.order_id 
+            AND om_number.meta_key = '_order_number'
+        WHERE o.id = :order_id
+    """) # AND o.status IN ('pending', 'processing', 'on-hold') <-- Podríamos restringir estados aquí
+    
+    order = db.session.execute(order_query, {'order_id': order_id}).fetchone()
+    
+    if not order:
+        return None
+
+    # 2. Obtener dirección de facturación (Billing Address)
+    # En WooCommerce HPOS, los datos del cliente están en wpyz_wc_order_addresses
+    addr_query = text("""
+        SELECT *
+        FROM wpyz_wc_order_addresses
+        WHERE order_id = :order_id AND address_type = 'billing'
+    """)
+    address = db.session.execute(addr_query, {'order_id': order_id}).fetchone()
+
+    # 3. Obtener metadatos adicionales necesarios
+    # RUC, DNI, Referencia pueden estar en postmeta (legacy) o order meta
+    # Primero intentamos sacar todo lo que podamos de la dirección HPOS o meta
+    
+    meta_query = text("""
+        SELECT meta_key, meta_value
+        FROM wpyz_wc_orders_meta
+        WHERE order_id = :order_id
+    """)
+    meta_rows = db.session.execute(meta_query, {'order_id': order_id}).fetchall()
+    order_meta = {row[0]: row[1] for row in meta_rows}
+    
+    # 4. Obtener Items del pedido
+    items_query = text("""
+        SELECT 
+            oi.order_item_id, 
+            oi.order_item_name, 
+            oi.order_item_type
+        FROM wpyz_woocommerce_order_items oi
+        WHERE oi.order_id = :order_id
+    """)
+    items_rows = db.session.execute(items_query, {'order_id': order_id}).fetchall()
+    
+    items = []
+    shipping_lines = []
+    fee_lines = [] # Descuentos o cargos extra
+    
+    for item in items_rows:
+        item_id = item.order_item_id
+        item_type = item.order_item_type
+        item_name = item.order_item_name
+        
+        # Obtener meta del item
+        imeta_query = text("""
+            SELECT meta_key, meta_value 
+            FROM wpyz_woocommerce_order_itemmeta 
+            WHERE order_item_id = :item_id
+        """)
+        imeta_rows = db.session.execute(imeta_query, {'item_id': item_id}).fetchall()
+        imeta = {row[0]: row[1] for row in imeta_rows}
+        
+        if item_type == 'line_item':
+            qty = int(imeta.get('_qty', 1))
+            total = float(imeta.get('_line_total', 0))
+            subtotal = float(imeta.get('_line_subtotal', 0))
+            product_id = int(imeta.get('_product_id', 0))
+            variation_id = int(imeta.get('_variation_id', 0))
+            
+            # Calcular precio unitario
+            price = subtotal / qty if qty > 0 else 0
+            
+            # Obtener URL de imagen
+            image_url = ""
+            target_id = variation_id if variation_id > 0 else product_id
+            
+            if target_id > 0:
+                img_query = text("""
+                    SELECT p.guid 
+                    FROM wpyz_posts p 
+                    JOIN wpyz_postmeta pm ON p.ID = pm.meta_value 
+                    WHERE pm.post_id = :pid AND pm.meta_key = '_thumbnail_id'
+                """)
+                img_res = db.session.execute(img_query, {'pid': target_id}).fetchone()
+                if img_res:
+                    image_url = img_res[0]
+
+            items.append({
+                'item_id': item_id,
+                'name': item_name,
+                'product_id': product_id,
+                'variation_id': variation_id,
+                'quantity': qty,
+                'price': price,
+                'subtotal': subtotal,
+                'total': total,
+                'image_url': image_url
+            })
+            
+        elif item_type == 'shipping':
+            cost = float(imeta.get('cost', 0))
+            shipping_lines.append({
+                'item_id': item_id,
+                'method_title': item_name,
+                'cost': cost
+            })
+
+    # Estructura final
+    customer_data = {}
+    if address:
+        customer_data = {
+            'first_name': address.first_name,
+            'last_name': address.last_name,
+            'email': address.email,
+            'phone': address.phone,
+            'company': address.company, # Usado para DNI a veces
+            'address_1': address.address_1,
+            'city': address.city, # Distrito
+            'state': address.state, # Departamento
+            'country': address.country,
+            'postcode': address.postcode,
+            # Extraer campos custom de meta si no están en address standard
+            'billing_ruc': order_meta.get('_billing_ruc', ''),
+            'billing_entrega': order_meta.get('_billing_entrega', ''),
+            'billing_referencia': order_meta.get('_billing_referencia', '')
+        }
+    
+    # Si falta info en address, intentar sacarla de order_meta (backwards compatibility)
+    if not customer_data.get('billing_ruc'):
+        customer_data['billing_ruc'] = order_meta.get('billing_ruc', '') or order_meta.get('_billing_ruc', '')
+
+    shipping_info = {
+        'method_title': shipping_lines[0]['method_title'] if shipping_lines else '',
+        'cost': shipping_lines[0]['cost'] if shipping_lines else 0
+    }
+    
+    # Calcular descuento total (diferencia entre subtotal items y total items)
+    # En WooCommerce, los descuentos se pueden guardar como items negativos o como diferencia en line_item
+    # Simplificación: Sumar subtotales de items vs total del pedido para deducir o leer meta
+    
+    return {
+        'order_id': order.id,
+        'order_number': order.order_number,
+        'status': order.status,
+        'customer': customer_data,
+        'items': items,
+        'shipping': shipping_info,
+        'payment': {
+            'method': order.payment_method,
+            'method_title': order.payment_method_title
+        },
+        'totals': {
+            'total': float(order.total_amount or 0),
+            'tax': float(order.tax_amount or 0),
+            'shipping': float(shipping_info['cost'])
+        },
+        'customer_note': order.customer_note
+    }
+
+
+
 def get_gmt_time():
     """
     Obtener la hora actual de Perú (America/Lima, UTC-5) convertida a GMT/UTC
@@ -429,10 +610,46 @@ def get_metodos_envio(distrito):
 def create_page():
     """
     Página para crear nuevo pedido (Wizard de 3 pasos)
-
+    
     URL: http://localhost:5000/orders/create
     """
-    return render_template('orders_create.html', title='Crear Nuevo Pedido')
+    return render_template('orders_create.html', title='Crear Nuevo Pedido', edit_mode=False)
+
+
+@bp.route('/edit/<int:order_id>')
+@login_required
+def edit_order(order_id):
+    """
+    Página para EDITAR un pedido existente (Reutiliza Wizard)
+    """
+    order_data = get_order_for_edit(order_id)
+    
+    if not order_data:
+        # flash('Pedido no encontrado', 'danger') # Necesitamos flash en layout o manejarlo en frontend
+        return render_template('errors/404.html'), 404 # O redirect a lista
+        
+    return render_template('orders_create.html', 
+                          title=f'Editar Pedido {order_data["order_number"]}',
+                          edit_mode=True,
+                          order_id=order_id)
+
+
+@bp.route('/api/get-order/<int:order_id>')
+@login_required
+def api_get_order(order_id):
+    """
+    API JSON para obtener datos completos del pedido (usado por JS en edit mode)
+    """
+    try:
+        data = get_order_for_edit(order_id)
+        if not data:
+            return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
+            
+        return jsonify(data)
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()}), 500
+
 
 
 @bp.route('/list')
@@ -2610,3 +2827,436 @@ def delete_order_external(order_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@bp.route('/update-order/<int:order_id>', methods=['PUT'])
+@login_required
+def update_order(order_id):
+    """
+    Actualiza un pedido existente.
+    Maneja cambios en cliente, direcciones, items (con ajuste de stock) y totales.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+             return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        # 1. Validaciones básicas
+        if not data.get('items'):
+            return jsonify({'success': False, 'error': 'Debe haber al menos un producto'}), 400
+            
+        # 2. Obtener estado actual para comparar (necesitamos saber qué items había antes)
+        # Reutilizamos get_order_for_edit para tener la lista limpia de items
+        current_order_data = get_order_for_edit(order_id)
+        if not current_order_data:
+             return jsonify({'success': False, 'error': 'Order not found'}), 404
+             
+        # 3. Actualizar Datos del Cliente y Direcciones
+        update_order_customer_data(order_id, data['customer'])
+        
+        # 4. Actualizar Items y Stock
+        update_order_items_logic(order_id, data['items'], current_order_data['items'])
+        
+        # 5. Actualizar Envío, Pago, Notas
+        update_order_general_data(order_id, data)
+        
+        # 6. Recalcular Totales y Actualizar Cabecera del Pedido
+        recalculate_order_totals(order_id)
+        
+        return jsonify({
+            'success': True,
+            'order_id': order_id,
+            'message': 'Pedido actualizado correctamente'
+        })
+
+    except Exception as e:
+        db.session.rollback() # Asegurar rollback en caso de error
+        import traceback
+        current_app.logger.error(f'Error updating order {order_id}: {str(e)}')
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def update_order_customer_data(order_id, customer):
+    """Actualiza wpyz_wc_order_addresses y meta relevante"""
+    from sqlalchemy import text
+    
+    # Mapeo de campos frontend a DB columns en wpyz_wc_order_addresses
+    # address_type = 'billing' (Manager usa billing como principal)
+    
+    update_addr = text("""
+        UPDATE wpyz_wc_order_addresses
+        SET 
+            first_name = :first_name,
+            last_name = :last_name,
+            company = :dni,
+            email = :email,
+            phone = :phone,
+            address_1 = :address,
+            city = :distrito,
+            state = :departamento
+        WHERE order_id = :order_id AND address_type = 'billing'
+    """)
+    
+    db.session.execute(update_addr, {
+        'first_name': customer.get('first_name',''),
+        'last_name': customer.get('last_name',''),
+        'dni': customer.get('dni',''), # Guardamos DNI en company por convención
+        'email': customer.get('email', ''),
+        'phone': customer.get('phone', ''),
+        'address': customer.get('address', customer.get('address_1','')),
+        'distrito': customer.get('city', ''), # Frontend manda city/distrito
+        'departamento': customer.get('state', ''),
+        'order_id': order_id
+    })
+    
+    # Actualizar Custom Meta (RUC, Referencia, Tipo Entrega)
+    # Usamos helper existente o queries directos.
+    # update_meta es una funcion hipotetica, la implementamos inline aqui o usamos modelos
+    meta_updates = {
+        '_billing_ruc': customer.get('ruc', ''),
+        '_billing_entrega': customer.get('billing_entrega', ''),
+        '_billing_referencia': customer.get('reference', '')
+    }
+    
+    for key, val in meta_updates.items():
+        # Upsert meta
+        check_meta = text("SELECT id FROM wpyz_wc_orders_meta WHERE order_id=:oid AND meta_key=:key")
+        res = db.session.execute(check_meta, {'oid': order_id, 'key': key}).fetchone()
+        
+        if res:
+            upd = text("UPDATE wpyz_wc_orders_meta SET meta_value=:val WHERE id=:mid")
+            db.session.execute(upd, {'val': val, 'mid': res[0]})
+        else:
+            ins = text("INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value) VALUES (:oid, :key, :val)")
+            db.session.execute(ins, {'oid': order_id, 'key': key, 'val': val})
+
+
+def update_order_items_logic(order_id, new_items, current_items):
+    """
+    Compara items nuevos vs actuales (por item_id si existe, o match de producto).
+    Maneja stock:
+    - Incrementar Qty -> Restar Stock
+    - Disminuir Qty -> Devolver Stock
+    - Eliminar Item -> Devolver Stock TOTAL
+    - Agregar Item -> Restar Stock
+    """
+    from sqlalchemy import text
+    
+    # Mapa de items actuales por ID
+    current_map = {item['item_id']: item for item in current_items}
+    
+    # Identificar items procesados para detectar eliminados
+    processed_ids = set()
+    
+    for new_item in new_items:
+        # Check si es un item existente (tiene original_item_id)
+        original_id = new_item.get('original_item_id')
+        qty_new = int(new_item.get('quantity', 1))
+        
+        if original_id and original_id in current_map:
+            # === UPDATE ===
+            processed_ids.add(original_id)
+            current = current_map[original_id]
+            qty_old = int(current['quantity'])
+            
+            # 1. Actualizar datos del item (nombre, total, etc) en DB
+            # En WooCommerce normal, line_total es sin impuestos, pero aquí simplificamos
+            # Asumimos que el precio viene unitario
+            line_subtotal = float(new_item['price']) * qty_new
+            line_total = line_subtotal # Si hubiera descuentos, seria menor
+            
+            # Actualizar woocommerce_order_itemmeta
+            # _qty, _line_total, _line_subtotal
+            update_item_meta_val(original_id, '_qty', qty_new)
+            update_item_meta_val(original_id, '_line_subtotal', line_subtotal)
+            update_item_meta_val(original_id, '_line_total', line_total)
+            
+            # 2. Ajuste de stock
+            diff = qty_new - qty_old
+            if diff != 0:
+                # Si diff > 0 (aumento), reduce stock => adjust_stock(prod, -diff)
+                # Si diff < 0 (reduccion), aumenta stock => adjust_stock(prod, -diff [que es positivo])
+                adjust_product_stock_db(new_item['product_id'], new_item.get('variation_id'), -diff, order_id)
+
+        else:
+            # === INSERT (Nuevo Item) ===
+            # Crear entrada en wpyz_woocommerce_order_items
+            ins_item = text("""
+                INSERT INTO wpyz_woocommerce_order_items (order_item_name, order_item_type, order_id)
+                VALUES (:name, 'line_item', :oid)
+            """)
+            res = db.session.execute(ins_item, {'name': new_item['name'], 'oid': order_id})
+            new_item_id = res.lastrowid
+            
+            # Crear meta
+            line_subtotal = float(new_item['price']) * qty_new
+            meta_dict = {
+                '_qty': qty_new,
+                '_product_id': new_item['product_id'],
+                '_variation_id': new_item.get('variation_id', 0),
+                '_line_subtotal': line_subtotal,
+                '_line_total': line_subtotal,
+                '_tax_class': '',
+                '_line_subtotal_tax': 0,
+                '_line_tax': 0,
+            }
+            for k, v in meta_dict.items():
+                ins_meta = text("INSERT INTO wpyz_woocommerce_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (:iid, :key, :val)")
+                db.session.execute(ins_meta, {'iid': new_item_id, 'key': k, 'val': v})
+                
+            # Restar Stock completo
+            adjust_product_stock_db(new_item['product_id'], new_item.get('variation_id'), -qty_new, order_id)
+
+    # === DELETE (Items que ya no vienen) ===
+    for c_id, c_item in current_map.items():
+        if c_id not in processed_ids:
+            # Eliminar de DB
+            db.session.execute(text("DELETE FROM wpyz_woocommerce_order_items WHERE order_item_id = :id"), {'id': c_id})
+            db.session.execute(text("DELETE FROM wpyz_woocommerce_order_itemmeta WHERE order_item_id = :id"), {'id': c_id})
+            
+            # Restaurar stock
+            qty_restore = int(c_item['quantity'])
+            adjust_product_stock_db(c_item['product_id'], c_item['variation_id'], qty_restore, order_id)
+
+
+def adjust_product_stock_db(product_id, variation_id, qty_delta, order_id):
+    """
+    Ajusta el stock de un producto/variación.
+    qty_delta: Cantidad a SUMAR al stock (puede ser negativa).
+    """
+    from sqlalchemy import text
+    target_id = variation_id if variation_id and int(variation_id) > 0 else product_id
+    
+    # Obtener stock actual
+    get_stock = text("SELECT meta_value FROM wpyz_postmeta WHERE post_id=:pid AND meta_key='_stock'")
+    res = db.session.execute(get_stock, {'pid': target_id}).fetchone()
+    
+    if res:
+        current_stock = float(res[0] or 0)
+        new_stock = current_stock + qty_delta
+        
+        # Actualizar
+        upd = text("UPDATE wpyz_postmeta SET meta_value=:val WHERE post_id=:pid AND meta_key='_stock'")
+        db.session.execute(upd, {'val': new_stock, 'pid': target_id})
+        
+        # Registrar StockHistory (Reutilizamos modelo si es posible, o raw insert)
+        # Por brevedad usaremos raw insert asumiendo tabla stock_history (custom)
+        # Ojo: El modelo original usaba wpyz_options para contadores, etc.
+        # Si StockHistory es un modelo de SQLAlchemy definido en app.models, mejor usarlo.
+        try:
+            from app.models import StockHistory
+            from config import get_local_time
+            history = StockHistory(
+                product_id=target_id,
+                product_title=f"Update Order {order_id}",
+                sku="", # Idealmente buscar SKU
+                old_stock=current_stock,
+                new_stock=new_stock,
+                change_amount=qty_delta,
+                changed_by=current_user.username,
+                change_reason=f"Edit Order {order_id}",
+                created_at=get_local_time()
+            )
+            db.session.add(history)
+        except Exception:
+            pass # Si falla el historial no bloqueamos el pedido
+
+
+def update_item_meta_val(item_id, key, val):
+    from sqlalchemy import text
+    upd = text("UPDATE wpyz_woocommerce_order_itemmeta SET meta_value=:val WHERE order_item_id=:iid AND meta_key=:key")
+    db.session.execute(upd, {'val': val, 'iid': item_id, 'key': key})
+
+
+def update_order_general_data(order_id, data):
+    from sqlalchemy import text
+    
+    # 1. Pago
+    payment_method = data.get('payment_method', 'cod')
+    # Mapeo simple de titulos
+    titles = {
+        'yape': 'Yape', 'plin': 'Plin', 'efectivo': 'Efectivo', 
+        'transferencia': 'Transferencia Bancaria', 'bacs': 'Banca Virtual',
+        'tarjeta_credito': 'Tarjeta de Crédito', 'tarjeta_debito': 'Tarjeta de Débito'
+    }
+    payment_title = titles.get(payment_method, payment_method)
+    
+    # Actualizar wpyz_wc_orders columns
+    upd_order = text("""
+        UPDATE wpyz_wc_orders 
+        SET payment_method=:pm, payment_method_title=:pmt, customer_note=:note 
+        WHERE id=:oid
+    """)
+    db.session.execute(upd_order, {
+        'pm': payment_method, 
+        'pmt': payment_title,
+        'note': data.get('customer_note', ''),
+        'oid': order_id
+    })
+    
+    # 2. Envío (Shipping Item)
+    # Buscar si ya existe item tipo shipping
+    check_shipping = text("SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='shipping'")
+    res = db.session.execute(check_shipping, {'oid': order_id}).fetchone()
+    
+    shipping_cost = float(data.get('shipping_cost', 0))
+    # shipping_method_title podria venir en data o deducirse
+    # En el payload de edición, vendría 'shipping_method_title' o similar
+    # Asumimos que el frontend (wizard) lo manda como parte de shipping o suelto
+    # Por simplificación, actualizamos costo.
+    
+    if res:
+        # Update
+        ship_item_id = res[0]
+        # Update costo en meta
+        update_item_meta_val(ship_item_id, 'cost', shipping_cost)
+        # Update total (shipping no suele tener subtotal dif de total salvo impuestos)
+        update_item_meta_val(ship_item_id, 'total', shipping_cost)
+    else:
+        # Insert Shipping Item si no existia (raro)
+        pass # Por ahora omitimos
+
+
+def recalculate_order_totals(order_id):
+    """
+    Suma todos los items y shipping, calcula impuestos y actualiza wpyz_wc_orders.
+    """
+    from sqlalchemy import text
+    
+    # Sumar items line_total
+    sum_items_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) 
+        FROM wpyz_woocommerce_order_itemmeta 
+        WHERE meta_key ='_line_total' 
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='line_item')
+    """)
+    items_total = db.session.execute(sum_items_q, {'oid': order_id}).scalar() or 0
+    
+    # Sumar shipping cost
+    sum_ship_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) 
+        FROM wpyz_woocommerce_order_itemmeta 
+        WHERE meta_key ='cost' 
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='shipping')
+    """)
+    shipping_total = db.session.execute(sum_ship_q, {'oid': order_id}).scalar() or 0
+    
+    # Calcular Impuestos (IGV 18%) -> Asumiendo que precios incluyen IGV o se calcula sobre total
+    # La lógica de WooCommerce es compleja. Aquí simplificamos:
+    # Tax = Total - (Total / 1.18)
+    total_net = float(items_total) + float(shipping_total)
+    tax_amount = total_net - (total_net / 1.18)
+    
+    # Actualizar wpyz_wc_orders
+    upd_totals = text("""
+        UPDATE wpyz_wc_orders
+        SET total_amount = :total, tax_amount = :tax, date_updated_gmt = UTC_TIMESTAMP()
+        WHERE id = :oid
+    """)
+    db.session.execute(upd_totals, {'total': total_net, 'tax': tax_amount, 'oid': order_id})
+    
+    # Actualizar Metas de Totales (_order_total, _order_tax, _order_shipping)
+    meta_updates = {
+        '_order_total': total_net,
+        '_order_tax': tax_amount,
+        '_order_shipping': shipping_total
+    }
+    for k, v in meta_updates.items():
+        # Upsert
+        check = text("SELECT id FROM wpyz_wc_orders_meta WHERE order_id=:oid AND meta_key=:key")
+        r = db.session.execute(check, {'oid': order_id, 'key': k}).fetchone()
+        if r:
+            db.session.execute(text("UPDATE wpyz_wc_orders_meta SET meta_value=:val WHERE id=:mid"), {'val': v, 'mid': r[0]})
+        else:
+            db.session.execute(text("INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value) VALUES (:oid, :key, :val)"), {'oid': order_id, 'key': k, 'val': v})
+    
+    db.session.commit()
+
+
+@bp.route('/trash/<int:order_id>', methods=['POST'])
+@login_required
+def trash_order(order_id):
+    """
+    Mueve un pedido a la papelera (trash).
+    Opcionalmente restaura el stock si el pedido estaba en estado pendiente/proceso/espera.
+    """
+    try:
+        data = request.get_json() or {}
+        restore_stock = data.get('restore_stock', True) # Default a True por seguridad
+
+        from sqlalchemy import text
+        from app.models import StockHistory
+        from config import get_local_time
+
+        # 1. Obtener estado actual y datos del pedido
+        order_q = text("SELECT status, id FROM wpyz_wc_orders WHERE id = :oid")
+        order = db.session.execute(order_q, {'oid': order_id}).fetchone()
+
+        if not order:
+            return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
+            
+        current_status = order.status
+        
+        # Estados que "reservan" stock
+        editable_statuses = ['pending', 'processing', 'on-hold'] # wc- prefix handled by woo usually, verify standard
+
+        # 2. Restaurar Stock (si aplica)
+        if restore_stock and current_status in editable_statuses:
+            # Obtener items
+            items_q = text("""
+                SELECT 
+                    oi.order_item_id, 
+                    om_prod.meta_value as product_id,
+                    om_var.meta_value as variation_id,
+                    om_qty.meta_value as quantity
+                FROM wpyz_woocommerce_order_items oi
+                LEFT JOIN wpyz_woocommerce_order_itemmeta om_prod ON oi.order_item_id = om_prod.order_item_id AND om_prod.meta_key = '_product_id'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta om_var ON oi.order_item_id = om_var.order_item_id AND om_var.meta_key = '_variation_id'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta om_qty ON oi.order_item_id = om_qty.order_item_id AND om_qty.meta_key = '_qty'
+                WHERE oi.order_id = :oid AND oi.order_item_type = 'line_item'
+            """)
+            items = db.session.execute(items_q, {'oid': order_id}).fetchall()
+            
+            for item in items:
+                try:
+                    pid = int(item.product_id) if item.product_id else 0
+                    vid = int(item.variation_id) if item.variation_id else 0
+                    qty = int(item.quantity) if item.quantity else 0
+                    
+                    if qty > 0:
+                        # adjust_product_stock_db aumenta stock si delta es POSITIVO
+                        # Queremos restaurar (+qty)
+                        adjust_product_stock_db(pid, vid, qty, order_id)
+                except Exception as e:
+                    current_app.logger.error(f"Error restaurando stock item {item}: {e}")
+                    # Continuamos con otros items
+
+        # 3. Actualizar estado a 'trash'
+        # wpyz_wc_orders
+        db.session.execute(
+            text("UPDATE wpyz_wc_orders SET status = 'trash', date_updated_gmt = UTC_TIMESTAMP() WHERE id = :oid"), 
+            {'oid': order_id}
+        )
+        
+        # wpyz_posts (Sincronización legacy/HPOS)
+        # Buscar post_id asociado si existe (a veces id = post_id, pero en HPOS puede variar si sync está activo)
+        # Asumimos ID sync direct o buscamos en postmeta? 
+        # En configuracion normal ID de orden = ID de post.
+        db.session.execute(
+            text("UPDATE wpyz_posts SET post_status = 'wc-trash' WHERE ID = :oid"),
+            {'oid': order_id}
+        )
+
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Pedido enviado a la papelera correctamente',
+            'stock_restored': (restore_stock and current_status in editable_statuses)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error trash order {order_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

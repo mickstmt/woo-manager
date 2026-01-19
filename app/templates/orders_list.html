@@ -13,7 +13,7 @@
     }
 
     .order-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
     .status-badge {
@@ -149,19 +149,17 @@
         <!-- Pestañas de canales -->
         <ul class="nav nav-tabs mb-3" id="orderChannelTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="whatsapp-tab" data-bs-toggle="tab"
-                        data-bs-target="#whatsapp-orders" type="button" role="tab"
-                        aria-controls="whatsapp-orders" aria-selected="true"
-                        onclick="switchChannel('whatsapp')">
+                <button class="nav-link active" id="whatsapp-tab" data-bs-toggle="tab" data-bs-target="#whatsapp-orders"
+                    type="button" role="tab" aria-controls="whatsapp-orders" aria-selected="true"
+                    onclick="switchChannel('whatsapp')">
                     <i class="bi bi-whatsapp"></i> Pedidos WhatsApp
                     <span class="badge bg-success ms-2" id="whatsapp-count">0</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="external-tab" data-bs-toggle="tab"
-                        data-bs-target="#external-orders" type="button" role="tab"
-                        aria-controls="external-orders" aria-selected="false"
-                        onclick="switchChannel('external')">
+                <button class="nav-link" id="external-tab" data-bs-toggle="tab" data-bs-target="#external-orders"
+                    type="button" role="tab" aria-controls="external-orders" aria-selected="false"
+                    onclick="switchChannel('external')">
                     <i class="bi bi-shop"></i> Pedidos Externos
                     <span class="badge bg-primary ms-2" id="external-count">0</span>
                 </button>
@@ -172,57 +170,55 @@
             <!-- Tab WhatsApp -->
             <div class="tab-pane fade show active" id="whatsapp-orders" role="tabpanel" aria-labelledby="whatsapp-tab">
                 <!-- Filtros para WhatsApp -->
-        <div class="card mb-3">
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-search"></i>
-                            </span>
-                            <input type="text"
-                                   class="form-control"
-                                   id="search-input"
-                                   placeholder="Buscar por ID, email, nombre o teléfono...">
-                            <button class="btn btn-primary" onclick="searchOrders()">
-                                Buscar
-                            </button>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="search-input"
+                                        placeholder="Buscar por ID, email, nombre o teléfono...">
+                                    <button class="btn btn-primary" onclick="searchOrders()">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="user-filter">
+                                    <option value="">Todos los usuarios</option>
+                                    <!-- Se llenará dinámicamente con JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="status-filter">
+                                    <option value="">Todos los estados</option>
+                                    <option value="wc-processing">Procesando</option>
+                                    <option value="wc-on-hold">En espera</option>
+                                    <option value="wc-completed">Completado</option>
+                                    <option value="wc-cancelled">Cancelado</option>
+                                    <option value="trash">Papelera</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="per-page-select">
+                                    <option value="20">20 por página</option>
+                                    <option value="50">50 por página</option>
+                                    <option value="100">100 por página</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="user-filter">
-                            <option value="">Todos los usuarios</option>
-                            <!-- Se llenará dinámicamente con JavaScript -->
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="status-filter">
-                            <option value="">Todos los estados</option>
-                            <option value="wc-processing">Procesando</option>
-                            <option value="wc-on-hold">En espera</option>
-                            <option value="wc-completed">Completado</option>
-                            <option value="wc-cancelled">Cancelado</option>
-                            <option value="trash">Papelera</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="per-page-select">
-                            <option value="20">20 por página</option>
-                            <option value="50">50 por página</option>
-                            <option value="100">100 por página</option>
-                        </select>
-                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Loading -->
-        <div id="loading" class="text-center py-5" style="display: none;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p class="mt-2">Cargando pedidos...</p>
-        </div>
+                <!-- Loading -->
+                <div id="loading" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando pedidos...</p>
+                </div>
 
                 <!-- Lista de pedidos WhatsApp -->
                 <div id="orders-container"></div>
@@ -243,10 +239,8 @@
                                     <span class="input-group-text">
                                         <i class="bi bi-search"></i>
                                     </span>
-                                    <input type="text"
-                                           class="form-control"
-                                           id="search-input-external"
-                                           placeholder="Buscar por ID, email, nombre o teléfono...">
+                                    <input type="text" class="form-control" id="search-input-external"
+                                        placeholder="Buscar por ID, email, nombre o teléfono...">
                                     <button class="btn btn-primary" onclick="searchOrdersExternal()">
                                         Buscar
                                     </button>
@@ -366,11 +360,10 @@
                         <!-- Buscador de productos -->
                         <div class="mb-3">
                             <label class="form-label">Buscar producto (por SKU o nombre)</label>
-                            <input type="text"
-                                   class="form-control"
-                                   id="product-search"
-                                   placeholder="Escribe para buscar...">
-                            <div id="product-search-results" class="border rounded mt-2" style="display: none; max-height: 200px; overflow-y: auto;"></div>
+                            <input type="text" class="form-control" id="product-search"
+                                placeholder="Escribe para buscar...">
+                            <div id="product-search-results" class="border rounded mt-2"
+                                style="display: none; max-height: 200px; overflow-y: auto;"></div>
                         </div>
 
                         <!-- Lista de productos agregados -->
@@ -419,7 +412,8 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Notas del Cliente</label>
-                        <textarea class="form-control" id="customer-note" rows="2" placeholder="Contactó por WhatsApp..."></textarea>
+                        <textarea class="form-control" id="customer-note" rows="2"
+                            placeholder="Contactó por WhatsApp..."></textarea>
                     </div>
                 </div>
             </div>
@@ -472,7 +466,8 @@
                     <input type="hidden" id="edit-order-id">
 
                     <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Solo se pueden editar los datos del cliente y notas. Los productos no pueden ser modificados.
+                        <i class="bi bi-info-circle"></i> Solo se pueden editar los datos del cliente y notas. Los
+                        productos no pueden ser modificados.
                     </div>
 
                     <h6 class="border-bottom pb-2 mb-3">Datos del Cliente</h6>
@@ -572,7 +567,8 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="delete-order-id">
-                <p class="mb-3">¿Estás seguro que deseas eliminar el pedido <strong id="delete-order-number"></strong>?</p>
+                <p class="mb-3">¿Estás seguro que deseas eliminar el pedido <strong id="delete-order-number"></strong>?
+                </p>
                 <div class="alert alert-warning">
                     <i class="bi bi-info-circle"></i> Esta acción restaurará el stock de los productos del pedido.
                 </div>
@@ -591,154 +587,154 @@
 
 {% block extra_js %}
 <script>
-// Variables globales
-let currentChannel = 'whatsapp'; // 'whatsapp' o 'external'
-let currentPage = 1;
-let perPage = 20;
-let searchTerm = '';
-let userFilter = '';
-let statusFilter = '';
-let sourceFilter = ''; // Para pedidos externos
-let selectedProducts = [];
+    // Variables globales
+    let currentChannel = 'whatsapp'; // 'whatsapp' o 'external'
+    let currentPage = 1;
+    let perPage = 20;
+    let searchTerm = '';
+    let userFilter = '';
+    let statusFilter = '';
+    let sourceFilter = ''; // Para pedidos externos
+    let selectedProducts = [];
 
-// Variables para externos
-let currentPageExternal = 1;
-let perPageExternal = 20;
-let searchTermExternal = '';
+    // Variables para externos
+    let currentPageExternal = 1;
+    let perPageExternal = 20;
+    let searchTermExternal = '';
 
-$(document).ready(function() {
-    // Cargar usuarios y pedidos
-    loadUsers();
-    loadOrders();
-
-    // Cargar contadores
-    updateOrderCounts();
-
-    // Eventos
-    $('#user-filter').on('change', function() {
-        userFilter = $(this).val();
-        currentPage = 1;
+    $(document).ready(function () {
+        // Cargar usuarios y pedidos
+        loadUsers();
         loadOrders();
-    });
 
-    $('#status-filter').on('change', function() {
-        statusFilter = $(this).val();
-        currentPage = 1;
-        loadOrders();
-    });
+        // Cargar contadores
+        updateOrderCounts();
 
-    $('#per-page-select').on('change', function() {
-        perPage = parseInt($(this).val());
-        currentPage = 1;
-        loadOrders();
-    });
+        // Eventos
+        $('#user-filter').on('change', function () {
+            userFilter = $(this).val();
+            currentPage = 1;
+            loadOrders();
+        });
 
-    // Buscar productos mientras se escribe
-    let searchTimeout;
-    $('#product-search').on('input', function() {
-        clearTimeout(searchTimeout);
-        const query = $(this).val();
+        $('#status-filter').on('change', function () {
+            statusFilter = $(this).val();
+            currentPage = 1;
+            loadOrders();
+        });
 
-        if (query.length < 2) {
-            $('#product-search-results').hide();
-            return;
-        }
+        $('#per-page-select').on('change', function () {
+            perPage = parseInt($(this).val());
+            currentPage = 1;
+            loadOrders();
+        });
 
-        searchTimeout = setTimeout(function() {
-            searchProducts(query);
-        }, 300);
-    });
+        // Buscar productos mientras se escribe
+        let searchTimeout;
+        $('#product-search').on('input', function () {
+            clearTimeout(searchTimeout);
+            const query = $(this).val();
 
-    // Enter para buscar pedidos
-    $('#search-input').on('keypress', function(e) {
-        if (e.which === 13) {
-            searchOrders();
-        }
-    });
-});
-
-function loadUsers() {
-    $.ajax({
-        url: '/orders/get-users',
-        method: 'GET',
-        success: function(response) {
-            if (response.success && response.users.length > 0) {
-                const select = $('#user-filter');
-                response.users.forEach(user => {
-                    // Mostrar nombre completo, no username
-                    select.append(`<option value="${user.username}">${user.full_name}</option>`);
-                });
+            if (query.length < 2) {
+                $('#product-search-results').hide();
+                return;
             }
-        },
-        error: function() {
-            console.log('Error al cargar usuarios');
-        }
-    });
-}
 
-function searchOrders() {
-    searchTerm = $('#search-input').val();
-    currentPage = 1;
-    loadOrders();
-}
+            searchTimeout = setTimeout(function () {
+                searchProducts(query);
+            }, 300);
+        });
 
-function loadOrders(page = 1) {
-    currentPage = page;
-    $('#loading').show();
-    $('#orders-container').hide();
-
-    $.ajax({
-        url: '/orders/list',
-        method: 'GET',
-        data: {
-            page: currentPage,
-            per_page: perPage,
-            search: searchTerm,
-            created_by: userFilter,
-            status: statusFilter
-        },
-        success: function(response) {
-            if (response.success) {
-                renderOrders(response.orders);
-                renderPagination(response.pagination);
-            } else {
-                showNotification('error', 'Error al cargar pedidos');
+        // Enter para buscar pedidos
+        $('#search-input').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchOrders();
             }
-            $('#loading').hide();
-            $('#orders-container').show();
-        },
-        error: function() {
-            showNotification('error', 'Error de conexión');
-            $('#loading').hide();
-        }
+        });
     });
-}
 
-function renderOrders(orders) {
-    const container = $('#orders-container');
+    function loadUsers() {
+        $.ajax({
+            url: '/orders/get-users',
+            method: 'GET',
+            success: function (response) {
+                if (response.success && response.users.length > 0) {
+                    const select = $('#user-filter');
+                    response.users.forEach(user => {
+                        // Mostrar nombre completo, no username
+                        select.append(`<option value="${user.username}">${user.full_name}</option>`);
+                    });
+                }
+            },
+            error: function () {
+                console.log('Error al cargar usuarios');
+            }
+        });
+    }
 
-    if (orders.length === 0) {
-        container.html(`
+    function searchOrders() {
+        searchTerm = $('#search-input').val();
+        currentPage = 1;
+        loadOrders();
+    }
+
+    function loadOrders(page = 1) {
+        currentPage = page;
+        $('#loading').show();
+        $('#orders-container').hide();
+
+        $.ajax({
+            url: '/orders/list',
+            method: 'GET',
+            data: {
+                page: currentPage,
+                per_page: perPage,
+                search: searchTerm,
+                created_by: userFilter,
+                status: statusFilter
+            },
+            success: function (response) {
+                if (response.success) {
+                    renderOrders(response.orders);
+                    renderPagination(response.pagination);
+                } else {
+                    showNotification('error', 'Error al cargar pedidos');
+                }
+                $('#loading').hide();
+                $('#orders-container').show();
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión');
+                $('#loading').hide();
+            }
+        });
+    }
+
+    function renderOrders(orders) {
+        const container = $('#orders-container');
+
+        if (orders.length === 0) {
+            container.html(`
             <div class="alert alert-info text-center">
                 <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                 <h5 class="mt-3">No se encontraron pedidos</h5>
                 <p>Intenta con otros filtros de búsqueda</p>
             </div>
         `);
-        return;
-    }
+            return;
+        }
 
-    let html = '';
-    orders.forEach(order => {
-        const statusClass = order.status.includes('trash') ? 'secondary' :
-                           order.status.includes('delivered') ? 'success' :
-                           order.status.includes('completed') ? 'info' :
-                           order.status.includes('cancelled') ? 'danger' : 'warning';
+        let html = '';
+        orders.forEach(order => {
+            const statusClass = order.status.includes('trash') ? 'secondary' :
+                order.status.includes('delivered') ? 'success' :
+                    order.status.includes('completed') ? 'info' :
+                        order.status.includes('cancelled') ? 'danger' : 'warning';
 
-        const statusText = order.status === 'trash' ? 'PAPELERA' :
-                          order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
+            const statusText = order.status === 'trash' ? 'PAPELERA' :
+                order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
 
-        html += `
+            html += `
             <div class="order-card">
                 <div class="row align-items-center">
                     <div class="col-6 col-md-1">
@@ -769,168 +765,175 @@ function renderOrders(orders) {
                         <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small><br>
                         <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method}</small><br>
                         ${order.tracking_number ?
-                            `<small class="text-success"><i class="bi bi-check-circle-fill"></i> ${order.tracking_number}</small>` :
-                            `<small class="text-muted"><i class="bi bi-dash-circle"></i> Sin tracking</small>`
-                        }
+                    `<small class="text-success"><i class="bi bi-check-circle-fill"></i> ${order.tracking_number}</small>` :
+                    `<small class="text-muted"><i class="bi bi-dash-circle"></i> Sin tracking</small>`
+                }
                     </div>
-                    <div class="col-6 col-md-2 text-end">
+                    <div class="col-6 col-md-2 text-end d-flex flex-column gap-2 justify-content-end align-items-end">
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
                            target="_blank"
-                           class="btn btn-sm btn-outline-primary">
+                           class="btn btn-sm btn-outline-warning w-100 w-md-auto">
                             <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-lg-inline">Ver en WooCommerce</span>
                         </a>
+                        ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
+                    `<a href="/orders/edit/${order.id}" class="btn btn-sm btn-primary w-100 w-md-auto">
+                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Editar</span>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100 w-md-auto" onclick="confirmTrashOrder(${order.id}, '${order.order_number}')">
+                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Papelera</span>
+                        </button>` : ''}
                     </div>
                 </div>
             </div>
         `;
-    });
+        });
 
-    container.html(html);
-}
-
-function renderPagination(pagination) {
-    const container = $('#pagination-container');
-
-    if (pagination.pages <= 1) {
-        container.html('');
-        return;
+        container.html(html);
     }
 
-    let html = '<nav><ul class="pagination justify-content-center">';
+    function renderPagination(pagination) {
+        const container = $('#pagination-container');
 
-    // Anterior
-    html += `<li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+        if (pagination.pages <= 1) {
+            container.html('');
+            return;
+        }
+
+        let html = '<nav><ul class="pagination justify-content-center">';
+
+        // Anterior
+        html += `<li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
                 <a class="page-link" href="#" onclick="loadOrders(${pagination.prev_num}); return false;">Anterior</a>
              </li>`;
 
-    // Números de página
-    for (let i = 1; i <= pagination.pages; i++) {
-        if (i === pagination.page) {
-            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-        } else if (i === 1 || i === pagination.pages || Math.abs(i - pagination.page) <= 2) {
-            html += `<li class="page-item"><a class="page-link" href="#" onclick="loadOrders(${i}); return false;">${i}</a></li>`;
-        } else if (Math.abs(i - pagination.page) === 3) {
-            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        // Números de página
+        for (let i = 1; i <= pagination.pages; i++) {
+            if (i === pagination.page) {
+                html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+            } else if (i === 1 || i === pagination.pages || Math.abs(i - pagination.page) <= 2) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadOrders(${i}); return false;">${i}</a></li>`;
+            } else if (Math.abs(i - pagination.page) === 3) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
         }
-    }
 
-    // Siguiente
-    html += `<li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+        // Siguiente
+        html += `<li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
                 <a class="page-link" href="#" onclick="loadOrders(${pagination.next_num}); return false;">Siguiente</a>
              </li>`;
 
-    html += '</ul></nav>';
-    container.html(html);
-}
-
-function showCreateOrderModal() {
-    selectedProducts = [];
-    updateProductsList();
-    calculateTotals();
-    $('#createOrderModal').modal('show');
-}
-
-function searchProducts(query) {
-    $.ajax({
-        url: '/orders/search-products',
-        method: 'GET',
-        data: { q: query },
-        success: function(response) {
-            if (response.success) {
-                renderProductSearchResults(response.products);
-            }
-        }
-    });
-}
-
-function renderProductSearchResults(products) {
-    const container = $('#product-search-results');
-
-    if (products.length === 0) {
-        container.html('<div class="p-2 text-muted">No se encontraron productos</div>');
-        container.show();
-        return;
+        html += '</ul></nav>';
+        container.html(html);
     }
 
-    let html = '';
-    products.forEach(product => {
-        html += `
+    function showCreateOrderModal() {
+        selectedProducts = [];
+        updateProductsList();
+        calculateTotals();
+        $('#createOrderModal').modal('show');
+    }
+
+    function searchProducts(query) {
+        $.ajax({
+            url: '/orders/search-products',
+            method: 'GET',
+            data: { q: query },
+            success: function (response) {
+                if (response.success) {
+                    renderProductSearchResults(response.products);
+                }
+            }
+        });
+    }
+
+    function renderProductSearchResults(products) {
+        const container = $('#product-search-results');
+
+        if (products.length === 0) {
+            container.html('<div class="p-2 text-muted">No se encontraron productos</div>');
+            container.show();
+            return;
+        }
+
+        let html = '';
+        products.forEach(product => {
+            html += `
             <div class="search-result-item" onclick="addProduct(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, ${product.stock})">
                 <strong>${product.name}</strong><br>
                 <small class="text-muted">SKU: ${product.sku} | Precio: S/ ${product.price.toFixed(2)} | Stock: ${product.stock}</small>
             </div>
         `;
-    });
+        });
 
-    container.html(html);
-    container.show();
-}
-
-function addProduct(id, name, price, stock) {
-    // Verificar si ya existe
-    const existing = selectedProducts.find(p => p.id === id);
-    if (existing) {
-        showNotification('warning', 'Este producto ya está agregado');
-        return;
+        container.html(html);
+        container.show();
     }
 
-    selectedProducts.push({
-        id: id,
-        name: name,
-        price: price,
-        stock: stock,
-        quantity: 1
-    });
+    function addProduct(id, name, price, stock) {
+        // Verificar si ya existe
+        const existing = selectedProducts.find(p => p.id === id);
+        if (existing) {
+            showNotification('warning', 'Este producto ya está agregado');
+            return;
+        }
 
-    updateProductsList();
-    calculateTotals();
+        selectedProducts.push({
+            id: id,
+            name: name,
+            price: price,
+            stock: stock,
+            quantity: 1
+        });
 
-    // Limpiar búsqueda
-    $('#product-search').val('');
-    $('#product-search-results').hide();
-}
+        updateProductsList();
+        calculateTotals();
 
-function removeProduct(index) {
-    selectedProducts.splice(index, 1);
-    updateProductsList();
-    calculateTotals();
-}
-
-function updateQuantity(index, change) {
-    const product = selectedProducts[index];
-    const newQty = product.quantity + change;
-
-    if (newQty < 1) {
-        showNotification('warning', 'La cantidad mínima es 1');
-        return;
+        // Limpiar búsqueda
+        $('#product-search').val('');
+        $('#product-search-results').hide();
     }
 
-    if (newQty > product.stock) {
-        showNotification('warning', `Stock disponible: ${product.stock}`);
-        return;
+    function removeProduct(index) {
+        selectedProducts.splice(index, 1);
+        updateProductsList();
+        calculateTotals();
     }
 
-    product.quantity = newQty;
-    updateProductsList();
-    calculateTotals();
-}
+    function updateQuantity(index, change) {
+        const product = selectedProducts[index];
+        const newQty = product.quantity + change;
 
-function updateProductsList() {
-    const container = $('#products-list');
+        if (newQty < 1) {
+            showNotification('warning', 'La cantidad mínima es 1');
+            return;
+        }
 
-    if (selectedProducts.length === 0) {
-        container.html(`
+        if (newQty > product.stock) {
+            showNotification('warning', `Stock disponible: ${product.stock}`);
+            return;
+        }
+
+        product.quantity = newQty;
+        updateProductsList();
+        calculateTotals();
+    }
+
+    function updateProductsList() {
+        const container = $('#products-list');
+
+        if (selectedProducts.length === 0) {
+            container.html(`
             <p class="text-muted text-center py-4">
                 <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
                 No hay productos agregados
             </p>
         `);
-        return;
-    }
+            return;
+        }
 
-    let html = '';
-    selectedProducts.forEach((product, index) => {
-        html += `
+        let html = '';
+        selectedProducts.forEach((product, index) => {
+            html += `
             <div class="product-item">
                 <span class="remove-btn" onclick="removeProduct(${index})">
                     <i class="bi bi-x-circle"></i>
@@ -946,197 +949,197 @@ function updateProductsList() {
                 </div>
             </div>
         `;
-    });
+        });
 
-    container.html(html);
-}
-
-function calculateTotals() {
-    let subtotal = 0;
-    selectedProducts.forEach(product => {
-        subtotal += product.price * product.quantity;
-    });
-
-    const tax = subtotal * 0.18;
-    const total = subtotal + tax;
-
-    $('#order-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
-    $('#order-tax').text(`S/ ${tax.toFixed(2)}`);
-    $('#order-total').text(`S/ ${total.toFixed(2)}`);
-}
-
-function createOrder() {
-    // Validar campos del cliente
-    const customer = {
-        first_name: $('#customer-first-name').val().trim(),
-        last_name: $('#customer-last-name').val().trim(),
-        email: $('#customer-email').val().trim(),
-        phone: $('#customer-phone').val().trim(),
-        address_1: $('#customer-address').val().trim(),
-        city: $('#customer-city').val().trim(),
-        state: $('#customer-state').val().trim(),
-        postcode: $('#customer-postcode').val().trim(),
-        country: $('#customer-country').val().trim()
-    };
-
-    // Validaciones
-    if (!customer.first_name || !customer.last_name) {
-        showNotification('error', 'Nombre y apellido son requeridos');
-        return;
+        container.html(html);
     }
 
-    if (!customer.email || !customer.email.includes('@')) {
-        showNotification('error', 'Email válido es requerido');
-        return;
+    function calculateTotals() {
+        let subtotal = 0;
+        selectedProducts.forEach(product => {
+            subtotal += product.price * product.quantity;
+        });
+
+        const tax = subtotal * 0.18;
+        const total = subtotal + tax;
+
+        $('#order-subtotal').text(`S/ ${subtotal.toFixed(2)}`);
+        $('#order-tax').text(`S/ ${tax.toFixed(2)}`);
+        $('#order-total').text(`S/ ${total.toFixed(2)}`);
     }
 
-    if (!customer.phone) {
-        showNotification('error', 'Teléfono es requerido');
-        return;
-    }
+    function createOrder() {
+        // Validar campos del cliente
+        const customer = {
+            first_name: $('#customer-first-name').val().trim(),
+            last_name: $('#customer-last-name').val().trim(),
+            email: $('#customer-email').val().trim(),
+            phone: $('#customer-phone').val().trim(),
+            address_1: $('#customer-address').val().trim(),
+            city: $('#customer-city').val().trim(),
+            state: $('#customer-state').val().trim(),
+            postcode: $('#customer-postcode').val().trim(),
+            country: $('#customer-country').val().trim()
+        };
 
-    if (!customer.address_1 || !customer.city) {
-        showNotification('error', 'Dirección y ciudad son requeridas');
-        return;
-    }
-
-    if (selectedProducts.length === 0) {
-        showNotification('error', 'Debe agregar al menos un producto');
-        return;
-    }
-
-    // Preparar items
-    const items = selectedProducts.map(product => ({
-        product_id: product.id,
-        quantity: product.quantity,
-        price: product.price
-    }));
-
-    // Datos del pedido
-    const orderData = {
-        customer: customer,
-        items: items,
-        payment_method: $('#payment-method').val(),
-        payment_method_title: $('#payment-method option:selected').text(),
-        customer_note: $('#customer-note').val().trim()
-    };
-
-    // Deshabilitar botón
-    const btn = $('button[onclick="createOrder()"]');
-    btn.prop('disabled', true);
-    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Creando pedido...');
-
-    // Enviar
-    $.ajax({
-        url: '/orders/create',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(orderData),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', response.message);
-                $('#createOrderModal').modal('hide');
-                loadOrders(); // Recargar lista
-
-                // Limpiar formulario
-                $('#createOrderModal input').val('');
-                $('#createOrderModal textarea').val('');
-                selectedProducts = [];
-                updateProductsList();
-            } else {
-                showNotification('error', response.error || 'Error al crear pedido');
-            }
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-            showNotification('error', error);
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+        // Validaciones
+        if (!customer.first_name || !customer.last_name) {
+            showNotification('error', 'Nombre y apellido son requeridos');
+            return;
         }
-    });
-}
 
-function showNotification(type, message) {
-    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    const html = `
+        if (!customer.email || !customer.email.includes('@')) {
+            showNotification('error', 'Email válido es requerido');
+            return;
+        }
+
+        if (!customer.phone) {
+            showNotification('error', 'Teléfono es requerido');
+            return;
+        }
+
+        if (!customer.address_1 || !customer.city) {
+            showNotification('error', 'Dirección y ciudad son requeridas');
+            return;
+        }
+
+        if (selectedProducts.length === 0) {
+            showNotification('error', 'Debe agregar al menos un producto');
+            return;
+        }
+
+        // Preparar items
+        const items = selectedProducts.map(product => ({
+            product_id: product.id,
+            quantity: product.quantity,
+            price: product.price
+        }));
+
+        // Datos del pedido
+        const orderData = {
+            customer: customer,
+            items: items,
+            payment_method: $('#payment-method').val(),
+            payment_method_title: $('#payment-method option:selected').text(),
+            customer_note: $('#customer-note').val().trim()
+        };
+
+        // Deshabilitar botón
+        const btn = $('button[onclick="createOrder()"]');
+        btn.prop('disabled', true);
+        btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Creando pedido...');
+
+        // Enviar
+        $.ajax({
+            url: '/orders/create',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(orderData),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', response.message);
+                    $('#createOrderModal').modal('hide');
+                    loadOrders(); // Recargar lista
+
+                    // Limpiar formulario
+                    $('#createOrderModal input').val('');
+                    $('#createOrderModal textarea').val('');
+                    selectedProducts = [];
+                    updateProductsList();
+                } else {
+                    showNotification('error', response.error || 'Error al crear pedido');
+                }
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+            }
+        });
+    }
+
+    function showNotification(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const html = `
         <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
              style="z-index: 9999; max-width: 500px;">
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
-    $('body').append(html);
-    setTimeout(() => $('.alert').fadeOut(), 3000);
-}
-
-// ==================== FUNCIONES PARA PEDIDOS EXTERNOS ====================
-
-function switchChannel(channel) {
-    currentChannel = channel;
-    if (channel === 'external') {
-        loadOrdersExternal();
-    } else {
-        loadOrders();
+        $('body').append(html);
+        setTimeout(() => $('.alert').fadeOut(), 3000);
     }
-}
 
-function loadOrdersExternal() {
-    $('#loading-external').show();
-    $('#orders-container-external').hide();
+    // ==================== FUNCIONES PARA PEDIDOS EXTERNOS ====================
 
-    $.ajax({
-        url: '/orders/list-external',
-        method: 'GET',
-        data: {
-            page: currentPageExternal,
-            per_page: perPageExternal,
-            search: searchTermExternal,
-            source: sourceFilter
-        },
-        success: function(response) {
-            $('#loading-external').hide();
-            $('#orders-container-external').show();
+    function switchChannel(channel) {
+        currentChannel = channel;
+        if (channel === 'external') {
+            loadOrdersExternal();
+        } else {
+            loadOrders();
+        }
+    }
 
-            if (response.success) {
-                renderOrdersExternal(response.orders);
-                renderPaginationExternal(response.pagination);
-            } else {
-                $('#orders-container-external').html(`
+    function loadOrdersExternal() {
+        $('#loading-external').show();
+        $('#orders-container-external').hide();
+
+        $.ajax({
+            url: '/orders/list-external',
+            method: 'GET',
+            data: {
+                page: currentPageExternal,
+                per_page: perPageExternal,
+                search: searchTermExternal,
+                source: sourceFilter
+            },
+            success: function (response) {
+                $('#loading-external').hide();
+                $('#orders-container-external').show();
+
+                if (response.success) {
+                    renderOrdersExternal(response.orders);
+                    renderPaginationExternal(response.pagination);
+                } else {
+                    $('#orders-container-external').html(`
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle"></i> ${response.error || 'Error al cargar pedidos'}
                     </div>
                 `);
-            }
-        },
-        error: function(xhr) {
-            $('#loading-external').hide();
-            $('#orders-container-external').show().html(`
+                }
+            },
+            error: function (xhr) {
+                $('#loading-external').hide();
+                $('#orders-container-external').show().html(`
                 <div class="alert alert-danger">
                     <i class="bi bi-x-circle"></i> Error de conexión
                 </div>
             `);
-        }
-    });
-}
+            }
+        });
+    }
 
-function renderOrdersExternal(orders) {
-    if (orders.length === 0) {
-        $('#orders-container-external').html(`
+    function renderOrdersExternal(orders) {
+        if (orders.length === 0) {
+            $('#orders-container-external').html(`
             <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i> No se encontraron pedidos externos
             </div>
         `);
-        return;
-    }
+            return;
+        }
 
-    let html = '';
-    orders.forEach(order => {
-        const badgeClass = 'bg-success'; // Siempre completed
-        const statusText = 'Completado';
+        let html = '';
+        orders.forEach(order => {
+            const badgeClass = 'bg-success'; // Siempre completed
+            const statusText = 'Completado';
 
-        html += `
+            html += `
             <div class="order-card">
                 <div class="row">
                     <div class="col-md-8">
@@ -1174,21 +1177,21 @@ function renderOrdersExternal(orders) {
                 </div>
             </div>
         `;
-    });
+        });
 
-    $('#orders-container-external').html(html);
-}
-
-function renderPaginationExternal(pagination) {
-    if (!pagination || pagination.pages <= 1) {
-        $('#pagination-container-external').html('');
-        return;
+        $('#orders-container-external').html(html);
     }
 
-    let html = '<nav><ul class="pagination justify-content-center">';
+    function renderPaginationExternal(pagination) {
+        if (!pagination || pagination.pages <= 1) {
+            $('#pagination-container-external').html('');
+            return;
+        }
 
-    // Botón anterior
-    html += `
+        let html = '<nav><ul class="pagination justify-content-center">';
+
+        // Botón anterior
+        html += `
         <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="goToPageExternal(${pagination.prev_num}); return false;">
                 <i class="bi bi-chevron-left"></i>
@@ -1196,21 +1199,21 @@ function renderPaginationExternal(pagination) {
         </li>
     `;
 
-    // Páginas
-    for (let i = 1; i <= pagination.pages; i++) {
-        if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
-            html += `
+        // Páginas
+        for (let i = 1; i <= pagination.pages; i++) {
+            if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+                html += `
                 <li class="page-item ${i === pagination.page ? 'active' : ''}">
                     <a class="page-link" href="#" onclick="goToPageExternal(${i}); return false;">${i}</a>
                 </li>
             `;
-        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
-            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+                html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            }
         }
-    }
 
-    // Botón siguiente
-    html += `
+        // Botón siguiente
+        html += `
         <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="goToPageExternal(${pagination.next_num}); return false;">
                 <i class="bi bi-chevron-right"></i>
@@ -1218,69 +1221,69 @@ function renderPaginationExternal(pagination) {
         </li>
     `;
 
-    html += '</ul></nav>';
-    $('#pagination-container-external').html(html);
-}
+        html += '</ul></nav>';
+        $('#pagination-container-external').html(html);
+    }
 
-function goToPageExternal(page) {
-    if (page) {
-        currentPageExternal = page;
+    function goToPageExternal(page) {
+        if (page) {
+            currentPageExternal = page;
+            loadOrdersExternal();
+        }
+    }
+
+    function searchOrdersExternal() {
+        searchTermExternal = $('#search-input-external').val().trim();
+        currentPageExternal = 1;
         loadOrdersExternal();
     }
-}
 
-function searchOrdersExternal() {
-    searchTermExternal = $('#search-input-external').val().trim();
-    currentPageExternal = 1;
-    loadOrdersExternal();
-}
-
-function viewOrderExternal(orderId) {
-    // Mostrar modal con loading
-    $('#viewOrderExternalContent').html(`
+    function viewOrderExternal(orderId) {
+        // Mostrar modal con loading
+        $('#viewOrderExternalContent').html(`
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Cargando...</span>
             </div>
         </div>
     `);
-    $('#viewOrderExternalModal').modal('show');
+        $('#viewOrderExternalModal').modal('show');
 
-    // Obtener datos del pedido
-    $.ajax({
-        url: `/orders/external/${orderId}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                renderOrderDetail(response.order);
-            } else {
-                $('#viewOrderExternalContent').html(`
+        // Obtener datos del pedido
+        $.ajax({
+            url: `/orders/external/${orderId}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    renderOrderDetail(response.order);
+                } else {
+                    $('#viewOrderExternalContent').html(`
                     <div class="alert alert-danger">
                         <i class="bi bi-x-circle"></i> ${response.error || 'Error al cargar el pedido'}
                     </div>
                 `);
-            }
-        },
-        error: function(xhr) {
-            $('#viewOrderExternalContent').html(`
+                }
+            },
+            error: function (xhr) {
+                $('#viewOrderExternalContent').html(`
                 <div class="alert alert-danger">
                     <i class="bi bi-x-circle"></i> Error de conexión
                 </div>
             `);
-        }
-    });
-}
+            }
+        });
+    }
 
-function renderOrderDetail(order) {
-    const sourceLabels = {
-        'marketplace': 'Marketplace',
-        'tienda_fisica': 'Tienda Física',
-        'otro': 'Otro'
-    };
+    function renderOrderDetail(order) {
+        const sourceLabels = {
+            'marketplace': 'Marketplace',
+            'tienda_fisica': 'Tienda Física',
+            'otro': 'Otro'
+        };
 
-    let itemsHtml = '';
-    order.items.forEach(item => {
-        itemsHtml += `
+        let itemsHtml = '';
+        order.items.forEach(item => {
+            itemsHtml += `
             <tr>
                 <td>${item.product_name}</td>
                 <td>${item.product_sku}</td>
@@ -1289,9 +1292,9 @@ function renderOrderDetail(order) {
                 <td class="text-end">S/ ${item.total.toFixed(2)}</td>
             </tr>
         `;
-    });
+        });
 
-    const html = `
+        const html = `
         <div class="row">
             <div class="col-md-6">
                 <h6 class="border-bottom pb-2 mb-3">
@@ -1425,193 +1428,288 @@ function renderOrderDetail(order) {
         </div>
     `;
 
-    $('#viewOrderExternalContent').html(html);
-}
-
-function editOrderExternal(orderId) {
-    // Obtener datos del pedido
-    $.ajax({
-        url: `/orders/external/${orderId}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                const order = response.order;
-
-                // Llenar formulario
-                $('#edit-order-id').val(order.id);
-                $('#edit-first-name').val(order.customer_first_name);
-                $('#edit-last-name').val(order.customer_last_name);
-                $('#edit-email').val(order.customer_email);
-                $('#edit-phone').val(order.customer_phone);
-                $('#edit-dni').val(order.customer_dni);
-                $('#edit-ruc').val(order.customer_ruc);
-                $('#edit-address').val(order.shipping_address_1);
-                $('#edit-city').val(order.shipping_city);
-                $('#edit-state').val(order.shipping_state);
-                $('#edit-reference').val(order.shipping_reference);
-                $('#edit-external-source').val(order.external_source);
-                $('#edit-customer-note').val(order.customer_note);
-
-                // Mostrar modal
-                $('#editOrderExternalModal').modal('show');
-            } else {
-                showNotification('error', response.error || 'Error al cargar el pedido');
-            }
-        },
-        error: function() {
-            showNotification('error', 'Error de conexión');
-        }
-    });
-}
-
-function saveOrderExternal() {
-    const orderId = $('#edit-order-id').val();
-
-    // Validaciones básicas
-    if (!$('#edit-first-name').val() || !$('#edit-last-name').val()) {
-        showNotification('error', 'Nombre y apellido son requeridos');
-        return;
+        $('#viewOrderExternalContent').html(html);
     }
 
-    if (!$('#edit-email').val() || !$('#edit-email').val().includes('@')) {
-        showNotification('error', 'Email válido es requerido');
-        return;
+    function editOrderExternal(orderId) {
+        // Obtener datos del pedido
+        $.ajax({
+            url: `/orders/external/${orderId}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    const order = response.order;
+
+                    // Llenar formulario
+                    $('#edit-order-id').val(order.id);
+                    $('#edit-first-name').val(order.customer_first_name);
+                    $('#edit-last-name').val(order.customer_last_name);
+                    $('#edit-email').val(order.customer_email);
+                    $('#edit-phone').val(order.customer_phone);
+                    $('#edit-dni').val(order.customer_dni);
+                    $('#edit-ruc').val(order.customer_ruc);
+                    $('#edit-address').val(order.shipping_address_1);
+                    $('#edit-city').val(order.shipping_city);
+                    $('#edit-state').val(order.shipping_state);
+                    $('#edit-reference').val(order.shipping_reference);
+                    $('#edit-external-source').val(order.external_source);
+                    $('#edit-customer-note').val(order.customer_note);
+
+                    // Mostrar modal
+                    $('#editOrderExternalModal').modal('show');
+                } else {
+                    showNotification('error', response.error || 'Error al cargar el pedido');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión');
+            }
+        });
     }
 
-    if (!$('#edit-phone').val()) {
-        showNotification('error', 'Teléfono es requerido');
-        return;
+    function saveOrderExternal() {
+        const orderId = $('#edit-order-id').val();
+
+        // Validaciones básicas
+        if (!$('#edit-first-name').val() || !$('#edit-last-name').val()) {
+            showNotification('error', 'Nombre y apellido son requeridos');
+            return;
+        }
+
+        if (!$('#edit-email').val() || !$('#edit-email').val().includes('@')) {
+            showNotification('error', 'Email válido es requerido');
+            return;
+        }
+
+        if (!$('#edit-phone').val()) {
+            showNotification('error', 'Teléfono es requerido');
+            return;
+        }
+
+        // Preparar datos
+        const data = {
+            customer_first_name: $('#edit-first-name').val().trim(),
+            customer_last_name: $('#edit-last-name').val().trim(),
+            customer_email: $('#edit-email').val().trim(),
+            customer_phone: $('#edit-phone').val().trim(),
+            customer_dni: $('#edit-dni').val().trim(),
+            customer_ruc: $('#edit-ruc').val().trim(),
+            shipping_address_1: $('#edit-address').val().trim(),
+            shipping_city: $('#edit-city').val().trim(),
+            shipping_state: $('#edit-state').val().trim(),
+            shipping_reference: $('#edit-reference').val().trim(),
+            external_source: $('#edit-external-source').val(),
+            customer_note: $('#edit-customer-note').val().trim()
+        };
+
+        // Deshabilitar botón
+        const btn = $('button[onclick="saveOrderExternal()"]');
+        btn.prop('disabled', true);
+        btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando...');
+
+        // Enviar
+        $.ajax({
+            url: `/orders/external/${orderId}`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', response.message);
+                    $('#editOrderExternalModal').modal('hide');
+                    loadOrdersExternal(); // Recargar lista
+                } else {
+                    showNotification('error', response.error || 'Error al actualizar el pedido');
+                }
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-save"></i> Guardar Cambios');
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-save"></i> Guardar Cambios');
+            }
+        });
     }
 
-    // Preparar datos
-    const data = {
-        customer_first_name: $('#edit-first-name').val().trim(),
-        customer_last_name: $('#edit-last-name').val().trim(),
-        customer_email: $('#edit-email').val().trim(),
-        customer_phone: $('#edit-phone').val().trim(),
-        customer_dni: $('#edit-dni').val().trim(),
-        customer_ruc: $('#edit-ruc').val().trim(),
-        shipping_address_1: $('#edit-address').val().trim(),
-        shipping_city: $('#edit-city').val().trim(),
-        shipping_state: $('#edit-state').val().trim(),
-        shipping_reference: $('#edit-reference').val().trim(),
-        external_source: $('#edit-external-source').val(),
-        customer_note: $('#edit-customer-note').val().trim()
-    };
-
-    // Deshabilitar botón
-    const btn = $('button[onclick="saveOrderExternal()"]');
-    btn.prop('disabled', true);
-    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando...');
-
-    // Enviar
-    $.ajax({
-        url: `/orders/external/${orderId}`,
-        method: 'PUT',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', response.message);
-                $('#editOrderExternalModal').modal('hide');
-                loadOrdersExternal(); // Recargar lista
-            } else {
-                showNotification('error', response.error || 'Error al actualizar el pedido');
-            }
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-save"></i> Guardar Cambios');
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-            showNotification('error', error);
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-save"></i> Guardar Cambios');
-        }
-    });
-}
-
-function confirmDeleteOrderExternal(orderId, orderNumber) {
-    $('#delete-order-id').val(orderId);
-    $('#delete-order-number').text(orderNumber);
-    $('#deleteOrderExternalModal').modal('show');
-}
-
-function deleteOrderExternal() {
-    const orderId = $('#delete-order-id').val();
-
-    // Deshabilitar botón
-    const btn = $('button[onclick="deleteOrderExternal()"]');
-    btn.prop('disabled', true);
-    btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...');
-
-    // Enviar
-    $.ajax({
-        url: `/orders/external/${orderId}`,
-        method: 'DELETE',
-        success: function(response) {
-            if (response.success) {
-                showNotification('success', response.message);
-                $('#deleteOrderExternalModal').modal('hide');
-                loadOrdersExternal(); // Recargar lista
-                updateOrderCounts(); // Actualizar contador
-            } else {
-                showNotification('error', response.error || 'Error al eliminar el pedido');
-            }
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
-        },
-        error: function(xhr) {
-            const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-            showNotification('error', error);
-            btn.prop('disabled', false);
-            btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
-        }
-    });
-}
-
-function updateOrderCounts() {
-    // Actualizar contador de WhatsApp
-    $.ajax({
-        url: '/orders/count',
-        method: 'GET',
-        data: { channel: 'whatsapp' },
-        success: function(response) {
-            if (response.success) {
-                $('#whatsapp-count').text(response.count);
-            }
-        }
-    });
-
-    // Actualizar contador de Externos
-    $.ajax({
-        url: '/orders/count',
-        method: 'GET',
-        data: { channel: 'external' },
-        success: function(response) {
-            if (response.success) {
-                $('#external-count').text(response.count);
-            }
-        }
-    });
-}
-
-// Eventos para filtros externos
-$('#source-filter').on('change', function() {
-    sourceFilter = $(this).val();
-    currentPageExternal = 1;
-    loadOrdersExternal();
-});
-
-$('#per-page-select-external').on('change', function() {
-    perPageExternal = parseInt($(this).val());
-    currentPageExternal = 1;
-    loadOrdersExternal();
-});
-
-$('#search-input-external').on('keypress', function(e) {
-    if (e.which === 13) {
-        searchOrdersExternal();
+    function confirmDeleteOrderExternal(orderId, orderNumber) {
+        $('#delete-order-id').val(orderId);
+        $('#delete-order-number').text(orderNumber);
+        $('#deleteOrderExternalModal').modal('show');
     }
-});
+
+    function deleteOrderExternal() {
+        const orderId = $('#delete-order-id').val();
+
+        // Deshabilitar botón
+        const btn = $('button[onclick="deleteOrderExternal()"]');
+        btn.prop('disabled', true);
+        btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...');
+
+        // Enviar
+        $.ajax({
+            url: `/orders/external/${orderId}`,
+            method: 'DELETE',
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', response.message);
+                    $('#deleteOrderExternalModal').modal('hide');
+                    loadOrdersExternal(); // Recargar lista
+                    updateOrderCounts(); // Actualizar contador
+                } else {
+                    showNotification('error', response.error || 'Error al eliminar el pedido');
+                }
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+                btn.prop('disabled', false);
+                btn.html('<i class="bi bi-trash"></i> Eliminar Pedido');
+            }
+        });
+    }
+
+    function updateOrderCounts() {
+        // Actualizar contador de WhatsApp
+        $.ajax({
+            url: '/orders/count',
+            method: 'GET',
+            data: { channel: 'whatsapp' },
+            success: function (response) {
+                if (response.success) {
+                    $('#whatsapp-count').text(response.count);
+                }
+            }
+        });
+
+        // Actualizar contador de Externos
+        $.ajax({
+            url: '/orders/count',
+            method: 'GET',
+            data: { channel: 'external' },
+            success: function (response) {
+                if (response.success) {
+                    $('#external-count').text(response.count);
+                }
+            }
+        });
+    }
+
+    // Eventos para filtros externos
+    $('#source-filter').on('change', function () {
+        sourceFilter = $(this).val();
+        currentPageExternal = 1;
+        loadOrdersExternal();
+    });
+
+    $('#per-page-select-external').on('change', function () {
+        perPageExternal = parseInt($(this).val());
+        currentPageExternal = 1;
+        loadOrdersExternal();
+    });
+
+    $('#search-input-external').on('keypress', function (e) {
+        if (e.which === 13) {
+            searchOrdersExternal();
+        }
+    });
+</script>
+
+<!-- Modal de Confirmación de Papelera -->
+<div class="modal fade" id="trashOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-trash"></i> Mover a la Papelera</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas mover el pedido <strong id="trash-order-number"></strong> a la papelera?
+                </p>
+
+                <div class="form-check p-3 border rounded bg-light">
+                    <input class="form-check-input" type="checkbox" value="" id="restore-stock-check" checked>
+                    <label class="form-check-label" for="restore-stock-check">
+                        <strong>Restaurar Stock al Inventario</strong>
+                        <div class="text-muted small mt-1">
+                            Si se marca, se devolverán las unidades de este pedido al stock disponible de los productos.
+                            <br>
+                            <span class="text-danger">Desmarcar si el stock fue forzado o no debe contarse.</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-trash-btn">
+                    <i class="bi bi-trash"></i> Mover a Papelera
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let orderIdToTrash = null;
+
+    function confirmTrashOrder(orderId, orderNumber) {
+        orderIdToTrash = orderId;
+        $('#trash-order-number').text('#' + orderNumber);
+        $('#restore-stock-check').prop('checked', true); // Default checked
+        $('#trashOrderModal').modal('show');
+    }
+
+    $('#confirm-trash-btn').on('click', function () {
+        if (!orderIdToTrash) return;
+
+        const restoreStock = $('#restore-stock-check').is(':checked');
+        const $btn = $(this);
+
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Procesando...');
+
+        $.ajax({
+            url: `/orders/trash/${orderIdToTrash}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ restore_stock: restoreStock }),
+            success: function (response) {
+                if (response.success) {
+                    $('#trashOrderModal').modal('hide');
+
+                    let msg = 'Pedido movido a la papelera.';
+                    if (response.stock_restored) {
+                        msg += ' Stock restaurado correctamente.';
+                    }
+
+                    // Mostrar notificación
+                    // Asumiendo que existe showNotification o usamos alert/toast
+                    // Aquí usaremos un alert simple o reload si no hay toast global accesible facil
+                    // Pero orders_list suele tener refresh
+
+                    // Reload orders
+                    loadOrders(currentPage);
+
+                    // Mostrar feedback (si hay toast container global)
+                    if (typeof showToast === 'function') {
+                        showToast('success', msg);
+                    } else {
+                        alert(msg);
+                    }
+                } else {
+                    alert('Error: ' + response.error);
+                }
+            },
+            error: function (xhr) {
+                alert('Error de conexión al mover a papelera');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Mover a Papelera');
+                orderIdToTrash = null;
+            }
+        });
+    });
 </script>
 {% endblock %}

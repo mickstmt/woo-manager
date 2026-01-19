@@ -2334,9 +2334,102 @@
         return true;
     }
 
-    // ==================== ENVÍO DE PEDIDO ====================
+    // ==================== ENVÍO DE PEDIDO / ACTUALIZACIÓN ====================
 
     let createdOrderId = null;
+    let isEditMode = {{ 'true' if edit_mode else 'false' }};
+    let editingOrderId = {{ order_id|default ('null') }};
+
+    // Inicializar Edit Mode si aplica
+    $(document).ready(function () {
+        if (isEditMode && editingOrderId) {
+            loadOrderForEdit(editingOrderId);
+        }
+    });
+
+    function loadOrderForEdit(orderId) {
+        showLoadingOverlay('Cargando datos del pedido...');
+
+        $.ajax({
+            url: `/orders/api/get-order/${orderId}`,
+            method: 'GET',
+            success: function (response) {
+                hideLoadingOverlay();
+                populateOrderData(response);
+            },
+            error: function (xhr) {
+                hideLoadingOverlay();
+                showNotification('error', 'Error al cargar el pedido: ' + (xhr.responseJSON?.error || 'Desconocido'));
+            }
+        });
+    }
+
+    function populateOrderData(data) {
+        // 1. Cargar items al carrito
+        cart = []; // Limpiar
+        data.items.forEach(item => {
+            // Adaptar estructura si es necesario
+            cart.push({
+                product_id: item.product_id,
+                variation_id: item.variation_id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                original_item_id: item.item_id, // Importante para updates
+                image_url: item.image_url || '' // Cargar imagen del backend
+            });
+        });
+        updateCartDisplay(); // Función existente que renderiza el carrito lateral
+
+        // 2. Cargar datos del cliente
+        const cust = data.customer;
+        $('#first-name').val(cust.first_name);
+        $('#last-name').val(cust.last_name);
+        $('#email').val(cust.email);
+        $('#phone').val(cust.phone);
+        $('#dni').val(cust.company); // Usamos company para DNI
+        $('#ruc').val(cust.billing_ruc);
+
+        // 3. Dirección y Entrega
+        const deliveryType = cust.billing_entrega || 'billing_domicilio'; // Default
+        $('#delivery-type').val(deliveryType).trigger('change');
+
+        $('#address').val(cust.address_1);
+        $('#reference').val(cust.billing_referencia);
+
+        // Cargar ubigeo (se dispara despues de cargar options, puede requerir delays o promesas)
+        // Simplificación: set values directos asumiendo que ya se cargaron o se cargarán
+        // Idealmente loadUbigeoData debería permitir setear valores
+        setTimeout(() => {
+            $('#state').val(cust.state).trigger('change');
+            setTimeout(() => {
+                $('#city').val(cust.city);
+
+                // Cargar métodos de envío SOLO si no es recojo en almacén
+                if (deliveryType !== 'billing_recojo') {
+                    loadMetodosEnvio(cust.city, function () {
+                        // Setear shipping method y cost
+                        $('#shipping-cost').val(data.shipping.cost);
+                    });
+                } else {
+                    // Si es recojo, asegurar costo de envío
+                    $('#shipping-cost').val(data.shipping.cost);
+                }
+            }, 500);
+        }, 500);
+
+        // 4. Pago y Notas
+        $('#payment-method').val(data.payment.method);
+        $('#customer-note').val(data.customer_note);
+
+        // 5. Totales (se recalculan con updateCartSummary pero podemos ajustar manualmente descuentos si hubiera logica)
+        // El descuento en el backend se calcula al final. Aquí solo tenemos porcentaje manual en frontend.
+        // Si el pedido tenia descuento, tratar de inferirlo?
+        // data.totals.discount...
+
+        showNotification('success', 'Datos del pedido cargados para edición');
+    }
+
 
     function submitOrder() {
         const btn = $('#btn-submit');
@@ -2405,7 +2498,9 @@
                 product_id: item.product_id || 0,
                 variation_id: item.variation_id || 0,
                 quantity: item.quantity,
-                price: item.price
+                price: item.price,
+                name: item.name,
+                original_item_id: item.original_item_id
             })),
             shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
             shipping_method_title: $('#shipping-method option:selected').data('method-title') || '',
@@ -2415,11 +2510,19 @@
             customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
         };
 
-        // Determinar endpoint según tipo de pedido
-        const endpoint = orderType === 'external' ? '/orders/save-order-external' : '/orders/save-order';
+        // Determinar endpoint y método según modo
+        let endpoint, method;
 
-        // Si es pedido externo, agregar campo de fuente
-        if (orderType === 'external') {
+        if (isEditMode) {
+            endpoint = `/orders/update-order/${editingOrderId}`;
+            method = 'PUT';
+        } else {
+            endpoint = orderType === 'external' ? '/orders/save-order-external' : '/orders/save-order';
+            method = 'POST';
+        }
+
+        // Si es pedido externo (SOLO CREACION), agregar campo de fuente
+        if (orderType === 'external' && !isEditMode) {
             orderData.external_source = $('#external-source').val() || 'otro';
             // Actualizar customer_note para reflejar que es externo
             orderData.customer_note = $('#customer-note').val() || 'Pedido externo creado desde WooCommerce Manager';
@@ -2428,7 +2531,7 @@
         // Enviar
         $.ajax({
             url: endpoint,
-            method: 'POST',
+            method: method,
             contentType: 'application/json',
             data: JSON.stringify(orderData),
             success: function (response) {
@@ -2439,10 +2542,10 @@
                     // Si el modal aún está visible, actualizar con éxito
                     if ($('#orderCreatedModal').hasClass('show')) {
                         $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
-                        $('#modal-title-text').text('¡Pedido Creado Exitosamente!');
+                        $('#modal-title-text').text(isEditMode ? '¡Pedido Actualizado!' : '¡Pedido Creado Exitosamente!');
                         $('#modal-message').html(`
                         <div class="alert alert-success">
-                            <strong>Pedido #${response.order_number || response.order_id}</strong> creado correctamente
+                            <strong>Pedido #${response.order_number || response.order_id}</strong> ${isEditMode ? 'actualizado' : 'creado'} correctamente
                         </div>
                         <p class="text-muted">¿Qué deseas hacer ahora?</p>
                     `);
@@ -2475,7 +2578,7 @@
                 } else {
                     // Actualizar modal con error
                     $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
-                    $('#modal-title-text').text('Error al Crear Pedido');
+                    $('#modal-title-text').text(isEditMode ? 'Error al Actualizar' : 'Error al Crear Pedido');
                     $('#modal-message').html(`
                     <div class="alert alert-danger">
                         ${response.error || 'Error desconocido'}
@@ -2521,7 +2624,7 @@
 
                 // Re-habilitar botón
                 btn.prop('disabled', false);
-                btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
+                btn.html(isEditMode ? '<i class="bi bi-check-circle"></i> Actualizar Pedido' : '<i class="bi bi-check-circle"></i> Crear Pedido');
             }
         });
     }
