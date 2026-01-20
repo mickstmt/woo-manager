@@ -176,10 +176,13 @@ def list_products():
         # ========================================
         # Procesar productos padre - OPTIMIZADO
         # ========================================
-        product_ids = [p.ID for p in products_items]
+        # Pre-cargar metadatos e imágenes para todos los productos en bulk
+        Product.preload_metadata_for_products(products_items)
+        Product.preload_images_for_products(products_items)
 
         # Contar variaciones de todos los productos en UNA SOLA consulta
         from sqlalchemy import func
+        product_ids = [p.ID for p in products_items]
         variations_query = db.session.query(
             Product.post_parent,
             func.count(Product.ID).label('count')
@@ -191,39 +194,15 @@ def list_products():
         # Crear diccionario para búsqueda rápida
         variations_dict = {row[0]: row[1] for row in variations_query}
 
-        # ========================================
-        # OPTIMIZACIÓN: Eager load de metadatos en 1 query
-        # ========================================
-        # Obtener TODOS los metadatos necesarios de todos los productos en UNA sola consulta
-        meta_keys = ['_sku', '_price', '_stock', '_stock_status', '_thumbnail_id']
-
-        all_meta = db.session.query(
-            ProductMeta.post_id,
-            ProductMeta.meta_key,
-            ProductMeta.meta_value
-        ).filter(
-            ProductMeta.post_id.in_(product_ids),
-            ProductMeta.meta_key.in_(meta_keys)
-        ).all()
-
-        # Crear diccionario anidado: {product_id: {meta_key: meta_value}}
-        meta_dict = {}
-        for post_id, meta_key, meta_value in all_meta:
-            if post_id not in meta_dict:
-                meta_dict[post_id] = {}
-            meta_dict[post_id][meta_key] = meta_value
-
         # Convertir a formato JSON
         products_list = []
         for product in products_items:
-            # Obtener metadatos del diccionario (sin queries adicionales)
-            product_meta = meta_dict.get(product.ID, {})
-            sku = product_meta.get('_sku', 'N/A')
-            price = product_meta.get('_price', '0')
-            stock = product_meta.get('_stock', 'N/A')
-            stock_status = product_meta.get('_stock_status', 'instock')
-            thumbnail_id = product_meta.get('_thumbnail_id')
-
+            # Obtener metadatos de la caché interna del objeto
+            sku = product.get_meta('_sku') or 'N/A'
+            price = product.get_meta('_price') or '0'
+            stock = product.get_meta('_stock') or 'N/A'
+            stock_status = product.get_meta('_stock_status') or 'instock'
+            
             # Obtener cantidad de variaciones del diccionario
             variations_count = variations_dict.get(product.ID, 0)
 
@@ -231,24 +210,8 @@ def list_products():
             is_variable = variations_count > 0
             product_type = 'variable' if is_variable else 'simple'
 
-            # Obtener URL de imagen (usando thumbnail_id del diccionario para evitar query)
-            image_url = None
-            if thumbnail_id:
-                try:
-                    image_query = text("""
-                        SELECT meta_value
-                        FROM wpyz_postmeta
-                        WHERE post_id = :image_id
-                        AND meta_key = '_wp_attached_file'
-                        LIMIT 1
-                    """)
-                    result = db.session.execute(image_query, {'image_id': int(thumbnail_id)})
-                    row = result.fetchone()
-                    if row and row[0]:
-                        base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
-                        image_url = base_url + row[0]
-                except:
-                    image_url = None
+            # Obtener URL de imagen (desde la caché del objeto)
+            image_url = product.get_image_url()
 
             products_list.append({
                 'id': product.ID,
@@ -351,27 +314,26 @@ def get_variations(product_id):
             post_parent=product_id
         ).order_by(Product.ID.asc()).all()
         
+        # OPTIMIZACIÓN: Pre-cargar metadatos e imágenes para todas las variaciones de una vez
+        Product.preload_metadata_for_products(variations)
+        Product.preload_images_for_products(variations)
+        
         variations_list = []
         for variation in variations:
-            # Obtener atributos de la variación
-            # Las variaciones tienen metadatos especiales con los atributos
+            # Obtener atributos de la caché de metadatos (ya cargados)
             attributes = {}
-            for meta in variation.product_meta:
-                if meta.meta_key.startswith('attribute_'):
-                    # Limpiar el nombre del atributo
-                    # IMPORTANTE: Usar if/else para evitar reemplazos múltiples incorrectos
-                    if meta.meta_key.startswith('attribute_pa_'):
-                        # Atributo global (product attribute)
-                        attr_name = meta.meta_key.replace('attribute_pa_', '')
-                    else:
-                        # Atributo personalizado
-                        attr_name = meta.meta_key.replace('attribute_', '')
-
-                    # Solo agregar si tiene valor (ignorar atributos vacíos)
-                    if meta.meta_value:
-                        attributes[attr_name] = meta.meta_value
+            if hasattr(variation, '_meta_cache'):
+                for key, value in variation._meta_cache.items():
+                    if key.startswith('attribute_'):
+                        if key.startswith('attribute_pa_'):
+                            attr_name = key.replace('attribute_pa_', '')
+                        else:
+                            attr_name = key.replace('attribute_', '')
+                        
+                        if value:
+                            attributes[attr_name] = value
             
-            # Obtener datos importantes
+            # Obtener datos importantes de la caché
             sku = variation.get_meta('_sku') or 'N/A'
             price = variation.get_meta('_price') or '0'
             regular_price = variation.get_meta('_regular_price') or '0'
@@ -379,19 +341,8 @@ def get_variations(product_id):
             stock = variation.get_meta('_stock') or 'N/A'
             stock_status = variation.get_meta('_stock_status') or 'instock'
 
-            # Obtener imagen de la variación
-            image_url = None
-            thumbnail_id = variation.get_meta('_thumbnail_id')
-            if thumbnail_id:
-                from sqlalchemy import text
-                image_query = text("""
-                    SELECT guid
-                    FROM wpyz_posts
-                    WHERE ID = :image_id
-                """)
-                image_result = db.session.execute(image_query, {'image_id': thumbnail_id}).fetchone()
-                if image_result:
-                    image_url = image_result[0]
+            # Obtener imagen de la variación (usa caché para thumbnail_id y get_image_url optimizado)
+            image_url = variation.get_image_url()
 
             variations_list.append({
                 'id': variation.ID,
@@ -435,7 +386,20 @@ def view_product(product_id):
             flash('Producto no encontrado.', 'danger')
             return redirect(url_for('products.index'))
         
-        # Obtener metadatos importantes
+        # Obtener variaciones si es producto variable
+        variations_query = []
+        if product.post_type == 'product':
+            variations_query = Product.query.filter_by(
+                post_type='product_variation',
+                post_parent=product.ID
+            ).all()
+        
+        # OPTIMIZACIÓN: Pre-cargar metadatos e imágenes para el producto y todas sus variaciones en bulk
+        all_products_to_load = [product] + variations_query
+        Product.preload_metadata_for_products(all_products_to_load)
+        Product.preload_images_for_products(all_products_to_load)
+        
+        # Obtener metadatos importantes del objeto ya cargado (usa caché interna)
         product_data = {
             'id': product.ID,
             'title': product.post_title,
@@ -446,7 +410,7 @@ def view_product(product_id):
             'created_at': product.post_date,
             'modified_at': product.post_modified,
             
-            # Metadatos
+            # Metadatos (ahora vienen de caché)
             'sku': product.get_meta('_sku') or 'N/A',
             'regular_price': product.get_meta('_regular_price') or '0',
             'sale_price': product.get_meta('_sale_price') or '',
@@ -474,25 +438,21 @@ def view_product(product_id):
         parent_product = None
         if product.post_type == 'product_variation' and product.post_parent:
             parent_product = Product.query.get(product.post_parent)
+            if parent_product:
+                parent_product.preload_meta() # Cargar sus metas también
         
-        # Si es producto variable, obtener variaciones
+        # Procesar variaciones para la vista
         variations = []
-        if product.post_type == 'product':
-            variations_query = Product.query.filter_by(
-                post_type='product_variation',
-                post_parent=product.ID
-            ).all()
-            
-            for var in variations_query:
-                variations.append({
-                    'id': var.ID,
-                    'title': var.post_title,
-                    'sku': var.get_meta('_sku') or 'N/A',
-                    'price': var.get_meta('_price') or '0',
-                    'stock': var.get_meta('_stock') or '0',
-                    'stock_status': var.get_meta('_stock_status') or 'outofstock',
-                    'image_url': var.get_image_url()
-                })
+        for var in variations_query:
+            variations.append({
+                'id': var.ID,
+                'title': var.post_title,
+                'sku': var.get_meta('_sku') or 'N/A',
+                'price': var.get_meta('_price') or '0',
+                'stock': var.get_meta('_stock') or '0',
+                'stock_status': var.get_meta('_stock_status') or 'outofstock',
+                'image_url': var.get_image_url()
+            })
         
         # Obtener categorías
         from sqlalchemy import text

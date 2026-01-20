@@ -149,35 +149,15 @@ def list_stock():
                 })
 
         # ========================================
-        # OPTIMIZACIÓN: Eager load de metadatos - 1 query
         # ========================================
-        all_product_ids = [item['product'].ID for item in all_items]
-
-        # Obtener TODOS los metadatos en UNA sola consulta
+        # OPTIMIZACIÓN: Pre-cargar metadatos y padres - 1 query de cada uno
+        # ========================================
+        all_products = [item['product'] for item in all_items]
         meta_keys = ['_sku', '_price', '_stock', '_stock_status', '_manage_stock']
+        Product.preload_metadata_for_products(all_products, meta_keys=meta_keys)
 
-        all_meta = db.session.query(
-            ProductMeta.post_id,
-            ProductMeta.meta_key,
-            ProductMeta.meta_value
-        ).filter(
-            ProductMeta.post_id.in_(all_product_ids),
-            ProductMeta.meta_key.in_(meta_keys)
-        ).all()
-
-        # Crear diccionario: {product_id: {meta_key: meta_value}}
-        meta_dict = {}
-        for post_id, meta_key, meta_value in all_meta:
-            if post_id not in meta_dict:
-                meta_dict[post_id] = {}
-            meta_dict[post_id][meta_key] = meta_value
-
-        # ========================================
-        # OPTIMIZACIÓN: Cargar productos padre en 1 query
-        # ========================================
-        parent_ids = list(set([item['product'].post_parent for item in all_items
-                              if item['is_variation'] and item['product'].post_parent]))
-
+        # Cargar productos padre para variaciones
+        parent_ids = list(set([p.post_parent for p in all_products if p.post_type == 'product_variation' and p.post_parent]))
         parents_dict = {}
         if parent_ids:
             parents = Product.query.filter(Product.ID.in_(parent_ids)).all()
@@ -190,13 +170,12 @@ def list_stock():
             product = item['product']
             is_variation = item['is_variation']
 
-            # Obtener metadatos del diccionario (sin queries)
-            product_meta = meta_dict.get(product.ID, {})
-            sku = product_meta.get('_sku', 'N/A')
-            price = product_meta.get('_price', '0')
-            stock = product_meta.get('_stock')
-            stock_status = product_meta.get('_stock_status', 'instock')
-            manage_stock = product_meta.get('_manage_stock', 'no')
+            # Obtener metadatos de la caché (sin queries)
+            sku = product.get_meta('_sku') or 'N/A'
+            price = product.get_meta('_price') or '0'
+            stock = product.get_meta('_stock')
+            stock_status = product.get_meta('_stock_status') or 'instock'
+            manage_stock = product.get_meta('_manage_stock') or 'no'
 
             # Convertir stock a número
             try:

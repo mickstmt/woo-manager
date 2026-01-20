@@ -146,35 +146,15 @@ def list_prices():
                 })
 
         # ========================================
-        # OPTIMIZACIÓN: Eager load de metadatos - 1 query
         # ========================================
-        all_product_ids = [item['product'].ID for item in all_items]
-
-        # Obtener TODOS los metadatos en UNA sola consulta
+        # OPTIMIZACIÓN: Pre-cargar metadatos y padres - 1 query de cada uno
+        # ========================================
+        all_products = [item['product'] for item in all_items]
         meta_keys = ['_sku', '_regular_price', '_sale_price', '_price']
+        Product.preload_metadata_for_products(all_products, meta_keys=meta_keys)
 
-        all_meta = db.session.query(
-            ProductMeta.post_id,
-            ProductMeta.meta_key,
-            ProductMeta.meta_value
-        ).filter(
-            ProductMeta.post_id.in_(all_product_ids),
-            ProductMeta.meta_key.in_(meta_keys)
-        ).all()
-
-        # Crear diccionario: {product_id: {meta_key: meta_value}}
-        meta_dict = {}
-        for post_id, meta_key, meta_value in all_meta:
-            if post_id not in meta_dict:
-                meta_dict[post_id] = {}
-            meta_dict[post_id][meta_key] = meta_value
-
-        # ========================================
-        # OPTIMIZACIÓN: Cargar productos padre en 1 query
-        # ========================================
-        parent_ids = list(set([item['product'].post_parent for item in all_items
-                              if item['is_variation'] and item['product'].post_parent]))
-
+        # Cargar productos padre para variaciones
+        parent_ids = list(set([p.post_parent for p in all_products if p.post_type == 'product_variation' and p.post_parent]))
         parents_dict = {}
         if parent_ids:
             parents = Product.query.filter(Product.ID.in_(parent_ids)).all()
@@ -187,12 +167,11 @@ def list_prices():
             product = item['product']
             is_variation = item['is_variation']
 
-            # Obtener metadatos del diccionario (sin queries)
-            product_meta = meta_dict.get(product.ID, {})
-            sku = product_meta.get('_sku', 'N/A')
-            regular_price = product_meta.get('_regular_price', '0')
-            sale_price = product_meta.get('_sale_price', '')
-            price = product_meta.get('_price', '0')
+            # Obtener metadatos de la caché (sin queries)
+            sku = product.get_meta('_sku') or 'N/A'
+            regular_price = product.get_meta('_regular_price') or '0'
+            sale_price = product.get_meta('_sale_price') or ''
+            price = product.get_meta('_price') or '0'
 
             # Convertir a float para JSON
             try:

@@ -43,67 +43,110 @@ class Product(db.Model):
     # Relación con metadatos
     product_meta = db.relationship('ProductMeta', backref='product', lazy='dynamic')
     
-    def __repr__(self):
-        """Representación en texto del objeto"""
-        return f'<Product {self.ID}: {self.post_title}>'
-    
+    def __init__(self, *args, **kwargs):
+        super(Product, self).__init__(*args, **kwargs)
+        self._meta_cache = {}
+
+    @db.orm.reconstructor
+    def init_on_load(self):
+        self._meta_cache = {}
+        self._image_url_cache = None
+
     def get_meta(self, key):
         """
-        Método útil para obtener un metadato específico
-        
-        Ejemplo de uso:
-            product = Product.query.first()
-            sku = product.get_meta('_sku')
-            price = product.get_meta('_price')
+        Método útil para obtener un metadato específico.
+        Utiliza una caché interna para evitar consultas N+1.
         """
+        if not hasattr(self, '_meta_cache'):
+            self._meta_cache = {}
+            
+        if key in self._meta_cache:
+            return self._meta_cache[key]
+            
         meta = self.product_meta.filter_by(meta_key=key).first()
-        return meta.meta_value if meta else None
+        value = meta.meta_value if meta else None
+        
+        self._meta_cache[key] = value
+        return value
     
+    def preload_meta(self, meta_keys=None):
+        """
+        Carga todos los metadatos (o los especificados) en la caché interna
+        en una sola consulta.
+        """
+        if not hasattr(self, '_meta_cache'):
+            self._meta_cache = {}
+            
+        query = ProductMeta.query.filter_by(post_id=self.ID)
+        if meta_keys:
+            query = query.filter(ProductMeta.meta_key.in_(meta_keys))
+            
+        metas = query.all()
+        for meta in metas:
+            self._meta_cache[meta.meta_key] = meta.meta_value
+            
+        return self._meta_cache
+
+    @staticmethod
+    def preload_metadata_for_products(products, meta_keys=None):
+        """
+        Carga metadatos para una lista de productos en UNA sola consulta.
+        """
+        if not products:
+            return
+            
+        product_ids = [p.ID for p in products]
+        query = ProductMeta.query.filter(ProductMeta.post_id.in_(product_ids))
+        
+        if meta_keys:
+            query = query.filter(ProductMeta.meta_key.in_(meta_keys))
+            
+        all_meta = query.all()
+        
+        # Organizar por producto
+        meta_map = {}
+        for meta in all_meta:
+            if meta.post_id not in meta_map:
+                meta_map[meta.post_id] = {}
+            meta_map[meta.post_id][meta.meta_key] = meta.meta_value
+            
+        # Asignar a la caché de cada producto
+        for product in products:
+            if not hasattr(product, '_meta_cache'):
+                product._meta_cache = {}
+            product._meta_cache.update(meta_map.get(product.ID, {}))
+
     def set_meta(self, key, value):
         """
         Método útil para establecer o actualizar un metadato
-        
-        Ejemplo de uso:
-            product.set_meta('_price', '99.99')
-            db.session.commit()
         """
         meta = self.product_meta.filter_by(meta_key=key).first()
         if meta:
-            # Si ya existe, actualizar
             meta.meta_value = str(value)
         else:
-            # Si no existe, crear nuevo
             new_meta = ProductMeta(
                 post_id=self.ID,
                 meta_key=key,
                 meta_value=str(value)
             )
             db.session.add(new_meta)
-    
+        
+        # Actualizar caché si existe
+        if hasattr(self, '_meta_cache'):
+            self._meta_cache[key] = str(value)
+
     def get_image_url(self, parent_checked=False):
         """
-        Obtiene la URL de la imagen destacada del producto
-        
-        WooCommerce guarda el ID de la imagen en _thumbnail_id
-        y luego busca la URL en los postmeta del attachment
-        
-        Para variaciones: si no tiene imagen propia, hereda la del producto padre
-        
-        Parámetros:
-            parent_checked (bool): Interno, previene recursión infinita
-        
-        Retorna:
-            str: URL de la imagen o None si no existe
-        
-        Ejemplo de uso:
-            product = Product.query.first()
-            image_url = product.get_image_url()
+        Obtiene la URL de la imagen destacada del producto.
+        Utiliza caché interna para evitar consultas N+1.
         """
+        if hasattr(self, '_image_url_cache') and self._image_url_cache:
+            return self._image_url_cache
+
         try:
             from sqlalchemy import text
-            import os
             
-            # Obtener el ID de la imagen destacada
+            # Obtener el ID de la imagen destacada (usa caché de metas)
             thumbnail_id = self.get_meta('_thumbnail_id')
             
             # Si es una variación y no tiene imagen, heredar del producto padre
@@ -111,17 +154,16 @@ class Product(db.Model):
                 try:
                     parent = Product.query.get(self.post_parent)
                     if parent:
-                        return parent.get_image_url(parent_checked=True)
-                except Exception as e:
-                    # Solo log de errores importantes
-                    import logging
-                    logging.error(f"Error al obtener imagen del padre para variación {self.ID}: {str(e)}")
+                        url = parent.get_image_url(parent_checked=True)
+                        self._image_url_cache = url
+                        return url
+                except Exception:
                     return None
             
             if not thumbnail_id:
                 return None
             
-            # Buscar la ruta del archivo en los metadatos del attachment
+            # Buscar la ruta del archivo
             image_query = text("""
                 SELECT meta_value
                 FROM wpyz_postmeta
@@ -134,20 +176,60 @@ class Product(db.Model):
             row = result.fetchone()
             
             if row and row[0]:
-                # Construir URL completa de la imagen
                 base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
-                image_path = row[0]
-                full_url = base_url + image_path
-                
-                return full_url
+                url = base_url + row[0]
+                self._image_url_cache = url
+                return url
             
             return None
             
-        except Exception as e:
-            # Solo log de errores críticos
-            import logging
-            logging.error(f"Error al obtener imagen para producto {self.ID}: {str(e)}")
+        except Exception:
             return None
+
+    @staticmethod
+    def preload_images_for_products(products):
+        """
+        Carga las URLs de imágenes para una lista de productos en UNA sola consulta.
+        """
+        if not products:
+            return
+            
+        # 1. Identificar thumbnail_ids únicos
+        thumbnail_ids = []
+        for p in products:
+            if not hasattr(p, '_image_url_cache'):
+                p._image_url_cache = None
+            
+            tid = p.get_meta('_thumbnail_id')
+            if tid:
+                try:
+                    thumbnail_ids.append(int(tid))
+                except:
+                    pass
+        
+        if not thumbnail_ids:
+            return
+            
+        # 2. Consultar todos los _wp_attached_file en una vez
+        from sqlalchemy import text
+        image_query = text("""
+            SELECT post_id, meta_value
+            FROM wpyz_postmeta
+            WHERE post_id IN :ids
+            AND meta_key = '_wp_attached_file'
+        """)
+        
+        result = db.session.execute(image_query, {'ids': tuple(set(thumbnail_ids))})
+        
+        # 3. Mapear IDs a URLs
+        base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
+        image_map = {row[0]: base_url + row[1] for row in result if row[1]}
+        
+        # 4. Asignar a la caché de cada producto
+        for p in products:
+            tid = p.get_meta('_thumbnail_id')
+            if tid:
+                p._image_url_cache = image_map.get(int(tid))
     
     def get_variations(self):
         """
