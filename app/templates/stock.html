@@ -561,16 +561,16 @@
         html += '<table class="table table-hover align-middle">';
         html += '<thead class="table-light">';
         html += '<tr>';
-        html += '<th style="width: 50px;"><input type="checkbox" id="select-all"></th>';
-        html += '<th style="width: 80px;">ID</th>';
-        html += '<th class="d-none d-sm-table-cell" style="width: 100px;">Tipo</th>';
-        html += '<th class="d-none d-lg-table-cell" style="width: 100px;">Padre</th>';
-        html += '<th>Producto</th>';
-        html += '<th class="d-none d-md-table-cell" style="width: 120px;">SKU</th>';
-        html += '<th class="d-none d-md-table-cell" style="width: 100px;">Precio</th>';
-        html += '<th style="width: 200px;" class="text-center">Stock</th>';
-        html += '<th class="d-none d-lg-table-cell" style="width: 120px;">Estado</th>';
-        html += '<th style="width: 150px;">Acciones</th>';
+        html += '<th style="width: 50px;" class="text-center"><input type="checkbox" id="select-all"></th>';
+        html += '<th style="width: 80px;" class="text-center">ID</th>';
+        html += '<th class="d-none d-sm-table-cell text-center" style="width: 100px;">Tipo</th>';
+        html += '<th class="d-none d-lg-table-cell text-center" style="width: 100px;">Padre</th>';
+        html += '<th class="text-start">Producto</th>';
+        html += '<th class="d-none d-md-table-cell text-start" style="width: 120px;">SKU</th>';
+        html += '<th class="d-none d-md-table-cell text-end" style="width: 100px;">Precio</th>';
+        html += '<th style="width: 200px;" class="text-end">Stock</th>';
+        html += '<th class="d-none d-lg-table-cell text-center" style="width: 120px;">Estado</th>';
+        html += '<th style="width: 150px;" class="text-end">Acciones</th>';
         html += '</tr>';
         html += '</thead>';
         html += '<tbody>';
@@ -598,19 +598,19 @@
             }
 
             html += '<tr class="' + rowClass + '">';
-            html += '<td><input type="checkbox" class="product-checkbox" value="' + product.id + '" data-product=\'' + JSON.stringify(product) + '\'></td>';
-            html += '<td><strong>' + product.id + '</strong></td>';
-            html += '<td class="d-none d-sm-table-cell">' + typeBadge + '</td>';
+            html += '<td class="text-center"><input type="checkbox" class="product-checkbox" value="' + product.id + '" data-product=\'' + JSON.stringify(product) + '\'></td>';
+            html += '<td class="text-center"><strong>' + product.id + '</strong></td>';
+            html += '<td class="d-none d-sm-table-cell text-center">' + typeBadge + '</td>';
 
             // Padre
             if (product.parent_id) {
-                html += '<td class="d-none d-lg-table-cell"><a href="/products/' + product.parent_id + '" class="parent-link">#' + product.parent_id + '</a></td>';
+                html += '<td class="d-none d-lg-table-cell text-center"><a href="/products/' + product.parent_id + '" class="parent-link">#' + product.parent_id + '</a></td>';
             } else {
-                html += '<td class="d-none d-lg-table-cell">-</td>';
+                html += '<td class="d-none d-lg-table-cell text-center">-</td>';
             }
 
             // Título
-            html += '<td>';
+            html += '<td class="text-start">';
             html += '<div class="fw-bold d-md-none small text-muted">ID: ' + product.id + '</div>';
             html += product.title;
             html += '<div class="d-md-none mt-1">';
@@ -619,14 +619,14 @@
             html += '</td>';
 
             // SKU
-            html += '<td class="d-none d-md-table-cell"><code>' + product.sku + '</code></td>';
+            html += '<td class="d-none d-md-table-cell text-start"><code>' + product.sku + '</code></td>';
 
             // Precio
-            html += '<td class="d-none d-md-table-cell">S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
+            html += '<td class="d-none d-md-table-cell text-end">S/ ' + parseFloat(product.price).toFixed(2) + '</td>';
 
             // Columna de stock con botones +/-
-            html += '<td class="text-center">';
-            html += '<div class="input-group stock-control-group mx-auto" style="max-width: 140px;">';
+            html += '<td class="text-end">';
+            html += '<div class="input-group stock-control-group ms-auto me-0" style="max-width: 140px;">';
             html += '<button class="btn btn-outline-secondary" onclick="adjustStock(' + product.id + ', -1)">';
             html += '<i class="bi bi-dash"></i>';
             html += '</button>';
@@ -636,13 +636,13 @@
             html += '<i class="bi bi-plus"></i>';
             html += '</button>';
             html += '</div>';
-            html += '<div class="d-md-none mt-1 small">' + stockBadge + '</div>';
+            html += '<div class="d-md-none mt-1 small text-end">' + stockBadge + '</div>';
             html += '</td>';
 
-            html += '<td class="d-none d-lg-table-cell"><span class="stock-status-badge">' + stockBadge + '</span></td>';
+            html += '<td class="d-none d-lg-table-cell text-center"><span class="stock-status-badge">' + stockBadge + '</span></td>';
 
             // Acciones
-            html += '<td>';
+            html += '<td class="text-end">';
             html += '<div class="btn-group btn-group-sm" role="group">';
             html += '<button class="btn btn-primary" onclick="updateStock(' + product.id + ')" title="Guardar cambios">';
             html += '<i class="bi bi-save"></i>';

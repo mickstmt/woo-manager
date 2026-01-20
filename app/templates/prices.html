@@ -593,17 +593,17 @@
                 <thead class="table-light">
                     <tr>
                         {% if current_user.is_admin_or_advisor() %}
-                        <th width="40" class="d-none d-md-table-cell">
+                        <th width="40" class="d-none d-md-table-cell text-center">
                             <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
                         </th>
                         {% endif %}
-                        <th class="d-none d-sm-table-cell">ID</th>
-                        <th>Producto</th>
-                        <th width="120" class="d-none d-lg-table-cell">SKU</th>
+                        <th class="d-none d-sm-table-cell text-center">ID</th>
+                        <th class="text-start">Producto</th>
+                        <th width="120" class="d-none d-lg-table-cell text-start">SKU</th>
                         <th width="110" class="text-end">P. Regular</th>
                         <th width="110" class="text-end">P. Oferta</th>
                         <th width="110" class="text-end d-none d-md-table-cell">P. Activo</th>
-                        <th width="80" class="text-center">Acciones</th>
+                        <th width="120" class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -625,13 +625,13 @@
             html += `
             <tr data-product-id="${product.id}">
                 {% if current_user.is_admin_or_advisor() %}
-                <td class="d-none d-md-table-cell">
+                <td class="d-none d-md-table-cell text-center">
                     <input type="checkbox" class="form-check-input product-checkbox"
                            value="${product.id}" onchange="toggleProductSelection(${product.id})">
                 </td>
                 {% endif %}
-                <td class="d-none d-sm-table-cell">${typeIcon} ${product.id}</td>
-                <td>
+                <td class="d-none d-sm-table-cell text-center">${typeIcon} ${product.id}</td>
+                <td class="text-start">
                     <div class="fw-bold d-md-none small text-muted">ID: ${product.id}</div>
                     ${product.title} ${onSaleBadge}
                     <div class="d-lg-none mt-1">
@@ -639,7 +639,7 @@
                     </div>
                     ${parentInfo}
                 </td>
-                <td class="d-none d-lg-table-cell"><code>${product.sku}</code></td>
+                <td class="d-none d-lg-table-cell text-start"><code>${product.sku}</code></td>
                 <td class="text-end price-column">
                     <div class="d-md-none small text-muted mb-1 text-start">Regular:</div>
                     <div class="input-group input-group-sm">
@@ -666,7 +666,7 @@
                 <td class="text-end price-column d-none d-md-table-cell">
                     <strong class="currency-symbol">${currency}</strong> ${product.price.toFixed(2)}
                 </td>
-                <td class="text-center">
+                <td class="text-end">
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-info" onclick="showHistory(${product.id}, '${product.title.replace(/'/g, "\\'")}')" title="Historial">
                             <i class="bi bi-clock-history"></i>
