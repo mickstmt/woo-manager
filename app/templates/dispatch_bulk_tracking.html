@@ -63,20 +63,57 @@
 
     .upload-zone {
         border: 2px dashed var(--bs-border-color);
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 40px;
         text-align: center;
         background-color: var(--bs-tertiary-bg);
         transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        min-height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .upload-zone:hover {
-        border-color: var(--bs-primary);
-        background-color: var(--bs-secondary-bg);
+        border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.05);
     }
 
     .upload-zone.dragover {
         border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.1);
+        border-width: 3px;
+        transform: scale(1.01);
+    }
+
+    .upload-zone-content,
+    .upload-zone-file {
+        width: 100%;
+    }
+
+    .upload-zone-file {
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Dark mode para upload zone */
+    [data-bs-theme="dark"] .upload-zone.dragover {
+        background-color: rgba(25, 135, 84, 0.2);
+    }
+
+    [data-bs-theme="dark"] .upload-zone:hover {
         background-color: rgba(25, 135, 84, 0.1);
     }
 
@@ -159,6 +196,24 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* Upload zone más compacta en tablet */
+        .upload-zone {
+            min-height: 240px;
+            padding: 30px 20px;
+        }
+
+        .upload-zone h5 {
+            font-size: 1.1rem;
+        }
+
+        .upload-zone p {
+            font-size: 0.9rem;
+        }
+
+        .upload-zone i[style*="font-size: 3rem"] {
+            font-size: 2.5rem !important;
+        }
     }
 
     @media (max-width: 576px) {
@@ -200,6 +255,29 @@
 
         .progress-text {
             font-size: 1.2rem;
+        }
+
+        /* Upload zone muy compacta en móvil */
+        .upload-zone {
+            min-height: 200px;
+            padding: 20px 15px;
+        }
+
+        .upload-zone h5 {
+            font-size: 1rem;
+        }
+
+        .upload-zone p {
+            font-size: 0.85rem;
+        }
+
+        .upload-zone i[style*="font-size: 3rem"] {
+            font-size: 2rem !important;
+        }
+
+        .upload-zone .btn {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
         }
     }
 
@@ -287,12 +365,34 @@
             <div class="card">
                 <div class="card-body">
                     <div class="mb-3">
-                        <label for="excel-file" class="form-label fw-bold">
+                        <label class="form-label fw-bold">
                             <i class="bi bi-file-earmark-excel text-success"></i> Archivo Excel de Shalom
                         </label>
-                        <input type="file" class="form-control" id="excel-file" accept=".xlsx,.xls"
-                            onchange="onFileSelected()">
-                        <div class="form-text">Seleccione el archivo .xlsx generado por Shalom</div>
+
+                        <!-- Zona de arrastre -->
+                        <div class="upload-zone" id="upload-zone">
+                            <input type="file" class="d-none" id="excel-file" accept=".xlsx,.xls"
+                                onchange="onFileSelected()">
+                            <div class="upload-zone-content">
+                                <i class="bi bi-cloud-upload" style="font-size: 3rem; color: var(--bs-success);"></i>
+                                <h5 class="mt-3 mb-2">Arrastra tu archivo aquí</h5>
+                                <p class="text-muted mb-3">o haz clic para seleccionar</p>
+                                <button type="button" class="btn btn-outline-success" onclick="document.getElementById('excel-file').click()">
+                                    <i class="bi bi-folder2-open"></i> Seleccionar Archivo
+                                </button>
+                                <div class="form-text mt-3">Archivos permitidos: .xlsx, .xls</div>
+                            </div>
+
+                            <!-- Vista del archivo seleccionado -->
+                            <div class="upload-zone-file" id="upload-zone-file" style="display: none;">
+                                <i class="bi bi-file-earmark-excel-fill text-success" style="font-size: 3rem;"></i>
+                                <h5 class="mt-3 mb-1" id="selected-file-name">archivo.xlsx</h5>
+                                <p class="text-muted mb-3" id="selected-file-size">0 KB</p>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearFileSelection()">
+                                    <i class="bi bi-x-circle"></i> Quitar archivo
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="d-flex gap-3" id="bulk-tracking-actions">
                         <button class="btn btn-primary btn-lg" onclick="loadPreview()" id="btn-load-preview" disabled>
@@ -460,18 +560,121 @@
     let enviosData = [];
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Nada que inicializar
+        setupDragAndDrop();
     });
+
+    /**
+     * Configurar eventos de drag & drop
+     */
+    function setupDragAndDrop() {
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('excel-file');
+
+        // Click en la zona de carga
+        uploadZone.addEventListener('click', function(e) {
+            // Evitar que el click en el botón interno active el input dos veces
+            if (!e.target.closest('button')) {
+                fileInput.click();
+            }
+        });
+
+        // Prevenir comportamiento por defecto del navegador
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Efectos visuales para drag over
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, function() {
+                uploadZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, function() {
+                uploadZone.classList.remove('dragover');
+            }, false);
+        });
+
+        // Manejo del drop
+        uploadZone.addEventListener('drop', handleDrop, false);
+    }
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            const file = files[0];
+
+            // Validar extensión
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                const fileInput = document.getElementById('excel-file');
+                fileInput.files = files;
+                onFileSelected();
+            } else {
+                showNotification('warning', 'Por favor seleccione un archivo Excel (.xlsx o .xls)');
+            }
+        }
+    }
 
     function onFileSelected() {
         const fileInput = document.getElementById('excel-file');
         const btn = document.getElementById('btn-load-preview');
+        const uploadZoneContent = document.querySelector('.upload-zone-content');
+        const uploadZoneFile = document.getElementById('upload-zone-file');
 
         if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+
+            // Mostrar información del archivo
+            document.getElementById('selected-file-name').textContent = file.name;
+            document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
+
+            // Cambiar vista
+            uploadZoneContent.style.display = 'none';
+            uploadZoneFile.style.display = 'block';
+
+            // Habilitar botón
             btn.disabled = false;
         } else {
+            // Restaurar vista original
+            uploadZoneContent.style.display = 'block';
+            uploadZoneFile.style.display = 'none';
+
             btn.disabled = true;
         }
+    }
+
+    function clearFileSelection() {
+        const fileInput = document.getElementById('excel-file');
+        fileInput.value = '';
+        onFileSelected();
+
+        // Ocultar resumen y tabla si estaban visibles
+        document.getElementById('summary-card').style.display = 'none';
+        document.getElementById('envios-table').innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-file-earmark-excel" style="font-size: 3rem;"></i>
+                    <p class="mb-0 mt-2">Haga clic en "Cargar y Analizar Excel" para comenzar</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 
     function loadPreview() {
