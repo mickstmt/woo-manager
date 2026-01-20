@@ -74,39 +74,60 @@ def list_stock():
         # CASO 2: Con búsqueda
         # ========================================
         
+        # Separar términos de búsqueda (Keyword-based search)
+        search_terms = search.strip().split()
+        params = {}
+        
+        # Construir condiciones para búsqueda de productos simples (AND logic)
+        simple_conditions = []
+        for i, term in enumerate(search_terms):
+            param_name = f'term_{i}'
+            simple_conditions.append(f"""
+                (p.post_title LIKE :{param_name} 
+                OR p.ID LIKE :{param_name} 
+                OR pm.meta_value LIKE :{param_name})
+            """)
+            params[param_name] = f'%{term}%'
+        
+        simple_where_clause = " AND ".join(simple_conditions)
+
         # Buscar en productos simples (con SKU)
-        simple_products_query = text("""
+        simple_products_query = text(f"""
             SELECT DISTINCT p.ID
             FROM wpyz_posts p
             LEFT JOIN wpyz_postmeta pm ON p.ID = pm.post_id AND pm.meta_key = '_sku'
             WHERE p.post_type = 'product'
             AND p.post_status = 'publish'
-            AND (
-                p.post_title LIKE :search
-                OR p.ID LIKE :search
-                OR pm.meta_value LIKE :search
-            )
+            AND {simple_where_clause}
         """)
         
-        result = db.session.execute(simple_products_query, {'search': f'%{search}%'})
+        result = db.session.execute(simple_products_query, params)
         simple_ids = [row[0] for row in result]
         
+        # Construir condiciones para búsqueda de variaciones (AND logic)
+        variation_conditions = []
+        for i, term in enumerate(search_terms):
+            param_name = f'term_{i}'
+            variation_conditions.append(f"""
+                (v.post_title LIKE :{param_name} 
+                OR v.ID LIKE :{param_name} 
+                OR vm.meta_value LIKE :{param_name}
+                OR v.post_parent LIKE :{param_name})
+            """)
+        
+        variation_where_clause = " AND ".join(variation_conditions)
+
         # Buscar en variaciones (por título, ID, SKU O por ID del producto padre)
-        variations_query = text("""
+        variations_query = text(f"""
             SELECT DISTINCT v.ID
             FROM wpyz_posts v
             LEFT JOIN wpyz_postmeta vm ON v.ID = vm.post_id AND vm.meta_key = '_sku'
             WHERE v.post_type = 'product_variation'
             AND v.post_status = 'publish'
-            AND (
-                v.post_title LIKE :search
-                OR v.ID LIKE :search
-                OR vm.meta_value LIKE :search
-                OR v.post_parent LIKE :search
-            )
+            AND {variation_where_clause}
         """)
         
-        result = db.session.execute(variations_query, {'search': f'%{search}%'})
+        result = db.session.execute(variations_query, params)
         variation_ids = [row[0] for row in result]
         
         # Obtener productos simples

@@ -92,8 +92,28 @@ def api_products_out_of_stock():
         search = request.args.get('search', '', type=str)
         sort_by = request.args.get('sort_by', 'dias_sin_stock', type=str)
 
+        # Separar términos de búsqueda (Keyword-based search)
+        search_terms = search.strip().split()
+        params = {
+            'sort_by': sort_by
+        }
+        
+        search_conditions = []
+        if not search or search.strip() == '':
+            search_where_clause = "1=1"
+        else:
+            for i, term in enumerate(search_terms):
+                param_name = f'term_{i}'
+                search_conditions.append(f"""
+                    (p.post_title LIKE :{param_name} 
+                    OR p.ID LIKE :{param_name} 
+                    OR pm_sku.meta_value LIKE :{param_name})
+                """)
+                params[param_name] = f'%{term}%'
+            search_where_clause = " AND ".join(search_conditions)
+
         # Query complejo: Productos con stock 0 que están en history
-        query = text("""
+        query = text(f"""
             SELECT DISTINCT
                 p.ID as product_id,
                 p.post_title as product_name,
@@ -141,7 +161,7 @@ def api_products_out_of_stock():
                 CAST(pm_stock.meta_value AS DECIMAL) = 0
                 OR pm_stock.meta_value IS NULL
             )
-            AND (:search = '' OR pm_sku.meta_value LIKE :search_pattern OR p.post_title LIKE :search_pattern)
+            AND {search_where_clause}
 
             ORDER BY
                 CASE :sort_by
@@ -159,15 +179,7 @@ def api_products_out_of_stock():
                 END
         """)
 
-        search_pattern = f'%{search}%'
-        result = db.session.execute(
-            query,
-            {
-                'search': search,
-                'search_pattern': search_pattern,
-                'sort_by': sort_by
-            }
-        )
+        result = db.session.execute(query, params)
 
         products = []
         for row in result:
@@ -219,8 +231,28 @@ def export_products_out_of_stock():
         search = request.args.get('search', '', type=str)
         sort_by = request.args.get('sort_by', 'dias_sin_stock_desc', type=str)
 
+        # Separar términos de búsqueda (Keyword-based search)
+        search_terms = search.strip().split()
+        params = {
+            'sort_by': sort_by
+        }
+        
+        search_conditions = []
+        if not search or search.strip() == '':
+            search_where_clause = "1=1"
+        else:
+            for i, term in enumerate(search_terms):
+                param_name = f'term_{i}'
+                search_conditions.append(f"""
+                    (p.post_title LIKE :{param_name} 
+                    OR p.ID LIKE :{param_name} 
+                    OR pm_sku.meta_value LIKE :{param_name})
+                """)
+                params[param_name] = f'%{term}%'
+            search_where_clause = " AND ".join(search_conditions)
+
         # Usar el mismo query que api_products_out_of_stock
-        query = text("""
+        query = text(f"""
             SELECT DISTINCT
                 p.ID as product_id,
                 p.post_title as product_name,
@@ -268,7 +300,7 @@ def export_products_out_of_stock():
                 CAST(pm_stock.meta_value AS DECIMAL) = 0
                 OR pm_stock.meta_value IS NULL
             )
-            AND (:search = '' OR pm_sku.meta_value LIKE :search_pattern OR p.post_title LIKE :search_pattern)
+            AND {search_where_clause}
 
             ORDER BY
                 CASE :sort_by
@@ -286,15 +318,7 @@ def export_products_out_of_stock():
                 END
         """)
 
-        search_pattern = f'%{search}%'
-        result = db.session.execute(
-            query,
-            {
-                'search': search,
-                'search_pattern': search_pattern,
-                'sort_by': sort_by
-            }
-        )
+        result = db.session.execute(query, params)
 
         products = []
         for row in result:
