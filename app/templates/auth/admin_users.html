@@ -16,31 +16,22 @@
         border-color: var(--primary-color);
     }
 
-    .user-avatar {
+    .user-card-avatar {
         width: 50px;
         height: 50px;
         border-radius: 50%;
-        background-color: var(--primary-light);
+        background: linear-gradient(135deg, #F39200 0%, #d67e00 100%);
         color: white;
-        /* Changed from var(--primary-color) for maximum contrast */
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.25rem;
-        font-weight: 800;
-        /* Extra bold */
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        /* Subtle shadow for depth */
+        font-weight: 600;
         transition: all 0.2s ease;
-        border: 2px solid transparent;
-        /* Prepare for hover */
     }
 
-    .user-card:hover .user-avatar {
+    .user-card:hover .user-card-avatar {
         transform: scale(1.05);
-        background-color: var(--primary-color);
-        color: white;
-        border-color: var(--primary-light);
     }
 
     .btn-action-square {
@@ -60,232 +51,238 @@
 {% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h1 class="mb-0">
-            <i class="bi bi-people"></i> Gestión de Usuarios
-        </h1>
-        <p class="text-muted">Administrar cuentas y cambiar contraseñas</p>
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-0">
+                <i class="bi bi-people"></i> Gestión de Usuarios
+            </h1>
+            <p class="text-muted">Administrar cuentas y cambiar contraseñas</p>
+        </div>
     </div>
-</div>
 
-<!-- Estadísticas Modernas -->
-<div class="row g-2 g-md-3 mb-4">
-    <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex align-items-center mb-1 mb-md-2">
-                    <div class="avatar-sm rounded-circle bg-primary-subtle text-primary p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 32px; height: 32px; min-width: 32px;">
-                        <i class="bi bi-people fs-6"></i>
+    <!-- Estadísticas Modernas -->
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex align-items-center mb-1 mb-md-2">
+                        <div class="avatar-sm rounded-circle bg-primary-subtle text-primary p-2 me-2 d-flex align-items-center justify-content-center"
+                            style="width: 32px; height: 32px; min-width: 32px;">
+                            <i class="bi bi-people fs-6"></i>
+                        </div>
+                        <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Total</span>
                     </div>
-                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Total</span>
+                    <h3 class="mb-0 fw-bold">{{ users|length }}</h3>
                 </div>
-                <h3 class="mb-0 fw-bold">{{ users|length }}</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex align-items-center mb-1 mb-md-2">
+                        <div class="avatar-sm rounded-circle bg-success-subtle text-success p-2 me-2 d-flex align-items-center justify-content-center"
+                            style="width: 32px; height: 32px; min-width: 32px;">
+                            <i class="bi bi-person-check fs-6"></i>
+                        </div>
+                        <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Activos</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ users|selectattr('is_active')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+            <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex align-items-center mb-1 mb-md-2">
+                        <div class="avatar-sm rounded-circle bg-danger-subtle text-danger p-2 me-2 d-flex align-items-center justify-content-center"
+                            style="width: 32px; height: 32px; min-width: 32px;">
+                            <i class="bi bi-shield-lock fs-6"></i>
+                        </div>
+                        <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Admins</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-6 col-xl-3">
+            <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex align-items-center mb-1 mb-md-2">
+                        <div class="avatar-sm rounded-circle bg-warning-subtle text-warning p-2 me-2 d-flex align-items-center justify-content-center"
+                            style="width: 32px; height: 32px; min-width: 32px;">
+                            <i class="bi bi-headset fs-6"></i>
+                        </div>
+                        <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Asesores</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-2">
+            <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex align-items-center mb-1 mb-md-2">
+                        <div class="avatar-sm rounded-circle bg-info-subtle text-info p-2 me-2 d-flex align-items-center justify-content-center"
+                            style="width: 32px; height: 32px; min-width: 32px;">
+                            <i class="bi bi-person fs-6"></i>
+                        </div>
+                        <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Usuarios</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h3>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex align-items-center mb-1 mb-md-2">
-                    <div class="avatar-sm rounded-circle bg-success-subtle text-success p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 32px; height: 32px; min-width: 32px;">
-                        <i class="bi bi-person-check fs-6"></i>
-                    </div>
-                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Activos</span>
-                </div>
-                <h3 class="mb-0 fw-bold">{{ users|selectattr('is_active')|list|length }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-4 col-xl-3">
-        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex align-items-center mb-1 mb-md-2">
-                    <div class="avatar-sm rounded-circle bg-danger-subtle text-danger p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 32px; height: 32px; min-width: 32px;">
-                        <i class="bi bi-shield-lock fs-6"></i>
-                    </div>
-                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Admins</span>
-                </div>
-                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-md-6 col-xl-3">
-        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex align-items-center mb-1 mb-md-2">
-                    <div class="avatar-sm rounded-circle bg-warning-subtle text-warning p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 32px; height: 32px; min-width: 32px;">
-                        <i class="bi bi-headset fs-6"></i>
-                    </div>
-                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Asesores</span>
-                </div>
-                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'advisor')|list|length }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-12 col-md-6 col-xl-2">
-        <div class="card border shadow-sm h-100" style="border-color: var(--border-color) !important;">
-            <div class="card-body p-2 p-md-3">
-                <div class="d-flex align-items-center mb-1 mb-md-2">
-                    <div class="avatar-sm rounded-circle bg-info-subtle text-info p-2 me-2 d-flex align-items-center justify-content-center"
-                        style="width: 32px; height: 32px; min-width: 32px;">
-                        <i class="bi bi-person fs-6"></i>
-                    </div>
-                    <span class="text-muted text-uppercase small fw-bold d-none d-sm-inline">Usuarios</span>
-                </div>
-                <h3 class="mb-0 fw-bold">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</h3>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Lista de usuarios -->
-<div class="row g-4">
-    {% for user in users %}
-    <div class="col-xl-4 col-md-6">
-        <div class="card user-card h-100 shadow-sm">
-            <div class="card-body">
-                <div class="d-flex align-items-start mb-3">
-                    <div class="user-avatar me-3 flex-shrink-0" style="overflow: hidden;">
-                        {% if user.avatar_file %}
-                        <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar_file) }}" alt="Avatar"
-                            class="w-100 h-100 object-fit-cover">
-                        {% else %}
-                        {{ user.username[0]|upper }}
-                        {% endif %}
-                    </div>
-                    <div class="flex-grow-1 min-w-0">
-                        <h5 class="mb-1 text-truncate">
-                            {{ user.full_name or user.username }}
-                        </h5>
-                        <p class="text-muted mb-1 text-truncate small">
-                            <i class="bi bi-at"></i> {{ user.email }}
-                        </p>
-                        <div class="d-flex gap-2 flex-wrap">
-                            {% if user.id == current_user.id %}
-                            <span class="badge bg-info-subtle text-info border border-info-subtle">Tú</span>
-                            {% endif %}
-
-                            {% if user.role == 'master' %}
-                            <span class="badge bg-dark">Master</span>
-                            {% elif user.role == 'admin' %}
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Admin</span>
-                            {% elif user.role == 'advisor' %}
-                            <span
-                                class="badge bg-warning-subtle text-warning border border-warning-subtle">Asesor</span>
+    <!-- Lista de usuarios -->
+    <div class="row g-4">
+        {% for user in users %}
+        <div class="col-xl-4 col-md-6">
+            <div class="card user-card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="user-card-avatar me-3 flex-shrink-0" style="overflow: hidden;">
+                            {% if user.avatar_file %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar_file) }}"
+                                alt="Avatar" class="w-100 h-100 object-fit-cover">
                             {% else %}
-                            <span
-                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Usuario</span>
-                            {% endif %}
-
-                            {% if user.is_active %}
-                            <span
-                                class="badge bg-success-subtle text-success border border-success-subtle">Activo</span>
-                            {% else %}
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span>
+                            {{ user.username[0]|upper }}
                             {% endif %}
                         </div>
-                    </div>
-                </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <h5 class="mb-1 text-truncate">
+                                {{ user.full_name or user.username }}
+                            </h5>
+                            <p class="text-muted mb-1 text-truncate small">
+                                <i class="bi bi-at"></i> {{ user.email }}
+                            </p>
+                            <div class="d-flex gap-2 flex-wrap">
+                                {% if user.id == current_user.id %}
+                                <span class="badge bg-info-subtle text-info border border-info-subtle">Tú</span>
+                                {% endif %}
 
-                <div class="bg-transparent border rounded p-2 mb-3 small"
-                    style="border-color: var(--border-color) !important;">
-                    <div class="row text-center g-0">
-                        <div class="col-6 border-end" style="border-color: var(--border-color) !important;">
-                            <span class="text-muted d-block">Usuario</span>
-                            <span class="fw-medium text-break">{{ user.username }}</span>
+                                {% if user.role == 'master' %}
+                                <span class="badge bg-dark">Master</span>
+                                {% elif user.role == 'admin' %}
+                                <span
+                                    class="badge bg-danger-subtle text-danger border border-danger-subtle">Admin</span>
+                                {% elif user.role == 'advisor' %}
+                                <span
+                                    class="badge bg-warning-subtle text-warning border border-warning-subtle">Asesor</span>
+                                {% else %}
+                                <span
+                                    class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Usuario</span>
+                                {% endif %}
+
+                                {% if user.is_active %}
+                                <span
+                                    class="badge bg-success-subtle text-success border border-success-subtle">Activo</span>
+                                {% else %}
+                                <span
+                                    class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <span class="text-muted d-block">Última actividad</span>
-                            <span class="fw-medium">
-                                {% if user.last_login %}
-                                {% if is_user_online(user) %}
-                                <span class="text-success fw-bold">
-                                    <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Ahora
+                    </div>
+
+                    <div class="bg-transparent border rounded p-2 mb-3 small"
+                        style="border-color: var(--border-color) !important;">
+                        <div class="row text-center g-0">
+                            <div class="col-6 border-end" style="border-color: var(--border-color) !important;">
+                                <span class="text-muted d-block">Usuario</span>
+                                <span class="fw-medium text-break">{{ user.username }}</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted d-block">Última actividad</span>
+                                <span class="fw-medium">
+                                    {% if user.last_login %}
+                                    {% if is_user_online(user) %}
+                                    <span class="text-success fw-bold">
+                                        <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Ahora
+                                    </span>
+                                    {% else %}
+                                    {{ user.last_login.strftime('%d/%m %H:%M') }}
+                                    {% endif %}
+                                    {% else %}
+                                    -
+                                    {% endif %}
                                 </span>
-                                {% else %}
-                                {{ user.last_login.strftime('%d/%m %H:%M') }}
-                                {% endif %}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Controles de administración -->
-                <div class="d-flex gap-2">
-                    <div class="flex-grow-1">
-                        <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}">
-                            <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" {% if
-                                user.id==current_user.id %}disabled{% endif %} {% if user.role=='master' and not
-                                current_user.is_master() %}disabled{% endif %}>
-                                <option value="user" {% if user.role=='user' %}selected{% endif %}>Usuario</option>
-                                <option value="advisor" {% if user.role=='advisor' %}selected{% endif %}>Asesor</option>
-                                <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
-                                {% if current_user.is_master() %}
-                                <option value="master" {% if user.role=='master' %}selected{% endif %}>Master</option>
-                                {% endif %}
-                            </select>
+                    <!-- Controles de administración -->
+                    <div class="d-flex gap-2">
+                        <div class="flex-grow-1">
+                            <form method="POST" action="{{ url_for('auth.admin_change_user_role', user_id=user.id) }}">
+                                <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" {%
+                                    if user.id==current_user.id %}disabled{% endif %} {% if user.role=='master' and not
+                                    current_user.is_master() %}disabled{% endif %}>
+                                    <option value="user" {% if user.role=='user' %}selected{% endif %}>Usuario</option>
+                                    <option value="advisor" {% if user.role=='advisor' %}selected{% endif %}>Asesor
+                                    </option>
+                                    <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
+                                    {% if current_user.is_master() %}
+                                    <option value="master" {% if user.role=='master' %}selected{% endif %}>Master
+                                    </option>
+                                    {% endif %}
+                                </select>
+                            </form>
+                        </div>
+
+                        <form method="POST" action="{{ url_for('auth.admin_toggle_user_status', user_id=user.id) }}">
+                            <button type="submit"
+                                class="btn btn-sm btn-action-square {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                data-bs-toggle="tooltip"
+                                title="{% if user.is_active %}Desactivar cuenta{% else %}Activar cuenta{% endif %}" {%
+                                if user.id==current_user.id %}disabled{% endif %}>
+                                <i class="bi bi-{% if user.is_active %}power{% else %}check-lg{% endif %}"></i>
+                            </button>
+                        </form>
+
+                        <button class="btn btn-outline-secondary btn-sm btn-action-square toggle-password-btn"
+                            data-user-id="{{ user.id }}" data-bs-toggle="tooltip" title="Cambiar contraseña">
+                            <i class="bi bi-key"></i>
+                        </button>
+                    </div>
+
+                    <!-- Formulario de cambio de contraseña -->
+                    <div id="password-form-{{ user.id }}"
+                        class="change-password-form mt-3 border bg-body p-3 rounded shadow-sm" style="display: none;">
+                        <form method="POST" action="{{ url_for('auth.admin_change_password', user_id=user.id) }}">
+                            <h6 class="mb-2 text-primary small fw-bold">Cambiar Contraseña</h6>
+                            <div class="mb-2">
+                                <input type="password" class="form-control form-control-sm" name="new_password"
+                                    placeholder="Nueva contraseña" minlength="6" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="password" class="form-control form-control-sm" name="confirm_password"
+                                    placeholder="Confirmar contraseña" minlength="6" required>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                                    Guardar
+                                </button>
+                                <button type="button" class="btn btn-light btn-sm cancel-password-btn"
+                                    data-user-id="{{ user.id }}">
+                                    Cancelar
+                                </button>
+                            </div>
                         </form>
                     </div>
-
-                    <form method="POST" action="{{ url_for('auth.admin_toggle_user_status', user_id=user.id) }}">
-                        <button type="submit"
-                            class="btn btn-sm btn-action-square {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                            data-bs-toggle="tooltip"
-                            title="{% if user.is_active %}Desactivar cuenta{% else %}Activar cuenta{% endif %}" {% if
-                            user.id==current_user.id %}disabled{% endif %}>
-                            <i class="bi bi-{% if user.is_active %}power{% else %}check-lg{% endif %}"></i>
-                        </button>
-                    </form>
-
-                    <button class="btn btn-outline-secondary btn-sm btn-action-square toggle-password-btn"
-                        data-user-id="{{ user.id }}" data-bs-toggle="tooltip" title="Cambiar contraseña">
-                        <i class="bi bi-key"></i>
-                    </button>
-                </div>
-
-                <!-- Formulario de cambio de contraseña -->
-                <div id="password-form-{{ user.id }}"
-                    class="change-password-form mt-3 border bg-body p-3 rounded shadow-sm" style="display: none;">
-                    <form method="POST" action="{{ url_for('auth.admin_change_password', user_id=user.id) }}">
-                        <h6 class="mb-2 text-primary small fw-bold">Cambiar Contraseña</h6>
-                        <div class="mb-2">
-                            <input type="password" class="form-control form-control-sm" name="new_password"
-                                placeholder="Nueva contraseña" minlength="6" required>
-                        </div>
-                        <div class="mb-2">
-                            <input type="password" class="form-control form-control-sm" name="confirm_password"
-                                placeholder="Confirmar contraseña" minlength="6" required>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
-                                Guardar
-                            </button>
-                            <button type="button" class="btn btn-light btn-sm cancel-password-btn"
-                                data-user-id="{{ user.id }}">
-                                Cancelar
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
 
-{% if not users %}
-<div class="alert alert-info border-0 shadow-sm">
-    <i class="bi bi-info-circle me-2"></i> No hay usuarios registrados.
+    {% if not users %}
+    <div class="alert alert-info border-0 shadow-sm">
+        <i class="bi bi-info-circle me-2"></i> No hay usuarios registrados.
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}

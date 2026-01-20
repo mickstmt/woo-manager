@@ -115,6 +115,12 @@
    GLOBAL RESET & TYPOGRAPHY
    ============================================ */
 
+html {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    /* Siempre mostrar scrollbar vertical y ocultar horizontal para evitar salto de layout */
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -590,7 +596,9 @@ h6 {
     z-index: 100;
     transition: background-color var(--transition-normal), border-color var(--transition-normal);
     backdrop-filter: blur(8px);
-    /* Efecto glass sutil si hay soporte */
+    min-height: 81px;
+    box-sizing: border-box;
+    /* Altura igual al sidebar-header para alineación perfecta */
 }
 
 /* Botones de Icono (Toggle, Theme) */
