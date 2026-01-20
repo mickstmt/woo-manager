@@ -150,11 +150,27 @@
                                 <span class="nav-link-text">Inventario</span>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="/products/" class="nav-link" data-tooltip="Productos">
+                        <li class="nav-item has-submenu" id="nav-productos">
+                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Productos"
+                                data-submenu-id="productos" onclick="toggleSubmenu(event, this)">
                                 <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
                                 <span class="nav-link-text">Productos</span>
+                                <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
                             </a>
+                            <ul class="submenu">
+                                <li class="nav-item">
+                                    <a href="/products/" class="nav-link" data-tooltip="Listado">
+                                        <span class="nav-link-icon"><i class="bi bi-list-ul"></i></span>
+                                        <span class="nav-link-text">Listado</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="/products/create" class="nav-link" data-tooltip="Crear Producto">
+                                        <span class="nav-link-icon"><i class="bi bi-plus-circle"></i></span>
+                                        <span class="nav-link-text">Nuevo Producto</span>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                         <li class="nav-item">
                             <a href="/purchases/" class="nav-link" data-tooltip="Compras">
@@ -195,8 +211,9 @@
                                 <span class="nav-link-text">Historial</span>
                             </a>
                         </li>
-                        <li class="nav-item has-submenu">
-                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Reportes" onclick="toggleSubmenu(event, this)">
+                        <li class="nav-item has-submenu" id="nav-reportes">
+                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Reportes"
+                                data-submenu-id="reportes" onclick="toggleSubmenu(event, this)">
                                 <span class="nav-link-icon"><i class="bi bi-graph-up"></i></span>
                                 <span class="nav-link-text">Reportes</span>
                                 <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
@@ -459,24 +476,34 @@
             });
 
             // --- Submenu Toggle Function (global) ---
-            window.toggleSubmenu = function(event, element) {
+            window.toggleSubmenu = function (event, element) {
                 event.preventDefault();
                 const parentItem = element.closest('.has-submenu');
-                if (parentItem) {
+                const submenuId = element.getAttribute('data-submenu-id');
+
+                if (parentItem && submenuId) {
                     parentItem.classList.toggle('open');
-                    // Guardar estado en localStorage
+                    // Guardar estado en localStorage con llave única
                     const isOpen = parentItem.classList.contains('open');
-                    localStorage.setItem('submenu-reportes-open', isOpen);
+                    localStorage.setItem(`submenu-${submenuId}-open`, isOpen);
                 }
             };
 
-            // Restaurar estado del submenú
-            const submenuState = localStorage.getItem('submenu-reportes-open');
-            if (submenuState === 'true') {
-                const reportesSubmenu = document.querySelector('.has-submenu');
-                if (reportesSubmenu) {
-                    reportesSubmenu.classList.add('open');
+            // Restaurar estado de los submenús
+            ['productos', 'reportes'].forEach(id => {
+                const state = localStorage.getItem(`submenu-${id}-open`);
+                if (state === 'true') {
+                    const el = document.querySelector(`[data-submenu-id="${id}"]`);
+                    if (el) {
+                        const parent = el.closest('.has-submenu');
+                        if (parent) parent.classList.add('open');
+                    }
                 }
+            });
+            // Mantener compatibilidad con llave anterior por un tiempo
+            if (localStorage.getItem('submenu-reportes-open') === 'true') {
+                const navReportes = document.getElementById('nav-reportes');
+                if (navReportes) navReportes.classList.add('open');
             }
 
             // --- Tooltips Logic ---
