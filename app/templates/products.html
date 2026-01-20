@@ -35,11 +35,11 @@
 
     /* Contenedor de variaciones - fila expandida */
     tr[id^="variations-"] {
-        background-color: var(--bs-body-bg) !important;
+        background-color: var(--bg-body) !important;
     }
 
     tr[id^="variations-"] td {
-        background-color: var(--bs-body-bg) !important;
+        background-color: var(--bg-body) !important;
         padding: 0 !important;
     }
 
@@ -48,6 +48,7 @@
         --bs-table-bg: transparent;
         margin-bottom: 0;
         background-color: transparent !important;
+        color: var(--text-primary) !important;
     }
 
     tr[id^="variations-"] .table tbody {
@@ -55,43 +56,32 @@
     }
 
     tr[id^="variations-"] .table tbody tr {
-        background-color: #f8f9fa !important;
+        background-color: var(--bg-surface) !important;
+        color: var(--text-primary) !important;
+        border-bottom: 1px solid var(--border-color);
     }
 
     tr[id^="variations-"] .table tbody tr:hover {
-        background-color: #e9ecef !important;
+        background-color: var(--bg-hover) !important;
     }
 
     tr[id^="variations-"] .table tbody tr td {
         background-color: transparent !important;
+        color: inherit !important;
     }
 
-    /* Modo oscuro específico para variaciones - MÁXIMA PRIORIDAD */
-    [data-bs-theme="dark"] tr[id^="variations-"] {
-        background-color: #0f172a !important;
+    /* Modo oscuro específico para variaciones - Refuerzo */
+    [data-theme="dark"] tr[id^="variations-"] {
+        background-color: var(--bg-body) !important;
     }
 
-    [data-bs-theme="dark"] tr[id^="variations-"] td {
-        background-color: #0f172a !important;
+    [data-theme="dark"] tr[id^="variations-"] td {
+        background-color: var(--bg-body) !important;
     }
 
-    [data-bs-theme="dark"] tr[id^="variations-"] .table,
-    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody {
-        background-color: transparent !important;
-    }
-
-    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr {
-        background-color: #1e293b !important;
-    }
-
-    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr:hover {
-        background-color: #334155 !important;
-    }
-
-    [data-bs-theme="dark"] tr[id^="variations-"] .table tbody tr td {
-        background-color: transparent !important;
-        color: #e2e8f0 !important;
-        border-color: #334155 !important;
+    [data-theme="dark"] tr[id^="variations-"] .table tbody tr td {
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
     }
 
     .indent-cell {
@@ -125,6 +115,148 @@
         .hide-mobile {
             display: none !important;
         }
+    }
+
+    /* --- MODERN GRID / CARD VIEW STYLES --- */
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        padding: 1rem 0;
+    }
+
+    .product-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+    }
+
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-color);
+    }
+
+    .card-img-container {
+        position: relative;
+        aspect-ratio: 1;
+        background: var(--bg-hover);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .card-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .product-card:hover .card-img-container img {
+        transform: scale(1.1);
+    }
+
+    .card-type-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+    }
+
+    .product-card-body {
+        padding: 1.25rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .product-card-id {
+        font-size: 0.75rem;
+        color: var(--text-tertiary);
+        margin-bottom: 0.25rem;
+    }
+
+    .product-card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: var(--text-primary);
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        height: 2.8em;
+    }
+
+    .product-card-sku {
+        font-family: monospace;
+        font-size: 0.8rem;
+        background: var(--bg-hover);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--text-secondary);
+    }
+
+    .product-card-price {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: auto 0 0.5rem 0;
+    }
+
+    .product-card-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--bg-surface);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .view-toggle-group .btn {
+        width: 40px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    /* Skeleton Styles */
+    .skeleton-card {
+        height: 400px;
+        background: var(--bg-surface);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .skeleton-img {
+        height: 200px;
+        background: var(--bg-hover);
+    }
+
+    .skeleton-text-lg {
+        height: 20px;
+        margin: 15px;
+        background: var(--bg-hover);
+        width: 80%;
+    }
+
+    .skeleton-text-sm {
+        height: 12px;
+        margin: 15px;
+        background: var(--bg-hover);
+        width: 50%;
     }
 </style>
 {% endblock %}
@@ -193,10 +325,23 @@
         <!-- Tabla de productos -->
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Listado de Productos</h5>
-                <div>
+                <div class="d-flex align-items-center gap-3">
+                    <h5 class="mb-0 d-none d-md-block">Listado de Productos</h5>
+                    <div class="btn-group view-toggle-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="view-grid" title="Vista Cuadrícula">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="view-table" title="Vista Tabla">
+                            <i class="bi bi-list-task"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary d-md-none" onclick="loadProducts()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
                     <button class="btn btn-sm btn-success" onclick="showExportModal()">
-                        <i class="bi bi-file-excel"></i> Exportar Excel
+                        <i class="bi bi-file-excel"></i> <span class="d-none d-sm-inline">Exportar Excel</span>
                     </button>
                 </div>
             </div>
@@ -208,8 +353,8 @@
                     <p class="mt-2">Cargando productos...</p>
                 </div>
 
-                <div class="table-responsive">
-                    <div id="products-table-container"></div>
+                <div id="products-container" class="fade-in">
+                    <!-- El contenido se cargará dinámicamente aquí (Tabla o Grid) -->
                 </div>
 
                 <!-- Paginación -->
@@ -297,11 +442,23 @@
     let searchTerm = '';
     let statusFilter = 'publish';
     let loadedVariations = {};
+    let currentView = localStorage.getItem('productViewType') || 'grid'; // Default 'grid'
 
     // Cargar productos automáticamente al cargar la página
     $(document).ready(function () {
+        // Inicializar estado de botones de vista
+        updateViewToggleButtons();
+
         loadStats();
         loadProducts();
+
+        // Eventos para cambio de vista
+        $('#view-grid').on('click', function () {
+            setViewType('grid');
+        });
+        $('#view-table').on('click', function () {
+            setViewType('table');
+        });
 
         // Evento para búsqueda con Enter
         $('#search-input').on('keypress', function (e) {
@@ -352,11 +509,27 @@
         loadProducts();
     }
 
+    function setViewType(type) {
+        currentView = type;
+        localStorage.setItem('productViewType', type);
+        updateViewToggleButtons();
+        loadProducts();
+    }
+
+    function updateViewToggleButtons() {
+        $('.view-toggle-group .btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+        if (currentView === 'grid') {
+            $('#view-grid').addClass('active btn-primary').removeClass('btn-outline-secondary');
+        } else {
+            $('#view-table').addClass('active btn-primary').removeClass('btn-outline-secondary');
+        }
+    }
+
     function loadProducts(page = currentPage) {
         currentPage = page;
 
         $('#loading').show();
-        $('#products-table-container').hide();
+        $('#products-container').hide();
 
         $.ajax({
             url: '/products/list',
@@ -369,17 +542,21 @@
             },
             success: function (data) {
                 $('#loading').hide();
-                $('#products-table-container').show();
+                $('#products-container').show();
 
                 if (data.success) {
-                    displayProducts(data);
+                    if (currentView === 'grid') {
+                        displayProductsGrid(data);
+                    } else {
+                        displayProductsTable(data);
+                    }
                     displayPagination(data.pagination);
                     displayResultCount(data);
                 }
             },
             error: function (error) {
                 $('#loading').hide();
-                $('#products-table-container').html(
+                $('#products-container').html(
                     '<div class="alert alert-danger">Error al cargar productos</div>'
                 ).show();
             }
@@ -396,12 +573,12 @@
         }
     }
 
-    function displayProducts(data) {
+    function displayProductsTable(data) {
         let products = data.products;
         let showVariations = data.show_variations || false;
 
         if (products.length === 0) {
-            $('#products-table-container').html(
+            $('#products-container').html(
                 '<div class="alert alert-info">No se encontraron productos</div>'
             );
             return;
@@ -568,7 +745,7 @@
             // Fila para variaciones (solo productos padre)
             if (!showVariations && product.is_variable && product.variations_count > 0) {
                 html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
-                html += '<td colspan="11" class="p-0" id="variations-td-' + product.id + '">';
+                html += '<td colspan="10" class="p-0" id="variations-td-' + product.id + '">';
                 html += '<div id="variations-content-' + product.id + '"></div>';
                 html += '</td>';
                 html += '</tr>';
@@ -579,7 +756,144 @@
         html += '</table>';
         html += '</div>';
 
-        $('#products-table-container').html(html);
+        $('#products-container').html(html);
+    }
+
+    function displayProductsGrid(data) {
+        let products = data.products;
+
+        if (products.length === 0) {
+            $('#products-container').html(
+                '<div class="alert alert-info">No se encontraron productos</div>'
+            );
+            return;
+        }
+
+        let html = '<div class="products-grid">';
+
+        products.forEach(function (product) {
+            // Badge de tipo
+            let typeBadge = '';
+            let typeClass = 'bg-secondary';
+            if (product.type === 'variation') {
+                typeBadge = 'Variación';
+                typeClass = 'bg-info';
+            } else if (product.type === 'variable') {
+                typeBadge = 'Variable';
+                typeClass = 'bg-primary';
+            } else {
+                typeBadge = 'Simple';
+            }
+
+            // Stock badge
+            let stockBadge = '';
+            if (product.stock_status === 'instock') {
+                stockBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle">En Stock (' + product.stock + ')</span>';
+            } else if (product.stock_status === 'outofstock') {
+                stockBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Sin Stock</span>';
+            } else {
+                stockBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">Bajo pedido</span>';
+            }
+
+            html += '<div class="product-card">';
+
+            // Thumbnail
+            html += '<div class="card-img-container">';
+            html += '<span class="badge ' + typeClass + ' card-type-badge">' + typeBadge + '</span>';
+            if (product.image_url) {
+                html += '<img src="' + product.image_url + '" alt="' + product.title + '">';
+            } else {
+                html += '<i class="bi bi-image text-muted fs-1"></i>';
+            }
+            html += '</div>';
+
+            // Content
+            html += '<div class="product-card-body">';
+            html += '<div class="product-card-id">#' + product.id + '</div>';
+            html += '<h6 class="product-card-title">' + product.title + '</h6>';
+            html += '<div class="mb-3"><span class="product-card-sku">' + (product.sku || 'N/A') + '</span></div>';
+            html += '<div class="product-card-price">S/ ' + parseFloat(product.price).toFixed(2) + '</div>';
+            html += '<div>' + stockBadge + '</div>';
+            html += '</div>';
+
+            // Footer / Actions
+            html += '<div class="product-card-footer">';
+
+            if (product.is_variable && product.variations_count > 0) {
+                html += '<button class="btn btn-sm btn-outline-info" onclick="toggleVariationsGrid(' + product.id + ')" id="btn-var-grid-' + product.id + '">';
+                html += '<i class="bi bi-diagram-3"></i> ' + product.variations_count + ' var.';
+                html += '</button>';
+            } else {
+                html += '<span></span>'; // Spacer
+            }
+
+            html += '<div class="btn-group">';
+            html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles"><i class="bi bi-eye"></i></a>';
+            html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-outline-secondary" title="WordPress"><i class="bi bi-wordpress"></i></a>';
+            html += '</div>';
+
+            html += '</div>'; // End Footer
+
+            // Hidden variations container for grid
+            if (product.is_variable && product.variations_count > 0) {
+                html += '<div id="variations-grid-' + product.id + '" class="variation-grid-container" style="display: none; border-top: 1px solid var(--border-color); background: var(--bg-hover); padding: 10px;">';
+                html += '<div id="variations-content-grid-' + product.id + '"></div>';
+                html += '</div>';
+            }
+
+            html += '</div>'; // End Card
+        });
+
+        html += '</div>'; // End GridContainer
+
+        $('#products-container').html(html);
+    }
+
+    function toggleVariationsGrid(productId) {
+        const variationsContainer = $('#variations-grid-' + productId);
+
+        if (variationsContainer.is(':visible')) {
+            variationsContainer.slideUp();
+            return;
+        }
+
+        if (!loadedVariations[productId]) {
+            loadVariationsGrid(productId);
+        }
+
+        variationsContainer.slideDown();
+    }
+
+    function loadVariationsGrid(productId) {
+        $('#variations-content-grid-' + productId).html(
+            '<div class="text-center p-2"><div class="spinner-border spinner-border-sm"></div></div>'
+        );
+
+        $.ajax({
+            url: '/products/' + productId + '/variations',
+            method: 'GET',
+            success: function (data) {
+                if (data.success) {
+                    displayVariationsGrid(productId, data.variations);
+                    loadedVariations[productId] = true;
+                } else {
+                    $('#variations-content-grid-' + productId).html('<small class="text-danger">Error</small>');
+                }
+            }
+        });
+    }
+
+    function displayVariationsGrid(productId, variations) {
+        let html = '<div class="list-group list-group-flush small border rounded">';
+        variations.forEach(function (v) {
+            let attrs = Object.values(v.attributes).join(' / ');
+            html += '<div class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-1 px-2">';
+            html += '<span>' + attrs + '</span>';
+            html += '<span class="fw-bold">S/ ' + v.price + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+        $('#variations-content-grid-' + productId).html(html);
     }
 
     function toggleVariations(productId) {
@@ -589,7 +903,7 @@
         // Si ya está visible, ocultarlo
         if (variationsRow.is(':visible')) {
             variationsRow.hide();
-            icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
+            if (icon.length) icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
             return;
         }
 
@@ -600,7 +914,7 @@
 
         // Mostrar
         variationsRow.show();
-        icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
+        if (icon.length) icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
     }
 
     function loadVariations(productId) {
@@ -637,13 +951,8 @@
             return;
         }
 
-        // Detectar si estamos en modo oscuro
-        const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-        const bgColor = isDarkMode ? '#1e293b' : '#f8f9fa';
-        const textColor = isDarkMode ? '#e2e8f0' : '#212529';
-
         let html = '<div class="table-responsive">';
-        html += '<table class="table table-sm mb-0" style="background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important; --bs-table-bg: ' + bgColor + ' !important; --bs-table-color: ' + textColor + ' !important;">';
+        html += '<table class="table table-sm mb-0">';
         html += '<tbody>';
 
         variations.forEach(function (variation) {
@@ -665,12 +974,10 @@
                 stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
             }
 
-            html += '<tr class="variation-row" style="background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;">';
-
-            const tdStyle = 'background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;';
+            html += '<tr class="variation-row">';
 
             // Imagen (Oculta en móvil)
-            html += '<td class="d-none d-md-table-cell" style="width: 70px; ' + tdStyle + '"><div class="product-image d-flex align-items-center justify-content-center" style="background-color: ' + bgColor + ' !important;">';
+            html += '<td class="d-none d-md-table-cell" style="width: 70px;"><div class="product-image d-flex align-items-center justify-content-center">';
             if (variation.image_url) {
                 html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
             } else {
@@ -679,13 +986,13 @@
             html += '</div></td>';
 
             // ID
-            html += '<td style="width: 80px; ' + tdStyle + '"><small>' + variation.id + '</small></td>';
+            html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
 
             // Tipo (Oculta en móvil)
-            html += '<td class="d-none d-sm-table-cell" style="width: 120px; ' + tdStyle + '"><span class="badge bg-info">Variación</span></td>';
+            html += '<td class="d-none d-sm-table-cell" style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
 
             // Título con atributos
-            html += '<td class="indent-cell" style="' + tdStyle + '">';
+            html += '<td class="indent-cell">';
             html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
             html += variation.title;
             if (attributesHtml) {
@@ -697,22 +1004,22 @@
             html += '</td>';
 
             // SKU (Oculta en móvil)
-            html += '<td class="d-none d-md-table-cell" style="width: 140px; ' + tdStyle + '"><code>' + variation.sku + '</code></td>';
+            html += '<td class="d-none d-md-table-cell" style="width: 140px;"><code>' + variation.sku + '</code></td>';
 
             // Precio
-            html += '<td style="width: 100px; ' + tdStyle + '"><span class="d-md-none small text-muted">S/ </span>' + parseFloat(variation.price).toFixed(2) + '</td>';
+            html += '<td style="width: 100px;"><span class="d-md-none small text-muted">S/ </span>' + parseFloat(variation.price).toFixed(2) + '</td>';
 
             // Stock
-            html += '<td style="width: 100px; ' + tdStyle + '">' + variation.stock + ' <div class="d-md-none mt-1">' + stockBadge + '</div><div class="d-none d-md-inline ms-1">' + stockBadge + '</div></td>';
+            html += '<td style="width: 100px;">' + variation.stock + ' <div class="d-md-none mt-1">' + stockBadge + '</div><div class="d-none d-md-inline ms-1">' + stockBadge + '</div></td>';
 
             // Estado (vacío para variaciones en expansión) - Oculta en móvil
-            html += '<td class="d-none d-lg-table-cell" style="width: 120px; ' + tdStyle + '">-</td>';
+            html += '<td class="d-none d-lg-table-cell" style="width: 120px;">-</td>';
 
             // Variaciones column (vacío) - Oculta en móvil
-            html += '<td class="d-none d-md-table-cell" style="width: 120px; ' + tdStyle + '">-</td>';
+            html += '<td class="d-none d-md-table-cell" style="width: 120px;">-</td>';
 
             // Acciones
-            html += '<td style="width: 150px; ' + tdStyle + '">';
+            html += '<td style="width: 150px;">';
             html += '<div class="btn-group btn-group-sm" role="group">';
             html += '<button class="btn btn-primary" title="Ver detalles">';
             html += '<i class="bi bi-eye"></i>';
@@ -732,9 +1039,8 @@
 
         $('#variations-content-' + productId).html(html);
 
-        // Aplicar estilos al contenedor padre (tr y td) usando attr para sobrescribir
-        $('#variations-' + productId).attr('style', 'display: table-row; background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;');
-        $('#variations-td-' + productId).attr('style', 'padding: 0; background-color: ' + bgColor + ' !important; color: ' + textColor + ' !important;');
+        // Asegurar que la fila sea visible
+        $('#variations-' + productId).show();
     }
 
     function displayPagination(pagination) {
