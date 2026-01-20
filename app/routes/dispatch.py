@@ -1265,15 +1265,16 @@ def add_tracking():
 @master_required
 def bulk_tracking_simple():
     """
-    Procesa tracking masivo para CHAMO o DINSIDES con mensaje fijo.
+    Procesa tracking masivo para CHAMO o DINSIDES con mensaje dinámico.
 
     A diferencia de Shalom que requiere un Excel con claves, CHAMO y DINSIDES
-    usan mensajes de tracking fijos y no requieren claves individuales.
+    usan mensajes de tracking con fecha seleccionable.
 
     Request JSON:
     {
         "orders": [41608, 41609, 41610],  # Lista de order IDs
-        "column": "chamo" | "dinsides"
+        "column": "chamo" | "dinsides",
+        "shipping_date": "2025-01-21"  # Fecha de envío seleccionada
     }
 
     Returns:
@@ -1282,10 +1283,25 @@ def bulk_tracking_simple():
     import time
     import phpserialize
 
+    # Función para formatear fecha a texto legible (ej: "21 de enero")
+    def format_date_spanish(date_str):
+        months = [
+            'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+        ]
+        try:
+            year, month, day = date_str.split('-')
+            day_num = int(day)
+            month_name = months[int(month) - 1]
+            return f"{day_num} de {month_name}"
+        except:
+            return date_str
+
     try:
         data = request.get_json()
         order_ids = data.get('orders', [])
         column = data.get('column')
+        shipping_date = data.get('shipping_date')
 
         if not order_ids:
             return jsonify({'success': False, 'error': 'No se especificaron pedidos'}), 400
@@ -1293,21 +1309,27 @@ def bulk_tracking_simple():
         if column not in ['chamo', 'dinsides']:
             return jsonify({'success': False, 'error': 'Columna inválida'}), 400
 
-        # Configuración por columna
-        config = {
-            'chamo': {
-                'tracking_message': "Hola, somos izistore. Su pedido estará llegando HOY entre las 11:00 am y 7:00 pm. El courier se contactará por WhatsApp o llamada. Por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención",
-                'shipping_provider': "Motorizado Izi"
-            },
-            'dinsides': {
-                'tracking_message': "Hola, somos izistore. Su pedido está programado para ser entregado MAÑANA entre las 11:00 AM y 7:00 PM. Recibirá un mensaje vía WhatsApp de parte de la empresa encargada de la entrega(DINSIDES) con las indicaciones a seguir. Al confirmar por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: Cualquier indicación adicional o coordinación lo puede realizar directamente con la empresa courier al momento que se le contacte para la confirmación. Importante: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención.",
-                'shipping_provider': "Dinsides Courier"
-            }
+        if not shipping_date:
+            return jsonify({'success': False, 'error': 'No se especificó fecha de envío'}), 400
+
+        # Formatear fecha para el mensaje
+        fecha_formateada = format_date_spanish(shipping_date)
+
+        # Plantillas de mensajes con fecha dinámica
+        message_templates = {
+            'chamo': f"Hola, somos izistore. Su pedido estará llegando el {fecha_formateada} entre las 11:00 am y 7:00 pm.",
+            'dinsides': f"Hola, somos izistore. Su pedido está programado para ser entregado el {fecha_formateada} entre las 11:00 AM y 7:00 PM."
         }
 
-        tracking_message = config[column]['tracking_message']
-        shipping_provider = config[column]['shipping_provider']
-        date_shipped = datetime.now().strftime('%Y-%m-%d')
+        # Proveedores por columna
+        providers = {
+            'chamo': "Motorizado Izi",
+            'dinsides': "Dinsides Courier"
+        }
+
+        tracking_message = message_templates[column]
+        shipping_provider = providers[column]
+        date_shipped = shipping_date  # Usar la fecha seleccionada
         timestamp = int(datetime.utcnow().timestamp())
 
         # Inicializar API de WooCommerce

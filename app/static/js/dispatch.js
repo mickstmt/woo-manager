@@ -15,11 +15,41 @@ let orderDetailModalInstance = null; // Instancia única del modal
 let bulkSelectedOrders = [];  // Array de {orderId, orderNumber}
 let bulkSelectedColumn = null; // 'chamo' o 'dinsides'
 
-// Mensajes de tracking por columna
-const BULK_TRACKING_MESSAGES = {
-    chamo: "Hola, somos izistore. Su pedido estará llegando HOY entre las 11:00 am y 7:00 pm. El courier se contactará por WhatsApp o llamada. Por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención",
-    dinsides: "Hola, somos izistore. Su pedido está programado para ser entregado MAÑANA entre las 11:00 AM y 7:00 PM. Recibirá un mensaje vía WhatsApp de parte de la empresa encargada de la entrega(DINSIDES) con las indicaciones a seguir. Al confirmar por favor, asegúrese de que alguien esté disponible para recibir el pedido, ya que la reprogramación implica un costo adicional. Nota: Cualquier indicación adicional o coordinación lo puede realizar directamente con la empresa courier al momento que se le contacte para la confirmación. Importante: El courier solo puede esperar 10 minutos en el punto de entrega. Gracias por su atención."
+// Plantillas de mensajes de tracking por columna (con placeholder @fecha_envio)
+const BULK_TRACKING_TEMPLATES = {
+    chamo: "Hola, somos izistore. Su pedido estará llegando el @fecha_envio entre las 11:00 am y 7:00 pm.",
+    dinsides: "Hola, somos izistore. Su pedido está programado para ser entregado el: @fecha_envio entre las 11:00 AM y 7:00 PM."
 };
+
+/**
+ * Generar mensaje de tracking reemplazando @fecha_envio con la fecha formateada
+ */
+function generateBulkTrackingMessage(column, dateStr) {
+    const template = BULK_TRACKING_TEMPLATES[column];
+    if (!template) return '';
+
+    // Formatear fecha a formato legible (ej: "21 de enero")
+    const formattedDate = formatDateForMessage(dateStr);
+    return template.replace('@fecha_envio', formattedDate);
+}
+
+/**
+ * Formatear fecha para el mensaje (ej: "21 de enero")
+ */
+function formatDateForMessage(dateStr) {
+    if (!dateStr) return '';
+
+    const months = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+
+    const [year, month, day] = dateStr.split('-');
+    const dayNum = parseInt(day, 10);
+    const monthName = months[parseInt(month, 10) - 1];
+
+    return `${dayNum} de ${monthName}`;
+}
 
 const BULK_TRACKING_PROVIDERS = {
     chamo: "Motorizado Izi",
@@ -1142,8 +1172,18 @@ function processBulkTracking() {
     document.getElementById('confirm-count').textContent = bulkSelectedOrders.length;
     document.getElementById('confirm-column').textContent =
         bulkSelectedColumn === 'chamo' ? 'CHAMO' : 'DINSIDES';
-    document.getElementById('confirm-message').textContent =
-        BULK_TRACKING_MESSAGES[bulkSelectedColumn];
+
+    // Establecer fecha por defecto (hoy)
+    const today = new Date();
+    const dateInput = document.getElementById('bulk-tracking-date');
+    dateInput.value = formatDateForInput(today);
+
+    // Actualizar vista previa del mensaje con la fecha actual
+    updateBulkTrackingPreview();
+
+    // Agregar listener para actualizar preview cuando cambie la fecha
+    dateInput.removeEventListener('change', updateBulkTrackingPreview);
+    dateInput.addEventListener('change', updateBulkTrackingPreview);
 
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('bulkTrackingConfirmModal'));
@@ -1151,9 +1191,26 @@ function processBulkTracking() {
 }
 
 /**
+ * Actualizar vista previa del mensaje de tracking masivo
+ */
+function updateBulkTrackingPreview() {
+    const dateInput = document.getElementById('bulk-tracking-date');
+    const dateValue = dateInput.value;
+    const message = generateBulkTrackingMessage(bulkSelectedColumn, dateValue);
+    document.getElementById('confirm-message').textContent = message;
+}
+
+/**
  * Confirmar y procesar tracking masivo
  */
 async function confirmBulkTracking() {
+    // Validar que se haya seleccionado una fecha
+    const dateInput = document.getElementById('bulk-tracking-date');
+    if (!dateInput.value) {
+        showError('Por favor seleccione una fecha de envío');
+        return;
+    }
+
     const btn = document.getElementById('btn-confirm-bulk');
     const originalText = btn.innerHTML;
     btn.disabled = true;
@@ -1165,7 +1222,8 @@ async function confirmBulkTracking() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 orders: bulkSelectedOrders.map(o => o.orderId),
-                column: bulkSelectedColumn
+                column: bulkSelectedColumn,
+                shipping_date: dateInput.value
             })
         });
 

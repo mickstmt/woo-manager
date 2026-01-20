@@ -460,17 +460,23 @@
                 <p>Se asignará tracking a <strong id="confirm-count">0</strong> pedido(s) de <strong
                         id="confirm-column"></strong>.</p>
 
+                <div class="mb-3">
+                    <label for="bulk-tracking-date" class="form-label">Fecha de Envío *</label>
+                    <input type="date" class="form-control" id="bulk-tracking-date" required>
+                    <small class="form-text text-muted">Seleccione la fecha en que se realizará la entrega</small>
+                </div>
+
                 <div class="alert alert-warning">
                     <i class="bi bi-info-circle"></i> Esta acción:
                     <ul class="mb-0 mt-2">
-                        <li>Asignará el mensaje de tracking correspondiente</li>
+                        <li>Asignará el mensaje de tracking con la fecha seleccionada</li>
                         <li>Cambiará el estado a "Completado"</li>
                         <li>Enviará email de notificación a cada cliente</li>
                     </ul>
                 </div>
 
                 <div class="card">
-                    <div class="card-header">Mensaje de tracking:</div>
+                    <div class="card-header">Vista previa del mensaje:</div>
                     <div class="card-body">
                         <small id="confirm-message" class="text-muted"></small>
                     </div>
