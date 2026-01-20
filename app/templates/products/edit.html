@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #0d6efd;
+    }
+
+    .dimensions-group,
+    .price-group,
+    .stock-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .image-preview {
+        max-width: 200px;
+        max-height: 200px;
+        margin-top: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        display: block;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .loading-overlay.active {
+        display: flex;
+    }
+
+    .loading-spinner {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .variation-row {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+</style>
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+    rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-pencil-square"></i> Editar Producto #{{ product.ID }}
+                </h1>
+                <nav aria-label="breadcrumb" class="mt-2">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                        <li class="breadcrumb-item"><a href="/products/">Productos</a></li>
+                        <li class="breadcrumb-item active">Editar</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="btn-group">
+                <a href="{{ url_for('products.view_product', product_id=product.ID) }}" class="btn btn-outline-info">
+                    <i class="bi bi-eye"></i> Ver Detalles
+                </a>
+                <a href="https://www.izistoreperu.com/wp-admin/post.php?post={{ product.ID }}&action=edit"
+                    target="_blank" class="btn btn-outline-secondary">
+                    <i class="bi bi-wordpress"></i> WP-Admin
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form id="editProductForm">
+        <div class="row">
+            <!-- Columna principal -->
+            <div class="col-lg-8">
+                <!-- Información Básica -->
+                <div class="form-section">
+                    <h2 class="form-section-title">Información Básica</h2>
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Título del Producto <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" value="{{ product.post_title }}"
+                            required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="slug" class="form-label">Slug/URL</label>
+                        <input type="text" class="form-control" id="slug" name="slug" value="{{ product.post_name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descripción Larga</label>
+                        <textarea class="form-control" id="description" name="description"
+                            rows="6">{{ product.post_content }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="short_description" class="form-label">Descripción Corta</label>
+                        <textarea class="form-control" id="short_description" name="short_description"
+                            rows="3">{{ product.post_excerpt }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Precios e Inventario -->
+                <div class="form-section">
+                    <h2 class="form-section-title">Precios e Inventario</h2>
+                    <div class="price-group mb-3">
+                        <div>
+                            <label for="regular_price" class="form-label">Precio Regular <span
+                                    class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" id="regular_price"
+                                name="regular_price" value="{{ product.get_meta('_regular_price') }}" required>
+                        </div>
+                        <div>
+                            <label for="sale_price" class="form-label">Precio Oferta</label>
+                            <input type="number" step="0.01" class="form-control" id="sale_price" name="sale_price"
+                                value="{{ product.get_meta('_sale_price') }}">
+                        </div>
+                        <div>
+                            <label for="cost_price" class="form-label">Precio Costo</label>
+                            <input type="number" step="0.01" class="form-control" id="cost_price" name="cost_price"
+                                value="{{ product.get_meta('_cost_price') }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="sku" name="sku"
+                            value="{{ product.get_meta('_sku') }}" required>
+                    </div>
+
+                    <div class="stock-group mb-3">
+                        <div>
+                            <label for="stock_quantity" class="form-label">Cantidad en Stock</label>
+                            <input type="number" class="form-control" id="stock_quantity" name="stock_quantity"
+                                value="{{ product.get_meta('_stock') or 0 }}">
+                        </div>
+                        <div>
+                            <label for="stock_status" class="form-label">Estado de Stock</label>
+                            <select class="form-select" id="stock_status" name="stock_status">
+                                <option value="instock" {% if product.get_meta('_stock_status')=='instock' %}selected{%
+                                    endif %}>En Stock</option>
+                                <option value="outofstock" {% if product.get_meta('_stock_status')=='outofstock'
+                                    %}selected{% endif %}>Agotado</option>
+                                <option value="onbackorder" {% if product.get_meta('_stock_status')=='onbackorder'
+                                    %}selected{% endif %}>En Pedido Pendiente</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="low_stock_threshold" class="form-label">Umbral Stock Bajo</label>
+                            <input type="number" class="form-control" id="low_stock_threshold"
+                                name="low_stock_threshold" value="{{ product.get_meta('_low_stock_amount') or 5 }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variaciones (Si es producto variable) -->
+                {% if product.post_type == 'product' and variations %}
+                <div class="form-section">
+                    <h2 class="form-section-title">Variaciones ({{ variations|length }})</h2>
+                    <div id="variations-edit-container">
+                        {% for var in variations %}
+                        <div class="variation-row" data-variation-id="{{ var.ID }}">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold fs-6">#{{ var.ID }} - {{ var.post_title }}</span>
+                                <a href="{{ url_for('products.edit_product', product_id=var.ID) }}"
+                                    class="btn btn-sm btn-link">Editar Detallado</a>
+                            </div>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-auto">
+                                    <img src="{{ var.get_image_url() }}" class="img-thumbnail var-img-preview"
+                                        style="width: 50px; height: 50px; object-fit: cover; {% if not var.get_image_url() %}display:none;{% endif %}">
+                                </div>
+                                <div class="col">
+                                    <div class="price-group">
+                                        <div>
+                                            <label class="small text-muted">SKU</label>
+                                            <input type="text" class="form-control form-control-sm var-sku"
+                                                value="{{ var.get_meta('_sku') }}">
+                                        </div>
+                                        <div>
+                                            <label class="small text-muted">Precio Reg.</label>
+                                            <input type="number" step="0.01"
+                                                class="form-control form-control-sm var-regular-price"
+                                                value="{{ var.get_meta('_regular_price') }}">
+                                        </div>
+                                        <div>
+                                            <label class="small text-muted">Precio Oferta</label>
+                                            <input type="number" step="0.01"
+                                                class="form-control form-control-sm var-sale-price"
+                                                value="{{ var.get_meta('_sale_price') }}">
+                                        </div>
+                                        <div>
+                                            <label class="small text-muted">Stock</label>
+                                            <input type="number" class="form-control form-control-sm var-stock"
+                                                value="{{ var.get_meta('_stock') or 0 }}">
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <input type="url" class="form-control form-control-sm var-image-url"
+                                            placeholder="URL de imagen de variación" value="{{ var.get_image_url() }}"
+                                            oninput="updateVarPreview(this)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Peso y Dimensiones -->
+                <div class="form-section">
+                    <h2 class="form-section-title">Peso y Dimensiones</h2>
+                    <div class="dimensions-group">
+                        <div>
+                            <label for="weight" class="form-label">Peso (kg)</label>
+                            <input type="number" step="0.01" class="form-control" id="weight" name="weight"
+                                value="{{ product.get_meta('_weight') }}">
+                        </div>
+                        <div>
+                            <label for="length" class="form-label">Largo (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="length" name="length"
+                                value="{{ product.get_meta('_length') }}">
+                        </div>
+                        <div>
+                            <label for="width" class="form-label">Ancho (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="width" name="width"
+                                value="{{ product.get_meta('_width') }}">
+                        </div>
+                        <div>
+                            <label for="height" class="form-label">Alto (cm)</label>
+                            <input type="number" step="0.01" class="form-control" id="height" name="height"
+                                value="{{ product.get_meta('_height') }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Imágenes -->
+                <div class="form-section">
+                    <h2 class="form-section-title">Imágenes</h2>
+                    <div class="mb-3">
+                        <label for="image_url" class="form-label">URL Imagen Principal</label>
+                        <input type="url" class="form-control" id="image_url" name="image_url"
+                            value="{{ product.get_image_url() }}">
+                        <img id="image_preview" class="image-preview" src="{{ product.get_image_url() }}" alt="Preview"
+                            style="{% if not product.get_image_url() %}display:none;{% endif %}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Galería de Imágenes (URLs)</label>
+                        <div id="gallery_container">
+                            {% for url in gallery_urls %}
+                            <div class="input-group mb-2">
+                                <input type="url" class="form-control" name="gallery_images[]" value="{{ url }}">
+                                <button type="button" class="btn btn-outline-danger" onclick="removeGalleryImage(this)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addGalleryImage()">
+                            <i class="bi bi-plus"></i> Agregar Imagen a Galería
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SEO (Yoast) -->
+                <div class="form-section">
+                    <h2 class="form-section-title">SEO (Yoast)</h2>
+                    <div class="mb-3">
+                        <label for="seo_title" class="form-label">Título SEO</label>
+                        <input type="text" class="form-control" id="seo_title" name="seo_title"
+                            value="{{ product.get_meta('_yoast_wpseo_title') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="seo_description" class="form-label">Meta Descripción</label>
+                        <textarea class="form-control" id="seo_description" name="seo_description"
+                            rows="3">{{ product.get_meta('_yoast_wpseo_metadesc') }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="focus_keyphrase" class="form-label">Focus Keyphrase</label>
+                        <input type="text" class="form-control" id="focus_keyphrase" name="focus_keyphrase"
+                            value="{{ product.get_meta('_yoast_wpseo_focuskw') }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna lateral -->
+            <div class="col-lg-4">
+                <div class="form-section shadow-sm sticky-top" style="top: 20px; z-index: 100;">
+                    <h2 class="form-section-title">Publicación</h2>
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Estado</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="draft" {% if product.post_status=='draft' %}selected{% endif %}>Borrador
+                            </option>
+                            <option value="publish" {% if product.post_status=='publish' %}selected{% endif %}>Publicado
+                            </option>
+                            <option value="private" {% if product.post_status=='private' %}selected{% endif %}>Privado
+                            </option>
+                            <option value="pending" {% if product.post_status=='pending' %}selected{% endif %}>Pendiente
+                            </option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle"></i> Guardar Cambios
+                        </button>
+                        <button type="button" class="btn btn-outline-danger"
+                            onclick="trashProduct({{ product.ID }}, '{{ product.post_title|replace("'", "\\'") }}')">
+                            <i class="bi bi-trash"></i> Enviar a Papelera
+                        </button>
+                        <a href="/products/" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </div>
+
+                <div class="form-section mt-3">
+                    <h2 class="form-section-title">Taxonomías</h2>
+                    <div class="mb-3">
+                        <label class="form-label">Categorías</label>
+                        <select class="form-select" id="categories" name="categories[]" multiple></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Etiquetas</label>
+                        <select class="form-select" id="tags" name="tags[]" multiple></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Marcas</label>
+                        <select class="form-select" id="brands" name="brands[]" multiple></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+        <div class="h5">Guardando cambios...</div>
+        <p class="text-muted">Actualizando WooCommerce API</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Inicializar Select2
+        $('#categories, #tags, #brands').select2({ theme: 'bootstrap-5', placeholder: 'Seleccionar...' });
+
+        // CARGAR TAXONOMÍAS Y SELECCIONAR ACTUALES
+        loadCategories([{% if selected_cats %}{% for id in selected_cats %}{ { id } } {% if not loop.last %}, {% endif %} {% endfor %} {% endif %}]);
+    loadTags([{% if selected_tags %}{% for id in selected_tags %} { { id } } {% if not loop.last %}, {% endif %} {% endfor %} {% endif %}]);
+    loadBrands([{% if selected_brands %}{% for id in selected_brands %} { { id } } {% if not loop.last %}, {% endif %} {% endfor %} {% endif %}]);
+
+    // Preview de imagen
+    $('#image_url').on('input', function () {
+        const url = $(this).val();
+        if (url) { $('#image_preview').attr('src', url).show(); }
+        else { $('#image_preview').hide(); }
+    });
+
+    // Form submission
+    $('#editProductForm').on('submit', function (e) {
+        e.preventDefault();
+        saveProduct();
+    });
+});
+
+    function updateVarPreview(input) {
+        const url = $(input).val();
+        const $row = $(input).closest('.variation-row');
+        const $img = $row.find('.var-img-preview');
+        if (url) {
+            $img.attr('src', url).show();
+        } else {
+            $img.hide();
+        }
+    }
+
+    function loadCategories(selectedIds) {
+        $.get('/products/get-categories', function (response) {
+            if (response.success) {
+                response.categories.forEach(cat => {
+                    let isSelected = selectedIds && selectedIds.includes(cat.id);
+                    $('#categories').append(new Option(cat.name, cat.id, isSelected, isSelected));
+                });
+                $('#categories').trigger('change');
+            }
+        });
+    }
+
+    function loadTags(selectedIds) {
+        $.get('/products/get-tags', function (response) {
+            if (response.success) {
+                response.tags.forEach(tag => {
+                    let isSelected = selectedIds && selectedIds.includes(tag.id);
+                    $('#tags').append(new Option(tag.name, tag.id, isSelected, isSelected));
+                });
+                $('#tags').trigger('change');
+            }
+        });
+    }
+
+    function loadBrands(selectedIds) {
+        $.get('/products/get-brands', function (response) {
+            if (response.success) {
+                response.brands.forEach(brand => {
+                    let isSelected = selectedIds && selectedIds.includes(brand.id);
+                    $('#brands').append(new Option(brand.name, brand.id, isSelected, isSelected));
+                });
+                $('#brands').trigger('change');
+            }
+        });
+    }
+
+    function addGalleryImage() {
+        $('#gallery_container').append(`
+        <div class="input-group mb-2">
+            <input type="url" class="form-control" name="gallery_images[]" placeholder="https://...">
+            <button type="button" class="btn btn-outline-danger" onclick="removeGalleryImage(this)"><i class="bi bi-x"></i></button>
+        </div>
+    `);
+    }
+
+    function removeGalleryImage(btn) { $(btn).closest('.input-group').remove(); }
+
+    function saveProduct() {
+        $('#loadingOverlay').addClass('active');
+
+        const formData = {
+            title: $('#title').val(),
+            slug: $('#slug').val(),
+            description: $('#description').val(),
+            short_description: $('#short_description').val(),
+            status: $('#status').val(),
+            regular_price: $('#regular_price').val(),
+            sale_price: $('#sale_price').val(),
+            sku: $('#sku').val(),
+            stock_quantity: $('#stock_quantity').val(),
+            stock_status: $('#stock_status').val(),
+            weight: $('#weight').val(),
+            length: $('#length').val(),
+            width: $('#width').val(),
+            height: $('#height').val(),
+            image_url: $('#image_url').val(),
+            categories: $('#categories').val() || [],
+            tags: $('#tags').val() || [],
+            brands: $('#brands').val() || [],
+            seo_title: $('#seo_title').val(),
+            seo_description: $('#seo_description').val(),
+            focus_keyphrase: $('#focus_keyphrase').val(),
+            gallery_images: []
+        };
+
+        $('input[name="gallery_images[]"]').each(function () {
+            if ($(this).val()) formData.gallery_images.push($(this).val());
+        });
+
+        // VARIACIONES (si existen)
+        formData.variations = [];
+        $('.variation-row').each(function () {
+            formData.variations.push({
+                id: $(this).data('variation-id'),
+                sku: $(this).find('.var-sku').val(),
+                regular_price: $(this).find('.var-regular-price').val(),
+                sale_price: $(this).find('.var-sale-price').val(),
+                stock: $(this).find('.var-stock').val(),
+                image_url: $(this).find('.var-image-url').val()
+            });
+        });
+
+        $.ajax({
+            url: '/products/{{ product.ID }}/update',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function (response) {
+                $('#loadingOverlay').removeClass('active');
+                if (response.success) {
+                    if (typeof showToast === 'function') showToast('Éxito', 'Producto actualizado correctamente', 'success');
+                    else alert('Producto actualizado correctamente');
+                } else {
+                    alert('Error: ' + response.error);
+                }
+            },
+            error: function (xhr) {
+                $('#loadingOverlay').removeClass('active');
+                alert('Error al actualizar el producto');
+            }
+        });
+    }
+
+    function trashProduct(productId, productTitle) {
+        if (confirm('¿Estás seguro de enviar "' + productTitle + '" a la papelera?')) {
+            $.post('/products/' + productId + '/delete', function (response) {
+                if (response.success) window.location.href = '/products/';
+                else alert('Error: ' + response.error);
+            });
+        }
+    }
+</script>
+{% endblock %}

@@ -490,6 +490,266 @@ def view_product(product_id):
         flash(f'Error al cargar el producto: {str(e)}', 'danger')
         return redirect(url_for('products.index'))
 
+@bp.route('/<int:product_id>/delete', methods=['POST'])
+@login_required
+def delete_product(product_id):
+    """
+    Enviar producto a la papelera en WooCommerce
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+        
+        # Conectar con API de WooCommerce
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=30
+        )
+        
+        # Obtener el producto localmente para verificar tipo
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'success': False, 'error': 'Producto no encontrado localmente'}), 404
+
+        # Enviar a la papelera (force=False)
+        response = wcapi.delete(f"products/{product_id}", params={"force": False})
+        
+        if response.status_code == 200:
+            # Opcional: Actualizar estado local inmediatamente para evitar lag de sync
+            try:
+                product.post_status = 'trash'
+                db.session.commit()
+            except:
+                db.session.rollback()
+                
+            return jsonify({
+                'success': True, 
+                'message': f'Producto "{product.post_title}" enviado a la papelera exitosamente.'
+            })
+        else:
+            error_data = response.json()
+            return jsonify({
+                'success': False, 
+                'error': error_data.get('message', 'Error en la API de WooCommerce')
+            }), response.status_code
+            
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/<int:product_id>/edit')
+@login_required
+def edit_product(product_id):
+    """
+    Formulario para editar un producto existente
+    """
+    try:
+        product = Product.query.get(product_id)
+        if not product:
+            flash(f'Producto #{product_id} no encontrado.', 'danger')
+            return redirect(url_for('products.index'))
+
+        # OPTIMIZACIÓN: Pre-cargar metadatos e imágenes
+        all_to_load = [product]
+        variations = []
+        if product.post_type == 'product':
+            variations = Product.query.filter(
+                Product.post_parent == product_id, 
+                Product.post_type == 'product_variation',
+                Product.post_status != 'trash'
+            ).all()
+            all_to_load.extend(variations)
+        
+        Product.preload_metadata_for_products(all_to_load)
+        Product.preload_images_for_products(all_to_load)
+
+        # Obtener galerías de imágenes (metadato _product_image_gallery)
+        gallery_ids = product.get_meta('_product_image_gallery')
+        gallery_urls = []
+        if gallery_ids:
+            ids = [int(id_str) for id_str in gallery_ids.split(',') if id_str]
+            # Podríamos pre-cargar estas imágenes también si fuera necesario
+            # Por ahora lo dejamos simple
+            for img_id in ids:
+                # Query simple para obtener URL de cada imagen de galería
+                # (Idealmente optimizar esto después)
+                meta = ProductMeta.query.filter_by(post_id=img_id, meta_key='_wp_attached_file').first()
+                if meta:
+                    base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
+                    gallery_urls.append(base_url + meta.meta_value)
+
+        # Obtener IDs de taxonomías seleccionadas
+        from sqlalchemy import text
+        tax_query = text("""
+            SELECT tt.term_id, tt.taxonomy
+            FROM wpyz_term_relationships tr
+            INNER JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+            WHERE tr.object_id = :pid AND tt.taxonomy IN ('product_cat', 'product_tag', 'product_brand')
+        """)
+        results = db.session.execute(tax_query, {"pid": product_id})
+        selected_tax = {'product_cat': [], 'product_tag': [], 'product_brand': []}
+        for row in results:
+            term_id, taxonomy = row[0], row[1]
+            if taxonomy in selected_tax:
+                selected_tax[taxonomy].append(term_id)
+
+        return render_template(
+            'products/edit.html', 
+            product=product,
+            variations=variations,
+            gallery_urls=gallery_urls,
+            selected_cats=selected_tax['product_cat'],
+            selected_tags=selected_tax['product_tag'],
+            selected_brands=selected_tax['product_brand'],
+            title=f'Editar: {product.post_title[:30]}...'
+        )
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Error al abrir editor: {str(e)}', 'danger')
+        return redirect(url_for('products.index'))
+
+
+@bp.route('/<int:product_id>/update', methods=['POST'])
+@login_required
+def update_product(product_id):
+    """
+    Actualizar un producto existente en WooCommerce mediante API REST
+    """
+    try:
+        from woocommerce import API
+        from flask import current_app
+        
+        data = request.get_json()
+        
+        # Conectar con API de WooCommerce
+        wcapi = API(
+            url=current_app.config['WC_API_URL'],
+            consumer_key=current_app.config['WC_CONSUMER_KEY'],
+            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            version="wc/v3",
+            timeout=60
+        )
+        
+        # Construir objeto de actualización para producto padre
+        update_data = {
+            "name": data.get('title'),
+            "status": data.get('status'),
+            "description": data.get('description'),
+            "short_description": data.get('short_description'),
+            "sku": data.get('sku'),
+            "regular_price": data.get('regular_price'),
+            "sale_price": data.get('sale_price') if data.get('sale_price') else '',
+            "manage_stock": True,
+            "stock_quantity": int(data.get('stock_quantity', 0)) if data.get('stock_quantity') else 0,
+            "stock_status": data.get('stock_status'),
+            "weight": data.get('weight'),
+            "dimensions": {
+                "length": data.get('length'),
+                "width": data.get('width'),
+                "height": data.get('height')
+            }
+        }
+
+        # Slug manual
+        if data.get('slug'):
+            update_data['slug'] = data.get('slug')
+
+        # Imágenes (Principal + Galería)
+        if data.get('image_url'):
+            images = [{"src": data.get('image_url')}]
+            if data.get('gallery_images'):
+                for img_url in data.get('gallery_images'):
+                    images.append({"src": img_url})
+            update_data['images'] = images
+
+        # Taxonomías
+        if data.get('categories'):
+            update_data['categories'] = [{"id": int(cat_id)} for cat_id in data.get('categories')]
+        if data.get('tags'):
+            update_data['tags'] = [{"id": int(tag_id)} for tag_id in data.get('tags')]
+        # Nota: Marcas a veces requieren metadatos especiales dependiendo del plugin
+
+        # Metadata SEO (Yoast)
+        meta_data = []
+        if data.get('seo_title'):
+            meta_data.append({"key": "_yoast_wpseo_title", "value": data.get('seo_title')})
+        if data.get('seo_description'):
+            meta_data.append({"key": "_yoast_wpseo_metadesc", "value": data.get('seo_description')})
+        if data.get('focus_keyphrase'):
+            meta_data.append({"key": "_yoast_wpseo_focuskw", "value": data.get('focus_keyphrase')})
+        
+        if meta_data:
+            update_data['meta_data'] = meta_data
+
+        # Realizar actualización vía API
+        response = wcapi.put(f"products/{product_id}", update_data)
+        
+        if response.status_code not in [200, 201]:
+            error_msg = response.json().get('message', 'Error desconocido en WooCommerce API')
+            return jsonify({'success': False, 'error': error_msg}), response.status_code
+
+        # Manejo de marcas (Brands) vía SQL directo (consistente con store_product)
+        brands = data.get('brands')
+        if brands is not None:
+            from sqlalchemy import text
+            # Limpiar marcas actuales
+            delete_query = text("""
+                DELETE tr FROM wpyz_term_relationships tr
+                INNER JOIN wpyz_term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                WHERE tr.object_id = :pid AND tt.taxonomy = 'product_brand'
+            """)
+            db.session.execute(delete_query, {'pid': product_id})
+            
+            # Insertar nuevas
+            for brand_id in brands:
+                if brand_id:
+                    insert_query = text("""
+                        INSERT INTO wpyz_term_relationships (object_id, term_taxonomy_id)
+                        SELECT :pid, term_taxonomy_id
+                        FROM wpyz_term_taxonomy
+                        WHERE term_id = :brand_id AND taxonomy = 'product_brand'
+                        ON DUPLICATE KEY UPDATE term_taxonomy_id=term_taxonomy_id
+                    """)
+                    db.session.execute(insert_query, {'pid': product_id, 'brand_id': int(brand_id)})
+            db.session.commit()
+
+        # Actualizar variaciones si se enviaron
+        if data.get('variations'):
+            batch_data = {"update": []}
+            for v in data.get('variations'):
+                update_item = {
+                    "id": v['id'],
+                    "sku": v['sku'],
+                    "regular_price": v['regular_price'],
+                    "sale_price": v['sale_price'] if v['sale_price'] else '',
+                    "stock_quantity": int(v['stock'] or 0),
+                    "manage_stock": True
+                }
+                
+                if v.get('image_url'):
+                    update_item['image'] = {"src": v['image_url']}
+                    
+                batch_data["update"].append(update_item)
+            
+            if batch_data["update"]:
+                wcapi.post(f"products/{product_id}/variations/batch", batch_data)
+
+        return jsonify({
+            'success': True, 
+            'message': 'Producto actualizado correctamente en WooCommerce.'
+        })
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @bp.route('/create')
 @login_required

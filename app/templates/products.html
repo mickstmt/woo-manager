@@ -262,9 +262,30 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-                <i class="bi bi-box-seam"></i> Gestión de Productos
-            </h1>
+            <div class="d-flex align-items-center gap-3">
+                <h1 class="mb-0">
+                    <i class="bi bi-box-seam"></i> Productos
+                </h1>
+
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownCreateProduct"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-lg"></i> Nuevo Producto
+                    </button>
+                    <ul class="dropdown-menu shadow-lg" aria-labelledby="dropdownCreateProduct">
+                        <li>
+                            <a class="dropdown-item py-2" href="/products/create">
+                                <i class="bi bi-box-seam me-2"></i> Producto Simple
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2" href="/products/create-variable-wizard">
+                                <i class="bi bi-diagram-3 me-2"></i> Producto Variable
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
             <!-- Estadísticas -->
             <div id="stats-container">
@@ -674,7 +695,7 @@
             // Título
             html += '<td class="text-start">';
             html += '<div class="fw-bold d-md-none small text-muted">ID: ' + product.id + '</div>';
-            html += product.title;
+            html += '<a href="/products/' + product.id + '" class="text-decoration-none fw-bold text-dark">' + product.title + '</a>';
             html += '<div class="d-md-none mt-1">';
             html += '<span class="badge bg-light text-dark border me-1">' + product.sku + '</span>';
             html += typeBadge;
@@ -733,6 +754,16 @@
             html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles">';
             html += '<i class="bi bi-eye"></i>';
             html += '</a>';
+
+            // Botón Editar local
+            html += '<a href="/products/' + product.id + '/edit" class="btn btn-sm btn-primary" title="Editar producto">';
+            html += '<i class="bi bi-pencil"></i>';
+            html += '</a>';
+
+            // Botón Eliminar (Trash)
+            html += '<button type="button" class="btn btn-sm btn-danger" title="Enviar a papelera" onclick="trashProduct(' + product.id + ', \'' + product.title.replace(/'/g, "\\'") + '\')">';
+            html += '<i class="bi bi-trash"></i>';
+            html += '</button>';
 
             // Botón Editar en WordPress
             html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-secondary" title="Editar en WordPress">';
@@ -821,6 +852,11 @@
             }
 
             html += '<div class="btn-group">';
+            // Botón Editar local
+            html += '<a href="/products/' + product.id + '/edit" class="btn btn-sm btn-outline-primary" title="Editar" onclick="event.stopPropagation();"><i class="bi bi-pencil"></i></a>';
+            // Botón Eliminar
+            html += '<button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar" onclick="event.stopPropagation(); trashProduct(' + product.id + ', \'' + product.title.replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>';
+            // Botón WordPress
             html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-outline-secondary" title="WordPress" onclick="event.stopPropagation();"><i class="bi bi-wordpress"></i></a>';
             html += '</div>';
 
@@ -831,6 +867,40 @@
         html += '</div>'; // End GridContainer
 
         $('#products-container').html(html);
+    }
+
+    function trashProduct(productId, productTitle) {
+        if (confirm('¿Estás seguro de enviar el producto "' + productTitle + '" a la papelera?')) {
+            $.ajax({
+                url: '/products/' + productId + '/delete',
+                method: 'POST',
+                success: function (response) {
+                    if (response.success) {
+                        if (typeof showToast === 'function') {
+                            showToast('Éxito', response.message, 'success');
+                        } else {
+                            alert(response.message);
+                        }
+                        // Recargar lista
+                        loadProducts();
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast('Error', response.error || 'No se pudo eliminar el producto', 'danger');
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    }
+                },
+                error: function (xhr) {
+                    if (typeof showToast === 'function') {
+                        showToast('Error', 'Error al borrar el producto', 'danger');
+                    } else {
+                        alert('Error al borrar el producto');
+                    }
+                    console.error(xhr);
+                }
+            });
+        }
     }
 
     function openVariationsModal(productId, productTitle) {

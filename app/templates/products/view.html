@@ -151,8 +151,12 @@
                     {% endif %}
                     <a href="https://www.izistoreperu.com/wp-admin/post.php?post={{ product.id }}&action=edit"
                         target="_blank" class="btn btn-secondary">
-                        <i class="bi bi-pencil"></i> Editar en WordPress
+                        <i class="bi bi-wordpress"></i> Ver en WordPress
                     </a>
+                    <button class="btn btn-danger"
+                        onclick="trashProduct({{ product.id }}, '{{ product.title|replace("'", "\\'") }}')">
+                        <i class="bi bi-trash"></i> Enviar a Papelera
+                    </button>
                 </div>
             </div>
         </div>
@@ -515,8 +519,34 @@
     }
 
     function showNotification(type, message) {
-        // Puedes reutilizar la función de notificaciones que ya tienes
-        alert(message);
+        // Usar showToast si está disponible (definido en base.html)
+        if (typeof showToast === 'function') {
+            showToast(type === 'success' ? 'Éxito' : 'Error', message, type === 'success' ? 'success' : 'danger');
+        } else {
+            alert(message);
+        }
+    }
+
+    function trashProduct(productId, productTitle) {
+        if (confirm('¿Estás seguro de enviar el producto "' + productTitle + '" a la papelera?')) {
+            $.ajax({
+                url: '/products/' + productId + '/delete',
+                method: 'POST',
+                success: function (response) {
+                    if (response.success) {
+                        showNotification('success', response.message);
+                        // Redirigir al listado
+                        setTimeout(() => window.location.href = '/products/', 1500);
+                    } else {
+                        showNotification('error', response.error || 'No se pudo eliminar el producto');
+                    }
+                },
+                error: function (xhr) {
+                    showNotification('error', 'Error al borrar el producto');
+                    console.error(xhr);
+                }
+            });
+        }
     }
 </script>
 {% endblock %}
