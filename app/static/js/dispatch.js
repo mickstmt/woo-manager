@@ -44,9 +44,24 @@ function formatDateForMessage(dateStr) {
         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
     ];
 
-    const [year, month, day] = dateStr.split('-');
+    // Validar formato de fecha
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) {
+        console.error('Formato de fecha inválido:', dateStr);
+        return '';
+    }
+
+    const [year, month, day] = parts;
     const dayNum = parseInt(day, 10);
-    const monthName = months[parseInt(month, 10) - 1];
+    const monthIndex = parseInt(month, 10) - 1;
+
+    // Validar que los valores sean números válidos
+    if (isNaN(dayNum) || isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+        console.error('Valores de fecha inválidos:', { day, month, dayNum, monthIndex });
+        return '';
+    }
+
+    const monthName = months[monthIndex];
 
     return `${dayNum} de ${monthName}`;
 }
