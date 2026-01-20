@@ -37,33 +37,44 @@ function generateBulkTrackingMessage(column, dateStr) {
  * Formatear fecha para el mensaje (ej: "21 de enero")
  */
 function formatDateForMessage(dateStr) {
-    if (!dateStr) return '';
+    if (!dateStr) {
+        console.warn('formatDateForMessage: dateStr vacío');
+        return '[Fecha no seleccionada]';
+    }
 
     const months = [
         'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
     ];
 
+    // Limpiar la fecha (por si tiene espacios)
+    const cleanDateStr = dateStr.trim();
+    console.log('formatDateForMessage - Input:', cleanDateStr);
+
     // Validar formato de fecha
-    const parts = dateStr.split('-');
+    const parts = cleanDateStr.split('-');
     if (parts.length !== 3) {
-        console.error('Formato de fecha inválido:', dateStr);
-        return '';
+        console.error('Formato de fecha inválido:', cleanDateStr, 'parts:', parts);
+        return '[Fecha inválida]';
     }
 
     const [year, month, day] = parts;
+    console.log('formatDateForMessage - Parsed:', { year, month, day });
+
     const dayNum = parseInt(day, 10);
     const monthIndex = parseInt(month, 10) - 1;
 
     // Validar que los valores sean números válidos
     if (isNaN(dayNum) || isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
         console.error('Valores de fecha inválidos:', { day, month, dayNum, monthIndex });
-        return '';
+        return '[Fecha inválida]';
     }
 
     const monthName = months[monthIndex];
+    const result = `${dayNum} de ${monthName}`;
+    console.log('formatDateForMessage - Result:', result);
 
-    return `${dayNum} de ${monthName}`;
+    return result;
 }
 
 const BULK_TRACKING_PROVIDERS = {
@@ -1234,8 +1245,23 @@ function processBulkTracking() {
  */
 function updateBulkTrackingPreview() {
     const dateInput = document.getElementById('bulk-tracking-date');
-    const dateValue = dateInput.value;
+    let dateValue = dateInput.value;
+
+    console.log('updateBulkTrackingPreview - dateInput.value (raw):', dateValue);
+
+    // Si el navegador devuelve fecha en formato local (DD/MM/YYYY), convertir a ISO (YYYY-MM-DD)
+    if (dateValue && dateValue.includes('/')) {
+        const parts = dateValue.split('/');
+        if (parts.length === 3) {
+            // Formato DD/MM/YYYY -> YYYY-MM-DD
+            dateValue = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            console.log('updateBulkTrackingPreview - dateValue convertido:', dateValue);
+        }
+    }
+
+    console.log('updateBulkTrackingPreview - bulkSelectedColumn:', bulkSelectedColumn);
     const message = generateBulkTrackingMessage(bulkSelectedColumn, dateValue);
+    console.log('updateBulkTrackingPreview - message:', message);
     document.getElementById('confirm-message').textContent = message;
 }
 
@@ -1250,6 +1276,15 @@ async function confirmBulkTracking() {
         return;
     }
 
+    // Convertir fecha si está en formato local (DD/MM/YYYY) a ISO (YYYY-MM-DD)
+    let dateValue = dateInput.value;
+    if (dateValue.includes('/')) {
+        const parts = dateValue.split('/');
+        if (parts.length === 3) {
+            dateValue = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    }
+
     const btn = document.getElementById('btn-confirm-bulk');
     const originalText = btn.innerHTML;
     btn.disabled = true;
@@ -1262,7 +1297,7 @@ async function confirmBulkTracking() {
             body: JSON.stringify({
                 orders: bulkSelectedOrders.map(o => o.orderId),
                 column: bulkSelectedColumn,
-                shipping_date: dateInput.value
+                shipping_date: dateValue
             })
         });
 
