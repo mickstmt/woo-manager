@@ -70,8 +70,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cargar pedidos con filtro de fechas del mes actual
     loadOrders();
 
-    // Auto-refresh cada 2 minutos
-    setInterval(loadOrders, 120000);
+    // Auto-refresh cada 2 minutos (solo si no hay modal abierto)
+    setInterval(autoRefreshOrders, 120000);
 
     // Limpiar instancia del modal cuando se cierra
     const modalElement = document.getElementById('orderDetailModal');
@@ -88,6 +88,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+/**
+ * Auto-refresh de pedidos solo si no hay modales de tracking abiertos
+ * Evita perder selecciones de checkboxes mientras el usuario trabaja
+ */
+function autoRefreshOrders() {
+    // Verificar si hay modales de tracking abiertos
+    const bulkTrackingModal = document.getElementById('bulkTrackingConfirmModal');
+    const trackingModal = document.getElementById('trackingModal');
+
+    const isBulkModalOpen = bulkTrackingModal && bulkTrackingModal.classList.contains('show');
+    const isTrackingModalOpen = trackingModal && trackingModal.classList.contains('show');
+
+    // También verificar si hay pedidos seleccionados para tracking masivo
+    const hasSelectedOrders = bulkSelectedOrders.length > 0;
+
+    if (isBulkModalOpen || isTrackingModalOpen || hasSelectedOrders) {
+        console.log('[Auto-refresh] Omitido - Modal abierto o pedidos seleccionados');
+        return;
+    }
+
+    console.log('[Auto-refresh] Ejecutando recarga de pedidos...');
+    loadOrders();
+}
 
 /**
  * Formatear fecha para input type="date"
@@ -882,7 +906,7 @@ async function saveTracking() {
         // Mostrar mensaje de éxito
         let successMsg = `Tracking agregado exitosamente al pedido ${data.order_number}`;
         if (data.status_changed) {
-            successMsg += ' y estado cambiado a "Completado"';
+            successMsg += ' y estado cambiado a "Enviado"';
         }
         showSuccess(successMsg);
 
