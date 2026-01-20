@@ -28,64 +28,60 @@
         text-decoration: underline;
     }
 
-    /* Filas de variaciones */
-    .variation-row {
-        background-color: var(--bs-secondary-bg);
-    }
-
-    /* Contenedor de variaciones - fila expandida */
-    tr[id^="variations-"] {
-        background-color: var(--bg-body) !important;
-    }
-
-    tr[id^="variations-"] td {
-        background-color: var(--bg-body) !important;
-        padding: 0 !important;
-    }
-
-    /* Tabla interna de variaciones */
-    tr[id^="variations-"] .table {
-        --bs-table-bg: transparent;
-        margin-bottom: 0;
-        background-color: transparent !important;
-        color: var(--text-primary) !important;
-    }
-
-    tr[id^="variations-"] .table tbody {
-        background-color: transparent !important;
-    }
-
-    tr[id^="variations-"] .table tbody tr {
-        background-color: var(--bg-surface) !important;
-        color: var(--text-primary) !important;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    tr[id^="variations-"] .table tbody tr:hover {
-        background-color: var(--bg-hover) !important;
-    }
-
-    tr[id^="variations-"] .table tbody tr td {
-        background-color: transparent !important;
-        color: inherit !important;
-    }
-
-    /* Modo oscuro específico para variaciones - Refuerzo */
-    [data-theme="dark"] tr[id^="variations-"] {
-        background-color: var(--bg-body) !important;
-    }
-
-    [data-theme="dark"] tr[id^="variations-"] td {
-        background-color: var(--bg-body) !important;
-    }
-
-    [data-theme="dark"] tr[id^="variations-"] .table tbody tr td {
-        color: var(--text-primary) !important;
-        border-color: var(--border-color) !important;
-    }
-
     .indent-cell {
         padding-left: 2rem !important;
+    }
+
+    /* Modal de Variaciones - Estilo Premium */
+    .variation-item {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s;
+        background-color: var(--bg-surface);
+    }
+
+    .variation-item:hover {
+        border-color: var(--primary-color);
+        background-color: var(--bg-hover);
+        transform: translateX(5px);
+    }
+
+    .variation-img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: var(--radius-sm);
+    }
+
+    .variation-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        display: block;
+        text-decoration: none;
+    }
+
+    .variation-title:hover {
+        color: var(--primary-color);
+    }
+
+    #variationsModal .modal-content {
+        border-radius: var(--radius-lg);
+        border: none;
+        box-shadow: var(--shadow-lg);
+    }
+
+    #variationsModal .modal-header {
+        border-bottom: 1px solid var(--border-color);
+        background-color: var(--bg-surface);
+    }
+
+    #variationsModal .modal-body {
+        background-color: var(--bg-body);
+        max-height: 70vh;
+        overflow-y: auto;
     }
 
     /* Estilos Responsive para Productos */
@@ -135,6 +131,7 @@
         flex-direction: column;
         height: 100%;
         position: relative;
+        cursor: pointer;
     }
 
     .product-card:hover {
@@ -588,29 +585,29 @@
         html += '<table class="table table-hover align-middle">';
         html += '<thead class="table-light">';
         html += '<tr>';
-        html += '<th class="d-none d-md-table-cell" style="width: 70px;">Imagen</th>';
-        html += '<th style="width: 80px;">ID</th>';
-        html += '<th class="d-none d-sm-table-cell" style="width: 120px;">Tipo</th>';
+        html += '<th class="d-none d-md-table-cell text-center" style="width: 70px;">Imagen</th>';
+        html += '<th class="text-center" style="width: 80px;">ID</th>';
+        html += '<th class="d-none d-sm-table-cell text-center" style="width: 120px;">Tipo</th>';
 
         // Mostrar columna "Padre" solo si estamos mostrando variaciones
         if (showVariations) {
-            html += '<th class="d-none d-lg-table-cell" style="width: 100px;">Padre</th>';
-            html += '<th>Producto / Variación</th>';
+            html += '<th class="d-none d-lg-table-cell text-center" style="width: 100px;">Padre</th>';
+            html += '<th class="text-start">Producto / Variación</th>';
         } else {
-            html += '<th>Producto</th>';
+            html += '<th class="text-start">Producto</th>';
         }
 
-        html += '<th class="d-none d-md-table-cell" style="width: 140px;">SKU</th>';
-        html += '<th style="width: 100px;">Precio</th>';
-        html += '<th style="width: 100px;">Stock</th>';
-        html += '<th class="d-none d-lg-table-cell" style="width: 120px;">Estado</th>';
+        html += '<th class="d-none d-md-table-cell text-start" style="width: 140px;">SKU</th>';
+        html += '<th class="text-end" style="width: 100px;">Precio</th>';
+        html += '<th class="text-end" style="width: 100px;">Stock</th>';
+        html += '<th class="d-none d-lg-table-cell text-center" style="width: 120px;">Estado</th>';
 
         // Columna adicional para productos padre
         if (!showVariations) {
-            html += '<th class="d-none d-md-table-cell" style="width: 120px;">Variaciones</th>';
+            html += '<th class="d-none d-md-table-cell text-center" style="width: 120px;">Variaciones</th>';
         }
 
-        html += '<th style="width: 120px;">Acciones</th>';
+        html += '<th class="text-end" style="width: 120px;">Acciones</th>';
         html += '</tr>';
         html += '</thead>';
         html += '<tbody>';
@@ -649,7 +646,7 @@
             html += '<tr id="product-' + product.id + '">';
 
             // Imagen
-            html += '<td class="d-none d-md-table-cell"><div class="product-image bg-body-secondary d-flex align-items-center justify-content-center">';
+            html += '<td class="d-none d-md-table-cell text-center"><div class="product-image bg-body-secondary d-inline-flex align-items-center justify-content-center">';
             if (product.image_url) {
                 html += '<img src="' + product.image_url + '" alt="' + product.title + '" class="product-image">';
             } else {
@@ -658,24 +655,24 @@
             html += '</div></td>';
 
             // ID
-            html += '<td><strong>' + product.id + '</strong></td>';
+            html += '<td class="text-center"><strong>' + product.id + '</strong></td>';
 
             // Tipo
-            html += '<td class="d-none d-sm-table-cell">' + typeBadge + '</td>';
+            html += '<td class="d-none d-sm-table-cell text-center">' + typeBadge + '</td>';
 
             // Padre (solo para variaciones)
             if (showVariations) {
                 if (product.parent_id) {
-                    html += '<td class="d-none d-lg-table-cell"><a href="/products/' + product.parent_id + '" class="parent-link">';
+                    html += '<td class="d-none d-lg-table-cell text-center"><a href="/products/' + product.parent_id + '" class="parent-link">';
                     html += '#' + product.parent_id;
                     html += '</a></td>';
                 } else {
-                    html += '<td class="d-none d-lg-table-cell">-</td>';
+                    html += '<td class="d-none d-lg-table-cell text-center">-</td>';
                 }
             }
 
             // Título
-            html += '<td>';
+            html += '<td class="text-start">';
             html += '<div class="fw-bold d-md-none small text-muted">ID: ' + product.id + '</div>';
             html += product.title;
             html += '<div class="d-md-none mt-1">';
@@ -685,24 +682,29 @@
             html += '</td>';
 
             // SKU
-            html += '<td class="d-none d-md-table-cell"><code>' + product.sku + '</code></td>';
+            html += '<td class="d-none d-md-table-cell text-start"><code>' + product.sku + '</code></td>';
 
             // Precio
-            html += '<td><span class="d-md-none small text-muted">S/ </span>' + parseFloat(product.price).toFixed(2) + '</td>';
+            html += '<td class="text-end"><span class="d-md-none small text-muted">S/ </span>' + parseFloat(product.price).toFixed(2) + '</td>';
 
             // Stock
-            html += '<td>' + product.stock + ' <div class="d-md-none mt-1">' + stockBadge + '</div><div class="d-none d-md-inline ms-1">' + stockBadge + '</div></td>';
+            let stockDisplay = product.stock !== null ? product.stock : '';
+            html += '<td class="text-end">';
+            html += '<div class="d-flex flex-column align-items-end justify-content-center">';
+            if (stockDisplay !== '') html += '<span>' + stockDisplay + '</span>';
+            html += stockBadge;
+            html += '</div>';
+            html += '</td>';
 
             // Estado
-            html += '<td class="d-none d-lg-table-cell">' + statusBadge + '</td>';
+            html += '<td class="d-none d-lg-table-cell text-center">' + statusBadge + '</td>';
 
             // Variaciones (solo para productos padre)
             if (!showVariations) {
-                html += '<td class="d-none d-md-table-cell">';
+                html += '<td class="d-none d-md-table-cell text-center">';
                 if (product.is_variable && product.variations_count > 0) {
-                    html += '<button class="btn btn-sm btn-info" onclick="toggleVariations(' + product.id + ')" id="btn-var-' + product.id + '">';
-                    html += '<i class="bi bi-chevron-down" id="icon-var-' + product.id + '"></i> ';
-                    html += product.variations_count;
+                    html += '<button class="btn btn-sm btn-outline-info" onclick="openVariationsModal(' + product.id + ', \'' + product.title.replace(/'/g, "\\'") + '\')">';
+                    html += '<i class="bi bi-diagram-3"></i> ' + product.variations_count;
                     html += '</button>';
                 } else {
                     html += '-';
@@ -719,7 +721,7 @@
             html += '</a>';
             // Variaciones (Móvil - si aplica)
             if (!showVariations && product.is_variable && product.variations_count > 0) {
-                html += '<button class="btn btn-outline-info mb-1" onclick="toggleVariations(' + product.id + ')">';
+                html += '<button class="btn btn-outline-info mb-1" onclick="openVariationsModal(' + product.id + ', \'' + product.title.replace(/'/g, "\\'") + '\')">';
                 html += '<i class="bi bi-diagram-3"></i> Variaciones (' + product.variations_count + ')';
                 html += '</button>';
             }
@@ -741,15 +743,6 @@
             html += '</td>';
 
             html += '</tr>';
-
-            // Fila para variaciones (solo productos padre)
-            if (!showVariations && product.is_variable && product.variations_count > 0) {
-                html += '<tr id="variations-' + product.id + '" class="variation-row" style="display: none;">';
-                html += '<td colspan="10" class="p-0" id="variations-td-' + product.id + '">';
-                html += '<div id="variations-content-' + product.id + '"></div>';
-                html += '</td>';
-                html += '</tr>';
-            }
         });
 
         html += '</tbody>';
@@ -795,7 +788,7 @@
                 stockBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">Bajo pedido</span>';
             }
 
-            html += '<div class="product-card">';
+            html += '<div class="product-card" onclick="viewProduct(' + product.id + ')">';
 
             // Thumbnail
             html += '<div class="card-img-container">';
@@ -820,7 +813,7 @@
             html += '<div class="product-card-footer">';
 
             if (product.is_variable && product.variations_count > 0) {
-                html += '<button class="btn btn-sm btn-outline-info" onclick="toggleVariationsGrid(' + product.id + ')" id="btn-var-grid-' + product.id + '">';
+                html += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); openVariationsModal(' + product.id + ', \'' + product.title.replace(/'/g, "\\'") + '\')" id="btn-var-grid-' + product.id + '">';
                 html += '<i class="bi bi-diagram-3"></i> ' + product.variations_count + ' var.';
                 html += '</button>';
             } else {
@@ -828,19 +821,10 @@
             }
 
             html += '<div class="btn-group">';
-            html += '<a href="/products/' + product.id + '" class="btn btn-sm btn-info" title="Ver detalles"><i class="bi bi-eye"></i></a>';
-            html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-outline-secondary" title="WordPress"><i class="bi bi-wordpress"></i></a>';
+            html += '<a href="https://www.izistoreperu.com/wp-admin/post.php?post=' + product.id + '&action=edit" target="_blank" class="btn btn-sm btn-outline-secondary" title="WordPress" onclick="event.stopPropagation();"><i class="bi bi-wordpress"></i></a>';
             html += '</div>';
 
             html += '</div>'; // End Footer
-
-            // Hidden variations container for grid
-            if (product.is_variable && product.variations_count > 0) {
-                html += '<div id="variations-grid-' + product.id + '" class="variation-grid-container" style="display: none; border-top: 1px solid var(--border-color); background: var(--bg-hover); padding: 10px;">';
-                html += '<div id="variations-content-grid-' + product.id + '"></div>';
-                html += '</div>';
-            }
-
             html += '</div>'; // End Card
         });
 
@@ -849,199 +833,79 @@
         $('#products-container').html(html);
     }
 
-    function toggleVariationsGrid(productId) {
-        const variationsContainer = $('#variations-grid-' + productId);
-
-        if (variationsContainer.is(':visible')) {
-            variationsContainer.slideUp();
-            return;
-        }
-
-        if (!loadedVariations[productId]) {
-            loadVariationsGrid(productId);
-        }
-
-        variationsContainer.slideDown();
-    }
-
-    function loadVariationsGrid(productId) {
-        $('#variations-content-grid-' + productId).html(
-            '<div class="text-center p-2"><div class="spinner-border spinner-border-sm"></div></div>'
+    function openVariationsModal(productId, productTitle) {
+        $('#variationsModalLabel').text('Variaciones: ' + productTitle);
+        $('#variations-modal-body').html(
+            '<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Cargando variaciones...</p></div>'
         );
+
+        const modal = new bootstrap.Modal(document.getElementById('variationsModal'));
+        modal.show();
 
         $.ajax({
             url: '/products/' + productId + '/variations',
             method: 'GET',
             success: function (data) {
                 if (data.success) {
-                    displayVariationsGrid(productId, data.variations);
-                    loadedVariations[productId] = true;
+                    renderVariationsInModal(data.variations);
                 } else {
-                    $('#variations-content-grid-' + productId).html('<small class="text-danger">Error</small>');
-                }
-            }
-        });
-    }
-
-    function displayVariationsGrid(productId, variations) {
-        let html = '<div class="list-group list-group-flush small border rounded">';
-        variations.forEach(function (v) {
-            let attrs = Object.values(v.attributes).join(' / ');
-            html += '<div class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-1 px-2">';
-            html += '<span>' + attrs + '</span>';
-            html += '<span class="fw-bold">S/ ' + v.price + '</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-        $('#variations-content-grid-' + productId).html(html);
-    }
-
-    function toggleVariations(productId) {
-        const variationsRow = $('#variations-' + productId);
-        const icon = $('#icon-var-' + productId);
-
-        // Si ya está visible, ocultarlo
-        if (variationsRow.is(':visible')) {
-            variationsRow.hide();
-            if (icon.length) icon.removeClass('bi-chevron-up').addClass('bi-chevron-down');
-            return;
-        }
-
-        // Si no está cargado, cargarlo
-        if (!loadedVariations[productId]) {
-            loadVariations(productId);
-        }
-
-        // Mostrar
-        variationsRow.show();
-        if (icon.length) icon.removeClass('bi-chevron-down').addClass('bi-chevron-up');
-    }
-
-    function loadVariations(productId) {
-        $('#variations-content-' + productId).html(
-            '<div class="text-center p-3"><div class="spinner-border spinner-border-sm"></div> Cargando variaciones...</div>'
-        );
-
-        $.ajax({
-            url: '/products/' + productId + '/variations',
-            method: 'GET',
-            success: function (data) {
-                if (data.success) {
-                    displayVariationsExpanded(productId, data.variations);
-                    loadedVariations[productId] = true;
-                } else {
-                    $('#variations-content-' + productId).html(
-                        '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
-                    );
+                    $('#variations-modal-body').html('<div class="alert alert-danger">Error al cargar variaciones</div>');
                 }
             },
-            error: function (error) {
-                $('#variations-content-' + productId).html(
-                    '<div class="alert alert-danger m-3">Error al cargar variaciones</div>'
-                );
+            error: function () {
+                $('#variations-modal-body').html('<div class="alert alert-danger">Error de conexión</div>');
             }
         });
     }
 
-    function displayVariationsExpanded(productId, variations) {
+    function renderVariationsInModal(variations) {
         if (variations.length === 0) {
-            $('#variations-content-' + productId).html(
-                '<div class="alert alert-info m-3">No se encontraron variaciones</div>'
-            );
+            $('#variations-modal-body').html('<div class="alert alert-info">No se encontraron variaciones</div>');
             return;
         }
 
-        let html = '<div class="table-responsive">';
-        html += '<table class="table table-sm mb-0">';
-        html += '<tbody>';
-
-        variations.forEach(function (variation) {
+        let html = '<div class="variations-list p-2">';
+        variations.forEach(function (v) {
             // Atributos
-            let attributesHtml = '';
-            for (let attr in variation.attributes) {
-                attributesHtml += '<span class="badge bg-secondary me-1">';
-                attributesHtml += attr + ': ' + variation.attributes[attr];
-                attributesHtml += '</span> ';
+            let attrsHtml = '';
+            for (let attr in v.attributes) {
+                attrsHtml += `<span class="badge bg-secondary-subtle text-secondary border me-1">${attr}: ${v.attributes[attr]}</span>`;
             }
 
             // Stock badge
             let stockBadge = '';
-            if (variation.stock_status === 'instock') {
-                stockBadge = '<span class="badge bg-success">En stock</span>';
-            } else if (variation.stock_status === 'outofstock') {
-                stockBadge = '<span class="badge bg-danger">Sin stock</span>';
+            if (v.stock_status === 'instock') {
+                stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle">Stock: ${v.stock}</span>`;
             } else {
-                stockBadge = '<span class="badge bg-warning">Bajo pedido</span>';
+                stockBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Sin Stock</span>`;
             }
 
-            html += '<tr class="variation-row">';
-
-            // Imagen (Oculta en móvil)
-            html += '<td class="d-none d-md-table-cell" style="width: 70px;"><div class="product-image d-flex align-items-center justify-content-center">';
-            if (variation.image_url) {
-                html += '<img src="' + variation.image_url + '" alt="' + variation.title + '" class="product-image">';
-            } else {
-                html += '<i class="bi bi-image text-muted" style="font-size: 0.8rem;"></i>';
-            }
-            html += '</div></td>';
-
-            // ID
-            html += '<td style="width: 80px;"><small>' + variation.id + '</small></td>';
-
-            // Tipo (Oculta en móvil)
-            html += '<td class="d-none d-sm-table-cell" style="width: 120px;"><span class="badge bg-info">Variación</span></td>';
-
-            // Título con atributos
-            html += '<td class="indent-cell">';
-            html += '<i class="bi bi-arrow-return-right text-muted me-2"></i>';
-            html += variation.title;
-            if (attributesHtml) {
-                html += '<br><small>' + attributesHtml + '</small>';
-            }
-            html += '<div class="d-md-none mt-1">';
-            html += '<span class="badge bg-light text-dark border me-1">' + variation.sku + '</span>';
-            html += '</div>';
-            html += '</td>';
-
-            // SKU (Oculta en móvil)
-            html += '<td class="d-none d-md-table-cell" style="width: 140px;"><code>' + variation.sku + '</code></td>';
-
-            // Precio
-            html += '<td style="width: 100px;"><span class="d-md-none small text-muted">S/ </span>' + parseFloat(variation.price).toFixed(2) + '</td>';
-
-            // Stock
-            html += '<td style="width: 100px;">' + variation.stock + ' <div class="d-md-none mt-1">' + stockBadge + '</div><div class="d-none d-md-inline ms-1">' + stockBadge + '</div></td>';
-
-            // Estado (vacío para variaciones en expansión) - Oculta en móvil
-            html += '<td class="d-none d-lg-table-cell" style="width: 120px;">-</td>';
-
-            // Variaciones column (vacío) - Oculta en móvil
-            html += '<td class="d-none d-md-table-cell" style="width: 120px;">-</td>';
-
-            // Acciones
-            html += '<td style="width: 150px;">';
-            html += '<div class="btn-group btn-group-sm" role="group">';
-            html += '<button class="btn btn-primary" title="Ver detalles">';
-            html += '<i class="bi bi-eye"></i>';
-            html += '</button>';
-            html += '<button class="btn btn-success" title="Editar">';
-            html += '<i class="bi bi-pencil"></i>';
-            html += '</button>';
-            html += '</div>';
-            html += '</td>';
-
-            html += '</tr>';
+            html += `
+            <div class="variation-item">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        ${v.image_url ?
+                    `<img src="${v.image_url}" alt="${v.title}" class="variation-img">` :
+                    `<div class="variation-img bg-body-secondary d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></div>`
+                }
+                    </div>
+                    <div class="col">
+                        <a href="/products/${v.id}" class="variation-title">${v.title}</a>
+                        <div class="mb-1">${attrsHtml}</div>
+                        <div><small class="text-muted">SKU: ${v.sku}</small></div>
+                    </div>
+                    <div class="col-auto text-end">
+                        <div class="fw-bold text-primary mb-1">S/ ${parseFloat(v.price).toFixed(2)}</div>
+                        <div class="mb-2">${stockBadge}</div>
+                        <a href="/products/${v.id}" class="btn btn-sm btn-primary">Ver Detalles</a>
+                    </div>
+                </div>
+            </div>`;
         });
-
-        html += '</tbody>';
-        html += '</table>';
         html += '</div>';
-
-        $('#variations-content-' + productId).html(html);
-
-        // Asegurar que la fila sea visible
-        $('#variations-' + productId).show();
+        $('#variations-modal-body').html(html);
     }
+
 
     function displayPagination(pagination) {
         if (pagination.pages <= 1) {
@@ -1380,4 +1244,22 @@
         }, 2000);
     }
 </script>
+
+<!-- Modal de Variaciones -->
+<div class="modal fade" id="variationsModal" tabindex="-1" aria-labelledby="variationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="variationsModalLabel">Variaciones</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" id="variations-modal-body">
+                <!-- Se carga dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -7,14 +7,17 @@
     .quantity-input {
         width: 80px;
     }
+
     /* Light mode */
     .selected-row {
         background-color: rgba(13, 110, 253, 0.15) !important;
     }
+
     /* Dark mode */
     [data-bs-theme="dark"] .selected-row {
         background-color: rgba(13, 110, 253, 0.3) !important;
     }
+
     .btn-create-order {
         position: fixed;
         bottom: 30px;
@@ -22,8 +25,9 @@
         z-index: 1000;
         padding: 15px 30px;
         font-size: 1.1rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+
     .selection-summary {
         position: fixed;
         bottom: 100px;
@@ -31,12 +35,13 @@
         z-index: 999;
         padding: 15px 20px;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         display: none;
         background-color: var(--bs-body-bg);
         border: 1px solid var(--bs-border-color);
         color: var(--bs-body-color);
     }
+
     .selection-summary.active {
         display: block;
     }
@@ -72,10 +77,8 @@
                             <span class="input-group-text">
                                 <i class="bi bi-search"></i>
                             </span>
-                            <input type="text"
-                                   class="form-control"
-                                   id="search-input"
-                                   placeholder="Ej: SKU-12345 o Nombre del producto">
+                            <input type="text" class="form-control" id="search-input"
+                                placeholder="Ej: SKU-12345 o Nombre del producto">
                             <button class="btn btn-primary" onclick="loadProducts()">
                                 Buscar
                             </button>
@@ -125,16 +128,16 @@
                     <table class="table table-hover">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 40px;">
+                                <th style="width: 40px;" class="text-center">
                                     <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
                                 </th>
-                                <th>SKU</th>
-                                <th>Producto</th>
+                                <th class="text-start">SKU</th>
+                                <th class="text-start">Producto</th>
                                 <th class="text-center">Días sin Stock</th>
                                 <th class="text-center">Fecha Stock a 0</th>
                                 <th class="text-center">Últ. Actualizado por</th>
                                 <th class="text-end">Costo Unit. (USD)</th>
-                                <th class="text-center">Cantidad a Ordenar</th>
+                                <th class="text-end">Cantidad a Ordenar</th>
                                 <th class="text-end">Total (USD)</th>
                             </tr>
                         </thead>
@@ -161,7 +164,8 @@
 </div>
 
 <!-- Botón flotante para crear orden -->
-<button class="btn btn-success btn-create-order" id="btn-create-order" onclick="showCreateOrderModal()" style="display: none;">
+<button class="btn btn-success btn-create-order" id="btn-create-order" onclick="showCreateOrderModal()"
+    style="display: none;">
     <i class="bi bi-plus-circle"></i> Crear Orden de Compra
 </button>
 
@@ -189,11 +193,8 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Proveedor <span class="text-danger">*</span></label>
-                            <input type="text"
-                                   class="form-control"
-                                   id="supplier-name"
-                                   placeholder="Nombre del proveedor"
-                                   required>
+                            <input type="text" class="form-control" id="supplier-name"
+                                placeholder="Nombre del proveedor" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Fecha Estimada de Entrega</label>
@@ -203,10 +204,8 @@
 
                     <div class="mb-3">
                         <label class="form-label">Notas / Observaciones</label>
-                        <textarea class="form-control"
-                                  id="order-notes"
-                                  rows="3"
-                                  placeholder="Ej: Orden urgente, coordinar entrega..."></textarea>
+                        <textarea class="form-control" id="order-notes" rows="3"
+                            placeholder="Ej: Orden urgente, coordinar entrega..."></textarea>
                     </div>
 
                     <!-- Totales -->
@@ -218,7 +217,8 @@
                                     <h4 class="mb-0" id="modal-total-usd">$0.00</h4>
                                 </div>
                                 <div class="col-6">
-                                    <p class="mb-1">Total en PEN: <small class="text-muted">(T.C. <span id="modal-exchange-rate">-</span>)</small></p>
+                                    <p class="mb-1">Total en PEN: <small class="text-muted">(T.C. <span
+                                                id="modal-exchange-rate">-</span>)</small></p>
                                     <h4 class="mb-0" id="modal-total-pen">S/. 0.00</h4>
                                 </div>
                             </div>
@@ -242,32 +242,32 @@
 
 {% block extra_js %}
 <script>
-let allProducts = [];
-let selectedProducts = [];
-let exchangeRate = 3.75; // Default
+    let allProducts = [];
+    let selectedProducts = [];
+    let exchangeRate = 3.75; // Default
 
-document.addEventListener('DOMContentLoaded', function() {
-    loadProducts();
-    loadExchangeRate();
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        loadProducts();
+        loadExchangeRate();
+    });
 
-function loadExchangeRate() {
-    fetch('/reports/api/exchange-rate/latest')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.tasa_cambio) {
-                exchangeRate = parseFloat(data.tasa_cambio);
-            }
-        })
-        .catch(error => console.error('Error loading exchange rate:', error));
-}
+    function loadExchangeRate() {
+        fetch('/reports/api/exchange-rate/latest')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.tasa_cambio) {
+                    exchangeRate = parseFloat(data.tasa_cambio);
+                }
+            })
+            .catch(error => console.error('Error loading exchange rate:', error));
+    }
 
-function loadProducts() {
-    const search = document.getElementById('search-input').value;
-    const sortBy = document.getElementById('sort-by').value;
+    function loadProducts() {
+        const search = document.getElementById('search-input').value;
+        const sortBy = document.getElementById('sort-by').value;
 
-    // Mostrar loading
-    document.getElementById('products-table').innerHTML = `
+        // Mostrar loading
+        document.getElementById('products-table').innerHTML = `
         <tr>
             <td colspan="9" class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
@@ -277,28 +277,28 @@ function loadProducts() {
         </tr>
     `;
 
-    fetch(`/purchases/api/products-out-of-stock?search=${encodeURIComponent(search)}&sort_by=${sortBy}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                allProducts = data.products;
-                renderProducts(data.products);
-                document.getElementById('total-products').textContent = data.total;
-            } else {
-                showAlert('Error al cargar productos: ' + data.error, 'danger');
-            }
-        })
-        .catch(error => {
-            showAlert('Error de conexión: ' + error, 'danger');
-            console.error(error);
-        });
-}
+        fetch(`/purchases/api/products-out-of-stock?search=${encodeURIComponent(search)}&sort_by=${sortBy}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    allProducts = data.products;
+                    renderProducts(data.products);
+                    document.getElementById('total-products').textContent = data.total;
+                } else {
+                    showAlert('Error al cargar productos: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
 
-function renderProducts(products) {
-    const tbody = document.getElementById('products-table');
+    function renderProducts(products) {
+        const tbody = document.getElementById('products-table');
 
-    if (products.length === 0) {
-        tbody.innerHTML = `
+        if (products.length === 0) {
+            tbody.innerHTML = `
             <tr>
                 <td colspan="9" class="text-center text-muted py-4">
                     <i class="bi bi-inbox" style="font-size: 3rem;"></i>
@@ -306,39 +306,39 @@ function renderProducts(products) {
                 </td>
             </tr>
         `;
-        return;
-    }
+            return;
+        }
 
-    tbody.innerHTML = products.map(product => {
-        const isSelected = selectedProducts.some(p => p.product_id === product.product_id);
-        const rowClass = isSelected ? 'selected-row' : '';
+        tbody.innerHTML = products.map(product => {
+            const isSelected = selectedProducts.some(p => p.product_id === product.product_id);
+            const rowClass = isSelected ? 'selected-row' : '';
 
-        return `
+            return `
             <tr class="${rowClass}" id="row-${product.product_id}">
-                <td>
+                <td class="text-center">
                     <input type="checkbox"
                            class="product-checkbox"
                            data-product-id="${product.product_id}"
                            ${isSelected ? 'checked' : ''}
                            onchange="toggleProductSelection(${product.product_id})">
                 </td>
-                <td><code>${product.sku}</code></td>
-                <td>${product.product_name}</td>
+                <td class="text-start"><code>${product.sku}</code></td>
+                <td class="text-start">${product.product_name}</td>
                 <td class="text-center">
                     <span class="badge ${product.dias_sin_stock > 30 ? 'bg-danger' : product.dias_sin_stock > 14 ? 'bg-warning' : 'bg-info'}">
                         ${product.dias_sin_stock} días
                     </span>
                 </td>
                 <td class="text-center">
-                    <small class="text-muted">${product.last_stock_update ? new Date(product.last_stock_update).toLocaleDateString('es-PE', {day: '2-digit', month: '2-digit', year: 'numeric'}) : '-'}</small>
+                    <small class="text-muted">${product.last_stock_update ? new Date(product.last_stock_update).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</small>
                 </td>
                 <td class="text-center">
                     <small class="text-muted">${product.last_updated_by}</small>
                 </td>
                 <td class="text-end">$${formatNumber(product.unit_cost_usd)}</td>
-                <td class="text-center">
+                <td class="text-end">
                     <input type="number"
-                           class="form-control form-control-sm quantity-input"
+                           class="form-control form-control-sm quantity-input ms-auto"
                            id="qty-${product.product_id}"
                            min="1"
                            value="${isSelected ? getSelectedQuantity(product.product_id) : 10}"
@@ -350,234 +350,234 @@ function renderProducts(products) {
                 </td>
             </tr>
         `;
-    }).join('');
-}
-
-function getSelectedQuantity(productId) {
-    const selected = selectedProducts.find(p => p.product_id === productId);
-    return selected ? selected.quantity : 10;
-}
-
-function toggleProductSelection(productId) {
-    const product = allProducts.find(p => p.product_id === productId);
-    const checkbox = document.querySelector(`input[data-product-id="${productId}"]`);
-    const qtyInput = document.getElementById(`qty-${productId}`);
-    const row = document.getElementById(`row-${productId}`);
-
-    if (checkbox.checked) {
-        // Agregar a selección
-        const quantity = parseInt(qtyInput.value) || 10;
-        selectedProducts.push({
-            ...product,
-            quantity: quantity
-        });
-        qtyInput.disabled = false;
-        row.classList.add('selected-row');
-    } else {
-        // Quitar de selección
-        selectedProducts = selectedProducts.filter(p => p.product_id !== productId);
-        qtyInput.disabled = true;
-        row.classList.remove('selected-row');
+        }).join('');
     }
 
-    updateQuantity(productId);
-    updateSelectionSummary();
-}
-
-function updateQuantity(productId) {
-    const qtyInput = document.getElementById(`qty-${productId}`);
-    const quantity = parseInt(qtyInput.value) || 10;
-
-    // Actualizar en selectedProducts
-    const selected = selectedProducts.find(p => p.product_id === productId);
-    if (selected) {
-        selected.quantity = quantity;
-
-        // Actualizar total de la fila
-        const total = selected.unit_cost_usd * quantity;
-        document.getElementById(`total-${productId}`).textContent = `$${formatNumber(total)}`;
+    function getSelectedQuantity(productId) {
+        const selected = selectedProducts.find(p => p.product_id === productId);
+        return selected ? selected.quantity : 10;
     }
 
-    updateSelectionSummary();
-}
+    function toggleProductSelection(productId) {
+        const product = allProducts.find(p => p.product_id === productId);
+        const checkbox = document.querySelector(`input[data-product-id="${productId}"]`);
+        const qtyInput = document.getElementById(`qty-${productId}`);
+        const row = document.getElementById(`row-${productId}`);
 
-function updateSelectionSummary() {
-    const count = selectedProducts.length;
-    const total = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
-
-    document.getElementById('selected-count').textContent = count;
-    document.getElementById('selected-total').textContent = `$${formatNumber(total)}`;
-
-    // Mostrar/ocultar elementos flotantes
-    if (count > 0) {
-        document.getElementById('selection-summary').classList.add('active');
-        document.getElementById('btn-create-order').style.display = 'block';
-    } else {
-        document.getElementById('selection-summary').classList.remove('active');
-        document.getElementById('btn-create-order').style.display = 'none';
-    }
-}
-
-function toggleSelectAll() {
-    const selectAllCheckbox = document.getElementById('select-all');
-    const checkboxes = document.querySelectorAll('.product-checkbox');
-
-    checkboxes.forEach(checkbox => {
-        const productId = parseInt(checkbox.getAttribute('data-product-id'));
-        if (checkbox.checked !== selectAllCheckbox.checked) {
-            checkbox.checked = selectAllCheckbox.checked;
-            toggleProductSelection(productId);
+        if (checkbox.checked) {
+            // Agregar a selección
+            const quantity = parseInt(qtyInput.value) || 10;
+            selectedProducts.push({
+                ...product,
+                quantity: quantity
+            });
+            qtyInput.disabled = false;
+            row.classList.add('selected-row');
+        } else {
+            // Quitar de selección
+            selectedProducts = selectedProducts.filter(p => p.product_id !== productId);
+            qtyInput.disabled = true;
+            row.classList.remove('selected-row');
         }
-    });
-}
 
-function clearSearch() {
-    document.getElementById('search-input').value = '';
-    loadProducts();
-}
-
-function exportToExcel() {
-    const search = document.getElementById('search-input').value;
-    const sortBy = document.getElementById('sort-by').value;
-
-    // Construir URL con parámetros actuales
-    const url = `/purchases/api/products-out-of-stock/export?search=${encodeURIComponent(search)}&sort_by=${sortBy}`;
-
-    // Mostrar mensaje
-    showAlert('Generando archivo Excel...', 'info');
-
-    // Crear enlace temporal para descargar
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `productos_sin_stock_${new Date().toISOString().split('T')[0]}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Mensaje de éxito después de un breve delay
-    setTimeout(() => {
-        showAlert('Archivo Excel descargado exitosamente', 'success');
-    }, 1000);
-}
-
-function showCreateOrderModal() {
-    if (selectedProducts.length === 0) {
-        showAlert('Por favor selecciona al menos un producto', 'warning');
-        return;
+        updateQuantity(productId);
+        updateSelectionSummary();
     }
 
-    // Calcular totales
-    const totalUsd = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
-    const totalPen = totalUsd * exchangeRate;
+    function updateQuantity(productId) {
+        const qtyInput = document.getElementById(`qty-${productId}`);
+        const quantity = parseInt(qtyInput.value) || 10;
 
-    // Actualizar resumen en modal
-    const summary = selectedProducts.map(p => {
-        return `
+        // Actualizar en selectedProducts
+        const selected = selectedProducts.find(p => p.product_id === productId);
+        if (selected) {
+            selected.quantity = quantity;
+
+            // Actualizar total de la fila
+            const total = selected.unit_cost_usd * quantity;
+            document.getElementById(`total-${productId}`).textContent = `$${formatNumber(total)}`;
+        }
+
+        updateSelectionSummary();
+    }
+
+    function updateSelectionSummary() {
+        const count = selectedProducts.length;
+        const total = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
+
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('selected-total').textContent = `$${formatNumber(total)}`;
+
+        // Mostrar/ocultar elementos flotantes
+        if (count > 0) {
+            document.getElementById('selection-summary').classList.add('active');
+            document.getElementById('btn-create-order').style.display = 'block';
+        } else {
+            document.getElementById('selection-summary').classList.remove('active');
+            document.getElementById('btn-create-order').style.display = 'none';
+        }
+    }
+
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('select-all');
+        const checkboxes = document.querySelectorAll('.product-checkbox');
+
+        checkboxes.forEach(checkbox => {
+            const productId = parseInt(checkbox.getAttribute('data-product-id'));
+            if (checkbox.checked !== selectAllCheckbox.checked) {
+                checkbox.checked = selectAllCheckbox.checked;
+                toggleProductSelection(productId);
+            }
+        });
+    }
+
+    function clearSearch() {
+        document.getElementById('search-input').value = '';
+        loadProducts();
+    }
+
+    function exportToExcel() {
+        const search = document.getElementById('search-input').value;
+        const sortBy = document.getElementById('sort-by').value;
+
+        // Construir URL con parámetros actuales
+        const url = `/purchases/api/products-out-of-stock/export?search=${encodeURIComponent(search)}&sort_by=${sortBy}`;
+
+        // Mostrar mensaje
+        showAlert('Generando archivo Excel...', 'info');
+
+        // Crear enlace temporal para descargar
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `productos_sin_stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Mensaje de éxito después de un breve delay
+        setTimeout(() => {
+            showAlert('Archivo Excel descargado exitosamente', 'success');
+        }, 1000);
+    }
+
+    function showCreateOrderModal() {
+        if (selectedProducts.length === 0) {
+            showAlert('Por favor selecciona al menos un producto', 'warning');
+            return;
+        }
+
+        // Calcular totales
+        const totalUsd = selectedProducts.reduce((sum, p) => sum + (p.unit_cost_usd * p.quantity), 0);
+        const totalPen = totalUsd * exchangeRate;
+
+        // Actualizar resumen en modal
+        const summary = selectedProducts.map(p => {
+            return `
             <div class="d-flex justify-content-between mb-1">
                 <span><code>${p.sku}</code> - ${p.product_name}</span>
                 <span><strong>${p.quantity} unidades</strong> × $${formatNumber(p.unit_cost_usd)} = $${formatNumber(p.unit_cost_usd * p.quantity)}</span>
             </div>
         `;
-    }).join('');
+        }).join('');
 
-    document.getElementById('modal-products-summary').innerHTML = summary;
-    document.getElementById('modal-total-usd').textContent = `$${formatNumber(totalUsd)}`;
-    document.getElementById('modal-total-pen').textContent = `S/. ${formatNumber(totalPen)}`;
-    document.getElementById('modal-exchange-rate').textContent = formatNumber(exchangeRate);
+        document.getElementById('modal-products-summary').innerHTML = summary;
+        document.getElementById('modal-total-usd').textContent = `$${formatNumber(totalUsd)}`;
+        document.getElementById('modal-total-pen').textContent = `S/. ${formatNumber(totalPen)}`;
+        document.getElementById('modal-exchange-rate').textContent = formatNumber(exchangeRate);
 
-    // Mostrar modal
-    const modal = new bootstrap.Modal(document.getElementById('createOrderModal'));
-    modal.show();
-}
-
-function createOrder() {
-    const supplierName = document.getElementById('supplier-name').value.trim();
-    const expectedDeliveryDate = document.getElementById('expected-delivery-date').value;
-    const notes = document.getElementById('order-notes').value.trim();
-
-    if (!supplierName) {
-        showAlert('Por favor ingresa el nombre del proveedor', 'warning');
-        return;
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('createOrderModal'));
+        modal.show();
     }
 
-    if (selectedProducts.length === 0) {
-        showAlert('No hay productos seleccionados', 'warning');
-        return;
-    }
+    function createOrder() {
+        const supplierName = document.getElementById('supplier-name').value.trim();
+        const expectedDeliveryDate = document.getElementById('expected-delivery-date').value;
+        const notes = document.getElementById('order-notes').value.trim();
 
-    // Preparar datos
-    const orderData = {
-        supplier_name: supplierName,
-        expected_delivery_date: expectedDeliveryDate || null,
-        notes: notes || '',
-        items: selectedProducts.map(p => ({
-            product_id: p.product_id,
-            product_title: p.product_name,
-            sku: p.sku,
-            quantity: p.quantity,
-            unit_cost_usd: p.unit_cost_usd
-        }))
-    };
+        if (!supplierName) {
+            showAlert('Por favor ingresa el nombre del proveedor', 'warning');
+            return;
+        }
 
-    // Mostrar loading
-    showAlert('Creando orden de compra...', 'info');
+        if (selectedProducts.length === 0) {
+            showAlert('No hay productos seleccionados', 'warning');
+            return;
+        }
 
-    fetch('/purchases/api/orders', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showAlert(`Orden ${data.order.order_number} creada exitosamente`, 'success');
+        // Preparar datos
+        const orderData = {
+            supplier_name: supplierName,
+            expected_delivery_date: expectedDeliveryDate || null,
+            notes: notes || '',
+            items: selectedProducts.map(p => ({
+                product_id: p.product_id,
+                product_title: p.product_name,
+                sku: p.sku,
+                quantity: p.quantity,
+                unit_cost_usd: p.unit_cost_usd
+            }))
+        };
 
-                // Cerrar modal
-                bootstrap.Modal.getInstance(document.getElementById('createOrderModal')).hide();
+        // Mostrar loading
+        showAlert('Creando orden de compra...', 'info');
 
-                // Limpiar selección
-                selectedProducts = [];
-                updateSelectionSummary();
-
-                // Recargar productos
-                loadProducts();
-
-                // Preguntar si quiere ver la orden
-                setTimeout(() => {
-                    if (confirm('¿Deseas ver la orden creada?')) {
-                        window.location.href = `/purchases/orders/${data.order.id}`;
-                    }
-                }, 1000);
-            } else {
-                showAlert('Error al crear orden: ' + data.error, 'danger');
-            }
+        fetch('/purchases/api/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
         })
-        .catch(error => {
-            showAlert('Error de conexión: ' + error, 'danger');
-            console.error(error);
-        });
-}
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`Orden ${data.order.order_number} creada exitosamente`, 'success');
 
-function formatNumber(num) {
-    if (num === null || num === undefined) return '0.00';
-    return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
+                    // Cerrar modal
+                    bootstrap.Modal.getInstance(document.getElementById('createOrderModal')).hide();
 
-function showAlert(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-    alertDiv.style.zIndex = '9999';
-    alertDiv.innerHTML = `
+                    // Limpiar selección
+                    selectedProducts = [];
+                    updateSelectionSummary();
+
+                    // Recargar productos
+                    loadProducts();
+
+                    // Preguntar si quiere ver la orden
+                    setTimeout(() => {
+                        if (confirm('¿Deseas ver la orden creada?')) {
+                            window.location.href = `/purchases/orders/${data.order.id}`;
+                        }
+                    }, 1000);
+                } else {
+                    showAlert('Error al crear orden: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error de conexión: ' + error, 'danger');
+                console.error(error);
+            });
+    }
+
+    function formatNumber(num) {
+        if (num === null || num === undefined) return '0.00';
+        return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    document.body.appendChild(alertDiv);
+        document.body.appendChild(alertDiv);
 
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
-}
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
 </script>
 {% endblock %}
