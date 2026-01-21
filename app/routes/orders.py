@@ -102,9 +102,12 @@ def get_order_for_edit(order_id):
             subtotal = float(imeta.get('_line_subtotal', 0))
             product_id = int(imeta.get('_product_id', 0))
             variation_id = int(imeta.get('_variation_id', 0))
-            
-            # Calcular precio unitario
-            price = subtotal / qty if qty > 0 else 0
+
+            # Calcular precio unitario CON IGV
+            # _line_subtotal es sin IGV, necesitamos multiplicar por 1.18
+            # O usar _line_total si existe
+            price_without_tax = subtotal / qty if qty > 0 else 0
+            price = price_without_tax * 1.18  # Agregar IGV 18%
             
             # Obtener URL de imagen
             image_url = ""
