@@ -112,58 +112,64 @@
     .upload-icon {
         font-size: 3rem;
         color: var(--bs-success);
+        transition: all 0.3s ease;
     }
 
     .upload-title {
         color: var(--bs-body-color);
         font-weight: 600;
+        transition: all 0.3s ease;
     }
 
     .upload-subtitle {
         color: var(--bs-secondary-color);
+        transition: all 0.3s ease;
+    }
+
+    .upload-zone:hover .upload-icon {
+        transform: translateY(-5px);
     }
 
     /* Dark mode para upload zone */
     [data-bs-theme="dark"] .upload-zone {
-        background-color: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.2);
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(255, 255, 255, 0.25) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone.dragover {
-        background-color: rgba(25, 135, 84, 0.25);
-        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.3) !important;
+        border-color: #28a745 !important;
+        box-shadow: 0 0 20px rgba(40, 167, 69, 0.3) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover {
-        background-color: rgba(25, 135, 84, 0.15);
-        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.2) !important;
+        border-color: #28a745 !important;
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.2) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-icon {
-        color: #33d657;
+        color: #3ddc84 !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-title {
-        color: #ffffff;
+        color: #ffffff !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-subtitle {
-        color: rgba(255, 255, 255, 0.9);
+        color: #e0e0e0 !important;
     }
 
     [data-bs-theme="dark"] .upload-icon {
-        color: #28a745;
-        transition: color 0.3s;
+        color: #28a745 !important;
     }
 
     [data-bs-theme="dark"] .upload-title {
-        color: var(--bs-body-color);
-        transition: color 0.3s;
+        color: #e0e0e0 !important;
     }
 
     [data-bs-theme="dark"] .upload-subtitle {
-        color: rgba(255, 255, 255, 0.65);
-        transition: color 0.3s;
+        color: #a0a0a0 !important;
     }
 
     .result-success {
