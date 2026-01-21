@@ -995,6 +995,7 @@
     }
 
     function loadDistritos(departamentoCode) {
+        console.log('[loadDistritos] Cargando distritos para departamento:', departamentoCode);
         const $citySelect = $('#city');
 
         // Mostrar loading
@@ -1004,7 +1005,9 @@
             url: `/orders/api/distritos/${departamentoCode}`,
             method: 'GET',
             success: function (response) {
+                console.log('[loadDistritos] Respuesta recibida:', response);
                 if (response.success) {
+                    console.log('[loadDistritos] Distritos cargados:', response.distritos.length);
                     $citySelect.empty();
                     $citySelect.append('<option value="">Seleccione distrito</option>');
 
@@ -1049,9 +1052,11 @@
         });
     }
 
-    function loadMetodosEnvio(distrito) {
+    function loadMetodosEnvio(distrito, callback) {
         const $shippingSelect = $('#shipping-method');
         const $shippingHelp = $('#shipping-help');
+
+        console.log('[loadMetodosEnvio] Iniciando carga para distrito:', distrito);
 
         // Mostrar loading
         $shippingSelect.prop('disabled', true).empty()
@@ -1062,6 +1067,7 @@
             url: `/orders/api/metodos-envio/${encodeURIComponent(distrito)}`,
             method: 'GET',
             success: function (response) {
+                console.log('[loadMetodosEnvio] Respuesta recibida:', response);
                 if (response.success && response.metodos.length > 0) {
                     // Obtener tipo de entrega seleccionado
                     const deliveryType = $('#delivery-type').val();
@@ -1123,6 +1129,12 @@
                     $('#shipping-cost').val(0);
                     showNotification('warning', `No hay métodos de envío configurados para ${distrito}`);
                 }
+
+                // Ejecutar callback si fue proporcionado
+                if (typeof callback === 'function') {
+                    console.log('[loadMetodosEnvio] Ejecutando callback después de cargar métodos');
+                    callback();
+                }
             },
             error: function (xhr, status, error) {
                 console.error('Error cargando métodos de envío:', {
@@ -1134,6 +1146,12 @@
 
                 $shippingSelect.empty().append('<option value="">Error al cargar</option>');
                 $shippingHelp.html('<span class="text-danger">Error de conexión</span>');
+
+                // Ejecutar callback incluso en caso de error
+                if (typeof callback === 'function') {
+                    console.log('[loadMetodosEnvio] Ejecutando callback después de error');
+                    callback();
+                }
 
                 let errorMsg = 'Error al cargar métodos de envío';
                 try {
@@ -2427,6 +2445,8 @@
     }
 
     function populateOrderData(data) {
+        console.log('[populateOrderData] Iniciando carga de datos del pedido:', data);
+
         // 1. Cargar items al carrito
         cart = []; // Limpiar
         data.items.forEach(item => {
@@ -2454,52 +2474,75 @@
 
         // 3. Dirección y Entrega
         const deliveryType = cust.billing_entrega || 'billing_domicilio'; // Default
+        console.log('[populateOrderData] Delivery type:', deliveryType);
         $('#delivery-type').val(deliveryType).trigger('change');
 
         $('#address').val(cust.address_1);
         $('#reference').val(cust.billing_referencia);
 
+        console.log('[populateOrderData] Datos de ubicación:', {
+            state: cust.state,
+            city: cust.city,
+            distrito: cust.city
+        });
+
+        console.log('[populateOrderData] Datos de envío:', data.shipping);
+
         // Cargar ubigeo y métodos de envío
         setTimeout(() => {
+            console.log('[populateOrderData] Timeout 1 - Seleccionando departamento:', cust.state);
             // Seleccionar departamento
             $('#state').val(cust.state).trigger('change');
 
             // Esperar a que se carguen las provincias, luego seleccionar distrito
             setTimeout(() => {
+                console.log('[populateOrderData] Timeout 2 - Seleccionando distrito:', cust.city);
                 $('#city').val(cust.city).trigger('change');
 
                 // Cargar métodos de envío SOLO si no es recojo en almacén
                 if (deliveryType !== 'billing_recojo' && cust.city) {
+                    console.log('[populateOrderData] No es recojo, cargando métodos de envío para:', cust.city);
                     // Esperar a que el distrito esté seleccionado antes de cargar métodos
                     setTimeout(() => {
+                        console.log('[populateOrderData] Timeout 3 - Llamando a loadMetodosEnvio');
                         loadMetodosEnvio(cust.city, function() {
+                            console.log('[populateOrderData] Callback ejecutado - Métodos cargados');
                             // Después de cargar los métodos, seleccionar el correcto y setear costo
                             setTimeout(() => {
+                                console.log('[populateOrderData] Timeout 4 - Seleccionando método de envío');
                                 // Buscar la opción que contiene el método de envío del pedido
                                 const shippingOptions = $('#shipping-method option');
                                 let foundMatch = false;
+
+                                console.log('[populateOrderData] Opciones disponibles:', shippingOptions.length);
+                                console.log('[populateOrderData] Buscando método:', data.shipping.method_title);
 
                                 shippingOptions.each(function() {
                                     const optionText = $(this).text().toLowerCase();
                                     const methodTitle = data.shipping.method_title.toLowerCase();
 
+                                    console.log('[populateOrderData] Comparando:', optionText, 'con', methodTitle);
+
                                     if (optionText.includes(methodTitle) || methodTitle.includes(optionText)) {
                                         $(this).prop('selected', true);
                                         foundMatch = true;
+                                        console.log('[populateOrderData] Método encontrado y seleccionado');
                                         return false; // break
                                     }
                                 });
 
                                 // Establecer el costo de envío
+                                console.log('[populateOrderData] Estableciendo costo de envío:', data.shipping.cost);
                                 $('#shipping-cost').val(data.shipping.cost);
 
                                 if (!foundMatch) {
-                                    console.log('No se encontró el método de envío:', data.shipping.method_title);
+                                    console.warn('[populateOrderData] No se encontró el método de envío:', data.shipping.method_title);
                                 }
                             }, 200);
                         });
                     }, 300);
                 } else {
+                    console.log('[populateOrderData] Es recojo o no hay distrito, estableciendo costo:', data.shipping.cost || 0);
                     // Si es recojo, asegurar costo de envío
                     $('#shipping-cost').val(data.shipping.cost || 0);
                 }
