@@ -485,7 +485,7 @@
 
             // --- Active Link Logic ---
             const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.sidebar .nav-link:not(.submenu-toggle)');
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
 
             navLinks.forEach(link => {
                 const href = link.getAttribute('href');
@@ -496,7 +496,6 @@
                     // Si está dentro de un submenú, expandirlo
                     const submenu = link.closest('.submenu');
                     if (submenu) {
-                        submenu.classList.add('open');
                         const parentItem = submenu.closest('.has-submenu');
                         if (parentItem) {
                             parentItem.classList.add('open');
@@ -525,6 +524,7 @@
 
             // --- Submenu Toggle Function (global) ---
             window.toggleSubmenu = function (event, element) {
+                event.stopPropagation();
                 event.preventDefault();
                 const parentItem = element.closest('.has-submenu');
                 const submenuId = element.getAttribute('data-submenu-id');
@@ -537,21 +537,19 @@
                 }
             };
 
-            // Restaurar estado de los submenús
-            ['productos', 'reportes', 'despacho'].forEach(id => {
-                const state = localStorage.getItem(`submenu-${id}-open`);
-                if (state === 'true') {
-                    const el = document.querySelector(`[data-submenu-id="${id}"]`);
-                    if (el) {
-                        const parent = el.closest('.has-submenu');
-                        if (parent) parent.classList.add('open');
+            // Restaurar estado de los submenús solo si no hay uno ya abierto por navegación activa
+            const activeSubmenu = document.querySelector('.has-submenu.open');
+            if (!activeSubmenu) {
+                ['productos', 'reportes', 'despacho'].forEach(id => {
+                    const state = localStorage.getItem(`submenu-${id}-open`);
+                    if (state === 'true') {
+                        const el = document.querySelector(`[data-submenu-id="${id}"]`);
+                        if (el) {
+                            const parent = el.closest('.has-submenu');
+                            if (parent) parent.classList.add('open');
+                        }
                     }
-                }
-            });
-            // Mantener compatibilidad con llave anterior por un tiempo
-            if (localStorage.getItem('submenu-reportes-open') === 'true') {
-                const navReportes = document.getElementById('nav-reportes');
-                if (navReportes) navReportes.classList.add('open');
+                });
             }
 
             // --- Tooltips Logic ---
