@@ -2459,25 +2459,51 @@
         $('#address').val(cust.address_1);
         $('#reference').val(cust.billing_referencia);
 
-        // Cargar ubigeo (se dispara despues de cargar options, puede requerir delays o promesas)
-        // Simplificación: set values directos asumiendo que ya se cargaron o se cargarán
-        // Idealmente loadUbigeoData debería permitir setear valores
+        // Cargar ubigeo y métodos de envío
         setTimeout(() => {
+            // Seleccionar departamento
             $('#state').val(cust.state).trigger('change');
+
+            // Esperar a que se carguen las provincias, luego seleccionar distrito
             setTimeout(() => {
-                $('#city').val(cust.city);
+                $('#city').val(cust.city).trigger('change');
 
                 // Cargar métodos de envío SOLO si no es recojo en almacén
-                if (deliveryType !== 'billing_recojo') {
-                    loadMetodosEnvio(cust.city, function () {
-                        // Setear shipping method y cost
-                        $('#shipping-cost').val(data.shipping.cost);
-                    });
+                if (deliveryType !== 'billing_recojo' && cust.city) {
+                    // Esperar a que el distrito esté seleccionado antes de cargar métodos
+                    setTimeout(() => {
+                        loadMetodosEnvio(cust.city, function() {
+                            // Después de cargar los métodos, seleccionar el correcto y setear costo
+                            setTimeout(() => {
+                                // Buscar la opción que contiene el método de envío del pedido
+                                const shippingOptions = $('#shipping-method option');
+                                let foundMatch = false;
+
+                                shippingOptions.each(function() {
+                                    const optionText = $(this).text().toLowerCase();
+                                    const methodTitle = data.shipping.method_title.toLowerCase();
+
+                                    if (optionText.includes(methodTitle) || methodTitle.includes(optionText)) {
+                                        $(this).prop('selected', true);
+                                        foundMatch = true;
+                                        return false; // break
+                                    }
+                                });
+
+                                // Establecer el costo de envío
+                                $('#shipping-cost').val(data.shipping.cost);
+
+                                if (!foundMatch) {
+                                    console.log('No se encontró el método de envío:', data.shipping.method_title);
+                                }
+                            }, 200);
+                        });
+                    }, 300);
                 } else {
                     // Si es recojo, asegurar costo de envío
-                    $('#shipping-cost').val(data.shipping.cost);
+                    $('#shipping-cost').val(data.shipping.cost || 0);
                 }
-            }, 500);
+            }, 600);
         }, 500);
 
         // 4. Pago y Notas
