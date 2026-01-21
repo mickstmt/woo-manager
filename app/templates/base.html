@@ -487,22 +487,42 @@
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('.sidebar .nav-link');
 
+            // 1. Primero limpiar todo rastro de activo/abierto antes de empezar
+            document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.sidebar .has-submenu').forEach(l => l.classList.remove('open'));
+
+            // 2. Encontrar el mejor match para la URL actual
+            let bestMatch = null;
+            let maxLen = -1;
+
             navLinks.forEach(link => {
                 const href = link.getAttribute('href');
-                if (currentPath === '/' && href === '/') {
-                    link.classList.add('active');
-                } else if (href !== '/' && href !== '#' && currentPath.startsWith(href)) {
-                    link.classList.add('active');
-                    // Si está dentro de un submenú, expandirlo
-                    const submenu = link.closest('.submenu');
-                    if (submenu) {
-                        const parentItem = submenu.closest('.has-submenu');
-                        if (parentItem) {
-                            parentItem.classList.add('open');
-                        }
+                if (!href || href === '#' || href === '') return;
+
+                let linkPath;
+                try {
+                    linkPath = new URL(href, window.location.origin).pathname;
+                } catch (e) { return; }
+
+                if (currentPath === linkPath) {
+                    bestMatch = link;
+                    maxLen = 999;
+                } else if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
+                    if (linkPath.length > maxLen) {
+                        bestMatch = link;
+                        maxLen = linkPath.length;
                     }
                 }
             });
+
+            // 3. Activar y expandir solo lo necesario
+            if (bestMatch) {
+                bestMatch.classList.add('active');
+                const parentHasSubmenu = bestMatch.closest('.has-submenu');
+                if (parentHasSubmenu) {
+                    parentHasSubmenu.classList.add('open');
+                }
+            }
 
             // --- Mobile Logic ---
             const overlay = document.createElement('div');
@@ -537,20 +557,7 @@
                 }
             };
 
-            // Restaurar estado de los submenús solo si no hay uno ya abierto por navegación activa
-            const activeSubmenu = document.querySelector('.has-submenu.open');
-            if (!activeSubmenu) {
-                ['productos', 'reportes', 'despacho'].forEach(id => {
-                    const state = localStorage.getItem(`submenu-${id}-open`);
-                    if (state === 'true') {
-                        const el = document.querySelector(`[data-submenu-id="${id}"]`);
-                        if (el) {
-                            const parent = el.closest('.has-submenu');
-                            if (parent) parent.classList.add('open');
-                        }
-                    }
-                });
-            }
+            // (Eliminado: Restauración automática de localStorage para evitar expansiones indeseadas)
 
             // --- Tooltips Logic ---
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-tooltip]'));

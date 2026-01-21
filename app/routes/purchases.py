@@ -91,11 +91,15 @@ def api_products_out_of_stock():
     try:
         search = request.args.get('search', '', type=str)
         sort_by = request.args.get('sort_by', 'dias_sin_stock', type=str)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
 
         # Separar términos de búsqueda (Keyword-based search)
         search_terms = search.strip().split()
         params = {
-            'sort_by': sort_by
+            'sort_by': sort_by,
+            'limit': per_page,
+            'offset': (page - 1) * per_page
         }
         
         search_conditions = []
@@ -112,23 +116,8 @@ def api_products_out_of_stock():
                 params[param_name] = f'%{term}%'
             search_where_clause = " AND ".join(search_conditions)
 
-        # Query complejo: Productos con stock 0 que están en history
-        query = text(f"""
-            SELECT DISTINCT
-                p.ID as product_id,
-                p.post_title as product_name,
-                pm_sku.meta_value as sku,
-                pm_stock.meta_value as current_stock,
-                sh.new_stock as history_stock,
-                sh.changed_by as last_updated_by,
-                sh.created_at as last_stock_update,
-                DATEDIFF(NOW(), sh.created_at) as dias_sin_stock,
-                (
-                    SELECT SUM(fc.FCLastCost)
-                    FROM woo_products_fccost fc
-                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                        AND LENGTH(fc.sku) = 7
-                ) as unit_cost_usd
+        # Query base para reutilizar
+        base_query = f"""
             FROM wpyz_posts p
 
             -- SKU (requerido)
@@ -162,7 +151,30 @@ def api_products_out_of_stock():
                 OR pm_stock.meta_value IS NULL
             )
             AND {search_where_clause}
+        """
 
+        # 1. Obtener el total para la paginación
+        count_query = text(f"SELECT COUNT(DISTINCT p.ID) {base_query}")
+        total_items = db.session.execute(count_query, params).scalar()
+
+        # 2. Obtener los resultados paginados
+        query = text(f"""
+            SELECT DISTINCT
+                p.ID as product_id,
+                p.post_title as product_name,
+                pm_sku.meta_value as sku,
+                pm_stock.meta_value as current_stock,
+                sh.new_stock as history_stock,
+                sh.changed_by as last_updated_by,
+                sh.created_at as last_stock_update,
+                DATEDIFF(NOW(), sh.created_at) as dias_sin_stock,
+                (
+                    SELECT SUM(fc.FCLastCost)
+                    FROM woo_products_fccost fc
+                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
+                        AND LENGTH(fc.sku) = 7
+                ) as unit_cost_usd
+            {base_query}
             ORDER BY
                 CASE :sort_by
                     WHEN 'dias_sin_stock_desc' THEN DATEDIFF(NOW(), sh.created_at)
@@ -177,6 +189,7 @@ def api_products_out_of_stock():
                     WHEN 'nombre' THEN p.post_title
                     ELSE NULL
                 END
+            LIMIT :limit OFFSET :offset
         """)
 
         result = db.session.execute(query, params)
@@ -194,10 +207,22 @@ def api_products_out_of_stock():
                 'unit_cost_usd': float(row.unit_cost_usd) if row.unit_cost_usd else 0.00
             })
 
+        pages = (total_items + per_page - 1) // per_page
+
         return jsonify({
             'success': True,
             'products': products,
-            'total': len(products)
+            'total': total_items,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total_items,
+                'pages': pages,
+                'has_prev': page > 1,
+                'has_next': page < pages,
+                'prev_num': page - 1,
+                'next_num': page + 1
+            }
         })
 
     except Exception as e:
@@ -449,6 +474,8 @@ def api_get_orders():
         status = request.args.get('status', type=str)
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
 
         # Función para parsear fechas en múltiples formatos
         def parse_date(date_str):
@@ -484,18 +511,30 @@ def api_get_orders():
                 end_dt = end_dt.replace(hour=23, minute=59, second=59)
                 query = query.filter(PurchaseOrder.order_date <= end_dt)
 
-        # Ordenar por fecha más reciente primero
-        orders = query.order_by(PurchaseOrder.order_date.desc()).all()
+        # Ordenar por fecha más reciente primero y paginar
+        pagination = query.order_by(PurchaseOrder.order_date.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
         orders_list = []
-        for order in orders:
+        for order in pagination.items:
             order_dict = order.to_dict()
             orders_list.append(order_dict)
 
         return jsonify({
             'success': True,
             'orders': orders_list,
-            'total': len(orders_list)
+            'total': pagination.total,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next,
+                'prev_num': pagination.prev_num,
+                'next_num': pagination.next_num
+            }
         })
 
     except Exception as e:

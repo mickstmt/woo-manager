@@ -151,6 +151,9 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-4"></div>
             </div>
         </div>
     </div>
@@ -262,7 +265,7 @@
             .catch(error => console.error('Error loading exchange rate:', error));
     }
 
-    function loadProducts() {
+    function loadProducts(page = 1) {
         const search = document.getElementById('search-input').value;
         const sortBy = document.getElementById('sort-by').value;
 
@@ -277,13 +280,18 @@
         </tr>
     `;
 
-        fetch(`/purchases/api/products-out-of-stock?search=${encodeURIComponent(search)}&sort_by=${sortBy}`)
+        fetch(`/purchases/api/products-out-of-stock?search=${encodeURIComponent(search)}&sort_by=${sortBy}&page=${page}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     allProducts = data.products;
                     renderProducts(data.products);
                     document.getElementById('total-products').textContent = data.total;
+
+                    // Renderizar paginación
+                    if (data.pagination) {
+                        document.getElementById('pagination-container').innerHTML = buildSmartPagination(data.pagination, loadProducts);
+                    }
                 } else {
                     showAlert('Error al cargar productos: ' + data.error, 'danger');
                 }

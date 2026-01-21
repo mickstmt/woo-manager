@@ -160,6 +160,9 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-4"></div>
             </div>
         </div>
     </div>
@@ -177,12 +180,12 @@
         loadStats();
     });
 
-    function loadOrders() {
+    function loadOrders(page = 1) {
         const status = document.getElementById('filter-status').value;
         const startDate = document.getElementById('filter-start-date').value;
         const endDate = document.getElementById('filter-end-date').value;
 
-        let url = '/purchases/api/orders?';
+        let url = `/purchases/api/orders?page=${page}&`;
         if (status) url += `status=${status}&`;
         if (startDate) url += `start_date=${startDate}&`;
         if (endDate) url += `end_date=${endDate}&`;
@@ -216,6 +219,16 @@
                 console.log('Datos recibidos:', data);
                 if (data.success) {
                     renderOrders(data.orders);
+
+                    // Renderizar paginación
+                    if (data.pagination) {
+                        document.getElementById('pagination-container').innerHTML = buildSmartPagination(data.pagination, loadOrders);
+                    }
+
+                    // No actualizar stats si estamos en una página específica que no es la 1
+                    // O si queremos que los stats siempre reflejen el total filtrado independientemente de la página
+                    // En este caso, el API de orders no devuelve stats, así que updateStats usa los items de la página actual.
+                    // Probablemente sea mejor llamar a api/stats para stats reales si se desea.
                     updateStats(data.orders);
                 } else {
                     document.getElementById('orders-table').innerHTML = `
@@ -239,7 +252,7 @@
                     <td colspan="8" class="text-center text-danger py-4">
                         <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
                         <p>${errorMsg}</p>
-                        <button class="btn btn-sm btn-primary mt-2" onclick="loadOrders()">
+                        <button class="btn btn-sm btn-primary mt-2" onclick="loadOrders(${page})">
                             <i class="bi bi-arrow-clockwise"></i> Reintentar
                         </button>
                     </td>
