@@ -70,60 +70,55 @@ def backup_db():
         sql_path = os.path.join(tempfile.gettempdir(), f"{filename}.sql")
         gz_path = f"{sql_path}.gz"
 
-        # Comando de backup: Intentar mysqldump y mariadb-dump
-        dump_commands = ['mysqldump', 'mariadb-dump']
-        if os.name == 'nt':
-            dump_commands = ['mysqldump.exe']
+        # Intentar encontrar mysqldump
+        cmd_path = shutil.which('mysqldump') or shutil.which('mariadb-dump')
+        if not cmd_path and os.name == 'nt':
+            cmd_path = shutil.which('mysqldump.exe')
 
-        result = None
-        last_error = ""
+        if not cmd_path:
+            flash("Error: No se encontró el comando 'mysqldump' en el sistema.", "danger")
+            return redirect(url_for('index'))
 
-        # Preparar entorno para pasar el password de forma segura
-        env = os.environ.copy()
-        if db_password:
-            env['MYSQL_PWD'] = db_password
+        # Crear un archivo de opciones temporal para las credenciales
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cnf', delete=False) as f_cnf:
+            f_cnf.write("[client]\n")
+            f_cnf.write(f"user=\"{db_user}\"\n")
+            if db_password:
+                f_cnf.write(f"password=\"{db_password}\"\n")
+            f_cnf.write(f"host=\"{db_host}\"\n")
+            f_cnf.write(f"port={db_port}\n")
+            cnf_path = f_cnf.name
 
-        for dump_cmd in dump_commands:
-            # Agregamos flags de compatibilidad comunes:
-            # --column-statistics=0: Evita errores en servidores que no soportan esta opción (MySQL 8 vs 5.7)
-            # --no-tablespaces: Evita errores de permisos en entornos restringidos como Hostinger
+        try:
+            # Comando final
             cmd = [
-                dump_cmd, 
-                '--host', db_host, 
-                '--port', db_port, 
-                '--user', db_user,
+                cmd_path, 
+                f"--defaults-extra-file={cnf_path}",
                 '--column-statistics=0',
                 '--no-tablespaces',
                 '--result-file=' + sql_path, 
                 db_name
             ]
             
-            try:
-                result = subprocess.run(cmd, env=env, capture_output=True, text=True)
-                if result.returncode == 0:
-                    break
-            except FileNotFoundError:
-                last_error = f"Comando '{dump_cmd}' no encontrado."
-                continue
-            except Exception as e:
-                last_error = f"Error ejecutando {dump_cmd}: {str(e)}"
-                continue
-
-        if not result or result.returncode != 0:
-            error_msg = result.stderr if result else last_error
-            # Si el error es específicamente por --column-statistics (versiones viejas de mysqldump)
-            if result and "unknown option '--column-statistics=0'" in result.stderr:
-                # Reintentar sin esa opción
-                cmd.remove('--column-statistics=0')
-                result = subprocess.run(cmd, env=env, capture_output=True, text=True)
-                if result.returncode != 0:
-                    error_msg = result.stderr
+            current_app.logger.info(f"Ejecutando backup con: {cmd_path} para la base {db_name} en {db_host}")
             
-            if not result or result.returncode != 0:
-                current_app.logger.error(f"Error final en backup: {error_msg}")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            # Si falla por --column-statistics (versiones viejas), reintentar sin eso
+            if result.returncode != 0 and "--column-statistics" in (result.stderr or ""):
+                current_app.logger.info("Reintentando sin --column-statistics...")
+                cmd = [c for c in cmd if c != '--column-statistics=0']
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                error_msg = result.stderr or "Error desconocido en mysqldump"
+                current_app.logger.error(f"Error en backup: {error_msg}")
                 flash(f"Error al generar el backup: {error_msg}", "danger")
                 return redirect(url_for('index'))
 
+        finally:
+            if os.path.exists(cnf_path):
+                os.remove(cnf_path)
 
         # Comprimir el archivo
         with open(sql_path, 'rb') as f_in:
