@@ -30,28 +30,39 @@ def backup_db():
     """
     try:
         # Obtener configuración de la base de datos
-        db_uri = current_app.config['SQLALCHEMY_DATABASE_URI']
+        db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
         
-        # SQLALCHEMY_DATABASE_URI format: mysql+pymysql://user:password@host/dbname
-        # Necesitamos extraer los componentes para mysqldump
-        import re
-        match = re.search(r'mysql\+pymysql://([^:]+):?([^@]*)@([^/]+)/(.+)', db_uri)
+        # Log para debug (ocultando pass)
+        current_app.logger.info(f"Procesando backup para URI (ofuscada): {db_uri.split('@')[-1] if '@' in db_uri else 'N/A'}")
+
+        # Usar urlparse para una extracción más robusta
+        from urllib.parse import urlparse, unquote
         
-        if not match:
-            # Reintentar sin contraseña
-            match = re.search(r'mysql\+pymysql://([^@]+)@([^/]+)/(.+)', db_uri)
-            if match:
-                db_user = match.group(1)
-                db_password = None
-                db_host = match.group(2)
-                db_name = match.group(3)
-            else:
-                raise ValueError("No se pudo parsear la URL de la base de datos")
-        else:
-            db_user = match.group(1)
-            db_password = match.group(2)
-            db_host = match.group(3)
-            db_name = match.group(4)
+        # SQLALCHEMY_DATABASE_URI suele tener el formato mysql+pymysql://...
+        # urlparse maneja esto bien si el esquema es reconocido
+        try:
+            # Eliminamos el prefijo 'mysql+pymysql://' para que urlparse lo trate como una URL estándar
+            raw_uri = db_uri.replace('mysql+pymysql://', 'mysql://')
+            parsed = urlparse(raw_uri)
+            
+            db_user = unquote(parsed.username) if parsed.username else ''
+            db_password = unquote(parsed.password) if parsed.password else ''
+            db_host = parsed.hostname or 'localhost'
+            db_port = str(parsed.port or 3306)
+            
+            # El path suele ser '/dbname', eliminamos la barra inicial
+            db_name = parsed.path.lstrip('/')
+            
+            # CRITICAL: Si el path tiene parámetros (?charset=...), eliminarlos
+            if '?' in db_name:
+                db_name = db_name.split('?')[0]
+                
+            if not db_name:
+                raise ValueError("No se encontró el nombre de la base de datos en la URI")
+                
+        except Exception as e:
+            current_app.logger.error(f"Error parseando URI: {str(e)}")
+            raise ValueError(f"Formato de base de datos no reconocido: {str(e)}")
 
         # Nombre del archivo de backup
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -59,27 +70,60 @@ def backup_db():
         sql_path = os.path.join(tempfile.gettempdir(), f"{filename}.sql")
         gz_path = f"{sql_path}.gz"
 
-        # Comando mysqldump
-        dump_cmd = 'mysqldump'
-        if os.name == 'nt': # Windows check
-            dump_cmd = 'mysqldump.exe'
+        # Comando de backup: Intentar mysqldump y mariadb-dump
+        dump_commands = ['mysqldump', 'mariadb-dump']
+        if os.name == 'nt':
+            dump_commands = ['mysqldump.exe']
 
-        cmd = [dump_cmd, '--host', db_host, '--user', db_user]
+        result = None
+        last_error = ""
+
+        # Preparar entorno para pasar el password de forma segura
+        env = os.environ.copy()
         if db_password:
-            cmd.append(f'--password={db_password}')
-        cmd.extend([db_name, '--result-file=' + sql_path])
+            env['MYSQL_PWD'] = db_password
 
-        # Ejecutar backup
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-        except FileNotFoundError:
-            flash("Error: El comando 'mysqldump' no está instalado o no se encuentra en el PATH del sistema. Si estás en Windows, asegúrate de tener MySQL instalado y su carpeta 'bin' añadida a las variables de entorno.", "danger")
-            return redirect(url_for('products.index'))
-        
-        if result.returncode != 0:
-            current_app.logger.error(f"Error en mysqldump: {result.stderr}")
-            flash(f"Error al generar el backup: {result.stderr}", "danger")
-            return redirect(url_for('products.index'))
+        for dump_cmd in dump_commands:
+            # Agregamos flags de compatibilidad comunes:
+            # --column-statistics=0: Evita errores en servidores que no soportan esta opción (MySQL 8 vs 5.7)
+            # --no-tablespaces: Evita errores de permisos en entornos restringidos como Hostinger
+            cmd = [
+                dump_cmd, 
+                '--host', db_host, 
+                '--port', db_port, 
+                '--user', db_user,
+                '--column-statistics=0',
+                '--no-tablespaces',
+                '--result-file=' + sql_path, 
+                db_name
+            ]
+            
+            try:
+                result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+                if result.returncode == 0:
+                    break
+            except FileNotFoundError:
+                last_error = f"Comando '{dump_cmd}' no encontrado."
+                continue
+            except Exception as e:
+                last_error = f"Error ejecutando {dump_cmd}: {str(e)}"
+                continue
+
+        if not result or result.returncode != 0:
+            error_msg = result.stderr if result else last_error
+            # Si el error es específicamente por --column-statistics (versiones viejas de mysqldump)
+            if result and "unknown option '--column-statistics=0'" in result.stderr:
+                # Reintentar sin esa opción
+                cmd.remove('--column-statistics=0')
+                result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+                if result.returncode != 0:
+                    error_msg = result.stderr
+            
+            if not result or result.returncode != 0:
+                current_app.logger.error(f"Error final en backup: {error_msg}")
+                flash(f"Error al generar el backup: {error_msg}", "danger")
+                return redirect(url_for('products.index'))
+
 
         # Comprimir el archivo
         with open(sql_path, 'rb') as f_in:

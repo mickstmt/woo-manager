@@ -501,99 +501,98 @@
                         }
                     }
                 }
-            }
             });
 
-        // --- Mobile Logic ---
-        const overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        document.body.appendChild(overlay);
+            // --- Mobile Logic ---
+            const overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            document.body.appendChild(overlay);
 
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-        if (mobileMenuToggle) {
-            mobileMenuToggle.addEventListener('click', function () {
-                sidebar.classList.toggle('mobile-open');
-                overlay.classList.toggle('active');
-            });
-        }
-
-        overlay.addEventListener('click', function () {
-            sidebar.classList.remove('mobile-open');
-            overlay.classList.remove('active');
-        });
-
-        // --- Submenu Toggle Function (global) ---
-        window.toggleSubmenu = function (event, element) {
-            event.preventDefault();
-            const parentItem = element.closest('.has-submenu');
-            const submenuId = element.getAttribute('data-submenu-id');
-
-            if (parentItem && submenuId) {
-                parentItem.classList.toggle('open');
-                // Guardar estado en localStorage con llave única
-                const isOpen = parentItem.classList.contains('open');
-                localStorage.setItem(`submenu-${submenuId}-open`, isOpen);
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', function () {
+                    sidebar.classList.toggle('mobile-open');
+                    overlay.classList.toggle('active');
+                });
             }
-        };
 
-        // Restaurar estado de los submenús
-        ['productos', 'reportes', 'despacho'].forEach(id => {
-            const state = localStorage.getItem(`submenu-${id}-open`);
-            if (state === 'true') {
-                const el = document.querySelector(`[data-submenu-id="${id}"]`);
-                if (el) {
-                    const parent = el.closest('.has-submenu');
-                    if (parent) parent.classList.add('open');
+            overlay.addEventListener('click', function () {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+            });
+
+            // --- Submenu Toggle Function (global) ---
+            window.toggleSubmenu = function (event, element) {
+                event.preventDefault();
+                const parentItem = element.closest('.has-submenu');
+                const submenuId = element.getAttribute('data-submenu-id');
+
+                if (parentItem && submenuId) {
+                    parentItem.classList.toggle('open');
+                    // Guardar estado en localStorage con llave única
+                    const isOpen = parentItem.classList.contains('open');
+                    localStorage.setItem(`submenu-${submenuId}-open`, isOpen);
                 }
-            }
-        });
-        // Mantener compatibilidad con llave anterior por un tiempo
-        if (localStorage.getItem('submenu-reportes-open') === 'true') {
-            const navReportes = document.getElementById('nav-reportes');
-            if (navReportes) navReportes.classList.add('open');
-        }
+            };
 
-        // --- Tooltips Logic ---
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-tooltip]'));
-        const tooltipList = tooltipTriggerList.map(function (el) {
-            // Configurar atributos de Bootstrap
-            el.setAttribute('data-bs-title', el.getAttribute('data-tooltip'));
-            el.setAttribute('data-bs-toggle', 'tooltip');
-            el.setAttribute('data-bs-placement', 'right');
-            return new bootstrap.Tooltip(el, {
-                trigger: 'hover focus', // Default trigger
-                customClass: 'custom-sidebar-tooltip' // Clase personalizada para estilos
-            });
-        });
-
-        // Función para habilitar/deshabilitar tooltips según estado
-        function updateTooltipState() {
-            const isCollapsed = sidebar.classList.contains('collapsed');
-            tooltipList.forEach(t => {
-                if (isCollapsed) {
-                    t.enable();
-                } else {
-                    t.disable();
+            // Restaurar estado de los submenús
+            ['productos', 'reportes', 'despacho'].forEach(id => {
+                const state = localStorage.getItem(`submenu-${id}-open`);
+                if (state === 'true') {
+                    const el = document.querySelector(`[data-submenu-id="${id}"]`);
+                    if (el) {
+                        const parent = el.closest('.has-submenu');
+                        if (parent) parent.classList.add('open');
+                    }
                 }
             });
-        }
+            // Mantener compatibilidad con llave anterior por un tiempo
+            if (localStorage.getItem('submenu-reportes-open') === 'true') {
+                const navReportes = document.getElementById('nav-reportes');
+                if (navReportes) navReportes.classList.add('open');
+            }
 
-        // Inicializar estado
-        updateTooltipState();
-
-        // Actualizar al hacer toggle
-        if (sidebarToggle) {
-            // Reemplazamos el listener anterior para incluir la actualización de tooltips
-            // Nota: Esto agrega un SEGUNDO listener si no tenemos cuidado, pero el anterior ya estaba definido arriba.
-            // Lo ideal es modificar el bloque de arriba.
-            // Como este es un script inline, podemos anexar la llamada al listener existente si tuvieramos acceso,
-            // pero como está en un closure, es mejor agregar otro listener que solo haga updateTooltipState
-            sidebarToggle.addEventListener('click', function () {
-                // Esperamos un tick para que la clase cambie (aunque el otro listener es síncrono, el orden importa)
-                setTimeout(updateTooltipState, 0);
+            // --- Tooltips Logic ---
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-tooltip]'));
+            const tooltipList = tooltipTriggerList.map(function (el) {
+                // Configurar atributos de Bootstrap
+                el.setAttribute('data-bs-title', el.getAttribute('data-tooltip'));
+                el.setAttribute('data-bs-toggle', 'tooltip');
+                el.setAttribute('data-bs-placement', 'right');
+                return new bootstrap.Tooltip(el, {
+                    trigger: 'hover focus', // Default trigger
+                    customClass: 'custom-sidebar-tooltip' // Clase personalizada para estilos
+                });
             });
-        }
-        }) ();
+
+            // Función para habilitar/deshabilitar tooltips según estado
+            function updateTooltipState() {
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                tooltipList.forEach(t => {
+                    if (isCollapsed) {
+                        t.enable();
+                    } else {
+                        t.disable();
+                    }
+                });
+            }
+
+            // Inicializar estado
+            updateTooltipState();
+
+            // Actualizar al hacer toggle
+            if (sidebarToggle) {
+                // Reemplazamos el listener anterior para incluir la actualización de tooltips
+                // Nota: Esto agrega un SEGUNDO listener si no tenemos cuidado, pero el anterior ya estaba definido arriba.
+                // Lo ideal es modificar el bloque de arriba.
+                // Como este es un script inline, podemos anexar la llamada al listener existente si tuvieramos acceso,
+                // pero como está en un closure, es mejor agregar otro listener que solo haga updateTooltipState
+                sidebarToggle.addEventListener('click', function () {
+                    // Esperamos un tick para que la clase cambie (aunque el otro listener es síncrono, el orden importa)
+                    setTimeout(updateTooltipState, 0);
+                });
+            }
+        })();
     </script>
 
     <!-- Verificador de sesión -->
