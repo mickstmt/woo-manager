@@ -129,7 +129,6 @@
                     </div>
                     <span class="sidebar-brand-text">WooManager</span>
                 </a>
-                </a>
             </div>
 
             <!-- Navegación -->
@@ -279,13 +278,16 @@
                     </ul>
                 </div>
                 {% if current_user.username == 'mickstmt' %}
-                <div class="nav-section-title mt-4">SISTEMA</div>
-
-                <div class="nav-item">
-                    <a href="{{ url_for('admin.backup_db') }}" class="nav-link" title="Backup DB">
-                        <i class="bi bi-database-down"></i>
-                        <span class="nav-text">Backup Base de Datos</span>
-                    </a>
+                <div class="nav-section">
+                    <div class="nav-section-title">SISTEMA</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="{{ url_for('admin.backup_db') }}" class="nav-link" data-tooltip="Backup DB">
+                                <span class="nav-link-icon"><i class="bi bi-database-down"></i></span>
+                                <span class="nav-link-text">Backup Base de Datos</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
                 {% endif %}
             </nav>

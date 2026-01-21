@@ -17,7 +17,7 @@ def backup_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.username != 'mickstmt':
             flash('No tienes permisos para acceder a esta funcionalidad del sistema.', 'danger')
-            return redirect(url_for('products.index'))
+            return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -122,7 +122,7 @@ def backup_db():
             if not result or result.returncode != 0:
                 current_app.logger.error(f"Error final en backup: {error_msg}")
                 flash(f"Error al generar el backup: {error_msg}", "danger")
-                return redirect(url_for('products.index'))
+                return redirect(url_for('index'))
 
 
         # Comprimir el archivo
@@ -144,7 +144,7 @@ def backup_db():
     except Exception as e:
         current_app.logger.error(f"Error sistemático en backup: {str(e)}")
         flash(f"Error del sistema: {str(e)}", "danger")
-        return redirect(url_for('products.index'))
+        return redirect(url_for('index'))
 
     finally:
         # Nota: La eliminación del archivo .gz no se puede hacer aquí directamente 
