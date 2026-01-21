@@ -2251,9 +2251,41 @@ def enable_stock(product_id):
             """)
             db.session.execute(insert_manage_query, {'target_id': target_id})
 
+        # Obtener información del producto para el historial
+        product_info_query = text("""
+            SELECT p.post_title, 
+                   (SELECT meta_value FROM wpyz_postmeta WHERE post_id = :target_id AND meta_key = '_sku' LIMIT 1) as sku
+            FROM wpyz_posts p
+            WHERE p.ID = :target_id
+        """)
+        product_info = db.session.execute(product_info_query, {'target_id': target_id}).fetchone()
+        
+        product_title = product_info.post_title if product_info else 'Producto desconocido'
+        product_sku = product_info.sku if product_info and product_info.sku else 'N/A'
+
+        # Registrar en el historial de stock
+        try:
+            from app.models import StockHistory
+            
+            history = StockHistory(
+                product_id=target_id,
+                product_title=product_title,
+                sku=product_sku,
+                old_stock=0,
+                new_stock=min_stock,
+                change_amount=min_stock,
+                changed_by=current_user.username,
+                change_reason='Habilitado desde pedido WhatsApp'
+            )
+            db.session.add(history)
+        except Exception as hist_error:
+            # Si falla el historial, no fallar la habilitación del stock
+            current_app.logger.warning(f'Error al guardar historial para producto {target_id}: {str(hist_error)}')
+
         db.session.commit()
 
         return jsonify({
+
             'success': True,
             'message': f'Stock habilitado: {min_stock} unidades disponibles',
             'product_id': product_id,

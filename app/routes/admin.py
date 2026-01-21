@@ -116,25 +116,25 @@ def backup_db():
                 flash(f"Error al generar el backup: {error_msg}", "danger")
                 return redirect(url_for('index'))
 
+            # Comprimir el archivo
+            with open(sql_path, 'rb') as f_in:
+                with gzip.open(gz_path, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+            # Eliminar el SQL sin comprimir
+            os.remove(sql_path)
+
+            # Servir el archivo comprimido
+            return send_file(
+                gz_path,
+                as_attachment=True,
+                download_name=f"{filename}.sql.gz",
+                mimetype='application/gzip'
+            )
+
         finally:
             if os.path.exists(cnf_path):
                 os.remove(cnf_path)
-
-        # Comprimir el archivo
-        with open(sql_path, 'rb') as f_in:
-            with gzip.open(gz_path, 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
-
-        # Eliminar el SQL sin comprimir
-        os.remove(sql_path)
-
-        # Servir el archivo comprimido
-        return send_file(
-            gz_path,
-            as_attachment=True,
-            download_name=f"{filename}.sql.gz",
-            mimetype='application/gzip'
-        )
 
     except Exception as e:
         current_app.logger.error(f"Error sistemático en backup: {str(e)}")

@@ -1739,9 +1739,20 @@
             <p><strong>${name}</strong> (SKU: ${sku})</p>
             <p>Este producto no tiene stock disponible en la web.</p>
             <p><strong>¿Desea habilitarlo para poder venderlo?</strong></p>
-            <p class="text-muted small">Se establecerá 1 unidad en stock automáticamente en WooCommerce.</p>
+            <div class="mt-3">
+                <label for="stock-quantity-input" class="form-label fw-bold">Cantidad a habilitar:</label>
+                <input type="number" 
+                       class="form-control" 
+                       id="stock-quantity-input" 
+                       value="1" 
+                       min="1" 
+                       max="9999"
+                       style="max-width: 150px;">
+                <small class="text-muted d-block mt-2">Esta cantidad se agregará al stock en WooCommerce y al carrito del pedido.</small>
+            </div>
         </div>
     `;
+
 
         // Crear modal de confirmación con Bootstrap
         const modalHtml = `
@@ -1778,22 +1789,31 @@
 
         // Event listener para confirmación
         $('#confirm-enable-stock').off('click').on('click', function () {
+            // Leer cantidad del input
+            const quantity = parseInt($('#stock-quantity-input').val()) || 1;
+
+            // Validar cantidad
+            if (quantity < 1) {
+                showNotification('error', 'La cantidad debe ser al menos 1');
+                return;
+            }
+
             $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Habilitando...');
 
-            // Llamar al endpoint para habilitar stock
-            enableProductStock(productId, variationId, name, price, sku, imageUrl);
+            // Llamar al endpoint para habilitar stock con la cantidad especificada
+            enableProductStock(productId, variationId, name, price, sku, imageUrl, quantity);
         });
     }
 
     // Función para habilitar stock en WooCommerce
-    function enableProductStock(productId, variationId, name, price, sku, imageUrl = null) {
+    function enableProductStock(productId, variationId, name, price, sku, imageUrl = null, quantity = 1) {
         $.ajax({
             url: `/orders/enable-stock/${productId}`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
                 variation_id: variationId,
-                min_stock: 1
+                min_stock: quantity
             }),
             success: function (response) {
                 if (response.success) {
@@ -1803,11 +1823,11 @@
                     // Cerrar modal de variaciones
                     $('#variationsModal').modal('hide');
 
-                    // Agregar al carrito con stock habilitado
-                    addToCart(productId, variationId, name, price, sku, response.stock, imageUrl);
+                    // Agregar al carrito con la cantidad especificada
+                    addToCartWithQuantity(productId, variationId, name, price, sku, response.stock, imageUrl, quantity);
 
                     // Notificar éxito
-                    showNotification('success', `Stock habilitado: ${response.stock} unidades disponibles`);
+                    showNotification('success', `Stock habilitado: ${response.stock} unidades. ${quantity} agregadas al carrito.`);
                 } else {
                     showNotification('error', 'Error al habilitar stock: ' + response.error);
                     $('#confirm-enable-stock').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Sí, Habilitar y Agregar');
@@ -1820,7 +1840,41 @@
         });
     }
 
+    // Función para agregar al carrito con cantidad personalizada
+    function addToCartWithQuantity(productId, variationId, name, price, sku, stock = null, imageUrl = null, initialQuantity = 1) {
+        const item = {
+            product_id: productId,
+            variation_id: variationId,
+            name: name,
+            price: parseFloat(price),
+            quantity: initialQuantity,
+            sku: sku,
+            stock: stock,
+            image_url: imageUrl || 'https://via.placeholder.com/60?text=Sin+imagen'
+        };
+
+        // Verificar si ya existe
+        const existing = cart.find(i => i.variation_id === item.variation_id && i.product_id === item.product_id);
+
+        if (existing) {
+            // Sumar la cantidad especificada
+            const newQuantity = existing.quantity + initialQuantity;
+
+            // Verificar si hay stock suficiente
+            if (existing.stock !== null && newQuantity > existing.stock) {
+                showNotification('warning', `Stock máximo alcanzado: ${existing.stock} unidades disponibles`);
+                return;
+            }
+            existing.quantity = newQuantity;
+        } else {
+            cart.push(item);
+        }
+
+        updateCartDisplay();
+    }
+
     function removeFromCart(index) {
+
         cart.splice(index, 1);
         updateCartDisplay();
     }
@@ -2505,7 +2559,7 @@
                     // Esperar a que el distrito esté seleccionado antes de cargar métodos
                     setTimeout(() => {
                         console.log('[populateOrderData] Timeout 3 - Llamando a loadMetodosEnvio');
-                        loadMetodosEnvio(cust.city, function() {
+                        loadMetodosEnvio(cust.city, function () {
                             console.log('[populateOrderData] Callback ejecutado - Métodos cargados');
                             // Después de cargar los métodos, seleccionar el correcto y setear costo
                             setTimeout(() => {
@@ -2517,7 +2571,7 @@
                                 console.log('[populateOrderData] Opciones disponibles:', shippingOptions.length);
                                 console.log('[populateOrderData] Buscando método:', data.shipping.method_title);
 
-                                shippingOptions.each(function() {
+                                shippingOptions.each(function () {
                                     const optionText = $(this).text().toLowerCase();
                                     const methodTitle = data.shipping.method_title.toLowerCase();
 
