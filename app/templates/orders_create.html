@@ -1826,6 +1826,38 @@
         }
     }
 
+    function updateItemPrice(index, newPrice) {
+        const price = parseFloat(newPrice);
+
+        // Validar precio
+        if (isNaN(price) || price < 0) {
+            showNotification('error', 'Precio inválido. Debe ser un número positivo.');
+            updateCartDisplay(); // Restaurar el input al valor anterior
+            return;
+        }
+
+        // Actualizar precio en el carrito
+        cart[index].price = price;
+
+        // Actualizar display
+        updateCartDisplay();
+
+        // Mostrar notificación
+        if (price !== cart[index].original_price) {
+            showNotification('success', 'Precio modificado para este pedido');
+        }
+    }
+
+    function resetItemPrice(index) {
+        // Restaurar precio original
+        cart[index].price = cart[index].original_price;
+
+        // Actualizar display
+        updateCartDisplay();
+
+        showNotification('success', 'Precio restaurado al original');
+    }
+
     function updateCartDisplay() {
         const container = $('#cart-items');
         const count = $('#cart-count');
@@ -1845,6 +1877,17 @@
             container.empty();
 
             cart.forEach((item, index) => {
+                // Guardar precio original si no existe
+                if (!item.original_price) {
+                    item.original_price = item.price;
+                }
+
+                const isPriceModified = item.price !== item.original_price;
+                const priceClass = isPriceModified ? 'text-warning' : 'text-muted';
+                const originalPriceHtml = isPriceModified
+                    ? `<small class="text-muted text-decoration-line-through">S/ ${item.original_price.toFixed(2)}</small> `
+                    : '';
+
                 const html = `
                 <div class="cart-item">
                     <span class="cart-item-remove" onclick="removeFromCart(${index})">
@@ -1856,7 +1899,26 @@
                          onerror="this.src='https://via.placeholder.com/60?text=Sin+imagen'">
                     <div class="cart-item-info">
                         <strong style="font-size: 0.95rem;">${item.name}</strong><br>
-                        <small class="text-muted">S/ ${item.price.toFixed(2)}</small>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            ${originalPriceHtml}
+                            <div class="input-group input-group-sm" style="max-width: 120px;">
+                                <span class="input-group-text">S/</span>
+                                <input type="number"
+                                       class="form-control form-control-sm price-input ${priceClass}"
+                                       value="${item.price.toFixed(2)}"
+                                       min="0"
+                                       step="0.01"
+                                       onchange="updateItemPrice(${index}, this.value)"
+                                       onclick="this.select()">
+                            </div>
+                            ${isPriceModified ? `
+                                <button class="btn btn-sm btn-outline-secondary"
+                                        onclick="resetItemPrice(${index})"
+                                        title="Restaurar precio original">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            ` : ''}
+                        </div>
                         <div class="d-flex align-items-center justify-content-between mt-2">
                             <div class="btn-group btn-group-sm">
                                 <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">-</button>
