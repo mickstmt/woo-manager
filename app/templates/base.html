@@ -404,6 +404,7 @@
             // Función para establecer tema
             function setTheme(theme) {
                 htmlElement.setAttribute('data-theme', theme);
+                htmlElement.setAttribute('data-bs-theme', theme);
                 localStorage.setItem('theme', theme);
 
                 // Actualizar icono
