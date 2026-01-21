@@ -132,24 +132,25 @@
 
     /* Dark mode para upload zone */
     [data-bs-theme="dark"] .upload-zone {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        border-color: rgba(255, 255, 255, 0.25) !important;
+        background-color: transparent !important;
+        border-color: rgba(40, 167, 69, 0.6) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone.dragover {
-        background-color: rgba(40, 167, 69, 0.3) !important;
+        background-color: rgba(40, 167, 69, 0.15) !important;
         border-color: #28a745 !important;
-        box-shadow: 0 0 20px rgba(40, 167, 69, 0.3) !important;
+        box-shadow: 0 0 20px rgba(40, 167, 69, 0.4) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover {
-        background-color: rgba(40, 167, 69, 0.2) !important;
+        background-color: rgba(40, 167, 69, 0.1) !important;
         border-color: #28a745 !important;
-        box-shadow: 0 0 15px rgba(40, 167, 69, 0.2) !important;
+        box-shadow: 0 0 10px rgba(40, 167, 69, 0.3) !important;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-icon {
         color: #3ddc84 !important;
+        transform: translateY(-5px) scale(1.05);
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-title {
@@ -157,7 +158,7 @@
     }
 
     [data-bs-theme="dark"] .upload-zone:hover .upload-subtitle {
-        color: #e0e0e0 !important;
+        color: #f0f0f0 !important;
     }
 
     [data-bs-theme="dark"] .upload-icon {
@@ -165,11 +166,12 @@
     }
 
     [data-bs-theme="dark"] .upload-title {
-        color: #e0e0e0 !important;
+        color: #ffffff !important;
+        font-weight: 600;
     }
 
     [data-bs-theme="dark"] .upload-subtitle {
-        color: #a0a0a0 !important;
+        color: #b8b8b8 !important;
     }
 
     .result-success {
