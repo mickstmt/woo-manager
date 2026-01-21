@@ -2534,6 +2534,7 @@
             method: method,
             contentType: 'application/json',
             data: JSON.stringify(orderData),
+            timeout: 60000, // 60 segundos timeout
             success: function (response) {
                 if (response.success) {
                     // Guardar ID del pedido
@@ -2600,26 +2601,44 @@
                     btn.html('<i class="bi bi-check-circle"></i> Crear Pedido');
                 }
             },
-            error: function (xhr) {
-                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+            error: function (xhr, status, error) {
+                let errorMessage = 'Error de conexión';
+
+                // Determinar el tipo de error
+                if (status === 'timeout') {
+                    errorMessage = 'La solicitud ha tardado demasiado. El pedido podría haberse creado, revisa la lista de pedidos.';
+                } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                } else if (xhr.status === 0) {
+                    errorMessage = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
+                } else if (xhr.status >= 500) {
+                    errorMessage = 'Error del servidor. El pedido podría haberse creado, revisa la lista de pedidos.';
+                } else {
+                    errorMessage = error || 'Error desconocido';
+                }
 
                 // Actualizar modal con error
-                $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
-                $('#modal-title-text').text('Error de Conexión');
+                $('#modal-icon').html('<i class="bi bi-exclamation-triangle-fill fs-4"></i>');
+                $('#modal-title-text').text(status === 'timeout' ? 'Tiempo de Espera Agotado' : 'Error de Conexión');
                 $('#modal-message').html(`
-                <div class="alert alert-danger">
-                    ${error}
+                <div class="alert alert-warning">
+                    ${errorMessage}
                 </div>
             `);
 
-                // Cambiar color del header a error
-                $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
+                // Cambiar color del header a warning (amarillo) si es timeout
+                $('.modal-header').removeClass('bg-primary').addClass(status === 'timeout' ? 'bg-warning' : 'bg-danger');
 
-                // Mostrar solo opción de cerrar
+                // Mostrar opciones
                 $('#modal-actions').html(`
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> Cerrar
-                </button>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary" onclick="goToOrdersList()">
+                        <i class="bi bi-list-ul"></i> Verificar en Lista de Pedidos
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cerrar
+                    </button>
+                </div>
             `).show();
 
                 // Re-habilitar botón
