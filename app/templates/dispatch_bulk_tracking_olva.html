@@ -1,0 +1,1039 @@
+{% extends "base.html" %}
+
+{% block title %}Tracking Masivo OLVA - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-ok {
+        background-color: #198754;
+        color: #fff;
+    }
+
+    .status-warning {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-error {
+        background-color: #dc3545;
+        color: #fff;
+    }
+
+    .status-pending {
+        background-color: #6c757d;
+        color: #fff;
+    }
+
+    .tracking-preview {
+        font-family: monospace;
+        font-size: 0.85rem;
+        background-color: var(--bs-tertiary-bg);
+        color: var(--bs-body-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    /* Fix dark mode hover en tabla */
+    .table-hover>tbody>tr:hover>* {
+        color: var(--bs-body-color);
+    }
+
+    .table-hover>tbody>tr:hover .tracking-preview {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+    }
+
+    /* Fix filas con clase table-danger y table-warning en dark mode */
+    [data-theme="dark"] .table-danger {
+        --bs-table-bg: rgba(220, 53, 69, 0.2);
+        --bs-table-hover-bg: rgba(220, 53, 69, 0.3);
+        color: var(--bs-body-color);
+    }
+
+    [data-theme="dark"] .table-warning {
+        --bs-table-bg: rgba(255, 193, 7, 0.2);
+        --bs-table-hover-bg: rgba(255, 193, 7, 0.3);
+        color: var(--bs-body-color);
+    }
+
+    [data-theme="dark"] .table-danger:hover,
+    [data-theme="dark"] .table-warning:hover {
+        color: var(--bs-body-color);
+    }
+
+    .upload-zone {
+        border: 2px dashed var(--bs-border-color);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        background-color: var(--bs-tertiary-bg);
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        min-height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .upload-zone:hover {
+        border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.05);
+    }
+
+    .upload-zone.dragover {
+        border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.1);
+        border-width: 3px;
+        transform: scale(1.01);
+    }
+
+    .upload-zone-content,
+    .upload-zone-file {
+        width: 100%;
+    }
+
+    .upload-zone-file {
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos para elementos de la zona de carga */
+    .upload-icon {
+        font-size: 3rem;
+        color: var(--bs-success);
+        transition: all 0.3s ease;
+    }
+
+    .upload-title {
+        color: var(--bs-body-color);
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .upload-subtitle {
+        color: var(--bs-secondary-color);
+        transition: all 0.3s ease;
+    }
+
+    .upload-zone:hover .upload-icon {
+        transform: translateY(-5px);
+    }
+
+    /* Dark mode para upload zone */
+    [data-theme="dark"] .upload-zone {
+        background-color: var(--bg-surface) !important;
+        border-color: rgba(40, 167, 69, 0.4) !important;
+    }
+
+    [data-theme="dark"] .upload-zone.dragover {
+        background-color: rgba(40, 167, 69, 0.1) !important;
+        border-color: #28a745 !important;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    [data-theme="dark"] .upload-zone:hover {
+        background-color: rgba(40, 167, 69, 0.05) !important;
+        border-color: #28a745 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    [data-theme="dark"] .upload-zone:hover .upload-icon {
+        color: #3ddc84 !important;
+        transform: translateY(-5px) scale(1.05);
+    }
+
+    [data-theme="dark"] .upload-zone:hover .upload-title {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .upload-zone:hover .upload-subtitle {
+        color: #e2e8f0 !important;
+    }
+
+    [data-theme="dark"] .upload-icon {
+        color: #28a745 !important;
+    }
+
+    [data-theme="dark"] .upload-title {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .upload-subtitle {
+        color: #94a3b8 !important;
+    }
+
+    .result-success {
+        color: #198754;
+    }
+
+    .result-error {
+        color: #dc3545;
+    }
+
+    .btn-md-normal {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+    }
+
+    /* ============================================
+       RESPONSIVE STYLES
+       ============================================ */
+
+    @media (max-width: 768px) {
+
+        /* Header más compacto */
+        .bulk-tracking-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 10px;
+        }
+
+        /* Botones en columna */
+        .btn-lg {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+
+        /* Botones de selección más pequeños */
+        .btn-group-sm .btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .btn-group-sm .btn span,
+        .btn-group-sm .btn .btn-text {
+            display: none;
+        }
+
+        /* Card header en móvil */
+        .card-header.d-flex {
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start !important;
+        }
+
+        .card-header .btn-group {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        /* Tabla responsive */
+        .table-responsive {
+            font-size: 0.85rem;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.5rem 0.4rem;
+            white-space: nowrap;
+        }
+
+        /* Ocultar columnas menos importantes en mobile */
+        .table .col-hide-mobile {
+            display: none;
+        }
+
+        /* Tracking preview más compacto */
+        .tracking-preview {
+            font-size: 0.7rem;
+            padding: 2px 4px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Upload zone más compacta en tablet */
+        .upload-zone {
+            min-height: 240px;
+            padding: 30px 20px;
+        }
+
+        .upload-zone h5 {
+            font-size: 1.1rem;
+        }
+
+        .upload-zone p {
+            font-size: 0.9rem;
+        }
+
+        .upload-zone i[style*="font-size: 3rem"] {
+            font-size: 2.5rem !important;
+        }
+    }
+
+    @media (max-width: 576px) {
+
+        /* Título más pequeño */
+        h2 {
+            font-size: 1.2rem;
+        }
+
+        /* Instrucciones ocultas en móvil muy pequeño */
+        .instructions-card {
+            display: none;
+        }
+
+        /* Botones apilados en zona de carga */
+        #bulk-tracking-actions.d-flex.gap-3 {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        #bulk-tracking-actions.d-flex.gap-3 .btn {
+            width: 100%;
+        }
+
+        /* Summary card compacto */
+        #summary-card .card-body {
+            padding: 0.75rem;
+        }
+
+        /* Modal más pequeño */
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        .processing-card {
+            padding: 20px;
+            margin: 10px;
+        }
+
+        .progress-text {
+            font-size: 1.2rem;
+        }
+
+        /* Upload zone muy compacta en móvil */
+        .upload-zone {
+            min-height: 200px;
+            padding: 20px 15px;
+        }
+
+        .upload-zone h5 {
+            font-size: 1rem;
+        }
+
+        .upload-zone p {
+            font-size: 0.85rem;
+        }
+
+        .upload-zone i[style*="font-size: 3rem"] {
+            font-size: 2rem !important;
+        }
+
+        .upload-zone .btn {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+        }
+    }
+
+    .processing-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .processing-overlay.active {
+        display: flex;
+    }
+
+    .processing-card {
+        background: var(--bs-body-bg);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        max-width: 400px;
+    }
+
+    .progress-text {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 py-md-4">
+    <!-- Header -->
+    <div class="row mb-3 mb-md-4">
+        <div class="col-12">
+            <div
+                class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 bulk-tracking-header">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="bi bi-truck"></i> <span class="d-none d-sm-inline">Tracking Masivo OLVA</span><span
+                            class="d-sm-none">Tracking Masivo</span>
+                    </h2>
+                    <p class="text-muted mb-0 d-none d-md-block">Asigna tracking OLVA a múltiples pedidos desde archivo Excel
+                    </p>
+                </div>
+                <div>
+                    <a href="/dispatch/" class="btn btn-outline-primary btn-sm btn-md-normal">
+                        <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Volver al Kanban</span><span
+                            class="d-sm-none">Volver</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instrucciones (ocultas en mobile muy pequeño) -->
+    <div class="row mb-3 mb-md-4 d-none d-md-flex">
+        <div class="col-12">
+            <div class="card instructions-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Instrucciones</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Seleccione el archivo Excel de OLVA usando el botón de carga</li>
+                        <li>El sistema leerá desde la fila 8: columna E (tracking), H (nombre), F (estado)</li>
+                        <li>Se hará matching por nombre del destinatario con los pedidos OLVA pendientes</li>
+                        <li>Si el estado contiene "Tienda" o "Agente", se agregará la clave 7747</li>
+                        <li>Revise los resultados del preview y seleccione los envíos a procesar</li>
+                        <li>Al procesar, cada pedido cambiará a "Completado" y se enviará email al cliente</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carga de archivo y resumen -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-file-earmark-excel text-success"></i> Archivo Excel de OLVA
+                        </label>
+
+                        <!-- Zona de arrastre -->
+                        <div class="upload-zone" id="upload-zone">
+                            <input type="file" class="d-none" id="excel-file" accept=".xlsx,.xls"
+                                onchange="onFileSelected()">
+                            <div class="upload-zone-content">
+                                <i class="bi bi-cloud-upload upload-icon"></i>
+                                <h5 class="mt-3 mb-2 upload-title">Arrastra tu archivo aquí</h5>
+                                <p class="mb-3 upload-subtitle">o haz clic para seleccionar</p>
+                                <button type="button" class="btn btn-outline-success"
+                                    onclick="document.getElementById('excel-file').click()">
+                                    <i class="bi bi-folder2-open"></i> Seleccionar Archivo
+                                </button>
+                                <div class="form-text mt-3">Archivos permitidos: .xlsx, .xls</div>
+                            </div>
+
+                            <!-- Vista del archivo seleccionado -->
+                            <div class="upload-zone-file" id="upload-zone-file" style="display: none;">
+                                <i class="bi bi-file-earmark-excel-fill text-success" style="font-size: 3rem;"></i>
+                                <h5 class="mt-3 mb-1" id="selected-file-name">archivo.xlsx</h5>
+                                <p class="text-muted mb-3" id="selected-file-size">0 KB</p>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="clearFileSelection()">
+                                    <i class="bi bi-x-circle"></i> Quitar archivo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3" id="bulk-tracking-actions">
+                        <button class="btn btn-primary btn-lg" onclick="loadPreview()" id="btn-load-preview" disabled>
+                            <i class="bi bi-search"></i> Analizar Archivo
+                        </button>
+                        <button class="btn btn-success btn-lg" onclick="processSelected()" id="btn-process" disabled>
+                            <i class="bi bi-send"></i> Procesar Seleccionados (<span id="selected-count">0</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card" id="summary-card" style="display: none;">
+                <div class="card-body">
+                    <h6 class="mb-3">Resumen del An&aacute;lisis</h6>
+                    <div class="mb-2">
+                        <small class="text-muted">Archivo:</small>
+                        <div><code id="summary-filename">-</code></div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Total env&iacute;os:</span>
+                        <strong id="summary-total">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-success">Listos para procesar:</span>
+                        <strong id="summary-ok" class="text-success">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-warning">Ya completados:</span>
+                        <strong id="summary-warning" class="text-warning">0</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-danger">No encontrados:</span>
+                        <strong id="summary-error" class="text-danger">0</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de env&iacute;os -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Preview de Env&iacute;os</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="selectAll(true)">
+                            <i class="bi bi-check-all"></i> Seleccionar Todos
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="selectAll(false)">
+                            <i class="bi bi-x-lg"></i> Deseleccionar
+                        </button>
+                        <button class="btn btn-outline-success" onclick="selectOnlyOk()">
+                            <i class="bi bi-check-circle"></i> Solo Listos
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <input type="checkbox" class="form-check-input" id="select-all-checkbox"
+                                            onchange="selectAll(this.checked)">
+                                    </th>
+                                    <th>Nombre</th>
+                                    <th>Pedido</th>
+                                    <th class="col-hide-mobile text-center">Estado</th>
+                                    <th class="col-hide-mobile">Mensaje</th>
+                                    <th class="col-hide-mobile">Tracking</th>
+                                    <th class="col-hide-mobile text-center">Clave</th>
+                                </tr>
+                            </thead>
+                            <tbody id="envios-table">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-5">
+                                        <i class="bi bi-file-earmark-excel" style="font-size: 3rem;"></i>
+                                        <p class="mb-0 mt-2">Haga clic en "Cargar y Analizar Excel" para comenzar</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados del procesamiento -->
+    <div class="row mt-4" id="results-section" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Resultados del Procesamiento</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Pedido ID</th>
+                                    <th>Resultado</th>
+                                    <th>Mensaje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación -->
+<div class="modal fade" id="confirmProcessModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Procesamiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">¿Está seguro de procesar <strong id="confirm-count">0</strong> envíos?</p>
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle"></i>
+                    Cada pedido cambiará a estado <strong>"Completado"</strong> y se enviará un email al cliente con la
+                    información de tracking.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-confirm-process" onclick="executeProcess()">
+                    <i class="bi bi-check-circle"></i> Sí, Procesar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de procesamiento -->
+<div class="processing-overlay" id="processing-overlay">
+    <div class="processing-card">
+        <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+            <span class="visually-hidden">Procesando...</span>
+        </div>
+        <div class="progress-text">
+            <span id="progress-current">0</span> / <span id="progress-total">0</span>
+        </div>
+        <p class="text-muted mt-2">Procesando envíos...</p>
+        <p class="text-muted small">No cierre esta ventana</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let enviosData = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setupDragAndDrop();
+    });
+
+    /**
+     * Configurar eventos de drag & drop
+     */
+    function setupDragAndDrop() {
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('excel-file');
+
+        // Click en la zona de carga
+        uploadZone.addEventListener('click', function (e) {
+            // Evitar que el click en el botón interno active el input dos veces
+            if (!e.target.closest('button')) {
+                fileInput.click();
+            }
+        });
+
+        // Prevenir comportamiento por defecto del navegador
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Efectos visuales para drag over
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, function () {
+                uploadZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, function () {
+                uploadZone.classList.remove('dragover');
+            }, false);
+        });
+
+        // Manejo del drop
+        uploadZone.addEventListener('drop', handleDrop, false);
+    }
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            const file = files[0];
+
+            // Validar extensión
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                const fileInput = document.getElementById('excel-file');
+                fileInput.files = files;
+                onFileSelected();
+            } else {
+                showNotification('warning', 'Por favor seleccione un archivo Excel (.xlsx o .xls)');
+            }
+        }
+    }
+
+    function onFileSelected() {
+        const fileInput = document.getElementById('excel-file');
+        const btn = document.getElementById('btn-load-preview');
+        const uploadZoneContent = document.querySelector('.upload-zone-content');
+        const uploadZoneFile = document.getElementById('upload-zone-file');
+
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+
+            // Mostrar información del archivo
+            document.getElementById('selected-file-name').textContent = file.name;
+            document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
+
+            // Cambiar vista
+            uploadZoneContent.style.display = 'none';
+            uploadZoneFile.style.display = 'block';
+
+            // Habilitar botón
+            btn.disabled = false;
+        } else {
+            // Restaurar vista original
+            uploadZoneContent.style.display = 'block';
+            uploadZoneFile.style.display = 'none';
+
+            btn.disabled = true;
+        }
+    }
+
+    function clearFileSelection() {
+        const fileInput = document.getElementById('excel-file');
+        fileInput.value = '';
+        onFileSelected();
+
+        // Ocultar resumen y tabla si estaban visibles
+        document.getElementById('summary-card').style.display = 'none';
+        document.getElementById('envios-table').innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-file-earmark-excel" style="font-size: 3rem;"></i>
+                    <p class="mb-0 mt-2">Haga clic en "Cargar y Analizar Excel" para comenzar</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function loadPreview() {
+        const fileInput = document.getElementById('excel-file');
+        const btn = document.getElementById('btn-load-preview');
+
+        if (!fileInput.files.length) {
+            showNotification('warning', 'Por favor seleccione un archivo Excel');
+            return;
+        }
+
+        const file = fileInput.files[0];
+
+        // Validar extensión
+        if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+            showNotification('danger', 'El archivo debe ser un Excel (.xlsx o .xls)');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analizando...';
+
+        document.getElementById('envios-table').innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mb-0 mt-2">Analizando archivo Excel...</p>
+            </td>
+        </tr>
+    `;
+
+        // Enviar archivo por FormData
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/dispatch/api/bulk-tracking-olva/preview', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-search"></i> Analizar Archivo';
+
+                if (data.success) {
+                    enviosData = data.envios;
+                    renderEnvios(data.envios);
+                    showSummary(data.resumen, data.archivo);
+                } else {
+                    document.getElementById('envios-table').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-danger py-5">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                            <p class="mb-0 mt-2">${data.error}</p>
+                        </td>
+                    </tr>
+                `;
+                    showNotification('danger', 'Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-search"></i> Analizar Archivo';
+
+                document.getElementById('envios-table').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger py-5">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p class="mb-0 mt-2">Error de conexión: ${error.message}</p>
+                    </td>
+                </tr>
+            `;
+                showNotification('danger', 'Error de conexión: ' + error.message);
+            });
+    }
+
+    function renderEnvios(envios) {
+        const tbody = document.getElementById('envios-table');
+
+        if (envios.length === 0) {
+            tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mb-0 mt-2">No se encontraron env&iacute;os en el archivo</p>
+                </td>
+            </tr>
+        `;
+            return;
+        }
+
+        tbody.innerHTML = envios.map((envio, index) => {
+            const statusClass = `status-${envio.validacion}`;
+            const statusText = {
+                'ok': 'Listo',
+                'warning': 'Advertencia',
+                'error': 'Error',
+                'pending': 'Pendiente'
+            }[envio.validacion] || envio.validacion;
+
+            const canSelect = envio.validacion === 'ok';
+
+            // Vista de escritorio (Table Row)
+            let html = `
+            <tr data-index="${index}" class="d-none d-md-table-row ${envio.validacion === 'error' ? 'table-danger' : envio.validacion === 'warning' ? 'table-warning' : ''}">
+                <td>
+                    <input type="checkbox" class="form-check-input envio-checkbox"
+                           data-index="${index}"
+                           ${canSelect ? '' : 'disabled'}
+                           onchange="updateSelectedCount()">
+                </td>
+                <td><small>${envio.nombre_destinatario || '-'}</small></td>
+                <td>
+                    ${envio.pedido_id ? `<a href="/dispatch/" class="text-decoration-none">#${envio.pedido_numero}</a>` : '-'}
+                </td>
+                <td class="text-center">
+                    <span class="badge ${statusClass}">${statusText}</span>
+                </td>
+                <td>${envio.mensaje}</td>
+                <td>
+                    <div class="tracking-preview"><small>${envio.tracking_last_6 || '-'}</small></div>
+                </td>
+                <td class="text-center">
+                    ${envio.lleva_clave ? '<span class="badge bg-info">7747</span>' : '-'}
+                </td>
+            </tr>
+        `;
+
+            // Vista móvil (Card Layout)
+            html += `
+            <tr class="d-md-none ${envio.validacion === 'error' ? 'table-danger' : envio.validacion === 'warning' ? 'table-warning' : ''}">
+                <td colspan="7" class="p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="checkbox" class="form-check-input envio-checkbox"
+                                   data-index="${index}"
+                                   ${canSelect ? '' : 'disabled'}
+                                   onchange="updateSelectedCount()"
+                                   style="width: 24px; height: 24px;">
+                            <strong class="fs-5">${envio.pedido_id ? '#' + envio.pedido_numero : 'Sin Pedido'}</strong>
+                        </div>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="mb-1"><strong>Nombre:</strong> ${envio.nombre_destinatario || '-'}</div>
+                    <div class="mb-1"><strong>Cliente:</strong> ${envio.cliente_nombre || '-'}</div>
+                    <div class="mb-1"><strong>Tracking:</strong> <code class="text-primary">${envio.tracking_last_6 || '-'}</code></div>
+                    ${envio.lleva_clave ? '<div class="mb-1"><strong>Clave:</strong> <span class="badge bg-info">7747</span></div>' : ''}
+                    <div class="text-muted small">${envio.mensaje}</div>
+                </td>
+            </tr>
+        `;
+
+            return html;
+        }).join('');
+
+        updateSelectedCount();
+    }
+
+    function showSummary(resumen, archivo) {
+        document.getElementById('summary-card').style.display = 'block';
+        document.getElementById('summary-filename').textContent = archivo || '-';
+        document.getElementById('summary-total').textContent = resumen.total;
+        document.getElementById('summary-ok').textContent = resumen.ok;
+        document.getElementById('summary-warning').textContent = resumen.ya_completado;
+        document.getElementById('summary-error').textContent = resumen.no_encontrado;
+    }
+
+    function selectAll(checked) {
+        document.querySelectorAll('.envio-checkbox:not(:disabled)').forEach(cb => {
+            cb.checked = checked;
+        });
+        document.getElementById('select-all-checkbox').checked = checked;
+        updateSelectedCount();
+    }
+
+    function selectOnlyOk() {
+        document.querySelectorAll('.envio-checkbox').forEach(cb => {
+            const index = parseInt(cb.dataset.index);
+            cb.checked = enviosData[index].validacion === 'ok';
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const activeCheckboxes = document.querySelectorAll('.envio-checkbox:checked');
+        const selectedIndices = new Set();
+
+        activeCheckboxes.forEach(cb => {
+            selectedIndices.add(cb.dataset.index);
+        });
+
+        // Sincronizar checkboxes del mismo índice
+        document.querySelectorAll('.envio-checkbox').forEach(cb => {
+            cb.checked = selectedIndices.has(cb.dataset.index);
+        });
+
+        const count = selectedIndices.size;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('btn-process').disabled = count === 0;
+    }
+
+    // Variable global para envíos pendientes de procesar
+    let pendingEnvios = [];
+
+    function processSelected() {
+        pendingEnvios = [];
+
+        document.querySelectorAll('.envio-checkbox:checked').forEach(cb => {
+            const index = parseInt(cb.dataset.index);
+            const envio = enviosData[index];
+
+            if (envio.pedido_id && envio.tracking_message) {
+                pendingEnvios.push({
+                    pedido_id: envio.pedido_id,
+                    tracking_number: envio.tracking_message
+                });
+            }
+        });
+
+        if (pendingEnvios.length === 0) {
+            showNotification('warning', 'No hay envíos válidos seleccionados');
+            return;
+        }
+
+        // Mostrar modal de confirmación
+        document.getElementById('confirm-count').textContent = pendingEnvios.length;
+        const modal = new bootstrap.Modal(document.getElementById('confirmProcessModal'));
+        modal.show();
+    }
+
+    function executeProcess() {
+        // Cerrar modal de confirmación
+        const confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmProcessModal'));
+        if (confirmModal) confirmModal.hide();
+
+        // Mostrar overlay
+        const overlay = document.getElementById('processing-overlay');
+        overlay.classList.add('active');
+        document.getElementById('progress-total').textContent = pendingEnvios.length;
+        document.getElementById('progress-current').textContent = '0';
+
+        // Deshabilitar botón
+        const btn = document.getElementById('btn-process');
+        btn.disabled = true;
+
+        fetch('/dispatch/api/bulk-tracking-olva/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                envios: pendingEnvios
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                overlay.classList.remove('active');
+
+                if (data.success) {
+                    showResults(data.resultados, data.resumen);
+                    showNotification('success', `Procesamiento completado: ${data.resumen.exitosos} exitosos, ${data.resumen.fallidos} fallidos`);
+
+                    // Recargar preview para actualizar estados
+                    loadPreview();
+                } else {
+                    showNotification('danger', 'Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                overlay.classList.remove('active');
+                showNotification('danger', 'Error de conexi&oacute;n: ' + error.message);
+            })
+            .finally(() => {
+                btn.disabled = false;
+            });
+    }
+
+    function showResults(resultados, resumen) {
+        document.getElementById('results-section').style.display = 'block';
+
+        const tbody = document.getElementById('results-table');
+        tbody.innerHTML = resultados.map(r => `
+        <tr class="${r.success ? '' : 'table-danger'}">
+            <td>${r.pedido_id}</td>
+            <td>
+                ${r.success
+                ? '<span class="result-success"><i class="bi bi-check-circle"></i> Exitoso</span>'
+                : '<span class="result-error"><i class="bi bi-x-circle"></i> Error</span>'}
+            </td>
+            <td>${r.error || 'Tracking asignado correctamente'}</td>
+        </tr>
+    `).join('');
+
+        // Scroll a resultados
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+{% endblock %}

@@ -198,11 +198,33 @@
                             </a>
                         </li>
                         {% if current_user.is_master() %}
-                        <li class="nav-item">
-                            <a href="/dispatch/" class="nav-link" data-tooltip="Despacho">
+                        <li class="nav-item has-submenu" id="nav-despacho">
+                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Despacho"
+                                data-submenu-id="despacho" onclick="toggleSubmenu(event, this)">
                                 <span class="nav-link-icon"><i class="bi bi-kanban"></i></span>
                                 <span class="nav-link-text">Despacho</span>
+                                <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
                             </a>
+                            <ul class="submenu">
+                                <li class="nav-item">
+                                    <a href="/dispatch/" class="nav-link" data-tooltip="Kanban">
+                                        <span class="nav-link-icon"><i class="bi bi-columns-gap"></i></span>
+                                        <span class="nav-link-text">Kanban</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="/dispatch/bulk-tracking" class="nav-link" data-tooltip="Tracking Shalom">
+                                        <span class="nav-link-icon"><i class="bi bi-truck"></i></span>
+                                        <span class="nav-link-text">Tracking Shalom</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="/dispatch/bulk-tracking-olva" class="nav-link" data-tooltip="Tracking OLVA">
+                                        <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
+                                        <span class="nav-link-text">Tracking OLVA</span>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                         {% endif %}
                         <li class="nav-item">
@@ -491,7 +513,7 @@
             };
 
             // Restaurar estado de los submenús
-            ['productos', 'reportes'].forEach(id => {
+            ['productos', 'reportes', 'despacho'].forEach(id => {
                 const state = localStorage.getItem(`submenu-${id}-open`);
                 if (state === 'true') {
                     const el = document.querySelector(`[data-submenu-id="${id}"]`);

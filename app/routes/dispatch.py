@@ -1985,3 +1985,438 @@ def process_single_tracking(order_id, tracking_number, shipping_provider, date_s
             'success': False,
             'error': str(e)
         }
+
+
+# ============================================
+# TRACKING MASIVO OLVA
+# ============================================
+
+@bp.route('/bulk-tracking-olva')
+@login_required
+@master_required
+def bulk_tracking_olva_page():
+    """
+    Página para asignación masiva de tracking OLVA.
+    """
+    return render_template('dispatch_bulk_tracking_olva.html')
+
+
+@bp.route('/api/bulk-tracking-olva/preview', methods=['POST'])
+@login_required
+@master_required
+def bulk_tracking_olva_preview():
+    """
+    Lee el archivo Excel de OLVA subido por el usuario y muestra preview de los envíos.
+    Hace matching por nombre del destinatario con pedidos OLVA en estado processing.
+
+    Formato del Excel:
+    - Columna E (desde E8): Tracking number completo
+    - Columna H (desde H8): Nombre del destinatario
+    - Columna F (desde F8): Estado del envío
+
+    Returns:
+        JSON con lista de envíos y su estado de matching
+    """
+    try:
+        from openpyxl import load_workbook
+        from io import BytesIO
+
+        # Verificar que se envió un archivo
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No se envió ningún archivo'
+            }), 400
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No se seleccionó ningún archivo'
+            }), 400
+
+        # Validar extensión
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({
+                'success': False,
+                'error': 'El archivo debe ser un Excel (.xlsx o .xls)'
+            }), 400
+
+        excel_filename = file.filename
+        current_app.logger.info(f"[BULK-TRACKING-OLVA] Procesando archivo: {excel_filename}")
+
+        # Cargar el Excel desde memoria
+        workbook = load_workbook(BytesIO(file.read()), data_only=True)
+        sheet = workbook.active
+
+        # Parsear envíos desde fila 8
+        envios = []
+        fila = 8
+
+        while True:
+            # Verificar si hay datos en la columna E (tracking)
+            tracking_full = sheet[f'E{fila}'].value
+            if not tracking_full or not str(tracking_full).strip():
+                break
+
+            # Extraer datos
+            tracking_full = str(tracking_full).strip()
+            nombre_destinatario = str(sheet[f'H{fila}'].value or '').strip()
+            estado = str(sheet[f'F{fila}'].value or '').strip()
+
+            # Obtener últimos 6 dígitos del tracking
+            tracking_last_6 = tracking_full[-6:] if len(tracking_full) >= 6 else tracking_full
+
+            # Determinar si lleva clave (si el estado contiene "Tienda" o "Agente")
+            lleva_clave = estado_requiere_clave(estado)
+
+            # Construir mensaje de tracking
+            if lleva_clave:
+                tracking_message = f"Nro. de tracking: {tracking_last_6}\nClave: 7747"
+            else:
+                tracking_message = f"Nro. de tracking: {tracking_last_6}"
+
+            envio = {
+                'fila': fila,
+                'tracking_full': tracking_full,
+                'tracking_last_6': tracking_last_6,
+                'nombre_destinatario': nombre_destinatario,
+                'estado': estado,
+                'lleva_clave': lleva_clave,
+                'tracking_message': tracking_message,
+                'pedido_id': None,
+                'pedido_numero': None,
+                'cliente_nombre': None,
+                'estado_pedido': None,
+                'validacion': 'pending',
+                'mensaje': ''
+            }
+
+            envios.append(envio)
+            fila += 1
+
+            # Límite de seguridad
+            if len(envios) > 200:
+                break
+
+        workbook.close()
+
+        if not envios:
+            return jsonify({
+                'success': False,
+                'error': 'No se encontraron envíos en el archivo Excel (desde fila 8)'
+            }), 400
+
+        # Obtener todos los pedidos OLVA en estado processing
+        olva_orders = get_olva_orders_by_name()
+
+        # Hacer matching por nombre
+        total_ok = 0
+        total_ya_completado = 0
+        total_no_encontrado = 0
+
+        for envio in envios:
+            nombre = envio['nombre_destinatario']
+
+            if not nombre or len(nombre) < 3:
+                envio['validacion'] = 'error'
+                envio['mensaje'] = 'Nombre inválido'
+                total_no_encontrado += 1
+                continue
+
+            # Buscar pedido por nombre (al menos un nombre + un apellido)
+            pedido = match_pedido_por_nombre(nombre, olva_orders)
+
+            if pedido:
+                envio['pedido_id'] = pedido['id']
+                envio['pedido_numero'] = pedido['numero']
+                envio['cliente_nombre'] = pedido['cliente']
+                envio['estado_pedido'] = pedido['estado']
+
+                if pedido['estado'] == 'wc-completed':
+                    envio['validacion'] = 'warning'
+                    envio['mensaje'] = 'Pedido ya completado'
+                    total_ya_completado += 1
+                else:
+                    envio['validacion'] = 'ok'
+                    envio['mensaje'] = 'Listo para procesar'
+                    total_ok += 1
+            else:
+                envio['validacion'] = 'error'
+                envio['mensaje'] = 'Nombre no encontrado en pedidos OLVA'
+                total_no_encontrado += 1
+
+        return jsonify({
+            'success': True,
+            'envios': envios,
+            'archivo': excel_filename,
+            'resumen': {
+                'total': len(envios),
+                'ok': total_ok,
+                'ya_completado': total_ya_completado,
+                'no_encontrado': total_no_encontrado
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error en preview de tracking masivo OLVA: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def estado_requiere_clave(estado):
+    """
+    Verifica si el estado del envío requiere clave (7747).
+
+    Retorna True si el estado contiene "Tienda" o "Agente" (case insensitive).
+
+    Args:
+        estado: String con el estado del envío
+
+    Returns:
+        bool: True si requiere clave, False en caso contrario
+    """
+    if not estado:
+        return False
+
+    estado_lower = estado.lower()
+    return 'tienda' in estado_lower or 'agente' in estado_lower
+
+
+def get_olva_orders_by_name():
+    """
+    Obtiene todos los pedidos OLVA en estado processing,
+    indexados por nombre del cliente (normalizado).
+
+    Returns:
+        dict: {nombre_normalizado: {id, numero, cliente, estado}}
+    """
+    query = text("""
+        SELECT
+            o.id,
+            COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
+            CONCAT(ba.first_name, ' ', ba.last_name) as customer_name,
+            o.status,
+            (SELECT oi.order_item_name
+             FROM wpyz_woocommerce_order_items oi
+             WHERE oi.order_id = o.id
+               AND oi.order_item_type = 'shipping'
+             LIMIT 1) as shipping_method
+        FROM wpyz_wc_orders o
+        LEFT JOIN wpyz_wc_orders_meta om_number
+            ON o.id = om_number.order_id
+            AND om_number.meta_key = '_order_number'
+        LEFT JOIN wpyz_wc_order_addresses ba
+            ON o.id = ba.order_id
+            AND ba.address_type = 'billing'
+        WHERE o.status IN ('wc-processing', 'wc-completed')
+          AND o.type = 'shop_order'
+        ORDER BY o.date_created_gmt DESC
+    """)
+
+    results = db.session.execute(query).fetchall()
+
+    # Indexar por nombre normalizado (solo pedidos OLVA)
+    orders_by_name = {}
+    for row in results:
+        shipping_method = row[4] or ''
+        # Verificar si es pedido OLVA
+        if 'olva' in shipping_method.lower():
+            nombre = str(row[2] or '').strip()
+            if nombre and len(nombre) >= 3:
+                nombre_normalizado = normalizar_nombre(nombre)
+                # Si hay múltiples pedidos con el mismo nombre, quedarse con el más reciente (processing primero)
+                if nombre_normalizado not in orders_by_name or row[3] == 'wc-processing':
+                    orders_by_name[nombre_normalizado] = {
+                        'id': row[0],
+                        'numero': row[1],
+                        'cliente': row[2],
+                        'estado': row[3],
+                        'nombre_original': nombre
+                    }
+
+    return orders_by_name
+
+
+def normalizar_nombre(nombre):
+    """
+    Normaliza un nombre para facilitar comparaciones.
+    - Convierte a minúsculas
+    - Elimina acentos
+    - Elimina espacios extras
+
+    Args:
+        nombre: String con el nombre a normalizar
+
+    Returns:
+        str: Nombre normalizado
+    """
+    if not nombre:
+        return ''
+
+    # Convertir a minúsculas
+    nombre = nombre.lower()
+
+    # Eliminar acentos
+    nombre = ''.join(
+        c for c in unicodedata.normalize('NFD', nombre)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+    # Eliminar espacios extras y normalizar
+    nombre = ' '.join(nombre.split())
+
+    return nombre
+
+
+def match_pedido_por_nombre(nombre_excel, orders_by_name):
+    """
+    Busca un pedido por nombre, requiriendo al menos coincidencia de un nombre + un apellido.
+
+    Args:
+        nombre_excel: Nombre del destinatario desde el Excel
+        orders_by_name: Diccionario de pedidos indexados por nombre normalizado
+
+    Returns:
+        dict: Pedido encontrado o None
+    """
+    if not nombre_excel or not orders_by_name:
+        return None
+
+    # Normalizar el nombre del Excel
+    nombre_normalizado = normalizar_nombre(nombre_excel)
+
+    # Separar en palabras (nombres y apellidos)
+    palabras_excel = nombre_normalizado.split()
+
+    # Si tiene menos de 2 palabras, no podemos hacer match (necesitamos al menos nombre + apellido)
+    if len(palabras_excel) < 2:
+        return None
+
+    # Buscar en todos los pedidos
+    mejores_matches = []
+
+    for nombre_pedido_norm, pedido in orders_by_name.items():
+        palabras_pedido = nombre_pedido_norm.split()
+
+        # Contar cuántas palabras del Excel coinciden con el pedido
+        coincidencias = 0
+        for palabra_excel in palabras_excel:
+            if palabra_excel in palabras_pedido:
+                coincidencias += 1
+
+        # Requerir al menos 2 palabras coincidentes (nombre + apellido)
+        if coincidencias >= 2:
+            mejores_matches.append({
+                'pedido': pedido,
+                'coincidencias': coincidencias,
+                'score': coincidencias / max(len(palabras_excel), len(palabras_pedido))
+            })
+
+    # Si hay matches, devolver el mejor
+    if mejores_matches:
+        # Ordenar por score (mayor primero)
+        mejores_matches.sort(key=lambda x: x['score'], reverse=True)
+        return mejores_matches[0]['pedido']
+
+    return None
+
+
+@bp.route('/api/bulk-tracking-olva/process', methods=['POST'])
+@login_required
+@master_required
+def bulk_tracking_olva_process():
+    """
+    Procesa los envíos OLVA seleccionados y asigna tracking a cada pedido.
+
+    Request Body:
+        {
+            "envios": [
+                {
+                    "pedido_id": 41608,
+                    "tracking_number": "Nro. de tracking: 139656\nClave: 7747"
+                },
+                ...
+            ],
+            "fecha_envio": "2026-01-15"  // Opcional
+        }
+
+    Returns:
+        JSON con resultados del procesamiento
+    """
+    try:
+        data = request.get_json()
+        envios = data.get('envios', [])
+        fecha_envio = data.get('fecha_envio')
+
+        if not envios:
+            return jsonify({
+                'success': False,
+                'error': 'No hay envíos para procesar'
+            }), 400
+
+        # Fecha de envío (por defecto hoy)
+        if not fecha_envio:
+            from datetime import date
+            fecha_envio = date.today().strftime('%Y-%m-%d')
+
+        resultados = []
+        exitosos = 0
+        fallidos = 0
+
+        for envio in envios:
+            pedido_id = envio.get('pedido_id')
+            tracking_number = envio.get('tracking_number')
+
+            if not pedido_id or not tracking_number:
+                resultados.append({
+                    'pedido_id': pedido_id,
+                    'success': False,
+                    'error': 'Datos incompletos'
+                })
+                fallidos += 1
+                continue
+
+            # Procesar cada pedido usando la misma lógica que add_tracking
+            resultado = process_single_tracking(
+                order_id=pedido_id,
+                tracking_number=tracking_number,
+                shipping_provider='Olva Courier',
+                date_shipped=fecha_envio,
+                mark_as_shipped=True
+            )
+
+            resultados.append(resultado)
+
+            if resultado['success']:
+                exitosos += 1
+            else:
+                fallidos += 1
+
+            # Rate limiting: esperar 1 segundo entre pedidos
+            import time
+            time.sleep(1)
+
+        return jsonify({
+            'success': True,
+            'resultados': resultados,
+            'resumen': {
+                'total': len(envios),
+                'exitosos': exitosos,
+                'fallidos': fallidos
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error procesando tracking masivo OLVA: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
