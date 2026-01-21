@@ -126,29 +126,44 @@
     /* Dark mode para upload zone */
     [data-bs-theme="dark"] .upload-zone {
         background-color: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.2);
     }
 
     [data-bs-theme="dark"] .upload-zone.dragover {
-        background-color: rgba(25, 135, 84, 0.2);
-        border-color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.25);
+        border-color: #28a745;
     }
 
     [data-bs-theme="dark"] .upload-zone:hover {
-        background-color: rgba(25, 135, 84, 0.1);
-        border-color: rgba(25, 135, 84, 0.5);
+        background-color: rgba(25, 135, 84, 0.15);
+        border-color: #28a745;
+    }
+
+    [data-bs-theme="dark"] .upload-zone:hover .upload-icon {
+        color: #33d657;
+    }
+
+    [data-bs-theme="dark"] .upload-zone:hover .upload-title {
+        color: #ffffff;
+    }
+
+    [data-bs-theme="dark"] .upload-zone:hover .upload-subtitle {
+        color: rgba(255, 255, 255, 0.9);
     }
 
     [data-bs-theme="dark"] .upload-icon {
         color: #28a745;
+        transition: color 0.3s;
     }
 
     [data-bs-theme="dark"] .upload-title {
         color: var(--bs-body-color);
+        transition: color 0.3s;
     }
 
     [data-bs-theme="dark"] .upload-subtitle {
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 0.65);
+        transition: color 0.3s;
     }
 
     .result-success {
