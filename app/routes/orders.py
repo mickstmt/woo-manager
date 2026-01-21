@@ -103,26 +103,43 @@ def get_order_for_edit(order_id):
             product_id = int(imeta.get('_product_id', 0))
             variation_id = int(imeta.get('_variation_id', 0))
 
-            # Calcular precio unitario CON IGV
-            # _line_subtotal es sin IGV, necesitamos multiplicar por 1.18
-            # O usar _line_total si existe
-            price_without_tax = subtotal / qty if qty > 0 else 0
-            price = price_without_tax * 1.18  # Agregar IGV 18%
-            
-            # Obtener URL de imagen
-            image_url = ""
+            # Obtener precio real del producto (CON IGV) desde postmeta
+            # Esto evita problemas de redondeo al multiplicar por 1.18
             target_id = variation_id if variation_id > 0 else product_id
-            
+            price = 0
+            image_url = ""
+
             if target_id > 0:
-                img_query = text("""
-                    SELECT p.guid 
-                    FROM wpyz_posts p 
-                    JOIN wpyz_postmeta pm ON p.ID = pm.meta_value 
-                    WHERE pm.post_id = :pid AND pm.meta_key = '_thumbnail_id'
+                # Obtener precio e imagen en una sola query
+                product_query = text("""
+                    SELECT
+                        MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) as price,
+                        MAX(CASE WHEN pm.meta_key = '_thumbnail_id' THEN pm.meta_value END) as thumbnail_id
+                    FROM wpyz_postmeta pm
+                    WHERE pm.post_id = :pid
+                    AND pm.meta_key IN ('_price', '_thumbnail_id')
                 """)
-                img_res = db.session.execute(img_query, {'pid': target_id}).fetchone()
-                if img_res:
-                    image_url = img_res[0]
+                prod_res = db.session.execute(product_query, {'pid': target_id}).fetchone()
+
+                if prod_res and prod_res[0]:
+                    price = float(prod_res[0])
+
+                # Si tiene thumbnail, obtener URL
+                if prod_res and prod_res[1]:
+                    img_query = text("""
+                        SELECT p.guid
+                        FROM wpyz_posts p
+                        WHERE p.ID = :thumbnail_id
+                    """)
+                    img_res = db.session.execute(img_query, {'thumbnail_id': int(prod_res[1])}).fetchone()
+                    if img_res:
+                        image_url = img_res[0]
+
+            # Si no se pudo obtener el precio del producto, calcular desde subtotal
+            # (Fallback para casos donde el producto ya no existe)
+            if price == 0 and qty > 0:
+                price_without_tax = subtotal / qty
+                price = round(price_without_tax * 1.18, 2)
 
             items.append({
                 'item_id': item_id,
