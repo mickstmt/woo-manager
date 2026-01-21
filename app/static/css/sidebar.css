@@ -399,20 +399,50 @@ h6 {
     position: relative;
 }
 
+.nav-link-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.nav-link-group .nav-link {
+    flex: 1;
+    margin: 0;
+}
+
+.submenu-toggle-btn {
+    width: 40px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--sidebar-text);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border-radius: var(--radius-md);
+    z-index: 2;
+}
+
+.submenu-toggle-btn:hover {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+}
+
+.sidebar.collapsed .submenu-toggle-btn {
+    display: none;
+}
+
 /* Flecha del submenú */
 .submenu-arrow {
-    margin-left: auto;
     font-size: 12px;
     transition: transform var(--transition-fast);
-    color: var(--sidebar-text);
-}
-
-.nav-item.has-submenu.open .submenu-arrow {
-    transform: rotate(180deg);
-}
-
-.sidebar.collapsed .submenu-arrow {
-    display: none;
+    pointer-events: none; /* Dejar que el botón maneje el click */
 }
 
 /* Submenú oculto por defecto */

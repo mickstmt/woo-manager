@@ -151,12 +151,16 @@
                             </a>
                         </li>
                         <li class="nav-item has-submenu" id="nav-productos">
-                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Productos"
-                                data-submenu-id="productos" onclick="toggleSubmenu(event, this)">
-                                <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
-                                <span class="nav-link-text">Productos</span>
-                                <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
-                            </a>
+                            <div class="nav-link-group">
+                                <a href="/products/" class="nav-link" data-tooltip="Productos">
+                                    <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
+                                    <span class="nav-link-text">Productos</span>
+                                </a>
+                                <button class="submenu-toggle-btn" data-submenu-id="productos"
+                                    onclick="toggleSubmenu(event, this)">
+                                    <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
+                                </button>
+                            </div>
                             <ul class="submenu">
                                 <li class="nav-item">
                                     <a href="/products/" class="nav-link" data-tooltip="Listado">
@@ -199,12 +203,16 @@
                         </li>
                         {% if current_user.is_master() %}
                         <li class="nav-item has-submenu" id="nav-despacho">
-                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Despacho"
-                                data-submenu-id="despacho" onclick="toggleSubmenu(event, this)">
-                                <span class="nav-link-icon"><i class="bi bi-kanban"></i></span>
-                                <span class="nav-link-text">Despacho</span>
-                                <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
-                            </a>
+                            <div class="nav-link-group">
+                                <a href="/dispatch/" class="nav-link" data-tooltip="Despacho">
+                                    <span class="nav-link-icon"><i class="bi bi-kanban"></i></span>
+                                    <span class="nav-link-text">Despacho</span>
+                                </a>
+                                <button class="submenu-toggle-btn" data-submenu-id="despacho"
+                                    onclick="toggleSubmenu(event, this)">
+                                    <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
+                                </button>
+                            </div>
                             <ul class="submenu">
                                 <li class="nav-item">
                                     <a href="/dispatch/" class="nav-link" data-tooltip="Kanban">
@@ -219,7 +227,8 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="/dispatch/bulk-tracking-olva" class="nav-link" data-tooltip="Tracking OLVA">
+                                    <a href="/dispatch/bulk-tracking-olva" class="nav-link"
+                                        data-tooltip="Tracking OLVA">
                                         <span class="nav-link-icon"><i class="bi bi-box-seam"></i></span>
                                         <span class="nav-link-text">Tracking OLVA</span>
                                     </a>
@@ -234,12 +243,16 @@
                             </a>
                         </li>
                         <li class="nav-item has-submenu" id="nav-reportes">
-                            <a href="#" class="nav-link submenu-toggle" data-tooltip="Reportes"
-                                data-submenu-id="reportes" onclick="toggleSubmenu(event, this)">
-                                <span class="nav-link-icon"><i class="bi bi-graph-up"></i></span>
-                                <span class="nav-link-text">Reportes</span>
-                                <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
-                            </a>
+                            <div class="nav-link-group">
+                                <a href="/reports/" class="nav-link" data-tooltip="Reportes">
+                                    <span class="nav-link-icon"><i class="bi bi-graph-up"></i></span>
+                                    <span class="nav-link-text">Reportes</span>
+                                </a>
+                                <button class="submenu-toggle-btn" data-submenu-id="reportes"
+                                    onclick="toggleSubmenu(event, this)">
+                                    <span class="submenu-arrow"><i class="bi bi-chevron-down"></i></span>
+                                </button>
+                            </div>
                             <ul class="submenu">
                                 <li class="nav-item">
                                     <a href="/reports/" class="nav-link" data-tooltip="Dashboard">
@@ -265,6 +278,16 @@
                         </li>
                     </ul>
                 </div>
+                {% if current_user.username == 'mickstmt' %}
+                <div class="nav-section-title mt-4">SISTEMA</div>
+
+                <div class="nav-item">
+                    <a href="{{ url_for('admin.backup_db') }}" class="nav-link" title="Backup DB">
+                        <i class="bi bi-database-down"></i>
+                        <span class="nav-text">Backup Base de Datos</span>
+                    </a>
+                </div>
+                {% endif %}
             </nav>
 
             <!-- Footer: Configuración + Logout -->
@@ -478,98 +501,99 @@
                         }
                     }
                 }
-            });
-
-            // --- Mobile Logic ---
-            const overlay = document.createElement('div');
-            overlay.className = 'sidebar-overlay';
-            document.body.appendChild(overlay);
-
-            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-            if (mobileMenuToggle) {
-                mobileMenuToggle.addEventListener('click', function () {
-                    sidebar.classList.toggle('mobile-open');
-                    overlay.classList.toggle('active');
-                });
             }
-
-            overlay.addEventListener('click', function () {
-                sidebar.classList.remove('mobile-open');
-                overlay.classList.remove('active');
             });
 
-            // --- Submenu Toggle Function (global) ---
-            window.toggleSubmenu = function (event, element) {
-                event.preventDefault();
-                const parentItem = element.closest('.has-submenu');
-                const submenuId = element.getAttribute('data-submenu-id');
+        // --- Mobile Logic ---
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
 
-                if (parentItem && submenuId) {
-                    parentItem.classList.toggle('open');
-                    // Guardar estado en localStorage con llave única
-                    const isOpen = parentItem.classList.contains('open');
-                    localStorage.setItem(`submenu-${submenuId}-open`, isOpen);
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', function () {
+                sidebar.classList.toggle('mobile-open');
+                overlay.classList.toggle('active');
+            });
+        }
+
+        overlay.addEventListener('click', function () {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+        });
+
+        // --- Submenu Toggle Function (global) ---
+        window.toggleSubmenu = function (event, element) {
+            event.preventDefault();
+            const parentItem = element.closest('.has-submenu');
+            const submenuId = element.getAttribute('data-submenu-id');
+
+            if (parentItem && submenuId) {
+                parentItem.classList.toggle('open');
+                // Guardar estado en localStorage con llave única
+                const isOpen = parentItem.classList.contains('open');
+                localStorage.setItem(`submenu-${submenuId}-open`, isOpen);
+            }
+        };
+
+        // Restaurar estado de los submenús
+        ['productos', 'reportes', 'despacho'].forEach(id => {
+            const state = localStorage.getItem(`submenu-${id}-open`);
+            if (state === 'true') {
+                const el = document.querySelector(`[data-submenu-id="${id}"]`);
+                if (el) {
+                    const parent = el.closest('.has-submenu');
+                    if (parent) parent.classList.add('open');
                 }
-            };
+            }
+        });
+        // Mantener compatibilidad con llave anterior por un tiempo
+        if (localStorage.getItem('submenu-reportes-open') === 'true') {
+            const navReportes = document.getElementById('nav-reportes');
+            if (navReportes) navReportes.classList.add('open');
+        }
 
-            // Restaurar estado de los submenús
-            ['productos', 'reportes', 'despacho'].forEach(id => {
-                const state = localStorage.getItem(`submenu-${id}-open`);
-                if (state === 'true') {
-                    const el = document.querySelector(`[data-submenu-id="${id}"]`);
-                    if (el) {
-                        const parent = el.closest('.has-submenu');
-                        if (parent) parent.classList.add('open');
-                    }
+        // --- Tooltips Logic ---
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-tooltip]'));
+        const tooltipList = tooltipTriggerList.map(function (el) {
+            // Configurar atributos de Bootstrap
+            el.setAttribute('data-bs-title', el.getAttribute('data-tooltip'));
+            el.setAttribute('data-bs-toggle', 'tooltip');
+            el.setAttribute('data-bs-placement', 'right');
+            return new bootstrap.Tooltip(el, {
+                trigger: 'hover focus', // Default trigger
+                customClass: 'custom-sidebar-tooltip' // Clase personalizada para estilos
+            });
+        });
+
+        // Función para habilitar/deshabilitar tooltips según estado
+        function updateTooltipState() {
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            tooltipList.forEach(t => {
+                if (isCollapsed) {
+                    t.enable();
+                } else {
+                    t.disable();
                 }
             });
-            // Mantener compatibilidad con llave anterior por un tiempo
-            if (localStorage.getItem('submenu-reportes-open') === 'true') {
-                const navReportes = document.getElementById('nav-reportes');
-                if (navReportes) navReportes.classList.add('open');
-            }
+        }
 
-            // --- Tooltips Logic ---
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-tooltip]'));
-            const tooltipList = tooltipTriggerList.map(function (el) {
-                // Configurar atributos de Bootstrap
-                el.setAttribute('data-bs-title', el.getAttribute('data-tooltip'));
-                el.setAttribute('data-bs-toggle', 'tooltip');
-                el.setAttribute('data-bs-placement', 'right');
-                return new bootstrap.Tooltip(el, {
-                    trigger: 'hover focus', // Default trigger
-                    customClass: 'custom-sidebar-tooltip' // Clase personalizada para estilos
-                });
+        // Inicializar estado
+        updateTooltipState();
+
+        // Actualizar al hacer toggle
+        if (sidebarToggle) {
+            // Reemplazamos el listener anterior para incluir la actualización de tooltips
+            // Nota: Esto agrega un SEGUNDO listener si no tenemos cuidado, pero el anterior ya estaba definido arriba.
+            // Lo ideal es modificar el bloque de arriba.
+            // Como este es un script inline, podemos anexar la llamada al listener existente si tuvieramos acceso,
+            // pero como está en un closure, es mejor agregar otro listener que solo haga updateTooltipState
+            sidebarToggle.addEventListener('click', function () {
+                // Esperamos un tick para que la clase cambie (aunque el otro listener es síncrono, el orden importa)
+                setTimeout(updateTooltipState, 0);
             });
-
-            // Función para habilitar/deshabilitar tooltips según estado
-            function updateTooltipState() {
-                const isCollapsed = sidebar.classList.contains('collapsed');
-                tooltipList.forEach(t => {
-                    if (isCollapsed) {
-                        t.enable();
-                    } else {
-                        t.disable();
-                    }
-                });
-            }
-
-            // Inicializar estado
-            updateTooltipState();
-
-            // Actualizar al hacer toggle
-            if (sidebarToggle) {
-                // Reemplazamos el listener anterior para incluir la actualización de tooltips
-                // Nota: Esto agrega un SEGUNDO listener si no tenemos cuidado, pero el anterior ya estaba definido arriba.
-                // Lo ideal es modificar el bloque de arriba.
-                // Como este es un script inline, podemos anexar la llamada al listener existente si tuvieramos acceso,
-                // pero como está en un closure, es mejor agregar otro listener que solo haga updateTooltipState
-                sidebarToggle.addEventListener('click', function () {
-                    // Esperamos un tick para que la clase cambie (aunque el otro listener es síncrono, el orden importa)
-                    setTimeout(updateTooltipState, 0);
-                });
-            }
-        })();
+        }
+        }) ();
     </script>
 
     <!-- Verificador de sesión -->

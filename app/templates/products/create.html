@@ -5,20 +5,21 @@
 {% block extra_css %}
 <style>
     .form-section {
-        background: white;
+        background: var(--bg-surface);
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
     }
 
     .form-section-title {
         font-size: 1.1rem;
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary);
         margin-bottom: 15px;
         padding-bottom: 10px;
-        border-bottom: 2px solid #0d6efd;
+        border-bottom: 2px solid var(--primary-color);
     }
 
     .dimensions-group {
@@ -58,7 +59,7 @@
 
     .help-text {
         font-size: 0.875rem;
-        color: #6c757d;
+        color: var(--text-tertiary);
         margin-top: 4px;
     }
 
@@ -73,7 +74,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0, 0, 0, 0.5);
         z-index: 9999;
         justify-content: center;
         align-items: center;
@@ -84,16 +85,19 @@
     }
 
     .loading-spinner {
-        background: white;
+        background: var(--bg-surface);
         padding: 30px;
         border-radius: 8px;
         text-align: center;
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
     }
 </style>
 
 <!-- Select2 CSS -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+    rel="stylesheet" />
 {% endblock %}
 
 {% block content %}
@@ -144,7 +148,8 @@
 
                     <div class="mb-3">
                         <label for="short_description" class="form-label">Descripción Corta</label>
-                        <textarea class="form-control" id="short_description" name="short_description" rows="3"></textarea>
+                        <textarea class="form-control" id="short_description" name="short_description"
+                            rows="3"></textarea>
                         <div class="help-text">Resumen breve que aparece en listados</div>
                     </div>
                 </div>
@@ -158,7 +163,8 @@
                             <label for="regular_price" class="form-label">
                                 Precio Regular <span class="required">*</span>
                             </label>
-                            <input type="number" step="0.01" class="form-control" id="regular_price" name="regular_price" required>
+                            <input type="number" step="0.01" class="form-control" id="regular_price"
+                                name="regular_price" required>
                         </div>
 
                         <div>
@@ -184,7 +190,8 @@
                     <div class="stock-group mb-3">
                         <div>
                             <label for="stock_quantity" class="form-label">Cantidad en Stock</label>
-                            <input type="number" class="form-control" id="stock_quantity" name="stock_quantity" value="0">
+                            <input type="number" class="form-control" id="stock_quantity" name="stock_quantity"
+                                value="0">
                         </div>
 
                         <div>
@@ -198,12 +205,14 @@
 
                         <div>
                             <label for="low_stock_threshold" class="form-label">Umbral Stock Bajo</label>
-                            <input type="number" class="form-control" id="low_stock_threshold" name="low_stock_threshold" value="5">
+                            <input type="number" class="form-control" id="low_stock_threshold"
+                                name="low_stock_threshold" value="5">
                         </div>
                     </div>
 
                     <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="manage_stock" name="manage_stock" value="yes" checked>
+                        <input type="checkbox" class="form-check-input" id="manage_stock" name="manage_stock"
+                            value="yes" checked>
                         <label class="form-check-label" for="manage_stock">
                             Gestionar stock
                         </label>
@@ -252,7 +261,8 @@
                         <label class="form-label">Galería de Imágenes (URLs)</label>
                         <div id="gallery_container">
                             <div class="input-group mb-2">
-                                <input type="url" class="form-control" name="gallery_images[]" placeholder="https://...">
+                                <input type="url" class="form-control" name="gallery_images[]"
+                                    placeholder="https://...">
                                 <button type="button" class="btn btn-outline-danger" onclick="removeGalleryImage(this)">
                                     <i class="bi bi-x"></i>
                                 </button>
@@ -276,7 +286,8 @@
 
                     <div class="mb-3">
                         <label for="seo_description" class="form-label">Meta Descripción</label>
-                        <textarea class="form-control" id="seo_description" name="seo_description" rows="3" maxlength="160"></textarea>
+                        <textarea class="form-control" id="seo_description" name="seo_description" rows="3"
+                            maxlength="160"></textarea>
                         <div class="help-text">Máximo 160 caracteres</div>
                     </div>
 
@@ -376,131 +387,131 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-$(document).ready(function() {
-    // Inicializar Select2 para taxonomías
-    $('#categories').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Seleccionar categorías',
-        allowClear: true
-    });
+    $(document).ready(function () {
+        // Inicializar Select2 para taxonomías
+        $('#categories').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Seleccionar categorías',
+            allowClear: true
+        });
 
-    $('#tags').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Seleccionar etiquetas',
-        allowClear: true,
-        tags: true
-    });
+        $('#tags').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Seleccionar etiquetas',
+            allowClear: true,
+            tags: true
+        });
 
-    $('#brands').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Seleccionar marcas',
-        allowClear: true
-    });
+        $('#brands').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Seleccionar marcas',
+            allowClear: true
+        });
 
-    // Cargar categorías
-    loadCategories();
+        // Cargar categorías
+        loadCategories();
 
-    // Cargar tags
-    loadTags();
+        // Cargar tags
+        loadTags();
 
-    // Cargar brands
-    loadBrands();
+        // Cargar brands
+        loadBrands();
 
-    // Preview de imagen principal
-    $('#image_url').on('input', function() {
-        const url = $(this).val();
-        if (url) {
-            $('#image_preview').attr('src', url).show();
-        } else {
-            $('#image_preview').hide();
-        }
-    });
-
-    // Auto-generar slug desde título
-    $('#title').on('input', function() {
-        if ($('#slug').val() === '') {
-            const slug = $(this).val()
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-|-$/g, '');
-            $('#slug').val(slug);
-        }
-    });
-
-    // Detectar cambio en tipo de producto
-    $('#product_type').on('change', function() {
-        if ($(this).val() === 'variable') {
-            if (confirm('Los productos variables requieren configurar atributos y variaciones.\n\n¿Deseas ir al wizard de productos variables?')) {
-                window.location.href = '/products/create-variable-wizard';
+        // Preview de imagen principal
+        $('#image_url').on('input', function () {
+            const url = $(this).val();
+            if (url) {
+                $('#image_preview').attr('src', url).show();
             } else {
-                $(this).val('simple');
+                $('#image_preview').hide();
             }
-        }
-    });
+        });
 
-    // Enviar formulario
-    $('#productForm').on('submit', function(e) {
-        e.preventDefault();
-        submitProduct();
-    });
-});
-
-function loadCategories() {
-    $.ajax({
-        url: '/products/get-categories',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                $('#categories').empty();
-                response.categories.forEach(function(cat) {
-                    $('#categories').append(new Option(cat.name, cat.id));
-                });
+        // Auto-generar slug desde título
+        $('#title').on('input', function () {
+            if ($('#slug').val() === '') {
+                const slug = $(this).val()
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                $('#slug').val(slug);
             }
-        },
-        error: function(xhr) {
-            console.error('Error al cargar categorías:', xhr);
-        }
-    });
-}
+        });
 
-function loadTags() {
-    $.ajax({
-        url: '/products/get-tags',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                $('#tags').empty();
-                response.tags.forEach(function(tag) {
-                    $('#tags').append(new Option(tag.name, tag.id));
-                });
+        // Detectar cambio en tipo de producto
+        $('#product_type').on('change', function () {
+            if ($(this).val() === 'variable') {
+                if (confirm('Los productos variables requieren configurar atributos y variaciones.\n\n¿Deseas ir al wizard de productos variables?')) {
+                    window.location.href = '/products/create-variable-wizard';
+                } else {
+                    $(this).val('simple');
+                }
             }
-        },
-        error: function(xhr) {
-            console.error('Error al cargar tags:', xhr);
-        }
-    });
-}
+        });
 
-function loadBrands() {
-    $.ajax({
-        url: '/products/get-brands',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                $('#brands').empty();
-                response.brands.forEach(function(brand) {
-                    $('#brands').append(new Option(brand.name, brand.id));
-                });
+        // Enviar formulario
+        $('#productForm').on('submit', function (e) {
+            e.preventDefault();
+            submitProduct();
+        });
+    });
+
+    function loadCategories() {
+        $.ajax({
+            url: '/products/get-categories',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    $('#categories').empty();
+                    response.categories.forEach(function (cat) {
+                        $('#categories').append(new Option(cat.name, cat.id));
+                    });
+                }
+            },
+            error: function (xhr) {
+                console.error('Error al cargar categorías:', xhr);
             }
-        },
-        error: function(xhr) {
-            console.error('Error al cargar marcas:', xhr);
-        }
-    });
-}
+        });
+    }
 
-function addGalleryImage() {
-    const html = `
+    function loadTags() {
+        $.ajax({
+            url: '/products/get-tags',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    $('#tags').empty();
+                    response.tags.forEach(function (tag) {
+                        $('#tags').append(new Option(tag.name, tag.id));
+                    });
+                }
+            },
+            error: function (xhr) {
+                console.error('Error al cargar tags:', xhr);
+            }
+        });
+    }
+
+    function loadBrands() {
+        $.ajax({
+            url: '/products/get-brands',
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    $('#brands').empty();
+                    response.brands.forEach(function (brand) {
+                        $('#brands').append(new Option(brand.name, brand.id));
+                    });
+                }
+            },
+            error: function (xhr) {
+                console.error('Error al cargar marcas:', xhr);
+            }
+        });
+    }
+
+    function addGalleryImage() {
+        const html = `
         <div class="input-group mb-2">
             <input type="url" class="form-control" name="gallery_images[]" placeholder="https://...">
             <button type="button" class="btn btn-outline-danger" onclick="removeGalleryImage(this)">
@@ -508,102 +519,102 @@ function addGalleryImage() {
             </button>
         </div>
     `;
-    $('#gallery_container').append(html);
-}
-
-function removeGalleryImage(button) {
-    $(button).closest('.input-group').remove();
-}
-
-function submitProduct() {
-    // Validar campos requeridos
-    if (!$('#title').val().trim()) {
-        alert('El título es obligatorio');
-        return;
+        $('#gallery_container').append(html);
     }
 
-    if (!$('#sku').val().trim()) {
-        alert('El SKU es obligatorio');
-        return;
+    function removeGalleryImage(button) {
+        $(button).closest('.input-group').remove();
     }
 
-    if (!$('#regular_price').val()) {
-        alert('El precio regular es obligatorio');
-        return;
-    }
-
-    // Mostrar overlay de carga
-    $('#loadingOverlay').addClass('active');
-
-    // Recopilar datos del formulario
-    const formData = {
-        title: $('#title').val().trim(),
-        slug: $('#slug').val().trim(),
-        description: $('#description').val(),
-        short_description: $('#short_description').val(),
-        status: $('#status').val(),
-        product_type: $('#product_type').val(),
-        sku: $('#sku').val().trim(),
-        regular_price: $('#regular_price').val(),
-        sale_price: $('#sale_price').val(),
-        cost_price: $('#cost_price').val(),
-        stock_quantity: $('#stock_quantity').val(),
-        stock_status: $('#stock_status').val(),
-        low_stock_threshold: $('#low_stock_threshold').val(),
-        manage_stock: $('#manage_stock').is(':checked') ? 'yes' : 'no',
-        weight: $('#weight').val(),
-        length: $('#length').val(),
-        width: $('#width').val(),
-        height: $('#height').val(),
-        image_url: $('#image_url').val(),
-        seo_title: $('#seo_title').val(),
-        seo_description: $('#seo_description').val(),
-        focus_keyphrase: $('#focus_keyphrase').val(),
-        seo_keywords: $('#seo_keywords').val(),
-        categories: $('#categories').val() || [],
-        tags: $('#tags').val() || [],
-        brands: $('#brands').val() || [],
-        gallery_images: []
-    };
-
-    // Recopilar galería de imágenes
-    $('input[name="gallery_images[]"]').each(function() {
-        const url = $(this).val().trim();
-        if (url) {
-            formData.gallery_images.push(url);
+    function submitProduct() {
+        // Validar campos requeridos
+        if (!$('#title').val().trim()) {
+            alert('El título es obligatorio');
+            return;
         }
-    });
 
-    // Enviar al backend
-    $.ajax({
-        url: '/products/create',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(formData),
-        success: function(response) {
-            $('#loadingOverlay').removeClass('active');
-
-            if (response.success) {
-                alert('¡Producto creado exitosamente!\nID: ' + response.product_id);
-
-                // Redirigir al listado de productos
-                window.location.href = '/products/';
-            } else {
-                alert('Error: ' + response.error);
-            }
-        },
-        error: function(xhr) {
-            $('#loadingOverlay').removeClass('active');
-
-            let errorMsg = 'Error al crear el producto';
-            if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMsg = xhr.responseJSON.error;
-            }
-
-            alert(errorMsg);
-            console.error('Error completo:', xhr);
+        if (!$('#sku').val().trim()) {
+            alert('El SKU es obligatorio');
+            return;
         }
-    });
-}
+
+        if (!$('#regular_price').val()) {
+            alert('El precio regular es obligatorio');
+            return;
+        }
+
+        // Mostrar overlay de carga
+        $('#loadingOverlay').addClass('active');
+
+        // Recopilar datos del formulario
+        const formData = {
+            title: $('#title').val().trim(),
+            slug: $('#slug').val().trim(),
+            description: $('#description').val(),
+            short_description: $('#short_description').val(),
+            status: $('#status').val(),
+            product_type: $('#product_type').val(),
+            sku: $('#sku').val().trim(),
+            regular_price: $('#regular_price').val(),
+            sale_price: $('#sale_price').val(),
+            cost_price: $('#cost_price').val(),
+            stock_quantity: $('#stock_quantity').val(),
+            stock_status: $('#stock_status').val(),
+            low_stock_threshold: $('#low_stock_threshold').val(),
+            manage_stock: $('#manage_stock').is(':checked') ? 'yes' : 'no',
+            weight: $('#weight').val(),
+            length: $('#length').val(),
+            width: $('#width').val(),
+            height: $('#height').val(),
+            image_url: $('#image_url').val(),
+            seo_title: $('#seo_title').val(),
+            seo_description: $('#seo_description').val(),
+            focus_keyphrase: $('#focus_keyphrase').val(),
+            seo_keywords: $('#seo_keywords').val(),
+            categories: $('#categories').val() || [],
+            tags: $('#tags').val() || [],
+            brands: $('#brands').val() || [],
+            gallery_images: []
+        };
+
+        // Recopilar galería de imágenes
+        $('input[name="gallery_images[]"]').each(function () {
+            const url = $(this).val().trim();
+            if (url) {
+                formData.gallery_images.push(url);
+            }
+        });
+
+        // Enviar al backend
+        $.ajax({
+            url: '/products/create',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function (response) {
+                $('#loadingOverlay').removeClass('active');
+
+                if (response.success) {
+                    alert('¡Producto creado exitosamente!\nID: ' + response.product_id);
+
+                    // Redirigir al listado de productos
+                    window.location.href = '/products/';
+                } else {
+                    alert('Error: ' + response.error);
+                }
+            },
+            error: function (xhr) {
+                $('#loadingOverlay').removeClass('active');
+
+                let errorMsg = 'Error al crear el producto';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+
+                alert(errorMsg);
+                console.error('Error completo:', xhr);
+            }
+        });
+    }
 </script>
 {% endblock %}

@@ -91,7 +91,7 @@ def create_app(config_name=None):
                 return redirect(url_for('auth.login'))
     
     # Registrar blueprints
-    from app.routes import products, stock, prices, images, categories, auth, history, orders, reports, expenses, purchases, dispatch
+    from app.routes import products, stock, prices, images, categories, auth, history, orders, reports, expenses, purchases, dispatch, admin
 
     app.register_blueprint(products.bp)
     app.register_blueprint(stock.bp)
@@ -105,6 +105,7 @@ def create_app(config_name=None):
     app.register_blueprint(expenses.bp)
     app.register_blueprint(purchases.bp)
     app.register_blueprint(dispatch.bp)
+    app.register_blueprint(admin.bp)
     
     # Contexto global para templates
     @app.context_processor
