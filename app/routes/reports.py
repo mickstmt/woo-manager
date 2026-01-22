@@ -411,108 +411,51 @@ def profits_report():
 @login_required
 def api_profits():
     """
-    Obtener reporte de ganancias por pedidos
-
-    Query params:
-    - start_date: fecha inicio (YYYY-MM-DD)
-    - end_date: fecha fin (YYYY-MM-DD)
-    - source: filtro de origen ('all', 'whatsapp', 'woocommerce') - default: 'all'
+    Versión OPTIMIZADA del reporte de ganancias.
+    Elimina el problema N+1 y subconsultas redundantes.
     """
     try:
-        # Obtener fechas de filtro
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
         source = request.args.get('source', type=str, default='all')
 
-        # Si no se especifican, usar últimos 30 días
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-        # Determinar filtro de origen
+        # 1. Obtener todos los costos de FC en un diccionario para búsqueda rápida
+        # Se asume que el SKU en fccost es de 7 caracteres y debe coincidir parcialmente con el SKU de Woo
+        fc_costs_rows = db.session.execute(text("SELECT sku, FCLastCost FROM woo_products_fccost WHERE LENGTH(sku) = 7")).fetchall()
+        fc_costs_map = {row[0]: float(row[1] or 0) for row in fc_costs_rows}
+
+        # 2. Obtener tipos de cambio históricos necesarios
+        tc_rows = db.session.execute(text("SELECT fecha, tasa_promedio FROM woo_tipo_cambio WHERE activo = TRUE ORDER BY fecha DESC")).fetchall()
+        # Función auxiliar para obtener TC más cercano a una fecha
+        def get_tc_for_date(order_date):
+            order_date_str = str(order_date)
+            for tc_date, rate in tc_rows:
+                if str(tc_date) <= order_date_str:
+                    return float(rate)
+            return 1.0 # Fallback
+
+        # 3. Construir filtros
         source_filter = ""
         if source == 'whatsapp':
-            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla woo_orders_ext)
             source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
         elif source == 'woocommerce':
-            # Solo pedidos sin _order_number y que NO estén en woo_orders_ext (WooCommerce puro)
             source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
-        # Si source == 'all', no agregar filtro adicional
 
-        # Query principal: ganancias por pedido
-        orders_query_template = """
+        # 4. Consulta de Órdenes (Solo datos básicos)
+        orders_sql = text(f"""
             SELECT
-                o.id as pedido_id,
+                o.id,
                 om_numero.meta_value as numero_pedido,
-                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
-                o.status as estado,
-                o.total_amount as total_venta_pen,
-
-                -- Tipo de cambio usado (del día del pedido)
-                (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ) as tipo_cambio,
-
-                -- Costo total en USD
-                (
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oim_qty.meta_value
-                    )
-                    FROM wpyz_woocommerce_order_items oi
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                        AND oim_pid.meta_key = '_product_id'
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                        AND oim_qty.meta_key = '_qty'
-                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                        AND oim_vid.meta_key = '_variation_id'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                        AND pm_sku.meta_key = '_sku'
-                    WHERE oi.order_id = o.id
-                        AND oi.order_item_type = 'line_item'
-                ) as costo_total_usd,
-
-                -- Costo total en PEN
-                (
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oim_qty.meta_value
-                    )
-                    FROM wpyz_woocommerce_order_items oi
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                        AND oim_pid.meta_key = '_product_id'
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                        AND oim_qty.meta_key = '_qty'
-                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                        AND oim_vid.meta_key = '_variation_id'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                        AND pm_sku.meta_key = '_sku'
-                    WHERE oi.order_id = o.id
-                        AND oi.order_item_type = 'line_item'
-                ) * (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ) as costo_total_pen,
-
-                -- Costo de envío
+                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
+                o.status,
+                o.total_amount,
+                ba.first_name,
+                ba.last_name,
                 COALESCE((
                     SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
                     FROM wpyz_woocommerce_order_items oi_shipping
@@ -520,376 +463,137 @@ def api_profits():
                     WHERE oi_shipping.order_id = o.id
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
-                ), 0) as costo_envio_pen,
-
-                -- Ganancia (restando costo de productos Y costo de envío)
-                o.total_amount - (
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oim_qty.meta_value
-                        )
-                        FROM wpyz_woocommerce_order_items oi
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                            AND oim_pid.meta_key = '_product_id'
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                            AND oim_qty.meta_key = '_qty'
-                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                            AND oim_vid.meta_key = '_variation_id'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                            AND pm_sku.meta_key = '_sku'
-                        WHERE oi.order_id = o.id
-                            AND oi.order_item_type = 'line_item'
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ) - COALESCE((
-                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                    FROM wpyz_woocommerce_order_items oi_shipping
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                    WHERE oi_shipping.order_id = o.id
-                        AND oi_shipping.order_item_type = 'shipping'
-                        AND oim_shipping.meta_key = 'cost'
-                ), 0) as ganancia_pen,
-
-                -- Margen porcentual
-                ROUND(
-                    (
-                        (o.total_amount - (
-                            (
-                                SELECT SUM(
-                                    (
-                                        SELECT SUM(fc.FCLastCost)
-                                        FROM woo_products_fccost fc
-                                        WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                            AND LENGTH(fc.sku) = 7
-                                    ) * oim_qty.meta_value
-                                )
-                                FROM wpyz_woocommerce_order_items oi
-                                INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                                    AND oim_pid.meta_key = '_product_id'
-                                INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                                    AND oim_qty.meta_key = '_qty'
-                                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                                    AND oim_vid.meta_key = '_variation_id'
-                                INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                                    AND pm_sku.meta_key = '_sku'
-                                WHERE oi.order_id = o.id
-                                    AND oi.order_item_type = 'line_item'
-                            ) * (
-                                SELECT tasa_promedio
-                                FROM woo_tipo_cambio tc
-                                WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                                    AND tc.activo = TRUE
-                                ORDER BY tc.fecha DESC
-                                LIMIT 1
-                            )
-                        ) - COALESCE((
-                            SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                            FROM wpyz_woocommerce_order_items oi_shipping
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                            WHERE oi_shipping.order_id = o.id
-                                AND oi_shipping.order_item_type = 'shipping'
-                                AND oim_shipping.meta_key = 'cost'
-                        ), 0)) / NULLIF(o.total_amount, 0)
-                    ) * 100
-                , 2) as margen_porcentaje,
-
-                -- Cliente
-                ba.first_name as cliente_nombre,
-                ba.last_name as cliente_apellido
-
+                ), 0) as costo_envio
             FROM wpyz_wc_orders o
-            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
-                AND om_numero.meta_key = '_order_number'
-            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
-                AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
-
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
                 {source_filter}
+            ORDER BY fecha DESC, o.id DESC
+        """)
+        
+        orders_results = db.session.execute(orders_sql, {'start_date': start_date, 'end_date': end_date}).fetchall()
+        order_ids = [r[0] for r in orders_results]
 
-            HAVING costo_total_usd IS NOT NULL
+        if not order_ids:
+            return jsonify({'success': True, 'data': {'orders': [], 'summary': {}, 'period': {'start': start_date, 'end': end_date}}})
 
-            ORDER BY fecha_pedido DESC, o.id DESC
-        """
-
-        # Reemplazar el placeholder con el filtro correspondiente
-        orders_query_str = orders_query_template.replace('{source_filter}', source_filter)
-        orders_query = text(orders_query_str)
-
-        orders = db.session.execute(orders_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchall()
-
-        # Query resumen del período
-        summary_query_template = """
+        # 5. Consulta masiva de items para todas las órdenes encontradas
+        items_sql = text("""
             SELECT
-                COUNT(DISTINCT o.id) as total_pedidos,
-                ROUND(SUM(o.total_amount), 2) as ventas_totales_pen,
-                ROUND(SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oim_qty.meta_value
-                        )
-                        FROM wpyz_woocommerce_order_items oi
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                            AND oim_pid.meta_key = '_product_id'
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                            AND oim_qty.meta_key = '_qty'
-                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                            AND oim_vid.meta_key = '_variation_id'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                            AND pm_sku.meta_key = '_sku'
-                        WHERE oi.order_id = o.id
-                            AND oi.order_item_type = 'line_item'
-                    )
-                ), 2) as costos_totales_usd,
-                ROUND(SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oim_qty.meta_value
-                        )
-                        FROM wpyz_woocommerce_order_items oi
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                            AND oim_pid.meta_key = '_product_id'
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                            AND oim_qty.meta_key = '_qty'
-                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                            AND oim_vid.meta_key = '_variation_id'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                            AND pm_sku.meta_key = '_sku'
-                        WHERE oi.order_id = o.id
-                            AND oi.order_item_type = 'line_item'
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ), 2) as costos_totales_pen,
-                ROUND(SUM(
-                    COALESCE((
-                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                        FROM wpyz_woocommerce_order_items oi_shipping
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                        WHERE oi_shipping.order_id = o.id
-                            AND oi_shipping.order_item_type = 'shipping'
-                            AND oim_shipping.meta_key = 'cost'
-                    ), 0)
-                ), 2) as costos_envio_totales_pen,
-                ROUND(SUM(o.total_amount) - SUM(
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oim_qty.meta_value
-                        )
-                        FROM wpyz_woocommerce_order_items oi
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                            AND oim_pid.meta_key = '_product_id'
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                            AND oim_qty.meta_key = '_qty'
-                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                            AND oim_vid.meta_key = '_variation_id'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                            AND pm_sku.meta_key = '_sku'
-                        WHERE oi.order_id = o.id
-                            AND oi.order_item_type = 'line_item'
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ) - SUM(
-                    COALESCE((
-                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                        FROM wpyz_woocommerce_order_items oi_shipping
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                        WHERE oi_shipping.order_id = o.id
-                            AND oi_shipping.order_item_type = 'shipping'
-                            AND oim_shipping.meta_key = 'cost'
-                    ), 0)
-                ), 2) as ganancias_totales_pen,
-                ROUND(
-                    (SUM(o.total_amount) - SUM(
-                        (
-                            SELECT SUM(
-                                (
-                                    SELECT SUM(fc.FCLastCost)
-                                    FROM woo_products_fccost fc
-                                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                        AND LENGTH(fc.sku) = 7
-                                ) * oim_qty.meta_value
-                            )
-                            FROM wpyz_woocommerce_order_items oi
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                                AND oim_pid.meta_key = '_product_id'
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                                AND oim_qty.meta_key = '_qty'
-                            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                                AND oim_vid.meta_key = '_variation_id'
-                            INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                                AND pm_sku.meta_key = '_sku'
-                            WHERE oi.order_id = o.id
-                                AND oi.order_item_type = 'line_item'
-                        ) * (
-                            SELECT tasa_promedio
-                            FROM woo_tipo_cambio tc
-                            WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                                AND tc.activo = TRUE
-                            ORDER BY tc.fecha DESC
-                            LIMIT 1
-                        )
-                    ) - SUM(
-                        COALESCE((
-                            SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                            FROM wpyz_woocommerce_order_items oi_shipping
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                            WHERE oi_shipping.order_id = o.id
-                                AND oi_shipping.order_item_type = 'shipping'
-                                AND oim_shipping.meta_key = 'cost'
-                        ), 0)
-                    )) / NULLIF(SUM(o.total_amount), 0) * 100
-                , 2) as margen_promedio_porcentaje
+                oi.order_id,
+                oi.order_item_name,
+                oim_qty.meta_value as qty,
+                pm_sku.meta_value as sku
+            FROM wpyz_woocommerce_order_items oi
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id AND oim_pid.meta_key = '_product_id'
+            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id AND oim_vid.meta_key = '_variation_id'
+            LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id AND pm_sku.meta_key = '_sku'
+            WHERE oi.order_id IN :order_ids AND oi.order_item_type = 'line_item'
+        """)
+        
+        # SQLAlchemy bindparams for IN clause can be tricky with raw text, better to use formatting for small lists or bind with list
+        items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
+        
+        # Agrupar items por pedido
+        items_by_order = {}
+        for row in items_results:
+            oid, name, qty, sku = row
+            if oid not in items_by_order: items_by_order[oid] = []
+            
+            # Calcular costo unitario buscando en el mapa (Lógica LIKE %sku% en Python)
+            cost_unit = 0.0
+            if sku:
+                # Buscar si alguna llave del fc_costs_map (que son de longitud 7) está contenida en el SKU de Woo
+                for fc_sku, cost in fc_costs_map.items():
+                    if fc_sku in sku:
+                        cost_unit = cost
+                        break
 
-            FROM wpyz_wc_orders o
-            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
-                AND om_numero.meta_key = '_order_number'
-            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
-
-            WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                AND o.status != 'trash'
-                AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
-                {source_filter}
-        """
-
-        # Reemplazar el placeholder con el filtro correspondiente
-        summary_query_str = summary_query_template.replace('{source_filter}', source_filter)
-        summary_query = text(summary_query_str)
-
-        summary = db.session.execute(summary_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchone()
-
-        # Convertir resultados a formato JSON
-        orders_data = []
-        for order in orders:
-            # Obtener items del pedido
-            items_query = text("""
-                SELECT
-                    oi.order_item_name as producto,
-                    oim_qty.meta_value as cantidad,
-                    pm_sku.meta_value as sku,
-                    (
-                        SELECT SUM(fc.FCLastCost)
-                        FROM woo_products_fccost fc
-                        WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                            AND LENGTH(fc.sku) = 7
-                    ) as costo_unitario_usd
-                FROM wpyz_woocommerce_order_items oi
-                INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid
-                    ON oi.order_item_id = oim_pid.order_item_id
-                    AND oim_pid.meta_key = '_product_id'
-                INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty
-                    ON oi.order_item_id = oim_qty.order_item_id
-                    AND oim_qty.meta_key = '_qty'
-                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid
-                    ON oi.order_item_id = oim_vid.order_item_id
-                    AND oim_vid.meta_key = '_variation_id'
-                LEFT JOIN wpyz_postmeta pm_sku
-                    ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                    AND pm_sku.meta_key = '_sku'
-                WHERE oi.order_id = :order_id
-                    AND oi.order_item_type = 'line_item'
-            """)
-
-            items_result = db.session.execute(items_query, {'order_id': order[0]}).fetchall()
-
-            items_data = []
-            for item in items_result:
-                costo_unit = float(item[3] or 0)
-                cantidad = int(item[1] or 0)
-                costo_total_item = costo_unit * cantidad
-
-                items_data.append({
-                    'producto': item[0],
-                    'cantidad': cantidad,
-                    'sku': item[2] or 'Sin SKU',
-                    'tiene_sku': bool(item[2]),
-                    'costo_unitario_usd': costo_unit,
-                    'costo_total_usd': costo_total_item,
-                    'tiene_costo': costo_unit > 0
-                })
-
-            orders_data.append({
-                'pedido_id': order[0],
-                'numero_pedido': order[1],
-                'fecha_pedido': str(order[2]),
-                'estado': order[3],
-                'total_venta_pen': float(order[4] or 0),
-                'tipo_cambio': float(order[5] or 0),
-                'costo_total_usd': float(order[6] or 0),
-                'costo_total_pen': float(order[7] or 0),
-                'costo_envio_pen': float(order[8] or 0),
-                'ganancia_pen': float(order[9] or 0),
-                'margen_porcentaje': float(order[10] or 0),
-                'cliente_nombre': order[11] or '',
-                'cliente_apellido': order[12] or '',
-                'items': items_data,
-                'total_items': len(items_data)
+            items_by_order[oid].append({
+                'producto': name,
+                'cantidad': int(qty or 0),
+                'sku': sku or 'Sin SKU',
+                'costo_unitario_usd': cost_unit,
+                'costo_total_usd': cost_unit * int(qty or 0)
             })
+
+        # 6. Combinar y calcular Totales en una sola pasada
+        final_orders = []
+        total_p = 0
+        total_ventas_pen = 0.0
+        total_costos_usd = 0.0
+        total_costos_pen = 0.0
+        total_envio_pen = 0.0
+        total_ganancia_pen = 0.0
+
+        for r in orders_results:
+            oid, num, fecha, status, total_venta, fname, lname, c_envio = r
+            tc = get_tc_for_date(fecha)
+            items = items_by_order.get(oid, [])
+            
+            costo_pedido_usd = sum(i['costo_total_usd'] for i in items)
+            costo_pedido_pen = costo_pedido_usd * tc
+            c_envio = float(c_envio or 0)
+            ganancia = float(total_venta or 0) - costo_pedido_pen - c_envio
+            margen = (ganancia / float(total_venta or 1) * 100) if total_venta and float(total_venta) > 0 else 0
+
+            # Solo incluir pedidos con items con costo (para coincidir con el HAVING anterior)
+            # O si prefieres incluir todos, quitar este check. 
+            # El original decía: HAVING costo_total_usd IS NOT NULL
+            if costo_pedido_usd == 0 and not items: continue 
+
+            final_orders.append({
+                'pedido_id': oid,
+                'numero_pedido': num,
+                'fecha_pedido': str(fecha),
+                'estado': status,
+                'total_venta_pen': float(total_venta or 0),
+                'tipo_cambio': tc,
+                'costo_total_usd': costo_pedido_usd,
+                'costo_total_pen': costo_pedido_pen,
+                'costo_envio_pen': c_envio,
+                'ganancia_pen': ganancia,
+                'margen_porcentaje': round(margen, 2),
+                'cliente_nombre': fname or '',
+                'cliente_apellido': lname or '',
+                'items': items,
+                'total_items': len(items)
+            })
+
+            # Acumular resumen
+            total_p += 1
+            total_ventas_pen += float(total_venta or 0)
+            total_costos_usd += costo_pedido_usd
+            total_costos_pen += costo_pedido_pen
+            total_envio_pen += c_envio
+            total_ganancia_pen += ganancia
 
         return jsonify({
             'success': True,
             'data': {
-                'orders': orders_data,
+                'orders': final_orders,
                 'summary': {
-                    'total_pedidos': summary[0] or 0,
-                    'ventas_totales_pen': float(summary[1] or 0),
-                    'costos_totales_usd': float(summary[2] or 0),
-                    'costos_totales_pen': float(summary[3] or 0),
-                    'costos_envio_totales_pen': float(summary[4] or 0),
-                    'ganancias_totales_pen': float(summary[5] or 0),
-                    'margen_promedio_porcentaje': float(summary[6] or 0)
+                    'total_pedidos': total_p,
+                    'ventas_totales_pen': round(total_ventas_pen, 2),
+                    'costos_totales_usd': round(total_costos_usd, 2),
+                    'costos_totales_pen': round(total_costos_pen, 2),
+                    'costos_envio_totales_pen': round(total_envio_pen, 2),
+                    'ganancias_totales_pen': round(total_ganancia_pen, 2),
+                    'margen_promedio_porcentaje': round((total_ganancia_pen / total_ventas_pen * 100) if total_ventas_pen > 0 else 0, 2)
                 },
-                'period': {
-                    'start': start_date,
-                    'end': end_date
-                }
+                'period': {'start': start_date, 'end': end_date}
             }
         })
+
+    except Exception as e:
+        import traceback
+        current_app.logger.error(f"Error en reporte ganancias optimizado: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
     except Exception as e:
         import traceback
@@ -1374,80 +1078,35 @@ def export_profits_excel():
         source_filter = ""
         source_name = "Todos"
         if source == 'whatsapp':
-            # Pedidos con _order_number (WhatsApp/Manager) O pedidos externos (tabla woo_orders_ext)
             source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
             source_name = "WhatsApp"
         elif source == 'woocommerce':
-            # Solo pedidos sin _order_number y que NO estén en woo_orders_ext (WooCommerce puro)
             source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
             source_name = "WooCommerce"
 
-        # Usar el mismo query que api_profits
-        orders_query_template = """
+        # 1. Obtener todos los costos de FC en un diccionario para búsqueda rápida
+        fc_costs_rows = db.session.execute(text("SELECT sku, FCLastCost FROM woo_products_fccost WHERE LENGTH(sku) = 7")).fetchall()
+        fc_costs_map = {row[0]: float(row[1] or 0) for row in fc_costs_rows}
+
+        # 2. Obtener tipos de cambio históricos
+        tc_rows = db.session.execute(text("SELECT fecha, tasa_promedio FROM woo_tipo_cambio WHERE activo = TRUE ORDER BY fecha DESC")).fetchall()
+        def get_tc_for_date(order_date):
+            order_date_str = str(order_date)
+            for tc_date, rate in tc_rows:
+                if str(tc_date) <= order_date_str:
+                    return float(rate)
+            return 1.0
+
+        # 3. Consulta de Órdenes (Solo datos básicos + plataforma)
+        orders_sql = text(f"""
             SELECT
-                o.id as pedido_id,
+                o.id,
                 om_numero.meta_value as numero_pedido,
-                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha_pedido,
-                o.status as estado,
+                DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
+                o.status,
                 COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago,
-                o.total_amount as total_venta_pen,
-                (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ) as tipo_cambio,
-                (
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oim_qty.meta_value
-                    )
-                    FROM wpyz_woocommerce_order_items oi
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                        AND oim_pid.meta_key = '_product_id'
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                        AND oim_qty.meta_key = '_qty'
-                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                        AND oim_vid.meta_key = '_variation_id'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                        AND pm_sku.meta_key = '_sku'
-                    WHERE oi.order_id = o.id
-                        AND oi.order_item_type = 'line_item'
-                ) as costo_total_usd,
-                ROUND((
-                    SELECT SUM(
-                        (
-                            SELECT SUM(fc.FCLastCost)
-                            FROM woo_products_fccost fc
-                            WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                AND LENGTH(fc.sku) = 7
-                        ) * oim_qty.meta_value
-                    )
-                    FROM wpyz_woocommerce_order_items oi
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                        AND oim_pid.meta_key = '_product_id'
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                        AND oim_qty.meta_key = '_qty'
-                    LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                        AND oim_vid.meta_key = '_variation_id'
-                    INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                        AND pm_sku.meta_key = '_sku'
-                    WHERE oi.order_id = o.id
-                        AND oi.order_item_type = 'line_item'
-                ) * (
-                    SELECT tasa_promedio
-                    FROM woo_tipo_cambio tc
-                    WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                        AND tc.activo = TRUE
-                    ORDER BY tc.fecha DESC
-                    LIMIT 1
-                ), 2) as costo_total_pen,
+                o.total_amount,
+                CONCAT(ba.first_name, ' ', ba.last_name) as cliente_nombre,
                 COALESCE((
                     SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
                     FROM wpyz_woocommerce_order_items oi_shipping
@@ -1455,210 +1114,111 @@ def export_profits_excel():
                     WHERE oi_shipping.order_id = o.id
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
-                ), 0) as costo_envio_pen,
-                ROUND(o.total_amount - (
-                    (
-                        SELECT SUM(
-                            (
-                                SELECT SUM(fc.FCLastCost)
-                                FROM woo_products_fccost fc
-                                WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                    AND LENGTH(fc.sku) = 7
-                            ) * oim_qty.meta_value
-                        )
-                        FROM wpyz_woocommerce_order_items oi
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                            AND oim_pid.meta_key = '_product_id'
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                            AND oim_qty.meta_key = '_qty'
-                        LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                            AND oim_vid.meta_key = '_variation_id'
-                        INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                            AND pm_sku.meta_key = '_sku'
-                        WHERE oi.order_id = o.id
-                            AND oi.order_item_type = 'line_item'
-                    ) * (
-                        SELECT tasa_promedio
-                        FROM woo_tipo_cambio tc
-                        WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                            AND tc.activo = TRUE
-                        ORDER BY tc.fecha DESC
-                        LIMIT 1
-                    )
-                ) - COALESCE((
-                    SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                    FROM wpyz_woocommerce_order_items oi_shipping
-                    INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                    WHERE oi_shipping.order_id = o.id
-                        AND oi_shipping.order_item_type = 'shipping'
-                        AND oim_shipping.meta_key = 'cost'
-                ), 0), 2) as ganancia_pen,
-                ROUND((
-                    (o.total_amount - (
-                        (
-                            SELECT SUM(
-                                (
-                                    SELECT SUM(fc.FCLastCost)
-                                    FROM woo_products_fccost fc
-                                    WHERE pm_sku.meta_value COLLATE utf8mb4_unicode_520_ci LIKE CONCAT('%', fc.sku COLLATE utf8mb4_unicode_520_ci, '%')
-                                        AND LENGTH(fc.sku) = 7
-                                ) * oim_qty.meta_value
-                            )
-                            FROM wpyz_woocommerce_order_items oi
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id
-                                AND oim_pid.meta_key = '_product_id'
-                            INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id
-                                AND oim_qty.meta_key = '_qty'
-                            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id
-                                AND oim_vid.meta_key = '_variation_id'
-                            INNER JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id
-                                AND pm_sku.meta_key = '_sku'
-                            WHERE oi.order_id = o.id
-                                AND oi.order_item_type = 'line_item'
-                        ) * (
-                            SELECT tasa_promedio
-                            FROM woo_tipo_cambio tc
-                            WHERE tc.fecha <= DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR))
-                                AND tc.activo = TRUE
-                            ORDER BY tc.fecha DESC
-                            LIMIT 1
-                        )
-                    ) - COALESCE((
-                        SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
-                        FROM wpyz_woocommerce_order_items oi_shipping
-                        INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
-                        WHERE oi_shipping.order_id = o.id
-                            AND oi_shipping.order_item_type = 'shipping'
-                            AND oim_shipping.meta_key = 'cost'
-                    ), 0)) / NULLIF(o.total_amount, 0)
-                ) * 100, 2) as margen_porcentaje,
-                CONCAT(ba.first_name, ' ', ba.last_name) as cliente_nombre,
-                ba.email as cliente_email
-
+                ), 0) as costo_envio
             FROM wpyz_wc_orders o
-            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id
-                AND om_numero.meta_key = '_order_number'
-            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id
-                AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
-
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 {status_filter}
                 {source_filter}
+            ORDER BY fecha DESC, o.id DESC
+        """)
+        
+        orders_results = db.session.execute(orders_sql, {'start_date': start_date, 'end_date': end_date}).fetchall()
+        order_ids = [r[0] for r in orders_results]
 
-            HAVING costo_total_usd IS NOT NULL
-
-            ORDER BY fecha_pedido DESC, o.id DESC
-        """
-
-        orders_query_str = orders_query_template.replace('{source_filter}', source_filter).replace('{status_filter}', status_filter)
-        orders_query = text(orders_query_str)
-        orders = db.session.execute(orders_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchall()
+        # 4. Consulta masiva de items para todas las órdenes encontradas
+        items_by_order = {}
+        if order_ids:
+            items_sql = text("""
+                SELECT
+                    oi.order_id,
+                    oim_qty.meta_value as qty,
+                    pm_sku.meta_value as sku
+                FROM wpyz_woocommerce_order_items oi
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id AND oim_pid.meta_key = '_product_id'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id AND oim_vid.meta_key = '_variation_id'
+                LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id AND pm_sku.meta_key = '_sku'
+                WHERE oi.order_id IN :order_ids AND oi.order_item_type = 'line_item'
+            """)
+            items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
+            
+            for oid, qty, sku in items_results:
+                if oid not in items_by_order: items_by_order[oid] = 0.0
+                if sku:
+                    for fc_sku, cost in fc_costs_map.items():
+                        if fc_sku in sku:
+                            items_by_order[oid] += float(cost) * int(qty or 0)
+                            break
 
         # Crear workbook de Excel
         wb = Workbook()
         ws = wb.active
         ws.title = "Reporte de Ganancias"
 
-        # Estilos
+        # Estilos etc (mismo código ...)
         header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True, size=11)
         header_alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-        border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
-
-        # Título del reporte
         ws.merge_cells('A1:N1')
         title_cell = ws['A1']
         title_cell.value = f"Reporte de Ganancias - {source_name}"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
-        # Período
         ws.merge_cells('A2:N2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
 
-        # Headers (fila 4)
-        headers = [
-            'Pedido ID',
-            'Número',
-            'Fecha',
-            'Estado',
-            'Plataforma',
-            'Venta (PEN)',
-            'T.C.',
-            'Costo (USD)',
-            'Costo (PEN)',
-            'Comisión (PEN)',
-            'Envío (PEN)',
-            'Ganancia (PEN)',
-            'Margen %',
-            'Cliente'
-        ]
-
+        headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
             cell.value = header
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-            cell.border = border
+            cell.fill, cell.font, cell.alignment, cell.border = header_fill, header_font, header_alignment, border
 
         # Datos
         row_num = 5
-        for order in orders:
-            numero_pedido = order[1]  # W-XXXXX o None
-            plataforma_raw = order[4] or 'N/A'  # Valor crudo de la BD
+        for r in orders_results:
+            oid, num, fecha, status, p_raw, total_venta_pen, cliente, c_envio = r
+            tc = get_tc_for_date(fecha)
+            costo_usd = items_by_order.get(oid, 0.0)
+            costo_pen = costo_usd * tc
+            envio_pen = float(c_envio or 0)
 
-            # Determinar si es WhatsApp basado en el número de pedido
-            is_whatsapp = numero_pedido and str(numero_pedido).startswith('W-')
-            plataforma = normalize_payment_method(plataforma_raw, is_whatsapp=is_whatsapp)
+            # Normalizar plataforma
+            is_whatsapp = num and str(num).startswith('W-')
+            plataforma = normalize_payment_method(p_raw, is_whatsapp=is_whatsapp)
 
-            total_venta_pen = float(order[5] or 0)
-            costo_pen = float(order[8] or 0)
-            envio_pen = float(order[9] or 0)
+            comision_pen = round(float(total_venta_pen or 0) * 0.05, 2) if 'TARJETA' in plataforma else 0
+            ganancia_pen = round(float(total_venta_pen or 0) - costo_pen - envio_pen - comision_pen, 2)
+            margen_porcentaje = round((ganancia_pen / float(total_venta_pen or 1) * 100), 2) if total_venta_pen and float(total_venta_pen) > 0 else 0
 
-            # Calcular comisión: 5% si Plataforma contiene "TARJETA"
-            comision_pen = 0
-            if 'TARJETA' in plataforma:
-                comision_pen = round(total_venta_pen * 0.05, 2)
+            # Solo incluir pedidos con items con costo (HAVING anterior)
+            if costo_usd == 0 and oid not in items_by_order: continue
 
-            # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
-            ganancia_pen = round(total_venta_pen - costo_pen - envio_pen - comision_pen, 2)
+            ws.cell(row=row_num, column=1, value=oid)
+            ws.cell(row=row_num, column=2, value=num or oid)
+            ws.cell(row=row_num, column=3, value=str(fecha))
+            ws.cell(row=row_num, column=4, value=status)
+            ws.cell(row=row_num, column=5, value=plataforma)
+            ws.cell(row=row_num, column=6, value=float(total_venta_pen or 0))
+            ws.cell(row=row_num, column=7, value=tc)
+            ws.cell(row=row_num, column=8, value=costo_usd)
+            ws.cell(row=row_num, column=9, value=costo_pen)
+            ws.cell(row=row_num, column=10, value=comision_pen)
+            ws.cell(row=row_num, column=11, value=envio_pen)
+            ws.cell(row=row_num, column=12, value=ganancia_pen)
+            ws.cell(row=row_num, column=13, value=margen_porcentaje)
+            ws.cell(row=row_num, column=14, value=cliente or '')
 
-            # Recalcular margen %: (Ganancia PEN / Total Venta PEN) * 100
-            margen_porcentaje = round((ganancia_pen / total_venta_pen * 100), 2) if total_venta_pen > 0 else 0
-
-            ws.cell(row=row_num, column=1, value=order[0])  # ID
-            ws.cell(row=row_num, column=2, value=order[1] or order[0])  # Número
-            ws.cell(row=row_num, column=3, value=str(order[2]))  # Fecha
-            ws.cell(row=row_num, column=4, value=order[3])  # Estado
-            ws.cell(row=row_num, column=5, value=plataforma)  # Plataforma
-            ws.cell(row=row_num, column=6, value=total_venta_pen)  # Venta
-            ws.cell(row=row_num, column=7, value=float(order[6] or 0))  # TC
-            ws.cell(row=row_num, column=8, value=float(order[7] or 0))  # Costo USD
-            ws.cell(row=row_num, column=9, value=costo_pen)  # Costo PEN
-            ws.cell(row=row_num, column=10, value=comision_pen)  # Comisión
-            ws.cell(row=row_num, column=11, value=envio_pen)  # Envío
-            ws.cell(row=row_num, column=12, value=ganancia_pen)  # Ganancia
-            ws.cell(row=row_num, column=13, value=margen_porcentaje)  # Margen %
-            ws.cell(row=row_num, column=14, value=order[12] or '')  # Cliente
-
-            # Aplicar bordes
             for col in range(1, 15):
                 ws.cell(row=row_num, column=col).border = border
-
             row_num += 1
 
         # Ajustar anchos de columna
