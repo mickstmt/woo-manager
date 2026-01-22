@@ -450,7 +450,7 @@ def api_profits():
         orders_sql = text(f"""
             SELECT
                 o.id,
-                om_numero.meta_value as numero_pedido,
+                COALESCE(om_numero.meta_value, CAST(o.id AS CHAR)) as numero_pedido,
                 DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
                 o.status,
                 o.total_amount,
@@ -551,7 +551,7 @@ def api_profits():
 
             final_orders.append({
                 'pedido_id': oid,
-                'numero_pedido': num,
+                'numero_pedido': num or str(oid),
                 'fecha_pedido': str(fecha),
                 'estado': status,
                 'total_venta_pen': float(total_venta or 0),
@@ -561,7 +561,7 @@ def api_profits():
                 'costo_envio_pen': c_envio,
                 'ganancia_pen': ganancia,
                 'margen_porcentaje': round(margen, 2),
-                'cliente_nombre': fname or '',
+                'cliente_nombre': fname or 'Sin nombre',
                 'cliente_apellido': lname or '',
                 'items': items,
                 'total_items': len(items)
@@ -738,7 +738,7 @@ def api_profits_externos():
 
             orders_list.append({
                 'pedido_id': pedido_id,
-                'numero_pedido': numero_pedido,
+                'numero_pedido': numero_pedido or str(pedido_id),
                 'fecha_pedido': fecha_pedido.isoformat() if fecha_pedido else None,
                 'estado': estado,
                 'metodo_pago': metodo_pago,
@@ -749,8 +749,8 @@ def api_profits_externos():
                 'costo_envio_pen': round(costo_envio_pen, 2),
                 'ganancia_pen': round(ganancia_pen, 2),
                 'margen_porcentaje': round(margen_porcentaje, 2),
-                'cliente_nombre': c_nombre,
-                'cliente_apellido': c_apellido,
+                'cliente_nombre': c_nombre or 'Sin nombre',
+                'cliente_apellido': c_apellido or '',
                 'total_items': len(items),
                 'items': items
             })
@@ -919,7 +919,7 @@ def export_profits_externos_excel():
 
             orders_data.append({
                 'pedido_id': pedido_id,
-                'numero_pedido': numero_pedido,
+                'numero_pedido': numero_pedido or str(pedido_id),
                 'fecha_pedido': fecha_pedido,
                 'estado': estado,
                 'metodo_pago': plataforma,
@@ -931,7 +931,7 @@ def export_profits_externos_excel():
                 'costo_envio_pen': costo_envio_pen,
                 'ganancia_pen': ganancia_pen,
                 'margen_porcentaje': margen_porcentaje,
-                'cliente': cliente_completo
+                'cliente': cliente_completo or 'Sin nombre'
             })
 
         # Crear Excel
@@ -1109,7 +1109,7 @@ def export_profits_excel():
         orders_sql = text(f"""
             SELECT
                 o.id,
-                om_numero.meta_value as numero_pedido,
+                COALESCE(om_numero.meta_value, CAST(o.id AS CHAR)) as numero_pedido,
                 DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
                 o.status,
                 COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago,
