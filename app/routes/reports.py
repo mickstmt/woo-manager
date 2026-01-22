@@ -519,7 +519,9 @@ def api_profits():
                 'cantidad': int(qty or 0),
                 'sku': sku or 'Sin SKU',
                 'costo_unitario_usd': cost_unit,
-                'costo_total_usd': cost_unit * int(qty or 0)
+                'costo_total_usd': cost_unit * int(qty or 0),
+                'tiene_sku': bool(sku),
+                'tiene_costo': cost_unit > 0
             })
 
         # 6. Combinar y calcular Totales en una sola pasada
