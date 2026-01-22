@@ -131,9 +131,9 @@ def backup_db():
             
             result = subprocess.run(cmd, capture_output=True, text=True)
             
-            # Si falla por --column-statistics (versiones viejas), reintentar sin eso
-            if result.returncode != 0 and "--column-statistics" in (result.stderr or ""):
-                current_app.logger.info("Reintentando sin --column-statistics...")
+            # Si falla por --column-statistics (versiones viejas o MariaDB), reintentar sin eso
+            if result.returncode != 0 and ("column-statistics" in (result.stderr or "")):
+                current_app.logger.info("Reintentando sin --column-statistics debido a error de compatibilidad...")
                 cmd = [c for c in cmd if c != '--column-statistics=0']
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
