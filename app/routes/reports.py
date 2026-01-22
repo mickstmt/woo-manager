@@ -627,7 +627,20 @@ def api_profits_externos():
         if not start_date:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-        # Query simplificado - solo pedidos básicos
+        # 1. Obtener todos los costos de FC en un diccionario para búsqueda rápida
+        fc_costs_rows = db.session.execute(text("SELECT sku, FCLastCost FROM woo_products_fccost WHERE LENGTH(sku) = 7")).fetchall()
+        fc_costs_map = {row[0]: float(row[1] or 0) for row in fc_costs_rows}
+
+        # 2. Obtener tipos de cambio históricos necesarios
+        tc_rows = db.session.execute(text("SELECT fecha, tasa_promedio FROM woo_tipo_cambio WHERE activo = TRUE ORDER BY fecha DESC")).fetchall()
+        def get_tc_for_date(order_date):
+            order_date_str = str(order_date)
+            for tc_date, rate in tc_rows:
+                if str(tc_date) <= order_date_str:
+                    return float(rate)
+            return 3.8 # Fallback
+
+        # 3. Consulta de Órdenes (Solo datos básicos)
         orders_query = text("""
             SELECT
                 oext.id as pedido_id,
@@ -647,12 +660,61 @@ def api_profits_externos():
             LIMIT 1000
         """)
 
-        orders = db.session.execute(orders_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchall()
+        orders_results = db.session.execute(orders_query, {'start_date': start_date, 'end_date': end_date}).fetchall()
+        order_ids = [r[0] for r in orders_results]
 
-        # Calcular costos en Python (más rápido que subqueries anidadas)
+        if not order_ids:
+            return jsonify({
+                'success': True,
+                'orders': [],
+                'summary': {
+                    'total_pedidos': 0,
+                    'ventas_totales_pen': 0,
+                    'costos_totales_usd': 0,
+                    'costos_totales_pen': 0,
+                    'costos_envio_totales_pen': 0,
+                    'ganancias_totales_pen': 0,
+                    'margen_promedio_porcentaje': 0
+                }
+            })
+
+        # 4. Consulta masiva de items para todas las órdenes encontradas
+        items_sql = text("""
+            SELECT order_ext_id, product_name, product_sku, quantity
+            FROM woo_orders_ext_items
+            WHERE order_ext_id IN :order_ids
+        """)
+        items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
+        
+        # Agrupar items por pedido
+        items_by_order = {}
+        for row in items_results:
+            oid, name, sku, qty = row
+            if oid not in items_by_order: items_by_order[oid] = []
+            
+            # Buscar costo del SKU
+            costo_unitario = 0.0
+            tiene_sku = bool(sku)
+            tiene_costo = False
+            
+            if sku:
+                for fc_sku, cost in fc_costs_map.items():
+                    if fc_sku in sku:
+                        costo_unitario = cost
+                        tiene_costo = True
+                        break
+
+            items_by_order[oid].append({
+                'producto': name or 'Sin nombre',
+                'sku': sku or 'N/A',
+                'cantidad': int(qty or 0),
+                'costo_unitario_usd': round(costo_unitario, 2),
+                'costo_total_usd': round(costo_unitario * int(qty or 0), 2),
+                'tiene_sku': tiene_sku,
+                'tiene_costo': tiene_costo
+            })
+
+        # 5. Combinar y calcular
         orders_list = []
         total_ventas = 0
         total_costos_usd = 0
@@ -660,75 +722,17 @@ def api_profits_externos():
         total_envios = 0
         total_ganancias = 0
 
-        for row in orders:
-            pedido_id = row[0]
-            numero_pedido = row[1]
-            fecha_pedido = row[2]
-            estado = row[3]
-            metodo_pago = row[4] or 'N/A'
-            total_venta_pen = float(row[5] or 0)
-            costo_envio_pen = float(row[6] or 0)
-            cliente_nombre = row[7]
-            cliente_apellido = row[8]
-
-            # Obtener tipo de cambio del día
-            tc_query = text("""
-                SELECT tasa_promedio
-                FROM woo_tipo_cambio
-                WHERE fecha <= :fecha AND activo = TRUE
-                ORDER BY fecha DESC
-                LIMIT 1
-            """)
-            tc_result = db.session.execute(tc_query, {'fecha': fecha_pedido}).fetchone()
-            tipo_cambio = float(tc_result[0]) if tc_result else 3.8
-
-            # Obtener items y calcular costos
-            items_query = text("""
-                SELECT product_name, product_sku, quantity
-                FROM woo_orders_ext_items
-                WHERE order_ext_id = :order_id
-            """)
-            items = db.session.execute(items_query, {'order_id': pedido_id}).fetchall()
-
-            costo_total_usd = 0
-            items_list = []
-
-            for item in items:
-                producto = item[0]
-                sku = item[1]
-                qty = item[2]
-
-                # Buscar costo del SKU
-                costo_unitario = 0
-                tiene_sku = bool(sku)
-                tiene_costo = False
-
-                if sku:
-                    cost_query = text("""
-                        SELECT SUM(FCLastCost)
-                        FROM woo_products_fccost
-                        WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
-                    """)
-                    cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
-                    if cost_result and cost_result[0]:
-                        costo_unitario = float(cost_result[0])
-                        tiene_costo = True
-
-                costo_total_item = costo_unitario * qty
-                costo_total_usd += costo_total_item
-
-                # Agregar item a la lista con formato compatible con frontend
-                items_list.append({
-                    'producto': producto or 'Sin nombre',
-                    'sku': sku or 'N/A',
-                    'cantidad': qty,
-                    'costo_unitario_usd': round(costo_unitario, 2),
-                    'costo_total_usd': round(costo_total_item, 2),
-                    'tiene_sku': tiene_sku,
-                    'tiene_costo': tiene_costo
-                })
-
+        for row in orders_results:
+            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, c_nombre, c_apellido = row
+            
+            total_venta_pen = float(total_venta_pen or 0)
+            costo_envio_pen = float(costo_envio_pen or 0)
+            tipo_cambio = get_tc_for_date(fecha_pedido)
+            
+            items = items_by_order.get(pedido_id, [])
+            costo_total_usd = sum(i['costo_total_usd'] for i in items)
             costo_total_pen = costo_total_usd * tipo_cambio
+            
             ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
             margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
 
@@ -745,20 +749,18 @@ def api_profits_externos():
                 'costo_envio_pen': round(costo_envio_pen, 2),
                 'ganancia_pen': round(ganancia_pen, 2),
                 'margen_porcentaje': round(margen_porcentaje, 2),
-                'cliente_nombre': cliente_nombre,
-                'cliente_apellido': cliente_apellido,
-                'total_items': len(items_list),
-                'items': items_list
+                'cliente_nombre': c_nombre,
+                'cliente_apellido': c_apellido,
+                'total_items': len(items),
+                'items': items
             })
 
-            # Acumular para resumen
             total_ventas += total_venta_pen
             total_costos_usd += costo_total_usd
             total_costos_pen += costo_total_pen
             total_envios += costo_envio_pen
             total_ganancias += ganancia_pen
 
-        # Calcular resumen
         margen_promedio = (total_ganancias / total_ventas * 100) if total_ventas > 0 else 0
 
         return jsonify({
@@ -816,7 +818,20 @@ def export_profits_externos_excel():
         else:
             status_filter = "AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
 
-        # Query simplificado - solo pedidos básicos
+        # 1. Obtener todos los costos de FC en un diccionario para búsqueda rápida
+        fc_costs_rows = db.session.execute(text("SELECT sku, FCLastCost FROM woo_products_fccost WHERE LENGTH(sku) = 7")).fetchall()
+        fc_costs_map = {row[0]: float(row[1] or 0) for row in fc_costs_rows}
+
+        # 2. Obtener tipos de cambio históricos necesarios
+        tc_rows = db.session.execute(text("SELECT fecha, tasa_promedio FROM woo_tipo_cambio WHERE activo = TRUE ORDER BY fecha DESC")).fetchall()
+        def get_tc_for_date(order_date):
+            order_date_str = str(order_date)
+            for tc_date, rate in tc_rows:
+                if str(tc_date) <= order_date_str:
+                    return float(rate)
+            return 3.8 # Fallback
+
+        # 3. Consulta de Órdenes (Solo datos básicos)
         orders_query_template = """
             SELECT
                 oext.id as pedido_id,
@@ -837,65 +852,58 @@ def export_profits_externos_excel():
         """
 
         orders_query = text(orders_query_template.replace('{status_filter}', status_filter))
+        orders_results = db.session.execute(orders_query, {'start_date': start_date, 'end_date': end_date}).fetchall()
+        order_ids = [r[0] for r in orders_results]
 
-        orders = db.session.execute(orders_query, {
-            'start_date': start_date,
-            'end_date': end_date
-        }).fetchall()
+        if not order_ids:
+            # Si no hay pedidos, devolver Excel vacío o manejar correspondientemente
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Pedidos Externos"
+            ws['A1'] = "No hay datos para el período seleccionado"
+            output = BytesIO()
+            wb.save(output)
+            output.seek(0)
+            return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f"ganancias_externos_{start_date}_{end_date}.xlsx")
 
-        # Calcular costos en Python (igual que api_profits_externos)
+        # 4. Consulta masiva de items para todas las órdenes encontradas
+        items_sql = text("""
+            SELECT order_ext_id, product_sku, quantity
+            FROM woo_orders_ext_items
+            WHERE order_ext_id IN :order_ids
+        """)
+        items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
+        
+        # Agrupar items por pedido (solo necesitamos el costo total por pedido para el Excel resumen)
+        costo_total_usd_by_order = {}
+        for row in items_results:
+            oid, sku, qty = row
+            if oid not in costo_total_usd_by_order: costo_total_usd_by_order[oid] = 0.0
+            
+            # Buscar costo del SKU
+            costo_unitario = 0.0
+            if sku:
+                for fc_sku, cost in fc_costs_map.items():
+                    if fc_sku in sku:
+                        costo_unitario = cost
+                        break
+            
+            costo_total_usd_by_order[oid] += costo_unitario * int(qty or 0)
+
+        # 5. Combinar y calcular
         orders_data = []
 
-        for row in orders:
-            pedido_id = row[0]
-            numero_pedido = row[1]
-            fecha_pedido = row[2]
-            estado = row[3]
-            metodo_pago = row[4] or 'N/A'
-            total_venta_pen = float(row[5] or 0)
-            costo_envio_pen = float(row[6] or 0)
-            cliente_nombre = row[7]
-            cliente_apellido = row[8]
-
-            # Obtener tipo de cambio del día
-            tc_query = text("""
-                SELECT tasa_promedio
-                FROM woo_tipo_cambio
-                WHERE fecha <= :fecha AND activo = TRUE
-                ORDER BY fecha DESC
-                LIMIT 1
-            """)
-            tc_result = db.session.execute(tc_query, {'fecha': fecha_pedido}).fetchone()
-            tipo_cambio = float(tc_result[0]) if tc_result else 3.8
-
-            # Obtener items y calcular costos
-            items_query = text("""
-                SELECT product_sku, quantity
-                FROM woo_orders_ext_items
-                WHERE order_ext_id = :order_id
-            """)
-            items = db.session.execute(items_query, {'order_id': pedido_id}).fetchall()
-
-            costo_total_usd = 0
-            for item in items:
-                sku = item[0]
-                qty = item[1]
-
-                if sku:
-                    cost_query = text("""
-                        SELECT SUM(FCLastCost)
-                        FROM woo_products_fccost
-                        WHERE :sku LIKE CONCAT('%', sku, '%') AND LENGTH(sku) = 7
-                    """)
-                    cost_result = db.session.execute(cost_query, {'sku': sku}).fetchone()
-                    if cost_result and cost_result[0]:
-                        costo_unitario = float(cost_result[0])
-                        costo_total_usd += costo_unitario * qty
-
+        for row in orders_results:
+            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, cliente_nombre, cliente_apellido = row
+            
+            total_venta_pen = float(total_venta_pen or 0)
+            costo_envio_pen = float(costo_envio_pen or 0)
+            tipo_cambio = get_tc_for_date(fecha_pedido)
+            
+            costo_total_usd = costo_total_usd_by_order.get(pedido_id, 0.0)
             costo_total_pen = costo_total_usd * tipo_cambio
-
+            
             # Normalizar método de pago a nombre de plataforma
-            # Los pedidos de woo_orders_ext son SIEMPRE de WhatsApp
             plataforma = normalize_payment_method(metodo_pago, is_whatsapp=True)
 
             # Calcular comisión: 5% si Plataforma contiene "TARJETA"
@@ -903,10 +911,8 @@ def export_profits_externos_excel():
             if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
-            # Recalcular ganancia: Total Venta (PEN) - Costo PEN - Envío PEN - Comisión
+            # Recalcular ganancia
             ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen - comision_pen
-
-            # Recalcular margen %: (Ganancia PEN / Total Venta PEN) * 100
             margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
 
             cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
