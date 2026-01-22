@@ -72,11 +72,38 @@ def backup_db():
 
         # Intentar encontrar mysqldump
         cmd_path = shutil.which('mysqldump') or shutil.which('mariadb-dump')
-        if not cmd_path and os.name == 'nt':
-            cmd_path = shutil.which('mysqldump.exe')
-
+        
         if not cmd_path:
-            flash("Error: No se encontró el comando 'mysqldump' en el sistema.", "danger")
+            if os.name == 'nt':
+                # Intentar rutas comunes en Windows
+                common_paths_win = [
+                    r"C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe",
+                    r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe",
+                    r"C:\xampp\mysql\bin\mysqldump.exe",
+                    r"C:\laragon\bin\mysql\mysql-5.7.24-win64\bin\mysqldump.exe",
+                ]
+                for p in common_paths_win:
+                    if os.path.exists(p):
+                        cmd_path = p
+                        break
+            else:
+                # Intentar rutas comunes en Linux/Unix (VPS)
+                common_paths_linux = [
+                    "/usr/bin/mysqldump",
+                    "/usr/local/bin/mysqldump",
+                    "/usr/bin/mariadb-dump",
+                    "/opt/lampp/bin/mysqldump",
+                ]
+                for p in common_paths_linux:
+                    if os.path.exists(p):
+                        cmd_path = p
+                        break
+        
+        if not cmd_path:
+            error_msg = ("No se encontró el comando 'mysqldump' o 'mariadb-dump' en el servidor. "
+                        "Por favor, asegúrate de que el cliente de MySQL esté instalado.")
+            flash(f"Error: {error_msg}", "danger")
+            current_app.logger.error(error_msg)
             return redirect(url_for('index'))
 
         # Crear un archivo de opciones temporal para las credenciales
