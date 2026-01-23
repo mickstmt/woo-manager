@@ -392,7 +392,8 @@
 
                 <div class="mb-3">
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="status-select-all" checked onchange="toggleAllStatuses(this)">
+                        <input class="form-check-input" type="checkbox" id="status-select-all" checked
+                            onchange="toggleAllStatuses(this)">
                         <label class="form-check-label fw-bold" for="status-select-all">
                             Seleccionar todos
                         </label>
@@ -403,19 +404,22 @@
                 <div class="row">
                     <div class="col-6">
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-completed" id="status-completed" checked>
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-completed"
+                                id="status-completed" checked>
                             <label class="form-check-label" for="status-completed">
                                 <span class="badge bg-success">Completado</span>
                             </label>
                         </div>
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-processing" id="status-processing" checked>
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-processing"
+                                id="status-processing" checked>
                             <label class="form-check-label" for="status-processing">
                                 <span class="badge bg-primary">Procesando</span>
                             </label>
                         </div>
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-on-hold" id="status-on-hold" checked>
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-on-hold"
+                                id="status-on-hold" checked>
                             <label class="form-check-label" for="status-on-hold">
                                 <span class="badge bg-info">En espera</span>
                             </label>
@@ -423,19 +427,22 @@
                     </div>
                     <div class="col-6">
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-pending" id="status-pending" checked>
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-pending"
+                                id="status-pending" checked>
                             <label class="form-check-label" for="status-pending">
                                 <span class="badge bg-warning text-dark">Pendiente</span>
                             </label>
                         </div>
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-cancelled" id="status-cancelled">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-cancelled"
+                                id="status-cancelled">
                             <label class="form-check-label" for="status-cancelled">
                                 <span class="badge bg-danger">Cancelado</span>
                             </label>
                         </div>
                         <div class="form-check mb-2">
-                            <input class="form-check-input export-status-check" type="checkbox" value="wc-refunded" id="status-refunded">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-refunded"
+                                id="status-refunded">
                             <label class="form-check-label" for="status-refunded">
                                 <span class="badge bg-secondary">Reembolsado</span>
                             </label>
@@ -444,7 +451,8 @@
                 </div>
 
                 <div class="alert alert-info mt-3 mb-0">
-                    <small><i class="bi bi-info-circle"></i> Los estados "Cancelado" y "Reembolsado" están desmarcados por defecto.</small>
+                    <small><i class="bi bi-info-circle"></i> Los estados "Cancelado" y "Reembolsado" están desmarcados
+                        por defecto.</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -598,9 +606,9 @@
     }
 
     // Actualizar estado del "seleccionar todos" cuando cambian checkboxes individuales
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.export-status-check').forEach(cb => {
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 updateSelectAllCheckbox();
             });
         });
@@ -708,7 +716,7 @@
                     </td>
                     <td><a href="/orders/${order.pedido_id}" onclick="event.stopPropagation();">${order.numero_pedido}</a></td>
                     <td>${formatDate(order.fecha_pedido)}</td>
-                    <td>${clienteNombre}</td>
+                    <td>${clienteNombre} ${order.is_community ? '<br><span class="badge" style="background-color: #6f42c1; font-size: 0.7rem;">Comunidad</span>' : ''}</td>
                     <td class="hide-mobile">${statusBadge}</td>
                     <td class="text-center hide-mobile"><span class="badge bg-secondary">${order.total_items}</span></td>
                     <td class="text-end">S/. ${formatNumber(order.total_venta_pen)}</td>

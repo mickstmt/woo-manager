@@ -463,10 +463,12 @@ def api_profits():
                     WHERE oi_shipping.order_id = o.id
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
-                ), 0) as costo_envio
+                ), 0) as costo_envio,
+                om_community.meta_value as is_community
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -563,6 +565,7 @@ def api_profits():
                 'margen_porcentaje': round(margen, 2),
                 'cliente_nombre': fname or 'Sin nombre',
                 'cliente_apellido': lname or '',
+                'is_community': row[10] == 'yes',
                 'items': items,
                 'total_items': len(items)
             })
@@ -1122,10 +1125,12 @@ def export_profits_excel():
                     WHERE oi_shipping.order_id = o.id
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
-                ), 0) as costo_envio
+                ), 0) as costo_envio,
+                om_community.meta_value as is_community
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -1173,18 +1178,18 @@ def export_profits_excel():
         header_alignment = Alignment(horizontal="center", vertical="center")
         border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-        ws.merge_cells('A1:N1')
+        ws.merge_cells('A1:O1')
         title_cell = ws['A1']
         title_cell.value = f"Reporte de Ganancias - {source_name}"
         title_cell.font = Font(bold=True, size=14)
         title_cell.alignment = Alignment(horizontal="center")
 
-        ws.merge_cells('A2:N2')
+        ws.merge_cells('A2:O2')
         period_cell = ws['A2']
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
 
-        headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente']
+        headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
             cell.value = header
@@ -1224,13 +1229,14 @@ def export_profits_excel():
             ws.cell(row=row_num, column=12, value=ganancia_pen)
             ws.cell(row=row_num, column=13, value=margen_porcentaje)
             ws.cell(row=row_num, column=14, value=cliente or '')
+            ws.cell(row=row_num, column=15, value='SÍ' if row[11] == 'yes' else 'NO')
 
-            for col in range(1, 15):
+            for col in range(1, 16):
                 ws.cell(row=row_num, column=col).border = border
             row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
+        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30, 12]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
