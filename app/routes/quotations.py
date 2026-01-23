@@ -1064,6 +1064,499 @@ def api_check_expired():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@bp.route('/api/quotations/<int:quotation_id>/convert', methods=['POST'])
+@login_required
+@admin_required
+def api_convert_to_order(quotation_id):
+    """
+    API: Convertir cotización aceptada en pedido WooCommerce
+
+    Requisitos:
+    - Cotización debe estar en estado 'accepted'
+    - Requiere permisos de admin
+
+    Returns:
+        JSON con el ID del pedido creado
+    """
+    try:
+        # Importar funciones necesarias de orders module
+        from app.routes.orders import get_gmt_time, get_next_manager_order_number
+        import hashlib
+
+        # Validar cotización
+        quotation = Quotation.query.get_or_404(quotation_id)
+
+        if quotation.status != 'accepted':
+            return jsonify({
+                'success': False,
+                'error': 'Solo se pueden convertir cotizaciones aceptadas'
+            }), 400
+
+        if quotation.converted_order_id:
+            return jsonify({
+                'success': False,
+                'error': f'Esta cotización ya fue convertida al pedido #{quotation.converted_order_id}'
+            }), 400
+
+        current_app.logger.info(f"Converting quotation {quotation.quote_number} to order")
+
+        # ===== CALCULAR TOTALES =====
+        # Los precios en la cotización ya incluyen IGV
+        subtotal = quotation.subtotal - quotation.discount_amount  # Base imponible
+        tax_amount = quotation.tax_amount
+        shipping_cost = quotation.shipping_cost or Decimal('0')
+        total_with_tax = quotation.total
+
+        # ===== SINCRONIZAR AUTO_INCREMENT =====
+        # Prevenir colisiones de ID entre wpyz_wc_orders y wpyz_posts
+        max_posts_id = db.session.execute(
+            text('SELECT COALESCE(MAX(ID), 0) FROM wpyz_posts')
+        ).scalar()
+
+        current_auto_inc = db.session.execute(
+            text("""
+                SELECT AUTO_INCREMENT
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'wpyz_wc_orders'
+            """)
+        ).scalar()
+
+        if current_auto_inc <= max_posts_id:
+            new_auto_inc = max_posts_id + 1
+            current_app.logger.warning(
+                f"AUTO_INCREMENT collision! Adjusting to {new_auto_inc}"
+            )
+            db.session.execute(
+                text(f'ALTER TABLE wpyz_wc_orders AUTO_INCREMENT = {new_auto_inc}')
+            )
+            db.session.commit()
+
+        # ===== CREAR PEDIDO =====
+        order = Order(
+            status='wc-processing',
+            currency='PEN',
+            type='shop_order',
+            tax_amount=tax_amount,
+            total_amount=total_with_tax,
+            customer_id=0,
+            billing_email=quotation.customer_email,
+            date_created_gmt=get_gmt_time(),
+            date_updated_gmt=get_gmt_time(),
+            payment_method='cod',
+            payment_method_title='Pago manual',
+            customer_note=quotation.notes or '',
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent', '')[:200]
+        )
+
+        db.session.add(order)
+        db.session.flush()  # Obtener order.id
+        current_app.logger.info(f"Order created with ID {order.id}")
+
+        # ===== GENERAR NÚMERO DE PEDIDO W-XXXXX =====
+        manager_order_number = get_next_manager_order_number()
+        current_app.logger.info(f"Generated order number: {manager_order_number}")
+
+        # ===== REGISTRO EN WPYZ_POSTS =====
+        current_time = get_gmt_time()
+        post_title = f"Pedido {manager_order_number} &ndash; {current_time.strftime('%B %d, %Y @ %I:%M %p')}"
+        post_name = f"order-{manager_order_number.lower()}-{current_time.strftime('%b-%d-%Y').lower()}"
+
+        insert_post = text("""
+            INSERT INTO wpyz_posts (
+                ID, post_author, post_date, post_date_gmt, post_content, post_title,
+                post_excerpt, post_status, comment_status, ping_status, post_password,
+                post_name, to_ping, pinged, post_modified, post_modified_gmt,
+                post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count
+            ) VALUES (
+                :order_id, 1, :post_date, :post_date_gmt, '', :post_title,
+                :post_excerpt, :post_status, 'open', 'closed', '',
+                :post_name, '', '', :post_modified, :post_modified_gmt,
+                '', 0, '', 0, 'shop_order', '', 0
+            )
+        """)
+
+        db.session.execute(insert_post, {
+            'order_id': order.id,
+            'post_date': current_time,
+            'post_date_gmt': current_time,
+            'post_title': post_title,
+            'post_excerpt': quotation.notes or '',
+            'post_status': order.status,
+            'post_name': post_name,
+            'post_modified': current_time,
+            'post_modified_gmt': current_time
+        })
+
+        # ===== DIRECCIONES =====
+        # 1. Guardar en wpyz_wc_order_addresses (HPOS)
+        billing_address = OrderAddress(
+            order_id=order.id,
+            address_type='billing',
+            first_name=quotation.customer_name.split()[0] if quotation.customer_name else '',
+            last_name=' '.join(quotation.customer_name.split()[1:]) if len(quotation.customer_name.split()) > 1 else '',
+            company=quotation.customer_dni or quotation.customer_ruc or '',
+            address_1=quotation.customer_address or '',
+            address_2='',
+            city=quotation.customer_city or '',
+            state=quotation.customer_state or '',
+            postcode='',
+            country='PE',
+            email=quotation.customer_email,
+            phone=quotation.customer_phone or ''
+        )
+        db.session.add(billing_address)
+
+        shipping_address = OrderAddress(
+            order_id=order.id,
+            address_type='shipping',
+            first_name=quotation.customer_name.split()[0] if quotation.customer_name else '',
+            last_name=' '.join(quotation.customer_name.split()[1:]) if len(quotation.customer_name.split()) > 1 else '',
+            company=quotation.customer_dni or quotation.customer_ruc or '',
+            address_1=quotation.customer_address or '',
+            address_2='',
+            city=quotation.customer_city or '',
+            state=quotation.customer_state or '',
+            postcode='',
+            country='PE',
+            email=quotation.customer_email,
+            phone=quotation.customer_phone or ''
+        )
+        db.session.add(shipping_address)
+
+        # 2. Guardar en wpyz_postmeta (sistema antiguo)
+        first_name = quotation.customer_name.split()[0] if quotation.customer_name else ''
+        last_name = ' '.join(quotation.customer_name.split()[1:]) if len(quotation.customer_name.split()) > 1 else ''
+
+        address_meta_fields = [
+            # Billing
+            ('_billing_first_name', first_name),
+            ('_billing_last_name', last_name),
+            ('_billing_company', quotation.customer_dni or quotation.customer_ruc or ''),
+            ('_billing_address_1', quotation.customer_address or ''),
+            ('_billing_address_2', ''),
+            ('_billing_city', quotation.customer_city or ''),
+            ('_billing_state', quotation.customer_state or ''),
+            ('_billing_postcode', ''),
+            ('_billing_country', 'PE'),
+            ('_billing_email', quotation.customer_email),
+            ('_billing_phone', quotation.customer_phone or ''),
+            # Shipping
+            ('_shipping_first_name', first_name),
+            ('_shipping_last_name', last_name),
+            ('_shipping_company', quotation.customer_dni or quotation.customer_ruc or ''),
+            ('_shipping_address_1', quotation.customer_address or ''),
+            ('_shipping_address_2', ''),
+            ('_shipping_city', quotation.customer_city or ''),
+            ('_shipping_state', quotation.customer_state or ''),
+            ('_shipping_postcode', ''),
+            ('_shipping_country', 'PE'),
+        ]
+
+        for meta_key, meta_value in address_meta_fields:
+            db.session.execute(text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:post_id, :meta_key, :meta_value)
+            """), {
+                'post_id': order.id,
+                'meta_key': meta_key,
+                'meta_value': str(meta_value)
+            })
+
+        # ===== ITEMS DEL PEDIDO =====
+        items_subtotal = Decimal('0')
+        items_tax = Decimal('0')
+
+        # Cargar todos los productos en batch para evitar N+1
+        product_ids = []
+        for item in quotation.items:
+            product_ids.append(item.variation_id if item.variation_id else item.product_id)
+
+        products_list = Product.query.filter(Product.ID.in_(product_ids)).all()
+        products_dict = {p.ID: p for p in products_list}
+
+        for quote_item in quotation.items:
+            product_id = quote_item.product_id
+            variation_id = quote_item.variation_id or 0
+            quantity = quote_item.quantity
+            price_with_tax = quote_item.unit_price
+
+            # Obtener producto
+            target_product_id = variation_id if variation_id else product_id
+            product = products_dict.get(target_product_id)
+
+            if not product:
+                raise Exception(f'Producto {product_id} no encontrado')
+
+            # Calcular subtotal e impuestos
+            line_total_with_tax = price_with_tax * quantity
+            line_subtotal = line_total_with_tax / Decimal('1.18')
+            line_tax = line_total_with_tax - line_subtotal
+
+            items_subtotal += line_subtotal
+            items_tax += line_tax
+
+            # Crear item
+            order_item = OrderItem(
+                order_item_name=quote_item.product_name,
+                order_item_type='line_item',
+                order_id=order.id
+            )
+            db.session.add(order_item)
+            db.session.flush()
+
+            # Metadatos del item
+            line_tax_data = f'a:2:{{s:5:"total";a:1:{{i:1;s:{len(str(line_tax.quantize(Decimal("0.01"))))}:"{line_tax.quantize(Decimal("0.01"))}";}}s:8:"subtotal";a:1:{{i:1;s:{len(str(line_tax.quantize(Decimal("0.01"))))}:"{line_tax.quantize(Decimal("0.01"))}";}}}}'
+
+            from app.models import OrderItemMeta
+            item_metas = [
+                ('_product_id', product_id),
+                ('_variation_id', variation_id),
+                ('_qty', quantity),
+                ('_line_subtotal', str(line_subtotal.quantize(Decimal('0.01')))),
+                ('_line_subtotal_tax', str(line_tax.quantize(Decimal('0.01')))),
+                ('_line_total', str(line_subtotal.quantize(Decimal('0.01')))),
+                ('_line_tax', str(line_tax.quantize(Decimal('0.01')))),
+                ('_line_tax_data', line_tax_data),
+                ('_tax_class', ''),
+                ('_reduced_stock', quantity),
+            ]
+
+            for meta_key, meta_value in item_metas:
+                item_meta = OrderItemMeta(
+                    order_item_id=order_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(item_meta)
+
+            # Reducir stock
+            if product:
+                stock_meta = product.product_meta.filter_by(meta_key='_stock').first()
+                if stock_meta and stock_meta.meta_value is not None:
+                    try:
+                        current_stock = int(float(stock_meta.meta_value))
+                        new_stock = max(0, current_stock - quantity)
+                        stock_meta.meta_value = str(new_stock)
+
+                        if new_stock == 0:
+                            stock_status_meta = product.product_meta.filter_by(meta_key='_stock_status').first()
+                            if stock_status_meta:
+                                stock_status_meta.meta_value = 'outofstock'
+                    except (ValueError, TypeError):
+                        current_app.logger.warning(f"Could not update stock for product {product_id}")
+
+        # ===== ITEM DE ENVÍO =====
+        shipping_subtotal = shipping_cost
+        shipping_tax = Decimal('0')
+
+        shipping_item = OrderItem(
+            order_item_name='Envío',
+            order_item_type='shipping',
+            order_id=order.id
+        )
+        db.session.add(shipping_item)
+        db.session.flush()
+
+        from app.models import OrderItemMeta
+        shipping_cost_str = str(shipping_cost.quantize(Decimal('0.01')))
+        shipping_metas = [
+            ('method_id', 'advanced_shipping'),
+            ('instance_id', '0'),
+            ('cost', shipping_cost_str),
+            ('total_tax', '0'),
+            ('taxes', 'a:0:{}'),
+            ('_line_total', shipping_cost_str),
+            ('_line_tax', '0'),
+            ('_line_subtotal', shipping_cost_str),
+            ('_line_subtotal_tax', '0'),
+        ]
+
+        for meta_key, meta_value in shipping_metas:
+            shipping_meta = OrderItemMeta(
+                order_item_id=shipping_item.order_item_id,
+                meta_key=meta_key,
+                meta_value=str(meta_value)
+            )
+            db.session.add(shipping_meta)
+
+        # ===== ITEM DE DESCUENTO (FEE) =====
+        if quotation.discount_amount and quotation.discount_amount > 0:
+            discount_label = f'Descuento'
+            if quotation.discount_type == 'percentage':
+                discount_label = f'Descuento ({quotation.discount_value}%)'
+
+            discount_item = OrderItem(
+                order_item_name=discount_label,
+                order_item_type='fee',
+                order_id=order.id
+            )
+            db.session.add(discount_item)
+            db.session.flush()
+
+            discount_amount_str = str(quotation.discount_amount.quantize(Decimal('0.01')))
+            discount_metas = [
+                ('_fee_amount', f'-{discount_amount_str}'),
+                ('_line_total', f'-{discount_amount_str}'),
+                ('_line_tax', '0'),
+                ('_line_subtotal', f'-{discount_amount_str}'),
+                ('_line_subtotal_tax', '0'),
+                ('_tax_class', ''),
+                ('_line_tax_data', 'a:0:{}'),
+            ]
+
+            for meta_key, meta_value in discount_metas:
+                discount_meta = OrderItemMeta(
+                    order_item_id=discount_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(discount_meta)
+
+        # ===== ITEM DE IMPUESTO (TAX) =====
+        total_tax_amount = items_tax + shipping_tax
+        if total_tax_amount > 0:
+            tax_item = OrderItem(
+                order_item_name='PE-IMPUESTO-1',
+                order_item_type='tax',
+                order_id=order.id
+            )
+            db.session.add(tax_item)
+            db.session.flush()
+
+            from app.models import OrderItemMeta
+            tax_metas = [
+                ('rate_id', '1'),
+                ('label', 'Impuesto'),
+                ('compound', ''),
+                ('tax_amount', str(items_tax.quantize(Decimal('0.01')))),
+                ('shipping_tax_amount', str(shipping_tax.quantize(Decimal('0.01')))),
+                ('rate_percent', str(quotation.tax_rate)),
+                ('_wcpdf_rate_percentage', f'{quotation.tax_rate:.2f}'),
+                ('_wcpdf_ubl_tax_category', 'S'),
+                ('_wcpdf_ubl_tax_reason', ''),
+                ('_wcpdf_ubl_tax_scheme', 'VAT'),
+            ]
+
+            for meta_key, meta_value in tax_metas:
+                tax_meta = OrderItemMeta(
+                    order_item_id=tax_item.order_item_id,
+                    meta_key=meta_key,
+                    meta_value=str(meta_value)
+                )
+                db.session.add(tax_meta)
+
+        # ===== METADATOS DEL PEDIDO =====
+        billing_index = f"{first_name} {last_name} {quotation.customer_dni or quotation.customer_ruc or ''} {quotation.customer_address or ''} {quotation.customer_city or ''} {quotation.customer_state or ''} {quotation.customer_email} {quotation.customer_phone or ''}".strip()
+
+        external_id = hashlib.sha256(f"order_{order.id}_{get_gmt_time().timestamp()}".encode()).hexdigest()
+        edit_lock = f"{int(get_gmt_time().timestamp())}:{current_user.id}"
+
+        order_metas = [
+            ('external_id', external_id),
+            ('_order_number', manager_order_number),
+            ('_edit_lock', edit_lock),
+            ('_created_via', 'woocommerce-manager'),
+            ('_order_source', 'quotation'),
+            ('_created_by', current_user.username),
+            ('_quotation_id', quotation.id),
+            ('_quotation_number', quotation.quote_number),
+            ('_order_version', '9.0.0'),
+            ('_customer_note', quotation.notes or ''),
+            ('_prices_include_tax', 'yes'),
+            ('is_vat_exempt', 'no'),
+            ('_billing_address_index', billing_index),
+            ('_shipping_address_index', billing_index),
+            ('_cart_discount', '0'),
+            ('_cart_discount_tax', '0'),
+            ('_order_shipping', str(shipping_subtotal.quantize(Decimal('0.01')))),
+            ('_order_shipping_tax', str(shipping_tax.quantize(Decimal('0.01')))),
+            ('_order_tax', str(tax_amount.quantize(Decimal('0.01')))),
+            ('_order_total', str(total_with_tax.quantize(Decimal('0.01')))),
+            ('_billing_ruc', quotation.customer_ruc or ''),
+            ('_wc_order_attribution_source_type', 'admin'),
+            ('_wc_order_attribution_referrer', 'quotation'),
+            ('_wc_order_attribution_utm_source', 'quotation'),
+            ('_wc_order_attribution_utm_medium', 'manual_conversion'),
+            ('_wc_order_attribution_utm_content', 'woocommerce-manager'),
+            ('_wc_order_attribution_session_entry', f'https://www.izistoreperu.com/quotations/{quotation.id}'),
+            ('_wc_order_attribution_session_start_time', get_gmt_time().strftime('%Y-%m-%d %H:%M:%S')),
+            ('_wc_order_attribution_session_pages', '1'),
+            ('_wc_order_attribution_session_count', '1'),
+            ('_wc_order_attribution_device_type', 'Desktop'),
+            ('_wc_order_attribution_user_agent', request.headers.get('User-Agent', '')[:200]),
+        ]
+
+        # Guardar en ambos sistemas
+        for meta_key, meta_value in order_metas:
+            # wpyz_wc_orders_meta (HPOS)
+            order_meta = OrderMeta(
+                order_id=order.id,
+                meta_key=meta_key,
+                meta_value=str(meta_value)
+            )
+            db.session.add(order_meta)
+
+            # wpyz_postmeta (sistema antiguo)
+            db.session.execute(text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:post_id, :meta_key, :meta_value)
+            """), {
+                'post_id': order.id,
+                'meta_key': meta_key,
+                'meta_value': str(meta_value)
+            })
+
+        # ===== LIMPIAR CACHE =====
+        try:
+            db.session.execute(text("""
+                DELETE FROM wpyz_options
+                WHERE option_name LIKE '%_transient_wc_orders%'
+                OR option_name LIKE '%_transient_timeout_wc_orders%'
+                OR option_name LIKE '%_transient_wc_order_%'
+            """))
+        except Exception as cache_error:
+            current_app.logger.warning(f"Could not clear cache: {str(cache_error)}")
+
+        # ===== ACTUALIZAR COTIZACIÓN =====
+        quotation.status = 'converted'
+        quotation.converted_order_id = order.id
+
+        # Crear registro en historial
+        history = QuotationHistory(
+            quotation_id=quotation.id,
+            old_status='accepted',
+            new_status='converted',
+            changed_by=current_user.username,
+            change_reason=f'Convertida a pedido {manager_order_number} (ID: {order.id})'
+        )
+        db.session.add(history)
+
+        # Commit final
+        db.session.commit()
+        current_app.logger.info(f"Quotation {quotation.quote_number} converted to order {manager_order_number} (ID: {order.id})")
+
+        return jsonify({
+            'success': True,
+            'message': f'Cotización convertida exitosamente al pedido {manager_order_number}',
+            'order_id': order.id,
+            'order_number': manager_order_number,
+            'quotation_id': quotation.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_details = traceback.format_exc()
+        current_app.logger.error(f"Error converting quotation to order: {str(e)}\n{error_details}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_details
+        }), 500
+
+
 @bp.route('/api/stats', methods=['GET'])
 @login_required
 def api_stats():
