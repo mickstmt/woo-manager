@@ -100,6 +100,20 @@
         .flatpickr-weekdays {
             background: #f8f9fa;
         }
+
+        /* Estilos para enlaces deshabilitados en el sidebar */
+        .sidebar .nav-link.disabled-link {
+            cursor: not-allowed !important;
+            opacity: 0.5;
+            filter: grayscale(0.8);
+            pointer-events: auto !important;
+        }
+
+        .sidebar .nav-link.disabled-link:hover {
+            background: transparent !important;
+            color: inherit !important;
+            transform: none !important;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -201,7 +215,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="/quotations/" class="nav-link" data-tooltip="Cotizaciones">
+                            <a href="javascript:void(0)" class="nav-link disabled-link" data-tooltip="Cotizaciones">
                                 <span class="nav-link-icon"><i class="bi bi-file-earmark-text"></i></span>
                                 <span class="nav-link-text">Cotizaciones</span>
                             </a>
@@ -288,7 +302,7 @@
                     <div class="nav-section-title">SISTEMA</div>
                     <ul class="nav-items">
                         <li class="nav-item">
-                            <a href="{{ url_for('admin.backup_db') }}" class="nav-link" data-tooltip="Backup DB">
+                            <a href="javascript:void(0)" class="nav-link disabled-link" data-tooltip="Backup DB">
                                 <span class="nav-link-icon"><i class="bi bi-database-down"></i></span>
                                 <span class="nav-link-text">Backup Base de Datos</span>
                             </a>
