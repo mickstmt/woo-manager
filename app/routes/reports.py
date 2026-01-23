@@ -536,7 +536,7 @@ def api_profits():
         total_ganancia_pen = 0.0
 
         for r in orders_results:
-            oid, num, fecha, status, total_venta, fname, lname, c_envio = r
+            oid, num, fecha, status, total_venta, fname, lname, c_envio, is_comm = r
             tc = get_tc_for_date(fecha)
             items = items_by_order.get(oid, [])
             
@@ -563,9 +563,8 @@ def api_profits():
                 'costo_envio_pen': c_envio,
                 'ganancia_pen': ganancia,
                 'margen_porcentaje': round(margen, 2),
-                'cliente_nombre': fname or 'Sin nombre',
                 'cliente_apellido': lname or '',
-                'is_community': row[10] == 'yes',
+                'is_community': is_comm == 'yes',
                 'items': items,
                 'total_items': len(items)
             })
@@ -1198,7 +1197,7 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            oid, num, fecha, status, p_raw, total_venta_pen, cliente, c_envio = r
+            oid, num, fecha, status, p_raw, total_venta_pen, cliente, c_envio, is_comm = r
             tc = get_tc_for_date(fecha)
             costo_usd = items_by_order.get(oid, 0.0)
             costo_pen = costo_usd * tc
@@ -1229,7 +1228,7 @@ def export_profits_excel():
             ws.cell(row=row_num, column=12, value=ganancia_pen)
             ws.cell(row=row_num, column=13, value=margen_porcentaje)
             ws.cell(row=row_num, column=14, value=cliente or '')
-            ws.cell(row=row_num, column=15, value='SÍ' if row[11] == 'yes' else 'NO')
+            ws.cell(row=row_num, column=15, value='SÍ' if is_comm == 'yes' else 'NO')
 
             for col in range(1, 16):
                 ws.cell(row=row_num, column=col).border = border
