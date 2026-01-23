@@ -21,7 +21,7 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocDocument, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 import os
@@ -680,6 +680,340 @@ def api_duplicate_quotation(quotation_id):
         db.session.rollback()
         current_app.logger.error(f"Error al duplicar cotización: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/quotations/<int:quotation_id>/pdf', methods=['GET'])
+@login_required
+def api_generate_pdf(quotation_id):
+    """
+    API: Generar y descargar PDF de cotización
+
+    Returns:
+        PDF file
+    """
+    try:
+        quotation = Quotation.query.get_or_404(quotation_id)
+
+        # Crear buffer en memoria
+        buffer = BytesIO()
+
+        # Crear documento PDF
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=50,
+            bottomMargin=50,
+        )
+
+        # Estilos
+        styles = getSampleStyleSheet()
+
+        # Estilo para título principal
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=28,
+            textColor=colors.HexColor('#0d6efd'),
+            spaceAfter=8,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+
+        # Estilo para subtítulo
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#6c757d'),
+            spaceAfter=20,
+            alignment=TA_CENTER
+        )
+
+        # Estilo para encabezados de sección
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#212529'),
+            spaceAfter=12,
+            fontName='Helvetica-Bold'
+        )
+
+        # Contenido del PDF
+        elements = []
+
+        # Logo (si existe)
+        logo_path = os.path.join(current_app.root_path, 'static', 'img', 'logo.png')
+        if os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=2*inch, height=0.8*inch)
+                logo.hAlign = 'CENTER'
+                elements.append(logo)
+                elements.append(Spacer(1, 12))
+            except:
+                pass  # Si hay error cargando el logo, continuar sin él
+
+        # Título
+        title = Paragraph("COTIZACIÓN", title_style)
+        elements.append(title)
+
+        # Número de cotización
+        quote_number = Paragraph(quotation.quote_number, subtitle_style)
+        elements.append(quote_number)
+        elements.append(Spacer(1, 20))
+
+        # Información de la cotización en dos columnas
+        info_data = []
+
+        # Columna izquierda: Información del cliente
+        left_col = [
+            ['<b>INFORMACIÓN DEL CLIENTE</b>'],
+            [''],
+            [f'<b>Cliente:</b> {quotation.customer_name}'],
+            [f'<b>Email:</b> {quotation.customer_email}'],
+        ]
+
+        if quotation.customer_phone:
+            left_col.append([f'<b>Teléfono:</b> {quotation.customer_phone}'])
+        if quotation.customer_dni:
+            left_col.append([f'<b>DNI:</b> {quotation.customer_dni}'])
+        if quotation.customer_ruc:
+            left_col.append([f'<b>RUC:</b> {quotation.customer_ruc}'])
+        if quotation.customer_address:
+            left_col.append([f'<b>Dirección:</b> {quotation.customer_address}'])
+            if quotation.customer_city or quotation.customer_state:
+                location = ', '.join(filter(None, [quotation.customer_city, quotation.customer_state]))
+                left_col.append([location])
+
+        # Columna derecha: Información de la cotización
+        right_col = [
+            ['<b>INFORMACIÓN DE LA COTIZACIÓN</b>'],
+            [''],
+            [f'<b>Fecha:</b> {quotation.quote_date.strftime("%d/%m/%Y")}'],
+            [f'<b>Válido hasta:</b> {quotation.valid_until.strftime("%d/%m/%Y")}'],
+            [f'<b>Estado:</b> {quotation.status.upper()}'],
+        ]
+
+        if quotation.payment_terms:
+            right_col.append(['<b>Condiciones de Pago:</b>'])
+            right_col.append([quotation.payment_terms])
+        if quotation.delivery_time:
+            right_col.append(['<b>Tiempo de Entrega:</b>'])
+            right_col.append([quotation.delivery_time])
+
+        # Crear tablas para cada columna
+        left_table = Table(left_col, colWidths=[3*inch])
+        left_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+            ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 2), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        right_table = Table(right_col, colWidths=[3*inch])
+        right_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+            ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 2), (-1, -1), 9),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        # Tabla contenedora para las dos columnas
+        info_container = Table([[left_table, right_table]], colWidths=[3*inch, 3*inch])
+        info_container.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+
+        elements.append(info_container)
+        elements.append(Spacer(1, 30))
+
+        # Productos
+        products_heading = Paragraph("DETALLE DE PRODUCTOS", heading_style)
+        elements.append(products_heading)
+        elements.append(Spacer(1, 10))
+
+        # Tabla de productos
+        products_data = [['#', 'SKU', 'Producto', 'Cant.', 'Precio Unit.', 'Total']]
+
+        for idx, item in enumerate(quotation.items, 1):
+            # Truncar nombre del producto si es muy largo
+            product_name = str(item.product_name)[:50]
+            if len(str(item.product_name)) > 50:
+                product_name += '...'
+
+            products_data.append([
+                str(idx),
+                str(item.product_sku or 'N/A'),
+                product_name,
+                str(item.quantity),
+                f'S/ {float(item.unit_price):.2f}',
+                f'S/ {float(item.subtotal):.2f}'
+            ])
+
+        products_table = Table(
+            products_data,
+            colWidths=[0.4*inch, 1*inch, 2.8*inch, 0.6*inch, 1*inch, 1*inch]
+        )
+        products_table.setStyle(TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
+
+            # Contenido
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Número
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),    # SKU
+            ('ALIGN', (2, 1), (2, -1), 'LEFT'),    # Producto
+            ('ALIGN', (3, 1), (3, -1), 'CENTER'),  # Cantidad
+            ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),  # Precios
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ]))
+        elements.append(products_table)
+        elements.append(Spacer(1, 20))
+
+        # Resumen de totales
+        totals_data = []
+
+        # Subtotal
+        totals_data.append(['Subtotal:', f'S/ {float(quotation.subtotal):.2f}'])
+
+        # Descuento
+        if quotation.discount_value and float(quotation.discount_value) > 0:
+            discount_text = f'Descuento ({quotation.discount_type}):'
+            if quotation.discount_type == 'percentage':
+                discount_text = f'Descuento ({float(quotation.discount_value):.0f}%):'
+            totals_data.append([discount_text, f'- S/ {float(quotation.discount_amount):.2f}'])
+
+        # Base imponible
+        totals_data.append(['Base Imponible:', f'S/ {float(quotation.subtotal - quotation.discount_amount):.2f}'])
+
+        # IGV
+        totals_data.append([f'IGV ({float(quotation.tax_rate):.0f}%):', f'S/ {float(quotation.tax_amount):.2f}'])
+
+        # Envío
+        if quotation.shipping_cost and float(quotation.shipping_cost) > 0:
+            totals_data.append(['Costo de Envío:', f'S/ {float(quotation.shipping_cost):.2f}'])
+
+        # Total (en negrita y con fondo)
+        totals_data.append(['TOTAL:', f'S/ {float(quotation.total):.2f}'])
+
+        totals_table = Table(totals_data, colWidths=[4.8*inch, 1.8*inch])
+        totals_table.setStyle(TableStyle([
+            # Contenido general
+            ('ALIGN', (0, 0), (0, -2), 'RIGHT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -2), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -2), 10),
+
+            # Última fila (Total)
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#0d6efd')),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('LINEABOVE', (0, -1), (-1, -1), 2, colors.black),
+
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, -1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 10),
+        ]))
+
+        elements.append(totals_table)
+        elements.append(Spacer(1, 30))
+
+        # Términos y Condiciones
+        if quotation.terms_conditions:
+            terms_heading = Paragraph("TÉRMINOS Y CONDICIONES", heading_style)
+            elements.append(terms_heading)
+            elements.append(Spacer(1, 8))
+
+            terms_text = Paragraph(
+                quotation.terms_conditions.replace('\n', '<br/>'),
+                styles['Normal']
+            )
+            elements.append(terms_text)
+            elements.append(Spacer(1, 20))
+
+        # Notas adicionales
+        if quotation.notes:
+            notes_heading = Paragraph("NOTAS ADICIONALES", heading_style)
+            elements.append(notes_heading)
+            elements.append(Spacer(1, 8))
+
+            notes_text = Paragraph(
+                quotation.notes.replace('\n', '<br/>'),
+                styles['Normal']
+            )
+            elements.append(notes_text)
+            elements.append(Spacer(1, 20))
+
+        # Footer
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.grey,
+            alignment=TA_CENTER
+        )
+
+        footer_text = f"""
+        Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} por {current_user.username}<br/>
+        <i>Esta cotización es válida hasta el {quotation.valid_until.strftime('%d/%m/%Y')}</i>
+        """
+
+        footer = Paragraph(footer_text, footer_style)
+        elements.append(Spacer(1, 20))
+        elements.append(footer)
+
+        # Construir PDF
+        doc.build(elements)
+
+        # Preparar respuesta
+        buffer.seek(0)
+        filename = f"cotizacion_{quotation.quote_number}.pdf"
+
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+
+    except Exception as e:
+        current_app.logger.error(f'Error en api_generate_pdf: {str(e)}')
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @bp.route('/api/check-expired', methods=['GET'])
