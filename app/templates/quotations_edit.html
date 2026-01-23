@@ -1,0 +1,152 @@
+{% extends "quotations_create.html" %}
+
+{% block title %}Editar {{ quotation.quote_number }} - WooCommerce Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-pencil-square"></i> Editar Cotización
+            </h1>
+            <p class="text-muted mb-0">{{ quotation.quote_number }}</p>
+        </div>
+        <div>
+            <a href="/quotations/{{ quotation.id }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg"></i> Cancelar
+            </a>
+        </div>
+    </div>
+</div>
+
+{{ super() }}
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+// Override submitQuotation to use PUT instead of POST
+const isEditMode = true;
+const quotationId = {{ quotation.id }};
+
+// Load existing data
+const existingData = {{ quotation.to_dict()|tojson }};
+const existingItems = {{ items|map(attribute='to_dict')|list|tojson }};
+
+// Populate form on load
+$(document).ready(function() {
+    // Step 1: Customer
+    $('#customer-name').val(existingData.customer_name);
+    $('#customer-email').val(existingData.customer_email);
+    $('#customer-phone').val(existingData.customer_phone);
+    $('#customer-dni').val(existingData.customer_dni || '');
+    $('#customer-ruc').val(existingData.customer_ruc || '');
+    $('#customer-address').val(existingData.customer_address || '');
+    $('#customer-city').val(existingData.customer_city || '');
+    $('#customer-state').val(existingData.customer_state || '');
+
+    // Step 2: Products
+    cart = [];
+    existingItems.forEach(item => {
+        cart.push({
+            product_id: item.product_id,
+            variation_id: item.variation_id,
+            product_name: item.product_name,
+            product_sku: item.product_sku,
+            quantity: item.quantity,
+            original_price: item.original_price,
+            unit_price: item.unit_price,
+            notes: item.notes || ''
+        });
+    });
+    renderCart();
+
+    // Step 3: Terms
+    $('#discount-type').val(existingData.discount_type);
+    $('#discount-value').val(existingData.discount_value);
+    $('#shipping-cost').val(existingData.shipping_cost);
+    $('#tax-rate').val(existingData.tax_rate);
+
+    // Calculate valid days from valid_until
+    const validUntil = new Date(existingData.valid_until);
+    const today = new Date();
+    const daysRemaining = Math.ceil((validUntil - today) / (1000 * 60 * 60 * 24));
+    $('#valid-days').val(Math.max(1, daysRemaining));
+
+    $('#payment-terms').val(existingData.payment_terms || '');
+    $('#delivery-time').val(existingData.delivery_time || '');
+    $('#terms-conditions').val(existingData.terms_conditions || '');
+    $('#notes').val(existingData.notes || '');
+
+    calculateTotals();
+    updateExpiryDate();
+});
+
+// Override submitQuotation
+function submitQuotation() {
+    if (!confirm('¿Guardar los cambios en esta cotización?')) {
+        return;
+    }
+
+    // Prepare data (same as create)
+    const data = {
+        customer_name: $('#customer-name').val(),
+        customer_email: $('#customer-email').val(),
+        customer_phone: $('#customer-phone').val(),
+        customer_dni: $('#customer-dni').val(),
+        customer_ruc: $('#customer-ruc').val(),
+        customer_address: $('#customer-address').val(),
+        customer_city: $('#customer-city').val(),
+        customer_state: $('#customer-state').val(),
+        valid_days: parseInt($('#valid-days').val()) || 15,
+        payment_terms: $('#payment-terms').val(),
+        delivery_time: $('#delivery-time').val(),
+        discount_type: $('#discount-type').val(),
+        discount_value: parseFloat($('#discount-value').val()) || 0,
+        shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
+        tax_rate: parseFloat($('#tax-rate').val()) || 18,
+        notes: $('#notes').val(),
+        terms_conditions: $('#terms-conditions').val(),
+        items: cart.map(item => ({
+            product_id: item.product_id,
+            variation_id: item.variation_id,
+            product_name: item.product_name,
+            product_sku: item.product_sku,
+            quantity: item.quantity,
+            unit_price: parseFloat(item.unit_price),
+            original_price: parseFloat(item.original_price),
+            notes: item.notes
+        }))
+    };
+
+    // Show loading
+    const btn = $('button[onclick="submitQuotation()"]');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Actualizando...');
+
+    // Use PUT instead of POST
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                setTimeout(() => {
+                    window.location.href = `/quotations/${quotationId}`;
+                }, 1500);
+            } else {
+                showNotification('error', response.error || 'Error al actualizar cotización');
+                btn.prop('disabled', false).html(originalHtml);
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false).html(originalHtml);
+        }
+    });
+}
+</script>
+{% endblock %}

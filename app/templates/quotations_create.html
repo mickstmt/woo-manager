@@ -1,0 +1,958 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Cotización - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Wizard Steps */
+    .wizard-steps {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    .wizard-steps::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 0;
+    }
+
+    .wizard-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #dee2e6;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 8px;
+        transition: all 0.3s;
+    }
+
+    .wizard-step.active .step-circle {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: #fff;
+    }
+
+    .wizard-step.completed .step-circle {
+        background: #198754;
+        border-color: #198754;
+        color: #fff;
+    }
+
+    .step-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .wizard-step.active .step-label {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    /* Wizard Content */
+    .wizard-content {
+        display: none;
+    }
+
+    .wizard-content.active {
+        display: block;
+    }
+
+    /* Product Search */
+    .product-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--card-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .product-search-item {
+        padding: 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background 0.2s;
+    }
+
+    .product-search-item:hover {
+        background: var(--hover-bg);
+    }
+
+    .product-search-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Cart Table */
+    .cart-table {
+        margin-bottom: 20px;
+    }
+
+    .price-input {
+        width: 120px;
+    }
+
+    .quantity-input {
+        width: 80px;
+    }
+
+    .price-modified {
+        background-color: #fff3cd;
+    }
+
+    .original-price-badge {
+        text-decoration: line-through;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    /* Summary */
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .summary-row.total {
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-top: 2px solid #000;
+        border-bottom: 2px solid #000;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-file-earmark-plus"></i> Nueva Cotización
+            </h1>
+            <p class="text-muted mb-0">Crear cotización para cliente</p>
+        </div>
+        <div>
+            <a href="/quotations/" class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg"></i> Cancelar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Wizard Steps -->
+<div class="wizard-steps">
+    <div class="wizard-step active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Cliente</div>
+    </div>
+    <div class="wizard-step" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Productos</div>
+    </div>
+    <div class="wizard-step" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Términos</div>
+    </div>
+    <div class="wizard-step" data-step="4">
+        <div class="step-circle">4</div>
+        <div class="step-label">Revisión</div>
+    </div>
+</div>
+
+<!-- Step 1: Customer Information -->
+<div class="wizard-content active" id="step-1">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-person-circle"></i> Información del Cliente</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="customer-name" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="customer-email" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="customer-phone" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">DNI/CE</label>
+                        <input type="text" class="form-control" id="customer-dni">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">RUC</label>
+                        <input type="text" class="form-control" id="customer-ruc">
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" class="form-control" id="customer-address">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Ciudad/Distrito</label>
+                        <input type="text" class="form-control" id="customer-city">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Departamento</label>
+                        <input type="text" class="form-control" id="customer-state">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <button class="btn btn-primary" onclick="nextStep(2)">
+                Siguiente <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Step 2: Products Selection -->
+<div class="wizard-content" id="step-2">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Selección de Productos</h5>
+        </div>
+        <div class="card-body">
+            <!-- Product Search -->
+            <div class="mb-4">
+                <label class="form-label">Buscar Producto</label>
+                <div class="position-relative">
+                    <input type="text" class="form-control" id="product-search"
+                           placeholder="Buscar por SKU o nombre..." autocomplete="off">
+                    <div class="product-search-results" id="search-results" style="display: none;"></div>
+                </div>
+                <small class="text-muted">Escribe al menos 2 caracteres para buscar</small>
+            </div>
+
+            <!-- Cart Table -->
+            <div class="table-responsive">
+                <table class="table table-hover cart-table" id="cart-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">SKU</th>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 100px;">Cantidad</th>
+                            <th class="text-end" style="width: 130px;">Precio Orig.</th>
+                            <th class="text-end" style="width: 130px;">Precio Unit.</th>
+                            <th class="text-end" style="width: 130px;">Subtotal</th>
+                            <th class="text-center" style="width: 80px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-tbody">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="bi bi-cart-x fs-1"></i>
+                                <p class="mt-2">No hay productos agregados</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <button class="btn btn-outline-secondary" onclick="prevStep(1)">
+                <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button class="btn btn-primary" onclick="nextStep(3)">
+                Siguiente <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Step 3: Terms and Pricing -->
+<div class="wizard-content" id="step-3">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-file-text"></i> Precios y Términos</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Discount -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Descuento</label>
+                        <select class="form-select" id="discount-type" onchange="calculateTotals()">
+                            <option value="percentage">Porcentaje (%)</option>
+                            <option value="fixed">Monto Fijo (S/)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Valor de Descuento</label>
+                        <input type="number" class="form-control" id="discount-value"
+                               value="0" min="0" step="0.01" onchange="calculateTotals()">
+                    </div>
+                </div>
+
+                <!-- Shipping -->
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Costo de Envío (S/)</label>
+                        <input type="number" class="form-control" id="shipping-cost"
+                               value="0" min="0" step="0.01" onchange="calculateTotals()">
+                    </div>
+                </div>
+
+                <!-- Tax Rate -->
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Tasa de IGV (%)</label>
+                        <input type="number" class="form-control" id="tax-rate"
+                               value="18" min="0" max="100" step="0.01" onchange="calculateTotals()">
+                    </div>
+                </div>
+
+                <!-- Valid Days -->
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Válido por (días)</label>
+                        <input type="number" class="form-control" id="valid-days"
+                               value="15" min="1" max="365">
+                        <small class="text-muted">Expira: <span id="expiry-date"></span></small>
+                    </div>
+                </div>
+
+                <!-- Payment Terms -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Condiciones de Pago</label>
+                        <textarea class="form-control" id="payment-terms" rows="3"
+                                  placeholder="Ej: 50% adelanto, 50% contra entrega"></textarea>
+                    </div>
+                </div>
+
+                <!-- Delivery Time -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Tiempo de Entrega</label>
+                        <textarea class="form-control" id="delivery-time" rows="3"
+                                  placeholder="Ej: 5-7 días hábiles"></textarea>
+                    </div>
+                </div>
+
+                <!-- Terms & Conditions -->
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">Términos y Condiciones (para PDF)</label>
+                        <textarea class="form-control" id="terms-conditions" rows="4"
+                                  placeholder="Términos y condiciones que aparecerán en el PDF..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Internal Notes -->
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">Notas Internas (no aparecen en PDF)</label>
+                        <textarea class="form-control" id="notes" rows="3"
+                                  placeholder="Notas internas sobre este cliente o cotización..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <button class="btn btn-outline-secondary" onclick="prevStep(2)">
+                <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button class="btn btn-primary" onclick="nextStep(4)">
+                Siguiente <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Step 4: Review -->
+<div class="wizard-content" id="step-4">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Customer Summary -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-person"></i> Cliente</h6>
+                </div>
+                <div class="card-body" id="review-customer">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Products Summary -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-box"></i> Productos</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="review-products">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terms Summary -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-file-text"></i> Términos</h6>
+                </div>
+                <div class="card-body" id="review-terms">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Totals -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-calculator"></i> Totales</h6>
+                </div>
+                <div class="card-body" id="review-totals">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <button class="btn btn-outline-secondary w-100 mb-2" onclick="prevStep(3)">
+                        <i class="bi bi-arrow-left"></i> Anterior
+                    </button>
+                    <button class="btn btn-success w-100" onclick="submitQuotation()">
+                        <i class="bi bi-check-lg"></i> Guardar Cotización
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let currentStep = 1;
+let cart = [];
+let searchTimeout;
+
+// Step Navigation
+function nextStep(step) {
+    // Validate current step
+    if (!validateStep(currentStep)) {
+        return;
+    }
+
+    // Hide current
+    $(`.wizard-content`).removeClass('active');
+    $(`.wizard-step`).removeClass('active');
+    $(`.wizard-step[data-step="${currentStep}"]`).addClass('completed');
+
+    // Show next
+    currentStep = step;
+    $(`#step-${step}`).addClass('active');
+    $(`.wizard-step[data-step="${step}"]`).addClass('active');
+
+    // Update review if going to step 4
+    if (step === 4) {
+        populateReview();
+    }
+
+    // Update expiry date if on step 3
+    if (step === 3) {
+        updateExpiryDate();
+    }
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+function prevStep(step) {
+    $(`.wizard-content`).removeClass('active');
+    $(`.wizard-step`).removeClass('active');
+
+    currentStep = step;
+    $(`#step-${step}`).addClass('active');
+    $(`.wizard-step[data-step="${step}"]`).addClass('active');
+    $(`.wizard-step[data-step="${step}"]`).removeClass('completed');
+
+    window.scrollTo(0, 0);
+}
+
+// Validation
+function validateStep(step) {
+    if (step === 1) {
+        const name = $('#customer-name').val().trim();
+        const email = $('#customer-email').val().trim();
+        const phone = $('#customer-phone').val().trim();
+
+        if (!name) {
+            showNotification('error', 'El nombre del cliente es requerido');
+            $('#customer-name').focus();
+            return false;
+        }
+
+        if (!email || !isValidEmail(email)) {
+            showNotification('error', 'El email del cliente es inválido');
+            $('#customer-email').focus();
+            return false;
+        }
+
+        if (!phone) {
+            showNotification('error', 'El teléfono del cliente es requerido');
+            $('#customer-phone').focus();
+            return false;
+        }
+    }
+
+    if (step === 2) {
+        if (cart.length === 0) {
+            showNotification('error', 'Debe agregar al menos un producto');
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+// Product Search
+$('#product-search').on('input', function() {
+    const query = $(this).val().trim();
+
+    if (query.length < 2) {
+        $('#search-results').hide().empty();
+        return;
+    }
+
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        searchProducts(query);
+    }, 300);
+});
+
+function searchProducts(query) {
+    $.ajax({
+        url: `/orders/search-products?q=${encodeURIComponent(query)}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.products.length > 0) {
+                renderSearchResults(response.products);
+            } else {
+                $('#search-results').html('<div class="p-3 text-muted">No se encontraron productos</div>').show();
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al buscar productos');
+        }
+    });
+}
+
+function renderSearchResults(products) {
+    const resultsDiv = $('#search-results');
+    let html = '';
+
+    products.forEach(product => {
+        // Get price with IGV
+        const price = parseFloat(product.price_with_tax || product.price || 0);
+        const stock = parseInt(product.stock || 0);
+
+        html += `
+            <div class="product-search-item" onclick='addProductToCart(${JSON.stringify(product)})'>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${product.name}</strong><br>
+                        <small class="text-muted">SKU: ${product.sku || 'N/A'}</small>
+                        <span class="badge bg-secondary ms-2">Stock: ${stock}</span>
+                    </div>
+                    <div class="text-end">
+                        <strong class="text-primary">S/ ${price.toFixed(2)}</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    resultsDiv.html(html).show();
+}
+
+// Cart Management
+function addProductToCart(product) {
+    // Check if already in cart
+    const existingIndex = cart.findIndex(item => item.product_id === product.id);
+
+    if (existingIndex >= 0) {
+        showNotification('warning', 'El producto ya está en el carrito');
+        return;
+    }
+
+    const price = parseFloat(product.price_with_tax || product.price || 0);
+
+    cart.push({
+        product_id: product.id,
+        variation_id: 0,
+        product_name: product.name,
+        product_sku: product.sku || '',
+        quantity: 1,
+        original_price: price,
+        unit_price: price,
+        notes: ''
+    });
+
+    $('#product-search').val('');
+    $('#search-results').hide();
+    renderCart();
+    calculateTotals();
+    showNotification('success', 'Producto agregado al carrito');
+}
+
+function renderCart() {
+    const tbody = $('#cart-tbody');
+
+    if (cart.length === 0) {
+        tbody.html(`
+            <tr>
+                <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-cart-x fs-1"></i>
+                    <p class="mt-2">No hay productos agregados</p>
+                </td>
+            </tr>
+        `);
+        return;
+    }
+
+    let html = '';
+
+    cart.forEach((item, index) => {
+        const isPriceModified = parseFloat(item.unit_price) !== parseFloat(item.original_price);
+        const subtotal = item.quantity * parseFloat(item.unit_price);
+
+        html += `
+            <tr>
+                <td><code>${item.product_sku}</code></td>
+                <td>${item.product_name}</td>
+                <td class="text-center">
+                    <input type="number" class="form-control quantity-input text-center"
+                           value="${item.quantity}" min="1"
+                           onchange="updateQuantity(${index}, this.value)">
+                </td>
+                <td class="text-end">
+                    <span class="original-price-badge">S/ ${parseFloat(item.original_price).toFixed(2)}</span>
+                </td>
+                <td class="text-end">
+                    <input type="number" class="form-control price-input text-end ${isPriceModified ? 'price-modified' : ''}"
+                           value="${parseFloat(item.unit_price).toFixed(2)}" min="0" step="0.01"
+                           onchange="updatePrice(${index}, this.value)">
+                </td>
+                <td class="text-end"><strong>S/ ${subtotal.toFixed(2)}</strong></td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.html(html);
+}
+
+function updateQuantity(index, newQuantity) {
+    const qty = parseInt(newQuantity);
+    if (qty < 1) {
+        showNotification('error', 'La cantidad debe ser al menos 1');
+        renderCart();
+        return;
+    }
+
+    cart[index].quantity = qty;
+    renderCart();
+    calculateTotals();
+}
+
+function updatePrice(index, newPrice) {
+    const price = parseFloat(newPrice);
+    if (price < 0) {
+        showNotification('error', 'El precio no puede ser negativo');
+        renderCart();
+        return;
+    }
+
+    cart[index].unit_price = price;
+    renderCart();
+    calculateTotals();
+}
+
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    renderCart();
+    calculateTotals();
+    showNotification('info', 'Producto eliminado del carrito');
+}
+
+// Calculations
+function calculateTotals() {
+    // Calculate subtotal from cart
+    let subtotal = 0;
+    cart.forEach(item => {
+        subtotal += item.quantity * parseFloat(item.unit_price);
+    });
+
+    // Get discount
+    const discountType = $('#discount-type').val();
+    const discountValue = parseFloat($('#discount-value').val()) || 0;
+    let discountAmount = 0;
+
+    if (discountType === 'percentage') {
+        discountAmount = subtotal * (discountValue / 100);
+    } else {
+        discountAmount = discountValue;
+    }
+
+    // Calculate base after discount
+    const baseAmount = subtotal - discountAmount;
+
+    // Calculate tax
+    const taxRate = parseFloat($('#tax-rate').val()) || 18;
+    const taxAmount = baseAmount * (taxRate / 100);
+
+    // Add shipping
+    const shippingCost = parseFloat($('#shipping-cost').val()) || 0;
+
+    // Calculate total
+    const total = baseAmount + taxAmount + shippingCost;
+
+    // Store in global variable for later use
+    window.quotationTotals = {
+        subtotal: subtotal,
+        discount_amount: discountAmount,
+        base_amount: baseAmount,
+        tax_amount: taxAmount,
+        shipping_cost: shippingCost,
+        total: total
+    };
+}
+
+// Update expiry date display
+function updateExpiryDate() {
+    const validDays = parseInt($('#valid-days').val()) || 15;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + validDays);
+    $('#expiry-date').text(expiryDate.toLocaleDateString('es-PE'));
+}
+
+// Populate Review
+function populateReview() {
+    calculateTotals();
+
+    // Customer
+    const customerHtml = `
+        <p class="mb-2"><strong>Nombre:</strong> ${$('#customer-name').val()}</p>
+        <p class="mb-2"><strong>Email:</strong> ${$('#customer-email').val()}</p>
+        <p class="mb-2"><strong>Teléfono:</strong> ${$('#customer-phone').val()}</p>
+        ${$('#customer-dni').val() ? `<p class="mb-2"><strong>DNI:</strong> ${$('#customer-dni').val()}</p>` : ''}
+        ${$('#customer-address').val() ? `<p class="mb-0"><strong>Dirección:</strong> ${$('#customer-address').val()}</p>` : ''}
+    `;
+    $('#review-customer').html(customerHtml);
+
+    // Products
+    let productsHtml = '';
+    cart.forEach(item => {
+        const subtotal = item.quantity * parseFloat(item.unit_price);
+        productsHtml += `
+            <tr>
+                <td>
+                    ${item.product_name}
+                    ${item.product_sku ? `<br><small class="text-muted">SKU: ${item.product_sku}</small>` : ''}
+                </td>
+                <td class="text-center">${item.quantity}</td>
+                <td class="text-end">S/ ${parseFloat(item.unit_price).toFixed(2)}</td>
+                <td class="text-end"><strong>S/ ${subtotal.toFixed(2)}</strong></td>
+            </tr>
+        `;
+    });
+    $('#review-products').html(productsHtml);
+
+    // Terms
+    let termsHtml = '';
+    if ($('#payment-terms').val()) {
+        termsHtml += `<p class="mb-2"><strong>Pago:</strong> ${$('#payment-terms').val()}</p>`;
+    }
+    if ($('#delivery-time').val()) {
+        termsHtml += `<p class="mb-0"><strong>Entrega:</strong> ${$('#delivery-time').val()}</p>`;
+    }
+    if (!termsHtml) {
+        termsHtml = '<p class="text-muted mb-0">Sin términos específicos</p>';
+    }
+    $('#review-terms').html(termsHtml);
+
+    // Totals
+    const totals = window.quotationTotals;
+    const totalsHtml = `
+        <div class="summary-row">
+            <span>Subtotal:</span>
+            <span>S/ ${totals.subtotal.toFixed(2)}</span>
+        </div>
+        ${totals.discount_amount > 0 ? `
+        <div class="summary-row text-danger">
+            <span>Descuento:</span>
+            <span>- S/ ${totals.discount_amount.toFixed(2)}</span>
+        </div>
+        ` : ''}
+        <div class="summary-row">
+            <span>IGV (${$('#tax-rate').val()}%):</span>
+            <span>S/ ${totals.tax_amount.toFixed(2)}</span>
+        </div>
+        ${totals.shipping_cost > 0 ? `
+        <div class="summary-row">
+            <span>Envío:</span>
+            <span>S/ ${totals.shipping_cost.toFixed(2)}</span>
+        </div>
+        ` : ''}
+        <div class="summary-row total">
+            <span>TOTAL:</span>
+            <span>S/ ${totals.total.toFixed(2)}</span>
+        </div>
+    `;
+    $('#review-totals').html(totalsHtml);
+}
+
+// Submit Quotation
+function submitQuotation() {
+    if (!confirm('¿Guardar esta cotización como borrador?')) {
+        return;
+    }
+
+    // Prepare data
+    const data = {
+        customer_name: $('#customer-name').val(),
+        customer_email: $('#customer-email').val(),
+        customer_phone: $('#customer-phone').val(),
+        customer_dni: $('#customer-dni').val(),
+        customer_ruc: $('#customer-ruc').val(),
+        customer_address: $('#customer-address').val(),
+        customer_city: $('#customer-city').val(),
+        customer_state: $('#customer-state').val(),
+        valid_days: parseInt($('#valid-days').val()) || 15,
+        payment_terms: $('#payment-terms').val(),
+        delivery_time: $('#delivery-time').val(),
+        discount_type: $('#discount-type').val(),
+        discount_value: parseFloat($('#discount-value').val()) || 0,
+        shipping_cost: parseFloat($('#shipping-cost').val()) || 0,
+        tax_rate: parseFloat($('#tax-rate').val()) || 18,
+        notes: $('#notes').val(),
+        terms_conditions: $('#terms-conditions').val(),
+        items: cart.map(item => ({
+            product_id: item.product_id,
+            variation_id: item.variation_id,
+            product_name: item.product_name,
+            product_sku: item.product_sku,
+            quantity: item.quantity,
+            unit_price: parseFloat(item.unit_price),
+            original_price: parseFloat(item.original_price),
+            notes: item.notes
+        }))
+    };
+
+    // Show loading
+    const btn = $('button[onclick="submitQuotation()"]');
+    const originalHtml = btn.html();
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Guardando...');
+
+    $.ajax({
+        url: '/quotations/api/quotations',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                setTimeout(() => {
+                    window.location.href = `/quotations/${response.quotation.id}`;
+                }, 1500);
+            } else {
+                showNotification('error', response.error || 'Error al crear cotización');
+                btn.prop('disabled', false).html(originalHtml);
+            }
+        },
+        error: function(xhr) {
+            const error = xhr.responseJSON?.error || 'Error de conexión';
+            showNotification('error', error);
+            btn.prop('disabled', false).html(originalHtml);
+        }
+    });
+}
+
+// Hide search results when clicking outside
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#product-search, #search-results').length) {
+        $('#search-results').hide();
+    }
+});
+
+// Update expiry date when valid days changes
+$('#valid-days').on('change', updateExpiryDate);
+
+// Initialize
+$(document).ready(function() {
+    calculateTotals();
+    updateExpiryDate();
+});
+</script>
+{% endblock %}

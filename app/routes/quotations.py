@@ -468,6 +468,37 @@ def api_update_quotation(quotation_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@bp.route('/api/quotations/<int:quotation_id>', methods=['DELETE'])
+@login_required
+def api_delete_quotation(quotation_id):
+    """
+    API: Eliminar cotización (solo draft)
+    """
+    try:
+        quotation = Quotation.query.get_or_404(quotation_id)
+
+        # Solo se pueden eliminar borradores
+        if quotation.status != 'draft':
+            return jsonify({
+                'success': False,
+                'error': 'Solo se pueden eliminar cotizaciones en estado borrador'
+            }), 400
+
+        # Eliminar (cascade eliminará items e historial)
+        db.session.delete(quotation)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Cotización eliminada exitosamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error al eliminar cotización: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # =====================================================
 # FUNCIONES AUXILIARES
 # =====================================================
