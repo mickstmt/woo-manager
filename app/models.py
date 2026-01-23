@@ -1136,3 +1136,228 @@ class DispatchPriority(db.Model):
             'marked_at': self.marked_at.strftime('%Y-%m-%d %H:%M:%S') if self.marked_at else None,
             'priority_note': self.priority_note
         }
+
+
+# =====================================================================
+# MODELOS PARA COTIZACIONES (QUOTATIONS)
+# =====================================================================
+
+class Quotation(db.Model):
+    """
+    Modelo para cotizaciones
+
+    Tabla: woo_quotations
+    Propósito: Gestionar cotizaciones de productos para clientes con posibilidad
+    de conversión a órdenes WooCommerce
+    """
+    __tablename__ = 'woo_quotations'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Identificación
+    quote_number = db.Column(db.String(50), unique=True, nullable=False)
+    version = db.Column(db.Integer, default=1)
+
+    # Información del Cliente
+    customer_name = db.Column(db.String(200), nullable=False)
+    customer_email = db.Column(db.String(255), nullable=False)
+    customer_phone = db.Column(db.String(50))
+    customer_dni = db.Column(db.String(20))
+    customer_ruc = db.Column(db.String(20))
+    customer_address = db.Column(db.Text)
+    customer_city = db.Column(db.String(100))
+    customer_state = db.Column(db.String(100))
+
+    # Estado y Fechas
+    status = db.Column(db.String(20), nullable=False, default='draft')
+    quote_date = db.Column(db.DateTime, nullable=False)
+    valid_until = db.Column(db.Date, nullable=False)
+
+    # Precios
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    discount_type = db.Column(db.String(20), default='percentage')
+    discount_value = db.Column(db.Numeric(10, 2), default=0)
+    discount_amount = db.Column(db.Numeric(10, 2), default=0)
+    tax_rate = db.Column(db.Numeric(5, 2), default=18.00)
+    tax_amount = db.Column(db.Numeric(10, 2), default=0)
+    shipping_cost = db.Column(db.Numeric(10, 2), default=0)
+    total = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+
+    # Términos
+    payment_terms = db.Column(db.Text)
+    delivery_time = db.Column(db.String(100))
+    notes = db.Column(db.Text)
+    terms_conditions = db.Column(db.Text)
+
+    # Auditoría
+    created_by = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_time)
+    updated_at = db.Column(db.DateTime, default=get_local_time, onupdate=get_local_time)
+    sent_at = db.Column(db.DateTime)
+    accepted_at = db.Column(db.DateTime)
+    converted_order_id = db.Column(db.BigInteger)
+
+    # Relaciones
+    items = db.relationship('QuotationItem', backref='quotation', lazy='dynamic', cascade='all, delete-orphan')
+    history = db.relationship('QuotationHistory', backref='quotation', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<Quotation {self.quote_number} - {self.customer_name}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'quote_number': self.quote_number,
+            'version': self.version,
+            'customer_name': self.customer_name,
+            'customer_email': self.customer_email,
+            'customer_phone': self.customer_phone,
+            'customer_dni': self.customer_dni,
+            'customer_ruc': self.customer_ruc,
+            'customer_address': self.customer_address,
+            'customer_city': self.customer_city,
+            'customer_state': self.customer_state,
+            'status': self.status,
+            'quote_date': self.quote_date.strftime('%Y-%m-%d %H:%M:%S') if self.quote_date else None,
+            'valid_until': self.valid_until.strftime('%Y-%m-%d') if self.valid_until else None,
+            'subtotal': float(self.subtotal) if self.subtotal else 0,
+            'discount_type': self.discount_type,
+            'discount_value': float(self.discount_value) if self.discount_value else 0,
+            'discount_amount': float(self.discount_amount) if self.discount_amount else 0,
+            'tax_rate': float(self.tax_rate) if self.tax_rate else 0,
+            'tax_amount': float(self.tax_amount) if self.tax_amount else 0,
+            'shipping_cost': float(self.shipping_cost) if self.shipping_cost else 0,
+            'total': float(self.total) if self.total else 0,
+            'payment_terms': self.payment_terms,
+            'delivery_time': self.delivery_time,
+            'notes': self.notes,
+            'terms_conditions': self.terms_conditions,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None,
+            'sent_at': self.sent_at.strftime('%Y-%m-%d %H:%M:%S') if self.sent_at else None,
+            'accepted_at': self.accepted_at.strftime('%Y-%m-%d %H:%M:%S') if self.accepted_at else None,
+            'converted_order_id': self.converted_order_id,
+            'is_expired': self.is_expired(),
+            'items_count': self.items.count()
+        }
+
+    def is_expired(self):
+        """Verificar si la cotización ha expirado"""
+        if self.status in ['accepted', 'rejected', 'converted']:
+            return False
+        from datetime import datetime
+        return datetime.now().date() > self.valid_until
+
+    def calculate_totals(self):
+        """Recalcular todos los totales desde los items"""
+        from decimal import Decimal
+
+        # Sumar subtotales de items
+        self.subtotal = sum(Decimal(str(item.subtotal)) for item in self.items)
+
+        # Aplicar descuento
+        if self.discount_type == 'percentage':
+            self.discount_amount = self.subtotal * (Decimal(str(self.discount_value)) / Decimal('100'))
+        else:
+            self.discount_amount = Decimal(str(self.discount_value))
+
+        # Calcular base imponible
+        subtotal_after_discount = self.subtotal - self.discount_amount
+
+        # Calcular IGV
+        self.tax_amount = subtotal_after_discount * (Decimal(str(self.tax_rate)) / Decimal('100'))
+
+        # Calcular total
+        self.total = subtotal_after_discount + self.tax_amount + Decimal(str(self.shipping_cost))
+
+
+class QuotationItem(db.Model):
+    """
+    Modelo para items de cotización
+
+    Tabla: woo_quotation_items
+    Propósito: Almacenar los productos incluidos en cada cotización
+    """
+    __tablename__ = 'woo_quotation_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    quotation_id = db.Column(db.Integer, db.ForeignKey('woo_quotations.id'), nullable=False)
+
+    # Referencia al Producto
+    product_id = db.Column(db.BigInteger, nullable=False)
+    variation_id = db.Column(db.BigInteger, default=0)
+    product_name = db.Column(db.String(255), nullable=False)
+    product_sku = db.Column(db.String(100))
+
+    # Precios (personalizables por cotización)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    original_price = db.Column(db.Numeric(10, 2))
+    discount_percentage = db.Column(db.Numeric(5, 2), default=0)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
+    tax = db.Column(db.Numeric(10, 2), default=0)
+    total = db.Column(db.Numeric(10, 2), nullable=False)
+
+    # Metadata
+    notes = db.Column(db.Text)
+    display_order = db.Column(db.Integer, default=0)
+
+    def __repr__(self):
+        return f'<QuotationItem {self.product_name} x{self.quantity}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'quotation_id': self.quotation_id,
+            'product_id': self.product_id,
+            'variation_id': self.variation_id,
+            'product_name': self.product_name,
+            'product_sku': self.product_sku,
+            'quantity': self.quantity,
+            'unit_price': float(self.unit_price) if self.unit_price else 0,
+            'original_price': float(self.original_price) if self.original_price else 0,
+            'discount_percentage': float(self.discount_percentage) if self.discount_percentage else 0,
+            'subtotal': float(self.subtotal) if self.subtotal else 0,
+            'tax': float(self.tax) if self.tax else 0,
+            'total': float(self.total) if self.total else 0,
+            'notes': self.notes,
+            'display_order': self.display_order
+        }
+
+
+class QuotationHistory(db.Model):
+    """
+    Modelo para historial de cambios en cotizaciones
+
+    Tabla: woo_quotation_history
+    Propósito: Auditoría de todos los cambios de estado en las cotizaciones
+    """
+    __tablename__ = 'woo_quotation_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    quotation_id = db.Column(db.Integer, db.ForeignKey('woo_quotations.id'), nullable=False)
+
+    # Rastreo de Cambios
+    old_status = db.Column(db.String(20))
+    new_status = db.Column(db.String(20), nullable=False)
+    changed_by = db.Column(db.String(100), nullable=False)
+    change_reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=get_local_time)
+
+    def __repr__(self):
+        return f'<QuotationHistory {self.old_status} → {self.new_status}>'
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'quotation_id': self.quotation_id,
+            'old_status': self.old_status,
+            'new_status': self.new_status,
+            'changed_by': self.changed_by,
+            'change_reason': self.change_reason,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }
