@@ -93,13 +93,14 @@ def edit(quotation_id):
             'error': 'Solo se pueden editar cotizaciones en estado borrador'
         }), 400
 
-    # Obtener items
+    # Obtener items y serializarlos
     items = quotation.items.order_by(QuotationItem.display_order.asc()).all()
+    items_dict = [item.to_dict() for item in items]
 
     return render_template('quotations_edit.html',
                          title=f'Editar {quotation.quote_number}',
                          quotation=quotation,
-                         items=items)
+                         items=items_dict)
 
 
 # =====================================================

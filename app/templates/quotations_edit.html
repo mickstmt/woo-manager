@@ -31,7 +31,7 @@ const quotationId = {{ quotation.id }};
 
 // Load existing data
 const existingData = {{ quotation.to_dict()|tojson }};
-const existingItems = {{ items|map(attribute='to_dict')|list|tojson }};
+const existingItems = {{ items|tojson }};
 
 // Populate form on load
 $(document).ready(function() {
