@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+
+{% block title %}Cotizaciones - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .status-draft {
+        background-color: #6c757d;
+        color: #fff;
+    }
+
+    .status-sent {
+        background-color: #0dcaf0;
+        color: #000;
+    }
+
+    .status-accepted {
+        background-color: #198754;
+        color: #fff;
+    }
+
+    .status-rejected {
+        background-color: #dc3545;
+        color: #fff;
+    }
+
+    .status-expired {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-converted {
+        background-color: #0d6efd;
+        color: #fff;
+    }
+
+    .expiring-soon {
+        color: #ff6b6b;
+        font-weight: 600;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: var(--hover-bg);
+        cursor: pointer;
+    }
+
+    .stat-card {
+        transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-file-earmark-text"></i> Cotizaciones
+            </h1>
+            <p class="text-muted mb-0">Gestión de cotizaciones para clientes</p>
+        </div>
+        <div>
+            <a href="/quotations/create" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Nueva Cotización
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Cards de Estadísticas -->
+<div class="row mb-4" id="stats-container">
+    <div class="col-md-2">
+        <div class="card stat-card border-primary">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Total</h6>
+                <h3 class="mb-0 text-primary" id="stat-total">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stat-card border-secondary">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Borradores</h6>
+                <h3 class="mb-0 text-secondary" id="stat-draft">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stat-card border-info">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Enviadas</h6>
+                <h3 class="mb-0 text-info" id="stat-sent">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stat-card border-success">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Aceptadas</h6>
+                <h3 class="mb-0 text-success" id="stat-accepted">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stat-card border-warning">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Vencidas</h6>
+                <h3 class="mb-0 text-warning" id="stat-expired">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card stat-card border-primary">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Valor Total</h6>
+                <h3 class="mb-0 text-primary" id="stat-total-value">S/ 0</h3>
+                <small class="text-muted">Aceptadas</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="filter-status">
+                            <option value="">Todos los estados</option>
+                            <option value="draft">Borrador</option>
+                            <option value="sent">Enviada</option>
+                            <option value="accepted">Aceptada</option>
+                            <option value="rejected">Rechazada</option>
+                            <option value="expired">Vencida</option>
+                            <option value="converted">Convertida</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cliente</label>
+                        <input type="text" class="form-control" id="filter-customer" placeholder="Nombre o email...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Desde</label>
+                        <input type="date" class="form-control" id="filter-date-from">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Hasta</label>
+                        <input type="date" class="form-control" id="filter-date-to">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="loadQuotations()">
+                            <i class="bi bi-funnel"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Cotizaciones -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="quotations-table">
+                        <thead>
+                            <tr>
+                                <th>N° Cotización</th>
+                                <th>Cliente</th>
+                                <th>Email</th>
+                                <th>Fecha</th>
+                                <th>Válido Hasta</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quotations-tbody">
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Cargando cotizaciones...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="text-muted" id="pagination-info">
+                        Mostrando 0 de 0 cotizaciones
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0" id="pagination-controls">
+                            <!-- Se genera dinámicamente -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+const perPage = 20;
+
+// Cargar estadísticas
+function loadStats() {
+    $.ajax({
+        url: '/quotations/api/stats',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const stats = response.stats;
+                $('#stat-total').text(stats.total);
+                $('#stat-draft').text(stats.draft);
+                $('#stat-sent').text(stats.sent);
+                $('#stat-accepted').text(stats.accepted);
+                $('#stat-expired').text(stats.expired);
+                $('#stat-total-value').text('S/ ' + stats.accepted_total_value.toFixed(2));
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error al cargar estadísticas');
+        }
+    });
+}
+
+// Cargar cotizaciones
+function loadQuotations(page = 1) {
+    currentPage = page;
+
+    // Obtener filtros
+    const status = $('#filter-status').val();
+    const customer = $('#filter-customer').val();
+    const dateFrom = $('#filter-date-from').val();
+    const dateTo = $('#filter-date-to').val();
+
+    // Construir query params
+    const params = new URLSearchParams({
+        page: page,
+        per_page: perPage
+    });
+
+    if (status) params.append('status', status);
+    if (customer) params.append('customer', customer);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+
+    $.ajax({
+        url: `/quotations/api/quotations?${params.toString()}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderQuotations(response.quotations);
+                renderPagination(response.pagination);
+            } else {
+                showNotification('error', response.error || 'Error al cargar cotizaciones');
+            }
+        },
+        error: function(xhr) {
+            showNotification('error', 'Error de conexión al cargar cotizaciones');
+            $('#quotations-tbody').html(`
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-danger">
+                        <i class="bi bi-exclamation-circle fs-1"></i>
+                        <p class="mt-2">Error al cargar cotizaciones</p>
+                    </td>
+                </tr>
+            `);
+        }
+    });
+}
+
+// Renderizar cotizaciones en tabla
+function renderQuotations(quotations) {
+    const tbody = $('#quotations-tbody');
+
+    if (quotations.length === 0) {
+        tbody.html(`
+            <tr>
+                <td colspan="8" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">No se encontraron cotizaciones</p>
+                </td>
+            </tr>
+        `);
+        return;
+    }
+
+    let html = '';
+
+    quotations.forEach(quote => {
+        const statusClass = `status-${quote.status}`;
+        const statusText = getStatusText(quote.status);
+
+        // Verificar si está próxima a vencer
+        const expiringClass = isExpiringSoon(quote.valid_until) && quote.status === 'sent' ? 'expiring-soon' : '';
+
+        html += `
+            <tr onclick="window.location.href='/quotations/${quote.id}'">
+                <td><strong>${quote.quote_number}</strong></td>
+                <td>${quote.customer_name}</td>
+                <td>${quote.customer_email}</td>
+                <td>${formatDate(quote.quote_date)}</td>
+                <td class="${expiringClass}">${formatDate(quote.valid_until)}</td>
+                <td class="text-end"><strong>S/ ${parseFloat(quote.total).toFixed(2)}</strong></td>
+                <td class="text-center">
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </td>
+                <td class="text-center">
+                    <div class="btn-group" onclick="event.stopPropagation()">
+                        <a href="/quotations/${quote.id}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        ${quote.status === 'draft' ? `
+                        <a href="/quotations/${quote.id}/edit" class="btn btn-sm btn-outline-warning" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        ` : ''}
+                        <button class="btn btn-sm btn-outline-info" onclick="downloadPDF(${quote.id})" title="Descargar PDF">
+                            <i class="bi bi-file-pdf"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="duplicateQuotation(${quote.id})" title="Duplicar">
+                            <i class="bi bi-files"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.html(html);
+}
+
+// Renderizar paginación
+function renderPagination(pagination) {
+    const info = $('#pagination-info');
+    const controls = $('#pagination-controls');
+
+    // Actualizar info
+    const start = (pagination.page - 1) * pagination.per_page + 1;
+    const end = Math.min(pagination.page * pagination.per_page, pagination.total);
+    info.text(`Mostrando ${start} a ${end} de ${pagination.total} cotizaciones`);
+
+    // Generar controles
+    let html = '';
+
+    // Botón Anterior
+    html += `
+        <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadQuotations(${pagination.page - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // Páginas
+    for (let i = 1; i <= pagination.pages; i++) {
+        // Mostrar solo páginas cercanas
+        if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `
+                <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="loadQuotations(${i}); return false;">
+                        ${i}
+                    </a>
+                </li>
+            `;
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    // Botón Siguiente
+    html += `
+        <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadQuotations(${pagination.page + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    controls.html(html);
+}
+
+// Funciones auxiliares
+function getStatusText(status) {
+    const statusMap = {
+        'draft': 'Borrador',
+        'sent': 'Enviada',
+        'accepted': 'Aceptada',
+        'rejected': 'Rechazada',
+        'expired': 'Vencida',
+        'converted': 'Convertida'
+    };
+    return statusMap[status] || status;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-PE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
+function isExpiringSoon(validUntil) {
+    const today = new Date();
+    const expiry = new Date(validUntil);
+    const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
+}
+
+// Acciones
+function downloadPDF(quotationId) {
+    window.open(`/quotations/api/quotations/${quotationId}/pdf`, '_blank');
+}
+
+function duplicateQuotation(quotationId) {
+    if (!confirm('¿Duplicar esta cotización?')) return;
+
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}/duplicate`,
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                loadQuotations(currentPage);
+                loadStats();
+            } else {
+                showNotification('error', response.error || 'Error al duplicar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+// Verificar cotizaciones vencidas al cargar
+function checkExpired() {
+    $.ajax({
+        url: '/quotations/api/check-expired',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.count > 0) {
+                console.log(`${response.count} cotización(es) marcada(s) como vencidas`);
+                loadQuotations(currentPage);
+                loadStats();
+            }
+        }
+    });
+}
+
+// Inicialización
+$(document).ready(function() {
+    // Cargar datos iniciales
+    loadStats();
+    loadQuotations();
+    checkExpired();
+
+    // Filtro en tiempo real para cliente
+    let customerTimeout;
+    $('#filter-customer').on('input', function() {
+        clearTimeout(customerTimeout);
+        customerTimeout = setTimeout(() => {
+            loadQuotations(1);
+        }, 500);
+    });
+
+    // Enter en campos de fecha
+    $('#filter-date-from, #filter-date-to').on('change', function() {
+        loadQuotations(1);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}{{ quotation.quote_number }} - Cotizaciones{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .status-draft { background-color: #6c757d; color: #fff; }
+    .status-sent { background-color: #0dcaf0; color: #000; }
+    .status-accepted { background-color: #198754; color: #fff; }
+    .status-rejected { background-color: #dc3545; color: #fff; }
+    .status-expired { background-color: #ffc107; color: #000; }
+    .status-converted { background-color: #0d6efd; color: #fff; }
+
+    .info-card {
+        border-left: 4px solid var(--bs-primary);
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+    .timeline-dot {
+        position: absolute;
+        left: -25px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #dee2e6;
+    }
+
+    .price-modified {
+        color: #ff9800;
+        font-weight: 600;
+    }
+
+    .original-price {
+        text-decoration: line-through;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .action-buttons .btn {
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="mb-1">
+                <i class="bi bi-file-earmark-text"></i> {{ quotation.quote_number }}
+            </h1>
+            <div class="d-flex align-items-center gap-3">
+                <span class="status-badge status-{{ quotation.status }}">
+                    {{ quotation.status|upper|replace('DRAFT', 'BORRADOR')|replace('SENT', 'ENVIADA')|replace('ACCEPTED', 'ACEPTADA')|replace('REJECTED', 'RECHAZADA')|replace('EXPIRED', 'VENCIDA')|replace('CONVERTED', 'CONVERTIDA') }}
+                </span>
+                {% if quotation.is_expired() and quotation.status not in ['accepted', 'rejected', 'converted'] %}
+                <span class="badge bg-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Vencida
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            <a href="/quotations/" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a Lista
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna Izquierda: Información Principal -->
+    <div class="col-md-8">
+        <!-- Información del Cliente -->
+        <div class="card info-card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-person-circle"></i> Información del Cliente</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>Nombre:</strong> {{ quotation.customer_name }}</p>
+                        <p class="mb-2"><strong>Email:</strong> <a href="mailto:{{ quotation.customer_email }}">{{ quotation.customer_email }}</a></p>
+                        <p class="mb-2"><strong>Teléfono:</strong> {{ quotation.customer_phone or '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>DNI/CE:</strong> {{ quotation.customer_dni or '-' }}</p>
+                        <p class="mb-2"><strong>RUC:</strong> {{ quotation.customer_ruc or '-' }}</p>
+                    </div>
+                </div>
+                {% if quotation.customer_address %}
+                <hr>
+                <p class="mb-1"><strong>Dirección:</strong></p>
+                <p class="text-muted mb-0">
+                    {{ quotation.customer_address }}
+                    {% if quotation.customer_city %}<br>{{ quotation.customer_city }}{% endif %}
+                    {% if quotation.customer_state %}, {{ quotation.customer_state }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Productos -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Productos ({{ items|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>SKU</th>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Precio Unit.</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td><code>{{ item.product_sku or '-' }}</code></td>
+                                <td>
+                                    {{ item.product_name }}
+                                    {% if item.notes %}
+                                    <br><small class="text-muted">{{ item.notes }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ item.quantity }}</td>
+                                <td class="text-end">
+                                    {% if item.original_price and item.unit_price != item.original_price %}
+                                    <span class="original-price">S/ {{ item.original_price }}</span><br>
+                                    <span class="price-modified">S/ {{ item.unit_price }}</span>
+                                    <span class="badge bg-warning text-dark">-{{ item.discount_percentage|round(1) }}%</span>
+                                    {% else %}
+                                    S/ {{ item.unit_price }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-end"><strong>S/ {{ item.subtotal }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Totales -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calculator"></i> Totales</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <td class="text-end"><strong>Subtotal:</strong></td>
+                        <td class="text-end" style="width: 150px;">S/ {{ quotation.subtotal }}</td>
+                    </tr>
+                    {% if quotation.discount_amount > 0 %}
+                    <tr>
+                        <td class="text-end">
+                            <strong>Descuento ({% if quotation.discount_type == 'percentage' %}{{ quotation.discount_value }}%{% else %}Fijo{% endif %}):</strong>
+                        </td>
+                        <td class="text-end text-danger">- S/ {{ quotation.discount_amount }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-end"><strong>Base Imponible:</strong></td>
+                        <td class="text-end">S/ {{ (quotation.subtotal - quotation.discount_amount)|round(2) }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="text-end"><strong>IGV ({{ quotation.tax_rate }}%):</strong></td>
+                        <td class="text-end">S/ {{ quotation.tax_amount }}</td>
+                    </tr>
+                    {% if quotation.shipping_cost > 0 %}
+                    <tr>
+                        <td class="text-end"><strong>Envío:</strong></td>
+                        <td class="text-end">S/ {{ quotation.shipping_cost }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="table-primary">
+                        <td class="text-end"><h5 class="mb-0">TOTAL:</h5></td>
+                        <td class="text-end"><h5 class="mb-0">S/ {{ quotation.total }}</h5></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Términos y Condiciones -->
+        {% if quotation.payment_terms or quotation.delivery_time or quotation.terms_conditions %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-text"></i> Términos</h5>
+            </div>
+            <div class="card-body">
+                {% if quotation.payment_terms %}
+                <p class="mb-2"><strong>Condiciones de Pago:</strong></p>
+                <p class="text-muted">{{ quotation.payment_terms }}</p>
+                <hr>
+                {% endif %}
+
+                {% if quotation.delivery_time %}
+                <p class="mb-2"><strong>Tiempo de Entrega:</strong></p>
+                <p class="text-muted">{{ quotation.delivery_time }}</p>
+                <hr>
+                {% endif %}
+
+                {% if quotation.terms_conditions %}
+                <p class="mb-2"><strong>Términos y Condiciones:</strong></p>
+                <p class="text-muted" style="white-space: pre-wrap;">{{ quotation.terms_conditions }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Notas Internas -->
+        {% if quotation.notes %}
+        <div class="card mb-3">
+            <div class="card-header bg-warning">
+                <h6 class="mb-0"><i class="bi bi-sticky"></i> Notas Internas</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space: pre-wrap;">{{ quotation.notes }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Columna Derecha: Acciones y Metadata -->
+    <div class="col-md-4">
+        <!-- Acciones -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-lightning"></i> Acciones</h6>
+            </div>
+            <div class="card-body action-buttons">
+                <!-- Botones según estado -->
+                {% if quotation.status == 'draft' %}
+                <a href="/quotations/{{ quotation.id }}/edit" class="btn btn-warning w-100">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                <button class="btn btn-info w-100" onclick="changeStatus('sent')">
+                    <i class="bi bi-send"></i> Marcar como Enviada
+                </button>
+                <button class="btn btn-danger w-100" onclick="deleteQuotation()">
+                    <i class="bi bi-trash"></i> Eliminar
+                </button>
+
+                {% elif quotation.status == 'sent' %}
+                <button class="btn btn-success w-100" onclick="changeStatus('accepted')">
+                    <i class="bi bi-check-circle"></i> Marcar como Aceptada
+                </button>
+                <button class="btn btn-danger w-100" onclick="changeStatus('rejected')">
+                    <i class="bi bi-x-circle"></i> Marcar como Rechazada
+                </button>
+
+                {% elif quotation.status == 'accepted' %}
+                <button class="btn btn-primary w-100" onclick="convertToOrder()">
+                    <i class="bi bi-cart-check"></i> Convertir a Pedido
+                </button>
+
+                {% elif quotation.status == 'converted' %}
+                <a href="/orders/{{ quotation.converted_order_id }}" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-up-right"></i> Ver Pedido
+                </a>
+                {% endif %}
+
+                <!-- Botones comunes -->
+                <hr>
+                <button class="btn btn-outline-info w-100" onclick="downloadPDF()">
+                    <i class="bi bi-file-pdf"></i> Descargar PDF
+                </button>
+                <button class="btn btn-outline-secondary w-100" onclick="duplicateQuotation()">
+                    <i class="bi bi-files"></i> Duplicar Cotización
+                </button>
+            </div>
+        </div>
+
+        <!-- Resumen -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Resumen</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Nº Cotización:</strong><br>{{ quotation.quote_number }}</p>
+                <p class="mb-2"><strong>Fecha:</strong><br>{{ quotation.quote_date.strftime('%d/%m/%Y') }}</p>
+                <p class="mb-2"><strong>Válido hasta:</strong><br>
+                    <span class="{% if quotation.is_expired() %}text-danger fw-bold{% endif %}">
+                        {{ quotation.valid_until.strftime('%d/%m/%Y') }}
+                    </span>
+                </p>
+                <p class="mb-2"><strong>Creado por:</strong><br>{{ quotation.created_by }}</p>
+                {% if quotation.sent_at %}
+                <p class="mb-2"><strong>Enviada:</strong><br>{{ quotation.sent_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                {% endif %}
+                {% if quotation.accepted_at %}
+                <p class="mb-0"><strong>Aceptada:</strong><br>{{ quotation.accepted_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Historial -->
+        {% if history %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock-history"></i> Historial</h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for entry in history %}
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div>
+                            <strong>{{ entry.new_status|upper|replace('DRAFT', 'Borrador')|replace('SENT', 'Enviada')|replace('ACCEPTED', 'Aceptada')|replace('REJECTED', 'Rechazada')|replace('EXPIRED', 'Vencida')|replace('CONVERTED', 'Convertida') }}</strong>
+                            {% if entry.old_status %}
+                            <small class="text-muted">(desde {{ entry.old_status }})</small>
+                            {% endif %}
+                            <br>
+                            <small class="text-muted">
+                                {{ entry.created_at.strftime('%d/%m/%Y %H:%M') }} - {{ entry.changed_by }}
+                            </small>
+                            {% if entry.change_reason %}
+                            <br><small class="text-muted fst-italic">{{ entry.change_reason }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const quotationId = {{ quotation.id }};
+
+// Cambiar estado
+function changeStatus(newStatus) {
+    const statusNames = {
+        'sent': 'Enviada',
+        'accepted': 'Aceptada',
+        'rejected': 'Rechazada'
+    };
+
+    if (!confirm(`¿Marcar cotización como ${statusNames[newStatus]}?`)) return;
+
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}/status`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ status: newStatus }),
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                location.reload();
+            } else {
+                showNotification('error', response.error || 'Error al cambiar estado');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+// Descargar PDF
+function downloadPDF() {
+    window.open(`/quotations/api/quotations/${quotationId}/pdf`, '_blank');
+}
+
+// Duplicar cotización
+function duplicateQuotation() {
+    if (!confirm('¿Crear una copia de esta cotización?')) return;
+
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}/duplicate`,
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', response.message);
+                setTimeout(() => {
+                    window.location.href = `/quotations/${response.quotation.id}`;
+                }, 1500);
+            } else {
+                showNotification('error', response.error || 'Error al duplicar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+// Convertir a pedido
+function convertToOrder() {
+    if (!confirm('¿Convertir esta cotización a pedido de WooCommerce?\n\nEsto creará un pedido real y reducirá el inventario.')) return;
+
+    showLoadingOverlay('Creando pedido...');
+
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}/convert`,
+        method: 'POST',
+        success: function(response) {
+            hideLoadingOverlay();
+            if (response.success) {
+                showNotification('success', response.message);
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showNotification('error', response.error || 'Error al convertir');
+            }
+        },
+        error: function(xhr) {
+            hideLoadingOverlay();
+            const error = xhr.responseJSON?.error || 'Error de conexión';
+            showNotification('error', error);
+        }
+    });
+}
+
+// Eliminar cotización
+function deleteQuotation() {
+    if (!confirm('¿Eliminar esta cotización?\n\nEsta acción no se puede deshacer.')) return;
+
+    $.ajax({
+        url: `/quotations/api/quotations/${quotationId}`,
+        method: 'DELETE',
+        success: function(response) {
+            if (response.success) {
+                showNotification('success', 'Cotización eliminada');
+                setTimeout(() => {
+                    window.location.href = '/quotations/';
+                }, 1500);
+            } else {
+                showNotification('error', response.error || 'Error al eliminar');
+            }
+        },
+        error: function() {
+            showNotification('error', 'Error de conexión');
+        }
+    });
+}
+
+// Loading overlay
+function showLoadingOverlay(message = 'Procesando...') {
+    const overlay = $('<div class="loading-overlay"></div>');
+    const spinner = $('<div class="text-center"><div class="spinner-border text-light" role="status"></div><p class="text-light mt-2">' + message + '</p></div>');
+    overlay.append(spinner);
+    $('body').append(overlay);
+}
+
+function hideLoadingOverlay() {
+    $('.loading-overlay').remove();
+}
+</script>
+
+<style>
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+</style>
+{% endblock %}
