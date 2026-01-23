@@ -529,7 +529,8 @@ def get_orders():
                 'shipping_district': row[15] or None  # Distrito de envío
             }
 
-            orders_by_method[column].append(order_data)
+            # Agregar a la columna correspondiente (con fallback de seguridad)
+            orders_by_method.get(column, orders_by_method['Por Asignar']).append(order_data)
 
         # Calcular estadísticas
         total_orders = sum(len(orders) for orders in orders_by_method.values())
@@ -784,24 +785,16 @@ def add_note():
 
         order_number = order.get_meta('_order_number')
 
-        # Obtener método de envío actual
-        current_shipping = db.session.execute(
-            text("""
-                SELECT order_item_name
-                FROM wpyz_woocommerce_order_items
-                WHERE order_id = :order_id
-                  AND order_item_type = 'shipping'
-                LIMIT 1
-            """),
-            {'order_id': order_id}
-        ).scalar()
+        # Obtener la columna actual del tablero para este pedido
+        # (Usa el mapeo centralizado en lugar del nombre crudo del método)
+        current_column = get_column_from_shipping_method(order_id)
 
-        # Crear entrada en historial con solo nota (sin cambio de método)
+        # Crear entrada en historial con solo nota (sin cambio de método de despacho)
         history_entry = DispatchHistory(
             order_id=order_id,
             order_number=order_number,
             previous_shipping_method=None,
-            new_shipping_method=current_shipping or 'Sin método',
+            new_shipping_method=current_column,
             changed_by=current_user.username,
             changed_at=datetime.utcnow(),
             dispatch_note=note
