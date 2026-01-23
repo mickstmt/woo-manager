@@ -176,10 +176,11 @@ def get_order_for_edit(order_id):
             'country': address.country,
             'postcode': address.postcode,
             # Extraer campos custom de meta si no están en address standard
-            'billing_ruc': order_meta.get('_billing_ruc', ''),
-            'billing_entrega': order_meta.get('_billing_entrega', ''),
-            'billing_referencia': order_meta.get('_billing_referencia', '')
-        }
+                'billing_ruc': order_meta.get('_billing_ruc', ''),
+                'billing_entrega': order_meta.get('_billing_entrega', ''),
+                'billing_referencia': order_meta.get('_billing_referencia', ''),
+                'is_community': order_meta.get('_is_community') == 'yes'
+            }
     
     # Si falta info en address, intentar sacarla de order_meta (backwards compatibility)
     if not customer_data.get('billing_ruc'):
@@ -720,11 +721,13 @@ def list_orders():
                  FROM wpyz_woocommerce_order_items oi
                  WHERE oi.order_id = o.id AND oi.order_item_type = 'shipping'
                  LIMIT 1) as shipping_method,
-                om_tracking.meta_value as tracking_number
+                om_tracking.meta_value as tracking_number,
+                om_community.meta_value as is_community
             FROM wpyz_wc_orders o
             INNER JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
             LEFT JOIN wpyz_wc_orders_meta om_tracking ON o.id = om_tracking.order_id AND om_tracking.meta_key = '_tracking_number'
+            LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             WHERE o.status != 'trash'
             {search_filter}
@@ -818,6 +821,7 @@ def list_orders():
                 'items_count': row[13] or 0,
                 'shipping_method': row[14] or 'N/A',  # Método de envío
                 'tracking_number': row[15] or None,  # Número de tracking
+                'is_community': row[16] == 'yes',
                 'date_created': row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else ''
             })
 
@@ -1797,6 +1801,7 @@ def create_order():
 
             # Notas del cliente (se muestran en el correo)
             ('_customer_note', data.get('customer_note', '')),
+            ('_is_community', 'yes' if data.get('is_community') else 'no'),
 
             # Configuración de impuestos
             ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
@@ -2968,7 +2973,8 @@ def update_order_customer_data(order_id, customer):
     meta_updates = {
         '_billing_ruc': customer.get('ruc', ''),
         '_billing_entrega': customer.get('billing_entrega', ''),
-        '_billing_referencia': customer.get('reference', '')
+        '_billing_referencia': customer.get('reference', ''),
+        '_is_community': 'yes' if customer.get('is_community') else 'no'
     }
     
     for key, val in meta_updates.items():

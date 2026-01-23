@@ -740,6 +740,7 @@
                     <div class="col-6 col-md-1">
                         <h5 class="mb-0 text-primary">${order.order_number || '#' + order.id}</h5>
                         <small class="text-muted d-none d-md-inline">ID: ${order.id}</small>
+                        ${order.is_community ? '<div class="mt-1"><span class="badge" style="background-color: #6f42c1;">Comunidad</span></div>' : ''}
                         <!-- Info condensada solo en móvil -->
                         <div class="d-md-none mt-1">
                             <span class="badge bg-${statusClass} status-badge">${statusText}</span>
