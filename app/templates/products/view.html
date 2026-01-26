@@ -303,6 +303,72 @@
                 <i class="bi bi-collection"></i> Variaciones ({{ variations|length }})
             </div>
             <div class="card-body">
+                {% if variations_by_connector|length > 1 %}
+                <!-- Mostrar pestañas si hay múltiples conectores -->
+                <ul class="nav nav-tabs mb-3" id="variationsTabs" role="tablist">
+                    {% for connector, connector_variations in variations_by_connector.items() %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if loop.first %}active{% endif %}"
+                                id="tab-{{ connector|replace(' ', '-')|lower }}"
+                                data-bs-toggle="tab"
+                                data-bs-target="#content-{{ connector|replace(' ', '-')|lower }}"
+                                type="button"
+                                role="tab">
+                            {{ connector|upper }} <span class="badge bg-secondary ms-1">{{ connector_variations|length }}</span>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <div class="tab-content" id="variationsTabsContent">
+                    {% for connector, connector_variations in variations_by_connector.items() %}
+                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                         id="content-{{ connector|replace(' ', '-')|lower }}"
+                         role="tabpanel">
+                        {% for var in connector_variations %}
+                        <div class="variation-item">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    {% if var.image_url %}
+                                    <img src="{{ var.image_url }}" alt="{{ var.title }}" class="img-fluid rounded">
+                                    {% else %}
+                                    <div class="text-center p-2" style="background: #f8f9fa; border-radius: 5px;">
+                                        <i class="bi bi-image" style="font-size: 2rem; color: #ccc;"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="{{ url_for('products.view_product', product_id=var.id) }}"
+                                        class="text-decoration-none">
+                                        <strong>{{ var.title }}</strong>
+                                    </a>
+                                    <br>
+                                    <small class="text-muted">SKU: {{ var.sku }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <h6 class="text-muted mb-0">Precio</h6>
+                                    <strong class="text-success">S/ {{ var.price }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <h6 class="text-muted mb-0">Stock</h6>
+                                    <strong class="{% if var.stock|int > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ var.stock }}
+                                    </strong>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <a href="{{ url_for('products.view_product', product_id=var.id) }}"
+                                        class="btn btn-sm btn-primary">
+                                        Ver Detalles
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <!-- Mostrar lista simple si solo hay un conector -->
                 {% for var in variations %}
                 <div class="variation-item">
                     <div class="row align-items-center">
@@ -342,6 +408,7 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% endif %}
             </div>
         </div>
         {% endif %}

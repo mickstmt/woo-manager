@@ -441,18 +441,31 @@ def view_product(product_id):
             if parent_product:
                 parent_product.preload_meta() # Cargar sus metas también
         
-        # Procesar variaciones para la vista
+        # Procesar variaciones para la vista y agruparlas por conector
         variations = []
+        variations_by_connector = {}
+
         for var in variations_query:
-            variations.append({
+            # Obtener el valor del atributo "conector"
+            connector = var.get_meta('attribute_pa_conector') or var.get_meta('attribute_conector') or 'Sin Conector'
+
+            variation_data = {
                 'id': var.ID,
                 'title': var.post_title,
                 'sku': var.get_meta('_sku') or 'N/A',
                 'price': var.get_meta('_price') or '0',
                 'stock': var.get_meta('_stock') or '0',
                 'stock_status': var.get_meta('_stock_status') or 'outofstock',
-                'image_url': var.get_image_url()
-            })
+                'image_url': var.get_image_url(),
+                'connector': connector
+            }
+
+            variations.append(variation_data)
+
+            # Agrupar por conector
+            if connector not in variations_by_connector:
+                variations_by_connector[connector] = []
+            variations_by_connector[connector].append(variation_data)
         
         # Obtener categorías
         from sqlalchemy import text
@@ -479,6 +492,7 @@ def view_product(product_id):
             product=product_data,
             parent_product=parent_product,
             variations=variations,
+            variations_by_connector=variations_by_connector,
             categories=categories,
             stock_history=stock_history
         )
