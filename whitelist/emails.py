@@ -11,23 +11,24 @@ AUTHORIZED_EMAILS = [
     'admin@izistoreperu.com',
     'mickstmt@izistoreperu.com',
     'franksmaza@izistoreperu.com',
-    'jleon@izistoreperu.com'
-    
+    'jleon@izistoreperu.com',
+
     # Diseno y redes
     'jsanmartin@izistoreperu.com',
 
     # Equipo de almacén
     'almacen@izistoreperu.com',
     'inventario@izistoreperu.com',
-    
+
     # Equipo de ventas
     'aherrera@izistoreperu.com',
     'dduire@izistoreperu.com',
+    'llago@izistoreperu.com',
     'ventasizistoreperu@izistoreperu.com',
 
     # Soporte
-    'msanmartin@izistoreperu.com'
-    
+    'msanmartin@izistoreperu.com',
+
     # Otros empleados (agregar según necesites)
     # 'nombre.apellido@izistoreperu.com',
 ]
