@@ -149,9 +149,11 @@ def upload_image():
             'Content-Disposition': f'attachment; filename={file.filename}'
         }
 
-        # Intentar con Application Passwords si están configurados (Más seguro)
-        wp_user = current_app.config.get('WP_USER')
-        wp_pass = current_app.config.get('WP_APP_PASSWORD')
+        # Obtener credenciales (verificando tanto config como os.environ por si acaso)
+        wp_user = current_app.config.get('WP_USER') or os.environ.get('WP_USER')
+        wp_pass = current_app.config.get('WP_APP_PASSWORD') or os.environ.get('WP_APP_PASSWORD')
+
+        current_app.logger.info(f"[IMAGES] Intento de subida para ID={product_id}. Detectado WP_USER: {'SÍ' if wp_user else 'NO'}")
 
         if wp_user and wp_pass:
             current_app.logger.info(f"[IMAGES] Usando credenciales de usuario WP: {wp_user}")
