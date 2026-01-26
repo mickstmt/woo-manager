@@ -1107,36 +1107,8 @@ def export_excel():
         # Debug: Log de atributos detectados
         print(f"DEBUG: Atributos detectados: {sorted_attributes}")
 
-        # PASO 4.5: Crear diccionario de términos (slug -> nombre legible)
-        # Obtener todos los slugs de atributos únicos
-        all_slugs = set()
-        for post_id in product_ids:
-            product_meta = meta_dict.get(post_id, {})
-            for key, value in product_meta.items():
-                # Buscar tanto attribute_pa_ como attribute_ (sin pa_)
-                if key.startswith('attribute_') and value:
-                    all_slugs.add(value)
-
-        # Consultar nombres legibles desde wpyz_terms
-        from sqlalchemy import text
-        term_names = {}
-        if all_slugs:
-            # Convertir set a lista y crear placeholders
-            slug_list = list(all_slugs)
-            placeholders = ','.join([':slug' + str(i) for i in range(len(slug_list))])
-
-            query = text(f"""
-                SELECT slug, name
-                FROM wpyz_terms
-                WHERE slug IN ({placeholders})
-            """)
-
-            # Crear diccionario de parámetros
-            params = {f'slug{i}': slug for i, slug in enumerate(slug_list)}
-
-            result = db.session.execute(query, params)
-            for row in result:
-                term_names[row.slug] = row.name
+        # PASO 4.5: Simplificado - ya no necesitamos consultar wpyz_terms
+        # Usaremos los slugs directamente para mantener consistencia con los títulos
 
         # PASO 5: Crear archivo Excel
         wb = Workbook()
@@ -1188,11 +1160,9 @@ def export_excel():
 
                 attr_value_slug = product_meta.get(attr_key_pa, '') or product_meta.get(attr_key_no_pa, '')
 
-                # Convertir slug a nombre legible
-                if attr_value_slug and attr_value_slug in term_names:
-                    attr_value = term_names[attr_value_slug]
-                else:
-                    attr_value = attr_value_slug
+                # Usar el slug directamente sin traducción
+                # Esto mantiene consistencia con los títulos de productos
+                attr_value = attr_value_slug
 
                 ws.cell(row=row_num, column=col_num, value=attr_value)
                 col_num += 1
