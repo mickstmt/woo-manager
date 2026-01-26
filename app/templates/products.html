@@ -1334,7 +1334,7 @@
 
         // Validaciones
         if (!dateFrom || !dateTo) {
-            alert('Por favor selecciona ambas fechas (desde y hasta)');
+            showNotification('warning', 'Por favor selecciona ambas fechas (desde y hasta)');
             // Resaltar campos vacíos
             if (!dateFrom) dateFromInput.classList.add('is-invalid');
             if (!dateTo) dateToInput.classList.add('is-invalid');
@@ -1348,12 +1348,16 @@
         // Validar formato YYYY-MM-DD después de normalizar
         const datePattern = /^\d{4}-\d{2}-\d{2}$/;
         if (!datePattern.test(dateFrom) || !datePattern.test(dateTo)) {
-            alert(`Formato de fecha incorrecto después de normalizar.\nEsperado: YYYY-MM-DD\nRecibido: desde=${dateFrom}, hasta=${dateTo}\nOriginal: desde=${dateFromInput.value}, hasta=${dateToInput.value}`);
+            showNotification('danger', `Formato de fecha incorrecto. Esperado: YYYY-MM-DD. Recibido: desde=${dateFrom}, hasta=${dateTo}`);
+            console.error('Error de formato de fecha:', {
+                original: { desde: dateFromInput.value, hasta: dateToInput.value },
+                normalizado: { desde: dateFrom, hasta: dateTo }
+            });
             return;
         }
 
         if (new Date(dateFrom) > new Date(dateTo)) {
-            alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta"');
+            showNotification('warning', 'La fecha "Desde" no puede ser mayor que la fecha "Hasta"');
             return;
         }
 
@@ -1410,15 +1414,11 @@
             const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
             modal.hide();
 
-            if (typeof showToast === 'function') {
-                showToast('Éxito', 'Archivo Excel descargado correctamente', 'success');
-            } else {
-                alert('El archivo se descargó correctamente. Revisa tu carpeta de descargas.');
-            }
+            showNotification('success', `Archivo Excel descargado correctamente. Revisa tu carpeta de descargas.`);
         })
         .catch(error => {
             // Mostrar error al usuario
-            alert('Error al exportar: ' + error.message);
+            showNotification('danger', 'Error al exportar: ' + error.message);
             console.error('Error en exportación:', error);
         })
         .finally(() => {
