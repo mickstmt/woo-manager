@@ -441,13 +441,52 @@ def view_product(product_id):
             if parent_product:
                 parent_product.preload_meta() # Cargar sus metas también
         
+        # Función para normalizar valores de conectores a slugs consistentes
+        def normalize_connector(raw_value):
+            """
+            Normaliza el valor del conector a formato slug consistente (lowercase, inglés).
+
+            Mapea traducciones comunes:
+            - Plateado/Silver -> silver
+            - Negro/Black -> black
+            - Rosado-Dorado/Rose-Gold/Gold-Rose -> gold-rose
+            - Dorado/Gold -> gold
+            """
+            if not raw_value or raw_value == 'Sin Conector':
+                return 'sin-conector'
+
+            # Convertir a minúsculas y eliminar espacios extra
+            value = raw_value.lower().strip()
+
+            # Mapeo de traducciones españolas a slugs ingleses
+            translation_map = {
+                'plateado': 'silver',
+                'negro': 'black',
+                'rosado-dorado': 'gold-rose',
+                'rosado dorado': 'gold-rose',
+                'dorado': 'gold',
+                'oro': 'gold',
+                'rose-gold': 'gold-rose',
+                'rose gold': 'gold-rose',
+                'gold-rose': 'gold-rose',
+                'gold rose': 'gold-rose',
+            }
+
+            # Aplicar mapeo si existe
+            if value in translation_map:
+                return translation_map[value]
+
+            # Si no hay mapeo, normalizar reemplazando espacios con guiones
+            return value.replace(' ', '-')
+
         # Procesar variaciones para la vista y agruparlas por conector
         variations = []
         variations_by_connector = {}
 
         for var in variations_query:
             # Obtener el valor del atributo "conector"
-            connector = var.get_meta('attribute_pa_conector') or var.get_meta('attribute_conector') or 'Sin Conector'
+            raw_connector = var.get_meta('attribute_pa_conector') or var.get_meta('attribute_conector') or 'Sin Conector'
+            connector = normalize_connector(raw_connector)
 
             variation_data = {
                 'id': var.ID,
