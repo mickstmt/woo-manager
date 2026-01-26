@@ -198,18 +198,27 @@
     }
 
     #variation-filters .nav-link {
-        color: var(--primary);
-        background: transparent;
-        border: 1px solid var(--primary);
-        font-weight: 500;
+        color: var(--text-muted, #6c757d);
+        background: var(--bg-hover, #f8f9fa);
+        border: 1px solid var(--border-color, #dee2e6);
+        font-weight: 600;
         font-size: 0.9rem;
         border-radius: 20px;
-        padding: 0.3rem 1.2rem;
+        padding: 0.4rem 1.4rem;
+        transition: all 0.2s;
+    }
+
+    #variation-filters .nav-link:hover {
+        background: var(--bg-hover);
+        border-color: var(--primary);
+        color: var(--primary);
     }
 
     #variation-filters .nav-link.active {
-        background: var(--primary);
-        color: white;
+        background: var(--primary) !important;
+        color: white !important;
+        border-color: var(--primary) !important;
+        box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
     }
 
     /* Skeleton Loading */

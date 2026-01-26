@@ -112,8 +112,8 @@ def get_details(product_id):
                     attr_slug = meta.meta_value
                     is_global = meta.meta_key.startswith('attribute_pa_')
                     
-                    # Valor por defecto (slug capitalizado o N/A)
-                    display_value = attr_slug.title() if attr_slug else "Cualquiera"
+                    # Valor por defecto (slug original o Cualquiera)
+                    display_value = attr_slug if attr_slug else "Cualquiera"
                     
                     # Si es global, buscar en el mapa de términos
                     if is_global and attr_slug in term_map:
@@ -121,6 +121,12 @@ def get_details(product_id):
                     
                     # Limpiar prefijo del nombre del atributo (Color, Talla, etc)
                     attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
+                    
+                    # Normalizar capitalización del valor: Si ya tiene mezcla de números y letras (como 42mm), 
+                    # tratamos de no romperlo con title() si el usuario prefiere mm en minúscula.
+                    # Por defecto solo capitalizamos la primera letra si no es un técnico.
+                    if display_value and not any(char.isdigit() for char in display_value):
+                        display_value = display_value.title()
                     
                     attr_list.append({
                         'name': attr_name,
