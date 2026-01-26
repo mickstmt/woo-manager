@@ -164,6 +164,33 @@
         margin-bottom: 1.5rem;
     }
 
+    /* Custom Tabs */
+    #variation-tabs {
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 1.5rem !important;
+    }
+
+    #variation-tabs .nav-link {
+        color: var(--text-muted);
+        font-weight: 600;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+
+    #variation-tabs .nav-link:hover {
+        background-color: var(--bg-hover);
+        color: var(--text-main);
+    }
+
+    #variation-tabs .nav-link.active {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
     /* Skeleton Loading */
     .skeleton {
         background-color: #e2e5e7;
@@ -274,6 +301,11 @@
                     <!-- Variaciones -->
                     <div id="variations-section">
                         <h6 class="mb-3 border-bottom pb-2">Imágenes de Variaciones</h6>
+
+                        <!-- Pestañas de Agrupación -->
+                        <ul class="nav nav-pills mb-4" id="variation-tabs" style="display: none;">
+                        </ul>
+
                         <div class="image-management-grid" id="variations-grid">
                             <!-- Se cargará vía AJAX -->
                         </div>
@@ -455,33 +487,44 @@
 
                     // Update variations
                     const variationsGrid = document.getElementById('variations-grid');
+                    const variationsTabs = document.getElementById('variation-tabs');
+
                     if (data.variations && data.variations.length > 0) {
                         document.getElementById('variations-section').style.display = 'block';
-                        variationsGrid.innerHTML = data.variations.map(v => {
-                            // Convertir label (Atributo1: Valor1, Atributo2: Valor2) en badges
-                            const attrBadges = v.label.split(', ').map(attr =>
-                                `<span class="variation-label" title="${attr}">${attr}</span>`
-                            ).join('');
 
-                            return `
-                                <div class="variation-item">
-                                    <div class="upload-overlay">
-                                        <div class="spinner-border spinner-border-sm mb-2"></div>
-                                        <span>Subiendo...</span>
-                                    </div>
-                                    <div class="variation-badges-container mb-2">
-                                        ${attrBadges}
-                                    </div>
-                                    <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
-                                    <div class="small fw-bold mb-1" style="color: var(--text-muted)">SKU: ${v.sku}</div>
-                                    <div class="small text-muted mb-3">ID: ${v.id}</div>
-                                    <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
-                                    <button class="btn btn-sm btn-primary w-100 btn-upload-trigger">
-                                        <i class="bi bi-cloud-arrow-up"></i> Cambiar Imagen
+                        // Agrupar por conector (usando nombres reales proporcionados por el backend)
+                        const grouped = {};
+                        data.variations.forEach(v => {
+                            // Intentar encontrar el atributo "Conector"
+                            const connectorAttr = v.attributes.find(a => a.name.toLowerCase().includes('conector'));
+                            const groupKey = connectorAttr ? connectorAttr.value : 'Otros';
+
+                            if (!grouped[groupKey]) grouped[groupKey] = [];
+                            grouped[groupKey].push(v);
+                        });
+
+                        const groupKeys = Object.keys(grouped).sort();
+
+                        // Generar Pestañas
+                        if (groupKeys.length > 1) {
+                            variationsTabs.innerHTML = groupKeys.map((key, index) => `
+                                <li class="nav-item">
+                                    <button class="nav-link ${index === 0 ? 'active' : ''}" 
+                                            onclick="renderGroupedVariations('${key.replace(/'/g, "\\'")}')" 
+                                            data-bs-toggle="pill" type="button">
+                                        ${key}
                                     </button>
-                                </div>
-                            `;
-                        }).join('');
+                                </li>
+                            `).join('');
+                            variationsTabs.style.display = 'flex';
+                        } else {
+                            variationsTabs.style.display = 'none';
+                        }
+
+                        // Guardar datos globalmente para cambiarlos con las pestañas
+                        window.currentGroupedVariations = grouped;
+                        renderGroupedVariations(groupKeys[0]);
+
                     } else {
                         document.getElementById('variations-section').style.display = 'none';
                     }
@@ -494,6 +537,36 @@
                 alert('Error al cargar detalles');
                 imageModal.hide();
             });
+    }
+
+    function renderGroupedVariations(key) {
+        const grid = document.getElementById('variations-grid');
+        const variations = window.currentGroupedVariations[key];
+
+        grid.innerHTML = variations.map(v => {
+            const attrBadges = v.attributes.map(a =>
+                `<span class="variation-label" title="${a.name}: ${a.value}">${a.name}: ${a.value}</span>`
+            ).join('');
+
+            return `
+                <div class="variation-item">
+                    <div class="upload-overlay">
+                        <div class="spinner-border spinner-border-sm mb-2"></div>
+                        <span>Subiendo...</span>
+                    </div>
+                    <div class="variation-badges-container mb-2">
+                        ${attrBadges}
+                    </div>
+                    <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
+                    <div class="small fw-bold mb-1" style="color: var(--text-muted)">SKU: ${v.sku}</div>
+                    <div class="small text-muted mb-3">ID: ${v.id}</div>
+                    <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
+                    <button class="btn btn-sm btn-primary w-100 btn-upload-trigger">
+                        <i class="bi bi-cloud-arrow-up"></i> Cambiar Imagen
+                    </button>
+                </div>
+            `;
+        }).join('');
     }
 
     function handleFileUpload(file, productId, isVariation, itemElement) {

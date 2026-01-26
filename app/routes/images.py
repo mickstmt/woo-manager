@@ -106,30 +106,33 @@ def get_details(product_id):
         # 2. Preparar data de variaciones
         for v in variations:
             # Obtener atributos de la variación
-            attributes = []
+            attr_list = []
             for meta in v.product_meta:
                 if meta.meta_key.startswith('attribute_'):
                     attr_slug = meta.meta_value
                     is_global = meta.meta_key.startswith('attribute_pa_')
                     
                     # Valor por defecto (slug capitalizado o N/A)
-                    display_value = attr_slug.title() if attr_slug else "N/A"
+                    display_value = attr_slug.title() if attr_slug else "Cualquiera"
                     
                     # Si es global, buscar en el mapa de términos
                     if is_global and attr_slug in term_map:
                         display_value = term_map[attr_slug]
                     
                     # Limpiar prefijo del nombre del atributo (Color, Talla, etc)
-                    # Reemplazamos guiones y guiones bajos por espacios para mejor lectura
                     attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
                     
-                    attributes.append(f"{attr_name}: {display_value}")
+                    attr_list.append({
+                        'name': attr_name,
+                        'value': display_value
+                    })
             
             data['variations'].append({
                 'id': v.ID,
                 'sku': v.get_meta('_sku') or 'N/A',
                 'image_url': v._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
-                'label': ', '.join(attributes) if attributes else f"Variación #{v.ID}"
+                'label': ', '.join([f"{a['name']}: {a['value']}" for a in attr_list]) if attr_list else f"Variación #{v.ID}",
+                'attributes': attr_list
             })
 
         return jsonify({'success': True, 'data': data})
