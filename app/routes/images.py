@@ -51,7 +51,7 @@ def list_products():
                 'id': p.ID,
                 'title': p.post_title,
                 'sku': p.get_meta('_sku') or 'N/A',
-                'image_url': p._image_url_cache or '/static/img/no-image.png',
+                'image_url': p._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
                 'is_variable': p.is_variable()
             })
 
@@ -87,7 +87,7 @@ def get_details(product_id):
             'id': parent.ID,
             'title': parent.post_title,
             'sku': parent.get_meta('_sku') or 'N/A',
-            'image_url': parent._image_url_cache or '/static/img/no-image.png',
+            'image_url': parent._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
             'variations': []
         }
 
@@ -103,7 +103,7 @@ def get_details(product_id):
             data['variations'].append({
                 'id': v.ID,
                 'sku': v.get_meta('_sku') or 'N/A',
-                'image_url': v._image_url_cache or '/static/img/no-image.png',
+                'image_url': v._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
                 'label': ', '.join(attributes) if attributes else f"Variación #{v.ID}"
             })
 
@@ -115,12 +115,15 @@ def get_details(product_id):
 @bp.route('/api/upload', methods=['POST'])
 @login_required
 def upload_image():
-    """Subir imagen a la biblioteca de medios y asignarla a un producto/variación"""
+    """
+    Subir imagen a la biblioteca de medios via WP REST API (binario)
+    y luego asignarla al producto via WC REST API (ID).
+    """
     try:
+        import requests
+        from requests.auth import HTTPBasicAuth
         from woocommerce import API
-        import tempfile
-        import base64
-
+        
         if 'image' not in request.files:
             return jsonify({'success': False, 'error': 'No se recibió ninguna imagen'}), 400
         
@@ -131,58 +134,89 @@ def upload_image():
         if not product_id:
             return jsonify({'success': False, 'error': 'Falta el ID del producto'}), 400
 
-        # Conectar con API de WooCommerce
+        wc_url = current_app.config['WC_API_URL'].rstrip('/')
+        ck = current_app.config['WC_CONSUMER_KEY']
+        cs = current_app.config['WC_CONSUMER_SECRET']
+
+        current_app.logger.info(f"[IMAGES] Refactor: Subiendo binario a WP Media API para product_id={product_id}")
+
+        # 1. SUBIR A LA BIBLIOTECA DE MEDIOS (WP API)
+        # Endpoint nativo de WordPress para archivos binarios
+        wp_media_url = f"{wc_url}/wp-json/wp/v2/media"
+        
+        file_content = file.read()
+        headers = {
+            'Content-Type': file.content_type,
+            'Content-Disposition': f'attachment; filename={file.filename}'
+        }
+
+        # Intento con Query String Authentication (más compatible con algunos servidores que bloquean headers)
+        params = {
+            'consumer_key': ck,
+            'consumer_secret': cs
+        }
+
+        wp_resp = requests.post(
+            wp_media_url,
+            data=file_content,
+            headers=headers,
+            params=params,
+            timeout=60
+        )
+
+        current_app.logger.info(f"[IMAGES] Respuesta WP Media API: status={wp_resp.status_code}")
+
+        if wp_resp.status_code not in [200, 201]:
+            try:
+                error_data = wp_resp.json()
+                error_msg = error_data.get('message', 'Error desconocido')
+            except:
+                error_msg = wp_resp.text[:50]
+            
+            current_app.logger.error(f"[IMAGES] Error WP Media: {wp_resp.text}")
+            return jsonify({'success': False, 'error': f'Error en Galería: {error_msg}'}), wp_resp.status_code
+
+        media_id = wp_resp.json().get('id')
+        media_url = wp_resp.json().get('source_url')
+        
+        current_app.logger.info(f"[IMAGES] Imagen subida exitosamente. Media ID: {media_id}")
+
+        # 2. ASIGNAR ID AL PRODUCTO (WC API)
         wcapi = API(
-            url=current_app.config['WC_API_URL'],
-            consumer_key=current_app.config['WC_CONSUMER_KEY'],
-            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+            url=wc_url,
+            consumer_key=ck,
+            consumer_secret=cs,
             version="wc/v3",
             timeout=60
         )
 
-        # Leer archivo y codificar en base64 para WooCommerce API
-        file_content = file.read()
-        encoded_string = base64.b64encode(file_content).decode('utf-8')
-
-        # Preparar objeto de imagen para WC
-        image_data = {
-            "name": file.filename,
-            "type": file.content_type,
-            "src": f"data:{file.content_type};base64,{encoded_string}"
-        }
-
         if is_variation:
-            # Actualizar variación
+            # Para variaciones, WC requiere el parent_id
             var_obj = Product.query.get(product_id)
             if not var_obj:
                 return jsonify({'success': False, 'error': 'Variación no encontrada'}), 404
-                
+            
             parent_id = var_obj.post_parent
             resp = wcapi.put(f"products/{parent_id}/variations/{product_id}", {
-                "image": image_data
+                "image": {"id": media_id}
             })
         else:
-            # Actualizar producto padre (reemplaza imagen principal)
+            # Para productos simple/padre, asignamos a la lista de imágenes (la primera es destacada)
             resp = wcapi.put(f"products/{product_id}", {
-                "images": [image_data]
+                "images": [{"id": media_id}]
             })
 
         if resp.status_code not in [200, 201]:
             error_data = resp.json()
-            return jsonify({'success': False, 'error': error_data.get('message', 'Error en API de WooCommerce')}), resp.status_code
+            current_app.logger.error(f"[IMAGES] Error vinculando imagen: {error_data}")
+            return jsonify({'success': False, 'error': f'Error vinculando imagen: {error_data.get("message")}'}), resp.status_code
 
-        # Obtener la nueva URL para devolverla al frontend
-        updated_data = resp.json()
-        new_url = ""
-        if is_variation:
-            new_url = updated_data.get('image', {}).get('src', '')
-        else:
-            new_url = updated_data.get('images', [{}])[0].get('src', '')
+        current_app.logger.info(f"[IMAGES] Proceso completado exitosamente para ID={product_id}")
 
         return jsonify({
             'success': True,
             'message': 'Imagen actualizada correctamente',
-            'new_url': new_url
+            'new_url': media_url
         })
 
     except Exception as e:

@@ -213,7 +213,7 @@
                                     <div class="spinner-border spinner-border-sm mb-2"></div>
                                     <span>Subiendo...</span>
                                 </div>
-                                <img id="parent-image-preview" src="/static/img/no-image.png"
+                                <img id="parent-image-preview" src="https://placehold.co/600x600?text=Sin+Imagen"
                                     class="variation-image-preview w-100 h-auto">
                                 <input type="file" class="d-none image-upload-input" data-id="" data-variation="false"
                                     accept="image/*">
@@ -342,7 +342,7 @@
         container.innerHTML = products.map(p => `
             <div class="product-card" data-id="${p.id}" data-title="${p.title}">
                 <div class="product-image-wrapper">
-                    <img src="${p.image_url}" alt="${p.title}" loading="lazy" onerror="this.src='/static/img/no-image.png'">
+                    <img src="${p.image_url}" alt="${p.title}" loading="lazy" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
                 </div>
                 <div class="product-info">
                     <div class="product-title" title="${p.title}">${p.title}</div>
