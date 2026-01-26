@@ -1057,6 +1057,33 @@ def export_excel():
                 meta_dict[post_id] = {}
             meta_dict[post_id][meta_key] = meta_value
 
+        # PASO 3.5: Obtener URLs de imágenes desde los thumbnail IDs
+        thumbnail_ids = set()
+        for post_id in product_ids:
+            thumbnail_id = meta_dict.get(post_id, {}).get('_thumbnail_id')
+            if thumbnail_id:
+                try:
+                    thumbnail_ids.add(int(thumbnail_id))
+                except (ValueError, TypeError):
+                    pass
+
+        # Consultar rutas de archivos desde wpyz_postmeta
+        image_urls = {}
+        if thumbnail_ids:
+            image_meta = db.session.query(
+                ProductMeta.post_id,
+                ProductMeta.meta_value
+            ).filter(
+                ProductMeta.post_id.in_(list(thumbnail_ids)),
+                ProductMeta.meta_key == '_wp_attached_file'
+            ).all()
+
+            # Construir URLs completas
+            base_url = 'https://www.izistoreperu.com/wp-content/uploads/'
+            for post_id, file_path in image_meta:
+                if file_path:
+                    image_urls[str(post_id)] = base_url + file_path
+
         # PASO 4: Detectar todos los atributos únicos (para columnas dinámicas)
         # Atributos específicos que queremos detectar
         known_attributes = ['color', 'conector', 'talla', 'medidas', 'medida']
@@ -1199,8 +1226,10 @@ def export_excel():
 
             # URL Imagen
             thumbnail_id = product_meta.get('_thumbnail_id', '')
-            # TODO: Convertir ID de imagen a URL (requiere consulta adicional)
-            ws.cell(row=row_num, column=col_num, value=thumbnail_id)
+            image_url = ''
+            if thumbnail_id:
+                image_url = image_urls.get(str(thumbnail_id), '')
+            ws.cell(row=row_num, column=col_num, value=image_url)
             col_num += 1
 
             # Stock
