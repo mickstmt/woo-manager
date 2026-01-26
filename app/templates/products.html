@@ -1258,12 +1258,38 @@
         modal.show();
     }
 
+    // Normalizar fecha a formato YYYY-MM-DD
+    function normalizeDateValue(dateString) {
+        if (!dateString) return '';
+
+        // Si ya está en formato correcto, retornar
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            return dateString;
+        }
+
+        // Intentar parsear la fecha y convertirla a YYYY-MM-DD
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            // Si no se puede parsear, retornar el valor original
+            return dateString;
+        }
+
+        // Convertir a formato YYYY-MM-DD
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     // Ejecutar exportación
     function executeExport() {
         const dateFromInput = document.getElementById('export-date-from');
         const dateToInput = document.getElementById('export-date-to');
-        const dateFrom = dateFromInput.value;
-        const dateTo = dateToInput.value;
+
+        // Normalizar fechas antes de validar
+        let dateFrom = normalizeDateValue(dateFromInput.value);
+        let dateTo = normalizeDateValue(dateToInput.value);
+
         const titleFilter = document.getElementById('export-title-filter').value.trim();
 
         // Validaciones
@@ -1279,10 +1305,10 @@
         dateFromInput.classList.remove('is-invalid');
         dateToInput.classList.remove('is-invalid');
 
-        // Validar formato YYYY-MM-DD
+        // Validar formato YYYY-MM-DD después de normalizar
         const datePattern = /^\d{4}-\d{2}-\d{2}$/;
         if (!datePattern.test(dateFrom) || !datePattern.test(dateTo)) {
-            alert(`Formato de fecha incorrecto.\nEsperado: YYYY-MM-DD\nRecibido: desde=${dateFrom}, hasta=${dateTo}`);
+            alert(`Formato de fecha incorrecto después de normalizar.\nEsperado: YYYY-MM-DD\nRecibido: desde=${dateFrom}, hasta=${dateTo}\nOriginal: desde=${dateFromInput.value}, hasta=${dateToInput.value}`);
             return;
         }
 
