@@ -96,9 +96,12 @@ def get_details(product_id):
             # Obtener atributos de la variación
             attributes = []
             for meta in v.product_meta:
-                if meta.meta_key.startswith('attribute_pa_'):
-                    attr_name = meta.meta_key.replace('attribute_pa_', '').title()
-                    attributes.append(f"{attr_name}: {meta.meta_value}")
+                if meta.meta_key.startswith('attribute_'):
+                    # Limpiar prefijos de WooCommerce (pa_ para globales, nada para locales)
+                    attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').title()
+                    # Reemplazar guiones por espacios para mejor lectura
+                    attr_name = attr_name.replace('-', ' ')
+                    attributes.append(f"{attr_name}: {meta.meta_value.title()}")
             
             data['variations'].append({
                 'id': v.ID,

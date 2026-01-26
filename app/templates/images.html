@@ -134,16 +134,24 @@
         display: flex;
     }
 
+    .variation-badges-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
     .variation-label {
         font-weight: 700;
-        font-size: 1rem;
-        margin-bottom: 0.75rem;
-        display: block;
+        font-size: 0.85rem;
+        display: inline-block;
         color: var(--primary, #0d6efd);
         background: var(--bg-hover, #f0f7ff);
-        padding: 0.4rem;
+        padding: 0.3rem 0.6rem;
         border-radius: 0.4rem;
         text-transform: uppercase;
+        border: 1px solid rgba(13, 110, 253, 0.1);
     }
 
     [data-theme="dark"] .variation-label {
@@ -449,22 +457,31 @@
                     const variationsGrid = document.getElementById('variations-grid');
                     if (data.variations && data.variations.length > 0) {
                         document.getElementById('variations-section').style.display = 'block';
-                        variationsGrid.innerHTML = data.variations.map(v => `
-                            <div class="variation-item">
-                                <div class="upload-overlay">
-                                    <div class="spinner-border spinner-border-sm mb-2"></div>
-                                    <span>Subiendo...</span>
+                        variationsGrid.innerHTML = data.variations.map(v => {
+                            // Convertir label (Atributo1: Valor1, Atributo2: Valor2) en badges
+                            const attrBadges = v.label.split(', ').map(attr =>
+                                `<span class="variation-label" title="${attr}">${attr}</span>`
+                            ).join('');
+
+                            return `
+                                <div class="variation-item">
+                                    <div class="upload-overlay">
+                                        <div class="spinner-border spinner-border-sm mb-2"></div>
+                                        <span>Subiendo...</span>
+                                    </div>
+                                    <div class="variation-badges-container mb-2">
+                                        ${attrBadges}
+                                    </div>
+                                    <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
+                                    <div class="small fw-bold mb-1" style="color: var(--text-muted)">SKU: ${v.sku}</div>
+                                    <div class="small text-muted mb-3">ID: ${v.id}</div>
+                                    <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
+                                    <button class="btn btn-sm btn-primary w-100 btn-upload-trigger">
+                                        <i class="bi bi-cloud-arrow-up"></i> Cambiar Imagen
+                                    </button>
                                 </div>
-                                <span class="variation-label" title="${v.label}">${v.label}</span>
-                                <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
-                                <div class="small fw-bold mb-1" style="color: var(--text-muted)">SKU: ${v.sku}</div>
-                                <div class="small text-muted mb-3">ID: ${v.id}</div>
-                                <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
-                                <button class="btn btn-sm btn-primary w-100 btn-upload-trigger">
-                                    <i class="bi bi-cloud-arrow-up"></i> Cambiar Imagen
-                                </button>
-                            </div>
-                        `).join('');
+                            `;
+                        }).join('');
                     } else {
                         document.getElementById('variations-section').style.display = 'none';
                     }
