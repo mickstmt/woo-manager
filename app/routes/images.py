@@ -228,6 +228,25 @@ def upload_image():
 
         current_app.logger.info(f"[IMAGES] Proceso completado exitosamente para ID={product_id}")
 
+        # 3. FORCE SYNC: Actualizar localmente la DB para asegurar persistencia inmediata
+        # A veces la API REST tarda un poco en reflejarse en consultas SQL directas
+        try:
+            update_meta_query = text("""
+                INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                VALUES (:pid, '_thumbnail_id', :mid)
+                ON DUPLICATE KEY UPDATE meta_value = :mid
+            """)
+            db.session.execute(update_meta_query, {'pid': product_id, 'mid': media_id})
+            db.session.commit()
+            current_app.logger.info(f"[IMAGES] Sync local exitoso: _thumbnail_id={media_id} para post_id={product_id}")
+            
+            # Limpiar caché para que el cambio sea visible en todo el sitio
+            from app import cache
+            cache.clear()
+            current_app.logger.info(f"[IMAGES] Caché del sistema limpiada")
+        except Exception as sync_err:
+            current_app.logger.warning(f"[IMAGES] Error en sync local (no crítico): {str(sync_err)}")
+
         return jsonify({
             'success': True,
             'message': 'Imagen actualizada correctamente',
