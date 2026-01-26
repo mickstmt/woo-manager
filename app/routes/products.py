@@ -1139,7 +1139,7 @@ def export_excel():
         headers = ['ID', 'Título', 'SKU']
         # Capitalizar nombres de atributos para headers
         headers.extend([attr.replace('_', ' ').title() for attr in sorted_attributes])
-        headers.extend(['ID Padre', 'Descripción Corta', 'Descripción Larga',
+        headers.extend(['ID Post', 'ID Padre', 'Descripción Corta', 'Descripción Larga',
                        'Precio Regular', 'Precio Oferta', 'URL Imagen', 'Stock'])
 
         # Escribir encabezados con estilo
@@ -1186,19 +1186,17 @@ def export_excel():
                 ws.cell(row=row_num, column=col_num, value=attr_value)
                 col_num += 1
 
+            # ID Post - Muestra el ID del producto actual (todos los productos)
+            ws.cell(row=row_num, column=col_num, value=product.ID)
+            col_num += 1
+
             # ID Padre
-            # Lógica:
+            # Lógica simplificada:
             # - Variaciones: Mostrar ID del padre
-            # - Productos variables (con variaciones): Mostrar vacío
-            # - Productos simples (sin variaciones): Mostrar su propio ID
+            # - Productos padre (variables): Mostrar vacío
+            # - Productos simples: Mostrar vacío
             if product.post_type == 'product_variation' and product.post_parent > 0:
                 parent_id = product.post_parent
-            elif product.post_type == 'product':
-                product_type = product_meta.get('_product_type', 'simple')
-                if product_type == 'simple':
-                    parent_id = product.ID  # Productos simples muestran su propio ID
-                else:
-                    parent_id = ''  # Productos variables no muestran nada
             else:
                 parent_id = ''
 
