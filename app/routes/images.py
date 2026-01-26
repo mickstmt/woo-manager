@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required
-from app.models import Product, ProductMeta
+from app.models import Product, ProductMeta, Term
 from app import db
 from sqlalchemy import text, or_
 import os
@@ -91,17 +91,39 @@ def get_details(product_id):
             'variations': []
         }
 
-        # Preparar data de variaciones
+        # 1. Recolectar todos los slugs de atributos globales para buscar sus nombres reales
+        term_slugs = set()
+        for v in variations:
+            for meta in v.product_meta:
+                if meta.meta_key.startswith('attribute_pa_') and meta.meta_value:
+                    term_slugs.add(meta.meta_value)
+        
+        term_map = {}
+        if term_slugs:
+            terms = Term.query.filter(Term.slug.in_(term_slugs)).all()
+            term_map = {t.slug: t.name for t in terms}
+
+        # 2. Preparar data de variaciones
         for v in variations:
             # Obtener atributos de la variación
             attributes = []
             for meta in v.product_meta:
                 if meta.meta_key.startswith('attribute_'):
-                    # Limpiar prefijos de WooCommerce (pa_ para globales, nada para locales)
-                    attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').title()
-                    # Reemplazar guiones por espacios para mejor lectura
-                    attr_name = attr_name.replace('-', ' ')
-                    attributes.append(f"{attr_name}: {meta.meta_value.title()}")
+                    attr_slug = meta.meta_value
+                    is_global = meta.meta_key.startswith('attribute_pa_')
+                    
+                    # Valor por defecto (slug capitalizado o N/A)
+                    display_value = attr_slug.title() if attr_slug else "N/A"
+                    
+                    # Si es global, buscar en el mapa de términos
+                    if is_global and attr_slug in term_map:
+                        display_value = term_map[attr_slug]
+                    
+                    # Limpiar prefijo del nombre del atributo (Color, Talla, etc)
+                    # Reemplazamos guiones y guiones bajos por espacios para mejor lectura
+                    attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
+                    
+                    attributes.append(f"{attr_name}: {display_value}")
             
             data['variations'].append({
                 'id': v.ID,
