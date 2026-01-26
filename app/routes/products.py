@@ -1092,13 +1092,20 @@ def export_excel():
         for post_id in product_ids:
             product_meta = meta_dict.get(post_id, {})
             for key in product_meta.keys():
-                if key.startswith('attribute_pa_'):
-                    # Extraer nombre del atributo (ej: attribute_pa_color -> color)
-                    attr_slug = key.replace('attribute_pa_', '')
+                # Buscar tanto attribute_pa_ como attribute_ (sin pa_)
+                if key.startswith('attribute_'):
+                    # Extraer nombre del atributo
+                    if key.startswith('attribute_pa_'):
+                        attr_slug = key.replace('attribute_pa_', '')
+                    else:
+                        attr_slug = key.replace('attribute_', '')
                     all_attributes.add(attr_slug)
 
         # Ordenar atributos alfabéticamente y capitalizar
         sorted_attributes = sorted(list(all_attributes))
+
+        # Debug: Log de atributos detectados
+        print(f"DEBUG: Atributos detectados: {sorted_attributes}")
 
         # PASO 4.5: Crear diccionario de términos (slug -> nombre legible)
         # Obtener todos los slugs de atributos únicos
@@ -1106,7 +1113,8 @@ def export_excel():
         for post_id in product_ids:
             product_meta = meta_dict.get(post_id, {})
             for key, value in product_meta.items():
-                if key.startswith('attribute_pa_') and value:
+                # Buscar tanto attribute_pa_ como attribute_ (sin pa_)
+                if key.startswith('attribute_') and value:
                     all_slugs.add(value)
 
         # Consultar nombres legibles desde wpyz_terms
@@ -1174,8 +1182,11 @@ def export_excel():
 
             # Atributos dinámicos
             for attr_slug in sorted_attributes:
-                attr_key = 'attribute_pa_' + attr_slug
-                attr_value_slug = product_meta.get(attr_key, '')
+                # Buscar el atributo con ambos formatos: attribute_pa_ y attribute_
+                attr_key_pa = 'attribute_pa_' + attr_slug
+                attr_key_no_pa = 'attribute_' + attr_slug
+
+                attr_value_slug = product_meta.get(attr_key_pa, '') or product_meta.get(attr_key_no_pa, '')
 
                 # Convertir slug a nombre legible
                 if attr_value_slug and attr_value_slug in term_names:
