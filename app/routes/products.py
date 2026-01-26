@@ -1192,21 +1192,25 @@ def export_excel():
             col_num += 1
 
             # Descripción Corta y Larga
-            # Para variantes, obtener del producto padre si está vacío
-            desc_corta = product.post_excerpt or ''
-            desc_larga = product.post_content or ''
-
-            # Si es variante y no tiene descripciones, intentar obtener del padre
+            # Para variaciones, SIEMPRE obtener del producto padre
+            # Las variaciones suelen tener atributos en post_excerpt, no la descripción real
             if product.post_type == 'product_variation' and product.post_parent > 0:
-                if not desc_corta or not desc_larga:
-                    # Buscar padre en la lista de productos o en parent_products
-                    padre = next((p for p in products if p.ID == product.post_parent), None)
-                    if not padre and product.post_parent in parent_products:
-                        padre = parent_products[product.post_parent]
+                # Buscar padre en la lista de productos o en parent_products
+                padre = next((p for p in products if p.ID == product.post_parent), None)
+                if not padre and product.post_parent in parent_products:
+                    padre = parent_products[product.post_parent]
 
-                    if padre:
-                        desc_corta = desc_corta or padre.post_excerpt or ''
-                        desc_larga = desc_larga or padre.post_content or ''
+                if padre:
+                    desc_corta = padre.post_excerpt or ''
+                    desc_larga = padre.post_content or ''
+                else:
+                    # Si no se encuentra el padre, usar vacío (no los atributos de la variación)
+                    desc_corta = ''
+                    desc_larga = ''
+            else:
+                # Para productos simples y variables (padres), usar su propia descripción
+                desc_corta = product.post_excerpt or ''
+                desc_larga = product.post_content or ''
 
             ws.cell(row=row_num, column=col_num, value=desc_corta)
             col_num += 1
