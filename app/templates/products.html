@@ -1260,13 +1260,29 @@
 
     // Ejecutar exportación
     function executeExport() {
-        const dateFrom = document.getElementById('export-date-from').value;
-        const dateTo = document.getElementById('export-date-to').value;
+        const dateFromInput = document.getElementById('export-date-from');
+        const dateToInput = document.getElementById('export-date-to');
+        const dateFrom = dateFromInput.value;
+        const dateTo = dateToInput.value;
         const titleFilter = document.getElementById('export-title-filter').value.trim();
 
         // Validaciones
         if (!dateFrom || !dateTo) {
             alert('Por favor selecciona ambas fechas (desde y hasta)');
+            // Resaltar campos vacíos
+            if (!dateFrom) dateFromInput.classList.add('is-invalid');
+            if (!dateTo) dateToInput.classList.add('is-invalid');
+            return;
+        }
+
+        // Remover clases de error si había
+        dateFromInput.classList.remove('is-invalid');
+        dateToInput.classList.remove('is-invalid');
+
+        // Validar formato YYYY-MM-DD
+        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+        if (!datePattern.test(dateFrom) || !datePattern.test(dateTo)) {
+            alert(`Formato de fecha incorrecto.\nEsperado: YYYY-MM-DD\nRecibido: desde=${dateFrom}, hasta=${dateTo}`);
             return;
         }
 
@@ -1295,23 +1311,57 @@
             params.append('title', titleFilter);
         }
 
-        // Iniciar descarga
-        window.location.href = `/products/export-excel?${params.toString()}`;
+        // Usar fetch para verificar si hay errores antes de descargar
+        fetch(`/products/export-excel?${params.toString()}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Si hay error, intentar leer como JSON
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Error al generar el archivo');
+                });
+            }
+            // Si es exitoso, es un archivo Excel
+            return response.blob();
+        })
+        .then(blob => {
+            // Crear enlace de descarga
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `productos_${dateFrom}_${dateTo}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
 
-        // Desbloquear interfaz después de 2 segundos (tiempo estimado para iniciar descarga)
-        setTimeout(() => {
+            // Cerrar modal y mostrar éxito
+            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+            modal.hide();
+
+            if (typeof showToast === 'function') {
+                showToast('Éxito', 'Archivo Excel descargado correctamente', 'success');
+            } else {
+                alert('El archivo se descargó correctamente. Revisa tu carpeta de descargas.');
+            }
+        })
+        .catch(error => {
+            // Mostrar error al usuario
+            alert('Error al exportar: ' + error.message);
+            console.error('Error en exportación:', error);
+        })
+        .finally(() => {
+            // Desbloquear interfaz
             btnApply.disabled = false;
             btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
             btnCancel.disabled = false;
             processingStatus.style.display = 'none';
-
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-            modal.hide();
-
-            // Mostrar mensaje de éxito
-            alert('El archivo se está descargando. Revisa tu carpeta de descargas.');
-        }, 2000);
+        });
     }
 </script>
 

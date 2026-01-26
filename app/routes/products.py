@@ -984,7 +984,7 @@ def export_excel():
         if not date_from_str or not date_to_str:
             return jsonify({
                 'success': False,
-                'error': 'Los parámetros date_from y date_to son obligatorios'
+                'error': 'Las fechas "Desde" y "Hasta" son obligatorias'
             }), 400
 
         # Convertir fechas
@@ -993,10 +993,10 @@ def export_excel():
             date_to = datetime.strptime(date_to_str, '%Y-%m-%d')
             # Agregar 23:59:59 a date_to para incluir todo el día
             date_to = date_to.replace(hour=23, minute=59, second=59)
-        except ValueError:
+        except ValueError as e:
             return jsonify({
                 'success': False,
-                'error': 'Formato de fecha inválido. Usa YYYY-MM-DD'
+                'error': f'Formato de fecha inválido. Recibido: desde={date_from_str}, hasta={date_to_str}. Se esperaba formato YYYY-MM-DD (ej: 2026-01-26)'
             }), 400
 
         # PASO 1: Consultar productos del rango de fechas
