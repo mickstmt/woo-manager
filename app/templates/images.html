@@ -1,5 +1,520 @@
 {% extends "base.html" %}
+
+{% block title %}Gestión de Imágenes - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .product-card {
+        background: var(--card-bg, #fff);
+        border-radius: 0.75rem;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid var(--border-color, #dee2e6);
+        cursor: pointer;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .product-image-wrapper {
+        position: relative;
+        padding-top: 100%;
+        /* 1:1 Aspect Ratio */
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+
+    .product-image-wrapper img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-info {
+        padding: 1rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .product-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+        /* Line clamp */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .product-sku {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .badge-variable {
+        font-size: 0.7rem;
+        background-color: #6f42c1;
+    }
+
+    /* Modal Styles */
+    .image-management-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .variation-item {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        text-align: center;
+        background: #f8f9fa;
+        position: relative;
+    }
+
+    .variation-image-preview {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        margin-bottom: 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ddd;
+    }
+
+    .upload-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        border-radius: 0.5rem;
+        z-index: 10;
+    }
+
+    .uploading .upload-overlay {
+        display: flex;
+    }
+
+    .variation-label {
+        font-weight: 500;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .search-container {
+        max-width: 600px;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Skeleton Loading */
+    .skeleton {
+        background-color: #e2e5e7;
+        background-image: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+        background-size: 200px 100%;
+        background-repeat: no-repeat;
+        background-position: left -200px top 0;
+        animation: loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+        to {
+            background-position: right -200px top 0;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Gestión de Imágenes</h1>
-<p>Próximamente...</p>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Gestión de Imágenes</h1>
+            <p class="text-muted small">Cambia las imágenes de portada y variaciones de tus productos en WooCommerce.
+            </p>
+        </div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-3">
+            <div class="search-container mx-auto">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" id="product-search" class="form-control border-start-0 ps-0"
+                        placeholder="Buscar por nombre, SKU o ID de producto..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="products-container" class="product-grid">
+        <!-- Se cargará vía AJAX -->
+    </div>
+
+    <!-- Paginación -->
+    <nav class="mt-5">
+        <ul id="pagination" class="pagination justify-content-center">
+            <!-- Se cargará vía AJAX -->
+        </ul>
+    </nav>
+</div>
+
+<!-- Modal de Gestión de Imágenes -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="modal-product-title">Cargando producto...</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="modal-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+
+                <div id="modal-content" style="display: none;">
+                    <!-- Imagen Principal -->
+                    <div class="row mb-5">
+                        <div class="col-md-4 text-center">
+                            <h6>Imagen de Portada (Padre)</h6>
+                            <div class="variation-item mx-auto" id="parent-image-item" style="max-width: 300px;">
+                                <div class="upload-overlay">
+                                    <div class="spinner-border spinner-border-sm mb-2"></div>
+                                    <span>Subiendo...</span>
+                                </div>
+                                <img id="parent-image-preview" src="/static/img/no-image.png"
+                                    class="variation-image-preview w-100 h-auto">
+                                <input type="file" class="d-none image-upload-input" data-id="" data-variation="false"
+                                    accept="image/*">
+                                <button class="btn btn-sm btn-primary w-100 mt-2 btn-upload-trigger">
+                                    <i class="bi bi-cloud-arrow-up"></i> Cambiar Portada
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="alert alert-info">
+                                <small>
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <strong>Consejo:</strong> Sube imágenes cuadradas (ej: 800x800) para obtener los
+                                    mejores resultados en la web.
+                                    WordPress generará automáticamente las miniaturas necesarias para el catálogo.
+                                </small>
+                            </div>
+                            <div id="parent-info" class="mt-3">
+                                <!-- Info extra del padre -->
+                                <p class="mb-1"><strong>ID:</strong> <span id="parent-id"></span></p>
+                                <p><strong>SKU:</strong> <span id="parent-sku"></span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Variaciones -->
+                    <div id="variations-section">
+                        <h6 class="mb-3 border-bottom pb-2">Imágenes de Variaciones</h6>
+                        <div class="image-management-grid" id="variations-grid">
+                            <!-- Se cargará vía AJAX -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let currentSearch = '';
+    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadProducts();
+
+        // Buscador con debounce
+        let searchTimeout;
+        document.getElementById('product-search').addEventListener('input', function (e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentSearch = e.target.value;
+                currentPage = 1;
+                loadProducts();
+            }, 500);
+        });
+
+        // Event delegation para abrir modal
+        document.getElementById('products-container').addEventListener('click', function (e) {
+            const card = e.target.closest('.product-card');
+            if (card) {
+                const productId = card.dataset.id;
+                const productTitle = card.dataset.title;
+                openImageModal(productId, productTitle);
+            }
+        });
+
+        // Event delegation para triggers de subida
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.btn-upload-trigger')) {
+                const item = e.target.closest('.variation-item');
+                item.querySelector('.image-upload-input').click();
+            }
+        });
+
+        // Event delegation para inputs de archivo
+        document.addEventListener('change', function (e) {
+            if (e.target.classList.contains('image-upload-input')) {
+                const file = e.target.files[0];
+                if (file) {
+                    const productId = e.target.dataset.id;
+                    const isVariation = e.target.dataset.variation;
+                    handleFileUpload(file, productId, isVariation, e.target.closest('.variation-item'));
+                }
+            }
+        });
+    });
+
+    function loadProducts() {
+        const container = document.getElementById('products-container');
+        container.innerHTML = Array(12).fill().map(() => `
+            <div class="product-card skeleton">
+                <div class="product-image-wrapper"></div>
+                <div class="product-info">
+                    <div class="skeleton mb-2" style="height: 15px; width: 80%;"></div>
+                    <div class="skeleton" style="height: 10px; width: 50%;"></div>
+                </div>
+            </div>
+        `).join('');
+
+        fetch(`/images/api/list?search=${encodeURIComponent(currentSearch)}&page=${currentPage}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    renderProducts(data.products);
+                    renderPagination(data.pages, data.current_page);
+                } else {
+                    container.innerHTML = `<div class="col-12 text-center py-5"><p class="text-danger">${data.error}</p></div>`;
+                }
+            })
+            .catch(err => {
+                container.innerHTML = `<div class="col-12 text-center py-5"><p class="text-danger">Error de conexión</p></div>`;
+            });
+    }
+
+    function renderProducts(products) {
+        const container = document.getElementById('products-container');
+        if (products.length === 0) {
+            container.innerHTML = `<div class="col-12 text-center py-5 text-muted">No se encontraron productos</div>`;
+            return;
+        }
+
+        container.innerHTML = products.map(p => `
+            <div class="product-card" data-id="${p.id}" data-title="${p.title}">
+                <div class="product-image-wrapper">
+                    <img src="${p.image_url}" alt="${p.title}" loading="lazy" onerror="this.src='/static/img/no-image.png'">
+                </div>
+                <div class="product-info">
+                    <div class="product-title" title="${p.title}">${p.title}</div>
+                    <div class="product-sku">SKU: ${p.sku}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <small class="text-muted">ID: ${p.id}</small> 
+                        ${p.is_variable ? '<span class="badge badge-variable">Variable</span>' : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        const nav = document.getElementById('pagination');
+        if (totalPages <= 1) {
+            nav.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        const range = 2;
+
+        // Botón Anterior
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">Anterior</a>
+        </li>`;
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - range && i <= currentPage + range)) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>`;
+            } else if (i === currentPage - range - 1 || i === currentPage + range + 1) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        // Botón Siguiente
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">Siguiente</a>
+        </li>`;
+
+        nav.innerHTML = html;
+    }
+
+    function changePage(page) {
+        if (page < 1) return;
+        currentPage = page;
+        loadProducts();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openImageModal(productId, productTitle) {
+        document.getElementById('modal-product-title').textContent = productTitle;
+        document.getElementById('modal-loading').style.display = 'block';
+        document.getElementById('modal-content').style.display = 'none';
+
+        imageModal.show();
+
+        fetch(`/images/api/details/${productId}`)
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    const data = res.data;
+                    document.getElementById('modal-loading').style.display = 'none';
+                    document.getElementById('modal-content').style.display = 'block';
+
+                    // Update parent
+                    const parentPreview = document.getElementById('parent-image-preview');
+                    parentPreview.src = data.image_url + '?t=' + new Date().getTime(); // Cache bust
+
+                    const parentInput = document.querySelector('#parent-image-item .image-upload-input');
+                    parentInput.dataset.id = data.id;
+
+                    document.getElementById('parent-id').textContent = data.id;
+                    document.getElementById('parent-sku').textContent = data.sku;
+
+                    // Update variations
+                    const variationsGrid = document.getElementById('variations-grid');
+                    if (data.variations && data.variations.length > 0) {
+                        document.getElementById('variations-section').style.display = 'block';
+                        variationsGrid.innerHTML = data.variations.map(v => `
+                            <div class="variation-item">
+                                <div class="upload-overlay">
+                                    <div class="spinner-border spinner-border-sm mb-2"></div>
+                                    <span>Subiendo...</span>
+                                </div>
+                                <span class="variation-label">${v.label}</span>
+                                <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview">
+                                <div class="small text-muted mb-2">SKU: ${v.sku} | ID: ${v.id}</div>
+                                <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
+                                <button class="btn btn-sm btn-outline-primary w-100 btn-upload-trigger">
+                                    Cambiar Imagen
+                                </button>
+                            </div>
+                        `).join('');
+                    } else {
+                        document.getElementById('variations-section').style.display = 'none';
+                    }
+                } else {
+                    alert('Error: ' + res.error);
+                    imageModal.hide();
+                }
+            })
+            .catch(err => {
+                alert('Error al cargar detalles');
+                imageModal.hide();
+            });
+    }
+
+    function handleFileUpload(file, productId, isVariation, itemElement) {
+        // Validar tamaño (máx 2MB recomendado para web)
+        if (file.size > 2 * 1024 * 1024) {
+            if (!confirm('La imagen es mayor a 2MB. ¿Deseas continuar? Subir archivos pesados puede afectar la carga de la web.')) {
+                return;
+            }
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('product_id', productId);
+        formData.append('is_variation', isVariation);
+
+        // Mostrar loading en el item específico
+        itemElement.classList.add('uploading');
+
+        fetch('/images/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                itemElement.classList.remove('uploading');
+                if (data.success) {
+                    // Actualizar preview con la nueva URL (añadimos timestamp para engañar al cache)
+                    const img = itemElement.querySelector('.variation-image-preview');
+                    img.src = data.new_url + '?t=' + new Date().getTime();
+
+                    // Si actualizamos el padre, también debemos actualizar el grid principal
+                    if (isVariation === 'false') {
+                        const mainCardImg = document.querySelector(`.product-card[data-id="${productId}"] img`);
+                        if (mainCardImg) mainCardImg.src = data.new_url + '?t=' + new Date().getTime();
+                    }
+
+                    showToast('Éxito', 'Imagen actualizada correctamente', 'success');
+                } else {
+                    showToast('Error', data.error || 'Error al subir imagen', 'danger');
+                }
+            })
+            .catch(err => {
+                itemElement.classList.remove('uploading');
+                showToast('Error', 'Error de conexión', 'danger');
+            });
+    }
+
+    function showToast(title, message, type) {
+        // Usar alert de bootstrap si existe un contenedor, o alert simple
+        const toastHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow" style="z-index: 9999;">
+                <strong>${title}:</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = toastHTML;
+        document.body.appendChild(wrapper.firstChild);
+
+        setTimeout(() => {
+            const btn = document.querySelector('.alert .btn-close');
+            if (btn) btn.click();
+        }, 5000);
+    }
+</script>
 {% endblock %}
