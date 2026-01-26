@@ -1040,7 +1040,7 @@ def export_excel():
 
         # PASO 3: Eager load de todos los metadatos
         meta_keys_base = ['_sku', '_price', '_regular_price', '_sale_price', '_stock',
-                         '_stock_status', '_thumbnail_id', '_product_image_gallery']
+                         '_stock_status', '_thumbnail_id', '_product_image_gallery', '_product_type']
 
         all_meta = db.session.query(
             ProductMeta.post_id,
@@ -1187,7 +1187,21 @@ def export_excel():
                 col_num += 1
 
             # ID Padre
-            parent_id = product.post_parent if product.post_parent > 0 else ''
+            # Lógica:
+            # - Variaciones: Mostrar ID del padre
+            # - Productos variables (con variaciones): Mostrar vacío
+            # - Productos simples (sin variaciones): Mostrar su propio ID
+            if product.post_type == 'product_variation' and product.post_parent > 0:
+                parent_id = product.post_parent
+            elif product.post_type == 'product':
+                product_type = product_meta.get('_product_type', 'simple')
+                if product_type == 'simple':
+                    parent_id = product.ID  # Productos simples muestran su propio ID
+                else:
+                    parent_id = ''  # Productos variables no muestran nada
+            else:
+                parent_id = ''
+
             ws.cell(row=row_num, column=col_num, value=parent_id)
             col_num += 1
 
