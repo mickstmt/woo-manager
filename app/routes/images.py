@@ -141,7 +141,6 @@ def upload_image():
         current_app.logger.info(f"[IMAGES] Refactor: Subiendo binario a WP Media API para product_id={product_id}")
 
         # 1. SUBIR A LA BIBLIOTECA DE MEDIOS (WP API)
-        # Endpoint nativo de WordPress para archivos binarios
         wp_media_url = f"{wc_url}/wp-json/wp/v2/media"
         
         file_content = file.read()
@@ -150,19 +149,33 @@ def upload_image():
             'Content-Disposition': f'attachment; filename={file.filename}'
         }
 
-        # Intento con Query String Authentication (más compatible con algunos servidores que bloquean headers)
-        params = {
-            'consumer_key': ck,
-            'consumer_secret': cs
-        }
+        # Intentar con Application Passwords si están configurados (Más seguro)
+        wp_user = current_app.config.get('WP_USER')
+        wp_pass = current_app.config.get('WP_APP_PASSWORD')
 
-        wp_resp = requests.post(
-            wp_media_url,
-            data=file_content,
-            headers=headers,
-            params=params,
-            timeout=60
-        )
+        if wp_user and wp_pass:
+            current_app.logger.info(f"[IMAGES] Usando credenciales de usuario WP: {wp_user}")
+            wp_resp = requests.post(
+                wp_media_url,
+                data=file_content,
+                headers=headers,
+                auth=HTTPBasicAuth(wp_user, wp_pass),
+                timeout=60
+            )
+        else:
+            # Fallback a llaves de WC (menos probable de funcionar para Medios core)
+            current_app.logger.warning("[IMAGES] No hay credenciales de WP configuradas, probando con llaves de WC")
+            params = {
+                'consumer_key': ck,
+                'consumer_secret': cs
+            }
+            wp_resp = requests.post(
+                wp_media_url,
+                data=file_content,
+                headers=headers,
+                params=params,
+                timeout=60
+            )
 
         current_app.logger.info(f"[IMAGES] Respuesta WP Media API: status={wp_resp.status_code}")
 
@@ -171,10 +184,10 @@ def upload_image():
                 error_data = wp_resp.json()
                 error_msg = error_data.get('message', 'Error desconocido')
             except:
-                error_msg = wp_resp.text[:50]
+                error_msg = wp_resp.text[:100]
             
             current_app.logger.error(f"[IMAGES] Error WP Media: {wp_resp.text}")
-            return jsonify({'success': False, 'error': f'Error en Galería: {error_msg}'}), wp_resp.status_code
+            return jsonify({'success': False, 'error': f'Error en Galería (401): {error_msg}'}), wp_resp.status_code
 
         media_id = wp_resp.json().get('id')
         media_url = wp_resp.json().get('source_url')

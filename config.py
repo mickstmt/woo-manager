@@ -32,6 +32,11 @@ class Config:
     WC_CONSUMER_KEY = os.environ.get('WC_CONSUMER_KEY')
     WC_CONSUMER_SECRET = os.environ.get('WC_CONSUMER_SECRET')
 
+    # WordPress API (Media)
+    WP_USER = os.environ.get('WP_USER')
+    WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD')
+
+
     # Configuración de sesión
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
