@@ -1,7 +1,7 @@
 # app/routes/products.py
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required
-from app.models import Product, ProductMeta
+from app.models import Product, ProductMeta, Term
 from app import db, cache
 from sqlalchemy import or_
 
@@ -441,54 +441,59 @@ def view_product(product_id):
             if parent_product:
                 parent_product.preload_meta() # Cargar sus metas también
         
-        # Función para normalizar valores de conectores a slugs consistentes
-        def normalize_connector(raw_value):
-            """
-            Normaliza el valor del conector a formato slug consistente (lowercase, inglés).
+        # --- PROCESAMIENTO DE VARIACIONES (AGRUPACIÓN MULTINIVEL) ---
+        # 1. Recolectar todos los slugs de atributos globales para buscar sus nombres reales
+        term_slugs = set()
+        for var in variations_query:
+            # Obtener metas directamente de la caché pre-cargada
+            if hasattr(var, '_meta_cache'):
+                for key, value in var._meta_cache.items():
+                    if key.startswith('attribute_pa_') and value:
+                        term_slugs.add(value)
+        
+        term_map = {}
+        if term_slugs:
+            terms = Term.query.filter(Term.slug.in_(term_slugs)).all()
+            term_map = {t.slug: t.name for t in terms}
 
-            Mapea traducciones comunes:
-            - Plateado/Silver -> silver
-            - Negro/Black -> black
-            - Rosado-Dorado/Rose-Gold/Gold-Rose -> gold-rose
-            - Dorado/Gold -> gold
-            """
-            if not raw_value or raw_value == 'Sin Conector':
-                return 'sin-conector'
-
-            # Convertir a minúsculas y eliminar espacios extra
-            value = raw_value.lower().strip()
-
-            # Mapeo de traducciones españolas a slugs ingleses
-            translation_map = {
-                'plateado': 'silver',
-                'negro': 'black',
-                'rosado-dorado': 'gold-rose',
-                'rosado dorado': 'gold-rose',
-                'dorado': 'gold',
-                'oro': 'gold',
-                'rose-gold': 'gold-rose',
-                'rose gold': 'gold-rose',
-                'gold-rose': 'gold-rose',
-                'gold rose': 'gold-rose',
-            }
-
-            # Aplicar mapeo si existe
-            if value in translation_map:
-                return translation_map[value]
-
-            # Si no hay mapeo, normalizar reemplazando espacios con guiones
-            return value.replace(' ', '-')
-
-        # Procesar variaciones para la vista y agruparlas por conector
-        variations = []
-        variations_by_connector = {}
+        # 2. Procesar y agrupar variaciones
+        # Estructura: { "Medida": { "Conector": [variaciones] } }
+        variations_grouped = {}
+        processed_variations = []
 
         for var in variations_query:
-            # Obtener el valor del atributo "conector"
-            raw_connector = var.get_meta('attribute_pa_conector') or var.get_meta('attribute_conector') or 'Sin Conector'
-            connector = normalize_connector(raw_connector)
+            # Extraer todos los atributos de forma estructurada
+            attr_list = []
+            medida_val = 'General'
+            conector_val = 'Otros'
 
-            variation_data = {
+            if hasattr(var, '_meta_cache'):
+                for key, value in var._meta_cache.items():
+                    if key.startswith('attribute_'):
+                        attr_slug = value
+                        is_global = key.startswith('attribute_pa_')
+                        
+                        # Valor por defecto
+                        display_val = attr_slug if attr_slug else "Cualquiera"
+                        if is_global and attr_slug in term_map:
+                            display_val = term_map[attr_slug]
+                        
+                        # Limpiar nombre del atributo
+                        attr_name = key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
+                        
+                        # Normalizar capitalización (especialmente para mm)
+                        if display_val and not any(char.isdigit() for char in display_val):
+                            display_val = display_val.title()
+                        
+                        attr_list.append({'name': attr_name, 'value': display_val})
+
+                        # Identificar claves de agrupación
+                        if 'medida' in attr_name.lower():
+                            medida_val = display_val
+                        elif 'conector' in attr_name.lower():
+                            conector_val = display_val
+
+            var_data = {
                 'id': var.ID,
                 'title': var.post_title,
                 'sku': var.get_meta('_sku') or 'N/A',
@@ -496,15 +501,22 @@ def view_product(product_id):
                 'stock': var.get_meta('_stock') or '0',
                 'stock_status': var.get_meta('_stock_status') or 'outofstock',
                 'image_url': var.get_image_url(),
-                'connector': connector
+                'attributes': attr_list,
+                'medida': medida_val,
+                'conector': conector_val
             }
 
-            variations.append(variation_data)
+            processed_variations.append(var_data)
 
-            # Agrupar por conector
-            if connector not in variations_by_connector:
-                variations_by_connector[connector] = []
-            variations_by_connector[connector].append(variation_data)
+            # Agrupar
+            if medida_val not in variations_grouped:
+                variations_grouped[medida_val] = {}
+            if conector_val not in variations_grouped[medida_val]:
+                variations_grouped[medida_val][conector_val] = []
+            variations_grouped[medida_val][conector_val].append(var_data)
+        
+        # Ordenar los grupos para consistencia en la UI
+        # (Convertir a lista de tuplas ordenadas si es necesario, o manejar en template)
         
         # Obtener categorías
         from sqlalchemy import text
@@ -530,8 +542,8 @@ def view_product(product_id):
             'products/view.html',
             product=product_data,
             parent_product=parent_product,
-            variations=variations,
-            variations_by_connector=variations_by_connector,
+            variations=processed_variations,
+            variations_grouped=variations_grouped,
             categories=categories,
             stock_history=stock_history
         )
