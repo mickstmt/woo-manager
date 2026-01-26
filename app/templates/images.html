@@ -191,6 +191,27 @@
         border-color: var(--primary);
     }
 
+    /* Primary Filters (e.g. Medida) */
+    #variation-filters {
+        gap: 0.75rem;
+        margin-bottom: 1rem !important;
+    }
+
+    #variation-filters .nav-link {
+        color: var(--primary);
+        background: transparent;
+        border: 1px solid var(--primary);
+        font-weight: 500;
+        font-size: 0.9rem;
+        border-radius: 20px;
+        padding: 0.3rem 1.2rem;
+    }
+
+    #variation-filters .nav-link.active {
+        background: var(--primary);
+        color: white;
+    }
+
     /* Skeleton Loading */
     .skeleton {
         background-color: #e2e5e7;
@@ -302,7 +323,11 @@
                     <div id="variations-section">
                         <h6 class="mb-3 border-bottom pb-2">Imágenes de Variaciones</h6>
 
-                        <!-- Pestañas de Agrupación -->
+                        <!-- Filtro Primario (Medida) -->
+                        <ul class="nav nav-pills mb-3" id="variation-filters" style="display: none;">
+                        </ul>
+
+                        <!-- Pestañas de Agrupación (Conector) -->
                         <ul class="nav nav-pills mb-4" id="variation-tabs" style="display: none;">
                         </ul>
 
@@ -492,38 +517,47 @@
                     if (data.variations && data.variations.length > 0) {
                         document.getElementById('variations-section').style.display = 'block';
 
-                        // Agrupar por conector (usando nombres reales proporcionados por el backend)
-                        const grouped = {};
-                        data.variations.forEach(v => {
-                            // Intentar encontrar el atributo "Conector"
-                            const connectorAttr = v.attributes.find(a => a.name.toLowerCase().includes('conector'));
-                            const groupKey = connectorAttr ? connectorAttr.value : 'Otros';
+                        // 1. Identificar atributos de agrupación (Medida y Conector)
+                        const grouped = {}; // { Medida: { Conector: [variations] } }
+                        const medidas = new Set();
+                        const conectores = new Set();
 
-                            if (!grouped[groupKey]) grouped[groupKey] = [];
-                            grouped[groupKey].push(v);
+                        data.variations.forEach(v => {
+                            const medidaAttr = v.attributes.find(a => a.name.toLowerCase().includes('medida'));
+                            const conectorAttr = v.attributes.find(a => a.name.toLowerCase().includes('conector'));
+
+                            const mVal = medidaAttr ? medidaAttr.value : 'General';
+                            const cVal = conectorAttr ? conectorAttr.value : 'Otros';
+
+                            medidas.add(mVal);
+                            conectores.add(cVal);
+
+                            if (!grouped[mVal]) grouped[mVal] = {};
+                            if (!grouped[mVal][cVal]) grouped[mVal][cVal] = [];
+                            grouped[mVal][cVal].push(v);
                         });
 
-                        const groupKeys = Object.keys(grouped).sort();
+                        const sortedMedidas = Array.from(medidas).sort();
+                        window.currentGroupedVariations = grouped;
 
-                        // Generar Pestañas
-                        if (groupKeys.length > 1) {
-                            variationsTabs.innerHTML = groupKeys.map((key, index) => `
+                        // 2. Generar Filtros Primarios (Medida)
+                        const filterContainer = document.getElementById('variation-filters');
+                        if (sortedMedidas.length > 1) {
+                            filterContainer.innerHTML = sortedMedidas.map((m, idx) => `
                                 <li class="nav-item">
-                                    <button class="nav-link ${index === 0 ? 'active' : ''}" 
-                                            onclick="renderGroupedVariations('${key.replace(/'/g, "\\'")}')" 
-                                            data-bs-toggle="pill" type="button">
-                                        ${key}
+                                    <button class="nav-link ${idx === 0 ? 'active' : ''}" 
+                                            onclick="selectMedida('${m.replace(/'/g, "\\'")}', this)">
+                                        ${m}
                                     </button>
                                 </li>
                             `).join('');
-                            variationsTabs.style.display = 'flex';
+                            filterContainer.style.display = 'flex';
                         } else {
-                            variationsTabs.style.display = 'none';
+                            filterContainer.style.display = 'none';
                         }
 
-                        // Guardar datos globalmente para cambiarlos con las pestañas
-                        window.currentGroupedVariations = grouped;
-                        renderGroupedVariations(groupKeys[0]);
+                        // Inicializar con la primera medida
+                        selectMedida(sortedMedidas[0]);
 
                     } else {
                         document.getElementById('variations-section').style.display = 'none';
@@ -539,9 +573,42 @@
             });
     }
 
-    function renderGroupedVariations(key) {
+    function selectMedida(medida, element) {
+        if (element) {
+            document.querySelectorAll('#variation-filters .nav-link').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        window.currentSelectedMedida = medida;
+        const subGroups = window.currentGroupedVariations[medida];
+        const conectorKeys = Object.keys(subGroups).sort();
+
+        const tabsContainer = document.getElementById('variation-tabs');
+        if (conectorKeys.length > 1 || (conectorKeys.length === 1 && conectorKeys[0] !== 'Otros')) {
+            tabsContainer.innerHTML = conectorKeys.map((c, idx) => `
+                <li class="nav-item">
+                    <button class="nav-link ${idx === 0 ? 'active' : ''}" 
+                            onclick="selectConector('${c.replace(/'/g, "\\'")}', this)">
+                        ${c}
+                    </button>
+                </li>
+            `).join('');
+            tabsContainer.style.display = 'flex';
+        } else {
+            tabsContainer.style.display = 'none';
+        }
+
+        selectConector(conectorKeys[0]);
+    }
+
+    function selectConector(conector, element) {
+        if (element) {
+            document.querySelectorAll('#variation-tabs .nav-link').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        const variations = window.currentGroupedVariations[window.currentSelectedMedida][conector];
         const grid = document.getElementById('variations-grid');
-        const variations = window.currentGroupedVariations[key];
 
         grid.innerHTML = variations.map(v => {
             const attrBadges = v.attributes.map(a =>
