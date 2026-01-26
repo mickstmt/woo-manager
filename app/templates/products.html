@@ -1262,23 +1262,51 @@
     function normalizeDateValue(dateString) {
         if (!dateString) return '';
 
-        // Si ya está en formato correcto, retornar
+        // Si ya está en formato correcto YYYY-MM-DD, retornar
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
             return dateString;
         }
 
-        // Intentar parsear la fecha y convertirla a YYYY-MM-DD
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-            // Si no se puede parsear, retornar el valor original
-            return dateString;
+        // Detectar y convertir formato DD/MM/YYYY
+        const ddmmyyyyPattern = /^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/;
+        const ddmmyyyyMatch = dateString.match(ddmmyyyyPattern);
+        if (ddmmyyyyMatch) {
+            const day = ddmmyyyyMatch[1];
+            const month = ddmmyyyyMatch[2];
+            const year = ddmmyyyyMatch[3];
+            return `${year}-${month}-${day}`;
         }
 
-        // Convertir a formato YYYY-MM-DD
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        // Detectar y convertir formato MM/DD/YYYY
+        const mmddyyyyPattern = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
+        const mmddyyyyMatch = dateString.match(mmddyyyyPattern);
+        if (mmddyyyyMatch) {
+            const monthOrDay1 = mmddyyyyMatch[1].padStart(2, '0');
+            const monthOrDay2 = mmddyyyyMatch[2].padStart(2, '0');
+            const year = mmddyyyyMatch[3];
+
+            // Intentar parsear como MM/DD/YYYY primero
+            const dateUS = new Date(`${year}-${monthOrDay1}-${monthOrDay2}`);
+            if (!isNaN(dateUS.getTime())) {
+                const correctedYear = dateUS.getFullYear();
+                const correctedMonth = String(dateUS.getMonth() + 1).padStart(2, '0');
+                const correctedDay = String(dateUS.getDate()).padStart(2, '0');
+                return `${correctedYear}-${correctedMonth}-${correctedDay}`;
+            }
+        }
+
+        // Como último recurso, intentar parsear con new Date()
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Si no se puede convertir, retornar vacío
+        console.error('No se pudo normalizar la fecha:', dateString);
+        return '';
     }
 
     // Ejecutar exportación
@@ -1286,9 +1314,21 @@
         const dateFromInput = document.getElementById('export-date-from');
         const dateToInput = document.getElementById('export-date-to');
 
+        // Debug: Ver valores originales
+        console.log('Valores originales:', {
+            desde: dateFromInput.value,
+            hasta: dateToInput.value
+        });
+
         // Normalizar fechas antes de validar
         let dateFrom = normalizeDateValue(dateFromInput.value);
         let dateTo = normalizeDateValue(dateToInput.value);
+
+        // Debug: Ver valores normalizados
+        console.log('Valores normalizados:', {
+            desde: dateFrom,
+            hasta: dateTo
+        });
 
         const titleFilter = document.getElementById('export-title-filter').value.trim();
 
