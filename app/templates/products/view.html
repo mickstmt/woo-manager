@@ -375,6 +375,7 @@
 
                 <div class="tab-content mt-3">
                     {% for medida, conectores in variations_grouped.items() %}
+                    {% set outer_medida_loop = loop %}
                     <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
                         id="medida-section-{{ loop.index }}" role="tabpanel">
 
@@ -385,8 +386,8 @@
                             {% for conector, var_list in conectores.items()|sort %}
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="tab"
-                                    data-bs-target="#conector-{{ loop.index }}-{{ loop.parent.index }}" type="button"
-                                    role="tab">
+                                    data-bs-target="#conector-{{ loop.index }}-{{ outer_medida_loop.index }}"
+                                    type="button" role="tab">
                                     {{ conector }} <span class="badge bg-secondary ms-1">{{ var_list|length }}</span>
                                 </button>
                             </li>
@@ -397,7 +398,7 @@
                         <div class="tab-content">
                             {% for conector, var_list in conectores.items()|sort %}
                             <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
-                                id="conector-{{ loop.index }}-{{ loop.parent.index }}" role="tabpanel">
+                                id="conector-{{ loop.index }}-{{ outer_medida_loop.index }}" role="tabpanel">
                                 {% for var in var_list %}
                                 <div class="variation-item">
                                     <div class="row align-items-center">
