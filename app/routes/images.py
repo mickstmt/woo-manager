@@ -219,11 +219,16 @@ def upload_image():
             try:
                 error_data = wp_resp.json()
                 error_msg = error_data.get('message', 'Error desconocido')
+                error_code = error_data.get('code', 'unknown_error')
+                current_app.logger.error(f"[IMAGES] Error WP Media API (status={wp_resp.status_code}): Code={error_code}, Message={error_msg}")
+                
+                if wp_resp.status_code == 401:
+                    error_msg = f"Error de Autenticación (401): Verifique que el usuario '{wp_user}' sea el USERNAME (no el correo) y que la Application Password sea válida."
             except:
-                error_msg = wp_resp.text[:100]
+                error_msg = wp_resp.text[:200]
+                current_app.logger.error(f"[IMAGES] Error WP Media (no JSON): {error_msg}")
             
-            current_app.logger.error(f"[IMAGES] Error WP Media: {wp_resp.text}")
-            return jsonify({'success': False, 'error': f'Error en Galería (401): {error_msg}'}), wp_resp.status_code
+            return jsonify({'success': False, 'error': error_msg}), wp_resp.status_code
 
         media_id = wp_resp.json().get('id')
         media_url = wp_resp.json().get('source_url')
