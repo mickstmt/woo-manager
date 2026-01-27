@@ -485,6 +485,18 @@
             }
         });
 
+        // Búsqueda en tiempo real (Debounced)
+        let searchTimeout;
+        $('#search-input').on('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = $(this).val().trim();
+                if (query.length >= 3 || query.length === 0) {
+                    searchProducts();
+                }
+            }, 600);
+        });
+
         // Evento para cambio de estado
         $('#status-filter').on('change', function () {
             statusFilter = $(this).val();
@@ -1388,46 +1400,46 @@
                 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json'
             }
         })
-        .then(response => {
-            if (!response.ok) {
-                // Si hay error, intentar leer como JSON
-                return response.json().then(data => {
-                    throw new Error(data.error || 'Error al generar el archivo');
-                });
-            }
-            // Si es exitoso, es un archivo Excel
-            return response.blob();
-        })
-        .then(blob => {
-            // Crear enlace de descarga
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `productos_${dateFrom}_${dateTo}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            .then(response => {
+                if (!response.ok) {
+                    // Si hay error, intentar leer como JSON
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Error al generar el archivo');
+                    });
+                }
+                // Si es exitoso, es un archivo Excel
+                return response.blob();
+            })
+            .then(blob => {
+                // Crear enlace de descarga
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `productos_${dateFrom}_${dateTo}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
 
-            // Cerrar modal y mostrar éxito
-            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-            modal.hide();
+                // Cerrar modal y mostrar éxito
+                const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+                modal.hide();
 
-            showNotification('success', `Archivo Excel descargado correctamente. Revisa tu carpeta de descargas.`);
-        })
-        .catch(error => {
-            // Mostrar error al usuario
-            showNotification('danger', 'Error al exportar: ' + error.message);
-            console.error('Error en exportación:', error);
-        })
-        .finally(() => {
-            // Desbloquear interfaz
-            btnApply.disabled = false;
-            btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
-            btnCancel.disabled = false;
-            processingStatus.style.display = 'none';
-        });
+                showNotification('success', `Archivo Excel descargado correctamente. Revisa tu carpeta de descargas.`);
+            })
+            .catch(error => {
+                // Mostrar error al usuario
+                showNotification('danger', 'Error al exportar: ' + error.message);
+                console.error('Error en exportación:', error);
+            })
+            .finally(() => {
+                // Desbloquear interfaz
+                btnApply.disabled = false;
+                btnApply.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
+                btnCancel.disabled = false;
+                processingStatus.style.display = 'none';
+            });
     }
 </script>
 

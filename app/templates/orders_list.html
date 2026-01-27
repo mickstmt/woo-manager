@@ -651,6 +651,37 @@
                 searchOrders();
             }
         });
+
+        // Búsqueda en tiempo real - Pedidos WhatsApp (Debounced)
+        let searchOrdersTimeout;
+        $('#search-input').on('input', function () {
+            clearTimeout(searchOrdersTimeout);
+            searchOrdersTimeout = setTimeout(() => {
+                const query = $(this).val().trim();
+                if (query.length >= 3 || query.length === 0) {
+                    searchOrders();
+                }
+            }, 600);
+        });
+
+        // Enter para buscar pedidos externos
+        $('#search-input-external').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchOrdersExternal();
+            }
+        });
+
+        // Búsqueda en tiempo real - Pedidos Externos (Debounced)
+        let searchExternalTimeout;
+        $('#search-input-external').on('input', function () {
+            clearTimeout(searchExternalTimeout);
+            searchExternalTimeout = setTimeout(() => {
+                const query = $(this).val().trim();
+                if (query.length >= 3 || query.length === 0) {
+                    searchOrdersExternal();
+                }
+            }, 600);
+        });
     });
 
     function loadUsers() {

@@ -348,6 +348,19 @@
             }
         });
 
+        // Búsqueda en tiempo real (Debounced)
+        let searchTimeout;
+        $('#search-input').on('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = $(this).val().trim();
+                // Buscar si tiene 3 o más caracteres, o si se limpia el buscador
+                if (query.length >= 3 || query.length === 0) {
+                    searchProducts();
+                }
+            }, 600);
+        });
+
         // Eventos de filtros
         $('#stock-filter').on('change', function () {
             stockFilter = $(this).val();

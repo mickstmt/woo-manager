@@ -486,6 +486,22 @@
             }
         });
 
+        // Búsqueda en tiempo real (Debounced)
+        let searchTimeout;
+        document.getElementById('search-input').addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = this.value.trim();
+                // En el módulo de precios el usuario debe buscar explícitamente pero 
+                // para mantener la consistencia activamos la búsqueda automática
+                if (query.length >= 3) {
+                    searchProducts();
+                } else if (query.length === 0) {
+                    clearSearch();
+                }
+            }, 600);
+        });
+
         // Cambio en per_page
         document.getElementById('per-page-select').addEventListener('change', function () {
             currentPerPage = parseInt(this.value);

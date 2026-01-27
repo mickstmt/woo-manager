@@ -252,6 +252,21 @@
     document.addEventListener('DOMContentLoaded', function () {
         loadProducts();
         loadExchangeRate();
+
+        // Búsqueda en tiempo real (Debounced)
+        let searchTimeout;
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const query = this.value.trim();
+                    if (query.length >= 3 || query.length === 0) {
+                        loadProducts();
+                    }
+                }, 600);
+            });
+        }
     });
 
     function loadExchangeRate() {
