@@ -223,7 +223,7 @@ def upload_image():
                 current_app.logger.error(f"[IMAGES] Error WP Media API (status={wp_resp.status_code}): Code={error_code}, Message={error_msg}")
                 
                 if wp_resp.status_code == 401:
-                    error_msg = f"Error de Autenticación (401): Verifique que el usuario '{wp_user}' sea el USERNAME (no el correo) y que la Application Password sea válida."
+                    error_msg = f"Error de Autenticación (401): WordPress rechazó las credenciales. IMPORTANTE: El usuario '{wp_user}' suele ser el 'Nombre de usuario' (ej. admin o msanmartin), NO el correo electrónico. Verifique también que la Application Password sea válida."
             except:
                 error_msg = wp_resp.text[:200]
                 current_app.logger.error(f"[IMAGES] Error WP Media (no JSON): {error_msg}")
