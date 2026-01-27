@@ -737,24 +737,38 @@
 
     function showToast(title, message, type = 'success') {
         const icons = {
-            'success': 'bi-check-circle-fill',
-            'danger': 'bi-exclamation-triangle-fill',
-            'warning': 'bi-exclamation-circle-fill',
-            'info': 'bi-info-circle-fill'
+            'success': 'bi-check-lg',
+            'danger': 'bi-exclamation-triangle',
+            'warning': 'bi-exclamation-circle',
+            'info': 'bi-info-circle'
         };
-        const icon = icons[type] || 'bi-info-circle-fill';
+        const icon = icons[type] || 'bi-info-circle';
+
+        // Colores de fondo sólidos y vibrantes
+        const bgColors = {
+            'success': '#198754', // Bootstrap Success verde sólido
+            'danger': '#dc3545',  // Bootstrap Danger rojo sólido
+            'warning': '#ffc107', // Bootstrap Warning amarillo
+            'info': '#0d6efd'     // Bootstrap Primary azul
+        };
+        const bgColor = bgColors[type] || '#0d6efd';
+        const textColor = (type === 'warning') ? '#212529' : '#ffffff';
 
         const toastHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg animate__animated animate__fadeInRight" 
-                 style="z-index: 10000; min-width: 300px; border-left: 5px solid rgba(0,0,0,0.2);">
+            <div class="alert alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x m-3 shadow-lg animate__animated animate__fadeInDown" 
+                 style="z-index: 10000; min-width: 350px; background-color: ${bgColor}; border: none; color: ${textColor}; border-radius: 12px; padding: 1rem 1.25rem;">
                 <div class="d-flex align-items-center">
-                    <i class="bi ${icon} me-2" style="font-size: 1.2rem;"></i>
-                    <div>
-                        <strong class="d-block">${title}</strong>
-                        <span class="small">${message}</span>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center me-3" 
+                         style="width: 32px; height: 32px; min-width: 32px; color: ${bgColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <i class="bi ${icon}" style="font-size: 1.2rem; -webkit-text-stroke: 1px;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <strong class="d-block mb-0" style="font-size: 1rem; line-height: 1.2;">${title}</strong>
+                        <span style="font-size: 0.9rem; opacity: 0.95;">${message}</span>
                     </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close" 
+                        style="padding: 1.25rem;"></button>
             </div>
         `;
 
@@ -766,7 +780,6 @@
         // Auto-eliminar después de 5 segundos
         setTimeout(() => {
             if (toastEl && toastEl.parentNode) {
-                // Usar la API de Bootstrap para cerrar educadamente (permite animaciones)
                 const bsAlert = bootstrap.Alert.getOrCreateInstance(toastEl);
                 bsAlert.close();
             }
