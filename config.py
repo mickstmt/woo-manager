@@ -110,14 +110,20 @@ class ProductionConfig(Config):
     db_host = os.environ.get('DB_HOST')
     db_name = os.environ.get('DB_NAME_PRODUCTION')
     
+    # WordPress API (Media)
+    WP_USER = os.environ.get('WP_USER')
+    WP_APP_PASSWORD = os.environ.get('WP_APP_PASSWORD')
+    
     # Validar que las variables críticas existan
-    if not all([db_user, db_password, db_host, db_name]):
+    if not all([db_user, db_password, db_host, db_name, WP_USER, WP_APP_PASSWORD]):
         missing = []
         if not db_user: missing.append('DB_USER')
         if not db_password: missing.append('DB_PASSWORD')
         if not db_host: missing.append('DB_HOST')
         if not db_name: missing.append('DB_NAME_PRODUCTION')
-        raise ValueError(f"Faltan variables de entorno requeridas: {', '.join(missing)}")
+        if not WP_USER: missing.append('WP_USER')
+        if not WP_APP_PASSWORD: missing.append('WP_APP_PASSWORD')
+        raise ValueError(f"Faltan variables de entorno requeridas en producción: {', '.join(missing)}")
     
     # Codificar la contraseña
     encoded_password = quote_plus(db_password)
