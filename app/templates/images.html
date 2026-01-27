@@ -720,7 +720,7 @@
                     if (isVariation === 'false') {
                         const mainCardImg = document.querySelector(`.product-card[data-id="${productId}"] img`);
                         if (mainCardImg) mainCardImg.src = data.new_url + '?t=' + new Date().getTime();
-                        if (btn) btn.innerHTML = `<i class="bi bi-upload"></i> Reemplzar Portada`;
+                        if (btn) btn.innerHTML = `<i class="bi bi-upload"></i> Reemplazar Portada`;
                     }
 
                     const msg = wasReplaced ? 'Imagen reemplazada correctamente' : 'Imagen subida correctamente';
@@ -735,21 +735,41 @@
             });
     }
 
-    function showToast(title, message, type) {
-        // Usar alert de bootstrap si existe un contenedor, o alert simple
+    function showToast(title, message, type = 'success') {
+        const icons = {
+            'success': 'bi-check-circle-fill',
+            'danger': 'bi-exclamation-triangle-fill',
+            'warning': 'bi-exclamation-circle-fill',
+            'info': 'bi-info-circle-fill'
+        };
+        const icon = icons[type] || 'bi-info-circle-fill';
+
         const toastHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow" style="z-index: 9999;">
-                <strong>${title}:</strong> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow-lg animate__animated animate__fadeInRight" 
+                 style="z-index: 10000; min-width: 300px; border-left: 5px solid rgba(0,0,0,0.2);">
+                <div class="d-flex align-items-center">
+                    <i class="bi ${icon} me-2" style="font-size: 1.2rem;"></i>
+                    <div>
+                        <strong class="d-block">${title}</strong>
+                        <span class="small">${message}</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = toastHTML;
-        document.body.appendChild(wrapper.firstChild);
 
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = toastHTML.trim();
+        const toastEl = wrapper.firstElementChild;
+        document.body.appendChild(toastEl);
+
+        // Auto-eliminar después de 5 segundos
         setTimeout(() => {
-            const btn = document.querySelector('.alert .btn-close');
-            if (btn) btn.click();
+            if (toastEl && toastEl.parentNode) {
+                // Usar la API de Bootstrap para cerrar educadamente (permite animaciones)
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(toastEl);
+                bsAlert.close();
+            }
         }, 5000);
     }
 </script>
