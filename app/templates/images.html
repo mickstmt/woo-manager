@@ -544,6 +544,10 @@
 
                     const parentInput = document.querySelector('#parent-image-item .image-upload-input');
                     parentInput.dataset.id = data.id;
+                    parentInput.dataset.hadImage = data.has_image ? 'true' : 'false';
+
+                    const parentBtn = document.querySelector('#parent-image-item .btn-upload-trigger');
+                    if (parentBtn) parentBtn.innerHTML = `<i class="bi bi-upload"></i> ${data.has_image ? 'Reemplazar' : 'Subir'} Portada`;
 
                     document.getElementById('parent-id').textContent = data.id;
                     document.getElementById('parent-sku').textContent = data.sku;
@@ -665,9 +669,9 @@
                     <img src="${v.image_url}?t=${new Date().getTime()}" class="variation-image-preview" onerror="this.src='https://placehold.co/600x600?text=Sin+Imagen'">
                     <div class="small fw-bold mb-1" style="color: var(--text-muted)">SKU: ${v.sku}</div>
                     <div class="small text-muted mb-3">ID: ${v.id}</div>
-                    <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" accept="image/*">
+                    <input type="file" class="d-none image-upload-input" data-id="${v.id}" data-variation="true" data-had-image="${v.has_image}" accept="image/*">
                     <button class="btn btn-sm btn-primary w-100 btn-upload-trigger">
-                        <i class="bi bi-cloud-arrow-up"></i> Cambiar Imagen
+                        <i class="bi bi-upload"></i> ${v.has_image ? 'Reemplazar' : 'Subir'} Imagen
                     </button>
                 </div>
             `;
@@ -698,17 +702,29 @@
             .then(data => {
                 itemElement.classList.remove('uploading');
                 if (data.success) {
-                    // Actualizar preview con la nueva URL (añadimos timestamp para engañar al cache)
+                    const input = itemElement.querySelector('.image-upload-input');
+                    const wasReplaced = input.dataset.hadImage === 'true';
+
+                    // Actualizar preview
                     const img = itemElement.querySelector('.variation-image-preview');
                     img.src = data.new_url + '?t=' + new Date().getTime();
+
+                    // Actualizar estado para futuros uploads
+                    input.dataset.hadImage = 'true';
+                    const btn = itemElement.querySelector('.btn-upload-trigger');
+                    if (btn) {
+                        btn.innerHTML = `<i class="bi bi-upload"></i> Reemplazar Imagen`;
+                    }
 
                     // Si actualizamos el padre, también debemos actualizar el grid principal
                     if (isVariation === 'false') {
                         const mainCardImg = document.querySelector(`.product-card[data-id="${productId}"] img`);
                         if (mainCardImg) mainCardImg.src = data.new_url + '?t=' + new Date().getTime();
+                        if (btn) btn.innerHTML = `<i class="bi bi-upload"></i> Reemplzar Portada`;
                     }
 
-                    showToast('Éxito', 'Imagen actualizada correctamente', 'success');
+                    const msg = wasReplaced ? 'Imagen reemplazada correctamente' : 'Imagen subida correctamente';
+                    showToast('Éxito', msg, 'success');
                 } else {
                     showToast('Error', data.error || 'Error al subir imagen', 'danger');
                 }

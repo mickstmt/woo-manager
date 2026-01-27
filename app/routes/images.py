@@ -42,7 +42,8 @@ def list_products():
         pagination = query.order_by(Product.post_date.desc()).paginate(page=page, per_page=per_page, error_out=False)
         products = pagination.items
 
-        # Precargar imágenes para mayor eficiencia
+        # Precargar metadatos e imágenes para mayor eficiencia
+        Product.preload_metadata_for_products(products, ['_sku', '_thumbnail_id'])
         Product.preload_images_for_products(products)
 
         products_list = []
@@ -78,8 +79,9 @@ def get_details(product_id):
         # Obtener variaciones
         variations = parent.get_variations()
         
-        # Precargar imágenes
+        # Precargar metadatos para el padre y todas las variaciones de una vez
         all_items = [parent] + variations
+        Product.preload_metadata_for_products(all_items) # Carga todos los metas
         Product.preload_images_for_products(all_items)
 
         # Preparar data del padre
@@ -88,15 +90,17 @@ def get_details(product_id):
             'title': parent.post_title,
             'sku': parent.get_meta('_sku') or 'N/A',
             'image_url': parent._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
+            'has_image': bool(parent.get_meta('_thumbnail_id')), # Útil para el mensaje de éxito
             'variations': []
         }
 
         # 1. Recolectar todos los slugs de atributos globales para buscar sus nombres reales
         term_slugs = set()
         for v in variations:
-            for meta in v.product_meta:
-                if meta.meta_key.startswith('attribute_pa_') and meta.meta_value:
-                    term_slugs.add(meta.meta_value)
+            # Usar la caché de metas ya cargada
+            for key, value in v._meta_cache.items():
+                if key.startswith('attribute_pa_') and value:
+                    term_slugs.add(value)
         
         term_map = {}
         if term_slugs:
@@ -105,26 +109,21 @@ def get_details(product_id):
 
         # 2. Preparar data de variaciones
         for v in variations:
-            # Obtener atributos de la variación
+            # Obtener atributos usando la caché
             attr_list = []
-            for meta in v.product_meta:
-                if meta.meta_key.startswith('attribute_'):
-                    attr_slug = meta.meta_value
-                    is_global = meta.meta_key.startswith('attribute_pa_')
+            for key, value in v._meta_cache.items():
+                if key.startswith('attribute_'):
+                    attr_slug = value
+                    is_global = key.startswith('attribute_pa_')
                     
-                    # Valor por defecto (slug original o Cualquiera)
+                    # Valor por defecto
                     display_value = attr_slug if attr_slug else "Cualquiera"
                     
-                    # Si es global, buscar en el mapa de términos
                     if is_global and attr_slug in term_map:
                         display_value = term_map[attr_slug]
                     
-                    # Limpiar prefijo del nombre del atributo (Color, Talla, etc)
-                    attr_name = meta.meta_key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
+                    attr_name = key.replace('attribute_pa_', '').replace('attribute_', '').replace('_', ' ').replace('-', ' ').title()
                     
-                    # Normalizar capitalización del valor: Si ya tiene mezcla de números y letras (como 42mm), 
-                    # tratamos de no romperlo con title() si el usuario prefiere mm en minúscula.
-                    # Por defecto solo capitalizamos la primera letra si no es un técnico.
                     if display_value and not any(char.isdigit() for char in display_value):
                         display_value = display_value.title()
                     
@@ -137,6 +136,7 @@ def get_details(product_id):
                 'id': v.ID,
                 'sku': v.get_meta('_sku') or 'N/A',
                 'image_url': v._image_url_cache or 'https://placehold.co/600x600?text=Sin+Imagen',
+                'has_image': bool(v.get_meta('_thumbnail_id')), # Útil para el mensaje de éxito
                 'label': ', '.join([f"{a['name']}: {a['value']}" for a in attr_list]) if attr_list else f"Variación #{v.ID}",
                 'attributes': attr_list
             })
