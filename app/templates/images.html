@@ -257,7 +257,7 @@
                     <span class="input-group-text bg-white border-end-0">
                         <i class="bi bi-search text-muted"></i>
                     </span>
-                    <input type="text" id="product-search" class="form-control border-start-0 ps-0"
+                    <input type="text" id="product-search" class="form-control border-start-0"
                         placeholder="Buscar por nombre, SKU o ID de producto..." autocomplete="off">
                 </div>
             </div>
@@ -266,7 +266,13 @@
 
     <!-- Resultados -->
     <div id="products-container" class="product-grid">
-        <!-- Se cargará vía AJAX -->
+        <div class="col-12 text-center py-5">
+            <div class="mb-3">
+                <i class="bi bi-search" style="font-size: 3rem; color: var(--border-color);"></i>
+            </div>
+            <h5 class="text-muted">Buscador de Productos</h5>
+            <p class="text-muted">Ingrese el nombre, SKU o ID de un producto para comenzar a gestionar sus imágenes.</p>
+        </div>
     </div>
 
     <!-- Paginación -->
@@ -359,17 +365,32 @@
     const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
 
     document.addEventListener('DOMContentLoaded', function () {
-        loadProducts();
+        // No cargamos productos inicialmente para optimizar el rendimiento en producción
+        // loadProducts(); 
 
         // Buscador con debounce
         let searchTimeout;
         document.getElementById('product-search').addEventListener('input', function (e) {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
-                currentSearch = e.target.value;
+                currentSearch = e.target.value.trim();
                 currentPage = 1;
-                loadProducts();
-            }, 500);
+                if (currentSearch.length >= 3) {
+                    loadProducts();
+                } else if (currentSearch.length === 0) {
+                    // Restaurar estado inicial si borra la búsqueda
+                    document.getElementById('products-container').innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <div class="mb-3">
+                                <i class="bi bi-search" style="font-size: 3rem; color: var(--border-color);"></i>
+                            </div>
+                            <h5 class="text-muted">Buscador de Productos</h5>
+                            <p class="text-muted">Ingrese el nombre, SKU o ID de un producto para comenzar a gestionar sus imágenes.</p>
+                        </div>
+                    `;
+                    document.getElementById('pagination').innerHTML = '';
+                }
+            }, 600);
         });
 
         // Event delegation para abrir modal
