@@ -349,6 +349,7 @@ def get_orders():
                 -- Prioridad (si existe)
                 dp.is_priority,
                 dp.priority_level,
+                dp.is_atendido,
 
                 -- Tiempo sin mover (horas desde última actualización)
                 TIMESTAMPDIFF(HOUR, o.date_updated_gmt, UTC_TIMESTAMP()) as hours_since_update,
@@ -523,10 +524,11 @@ def get_orders():
                 'shipping_method': row[10] or 'Sin método',
                 'is_priority': bool(row[11]) if row[11] is not None else False,
                 'priority_level': row[12] or 'normal',
-                'hours_since_update': row[13] or 0,
-                'is_stale': (row[13] or 0) > 24,  # Más de 24h sin mover
-                'created_by': row[14] or 'Desconocido',
-                'shipping_district': row[15] or None  # Distrito de envío
+                'is_atendido': bool(row[13]) if row[13] is not None else False,
+                'hours_since_update': row[14] or 0,
+                'is_stale': (row[14] or 0) > 24,  # Más de 24h sin mover
+                'created_by': row[15] or 'Desconocido',
+                'shipping_district': row[16] or None  # Distrito de envío
             }
 
             # Agregar a la columna correspondiente (con fallback de seguridad)
@@ -742,6 +744,82 @@ def set_priority():
         current_app.logger.error(f"Error configurando prioridad: {str(e)}")
         import traceback
         current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/api/atendido', methods=['POST'])
+@login_required
+@master_required
+def set_atendido():
+    """
+    Marcar/desmarcar pedido como atendido/empaquetado (Listo para envío)
+
+    Request Body:
+        {
+            "order_id": 123,
+            "is_atendido": true
+        }
+
+    Returns:
+        JSON con confirmación
+    """
+    try:
+        data = request.get_json()
+        order_id = data.get('order_id')
+        is_atendido = data.get('is_atendido', False)
+
+        if not order_id:
+            return jsonify({
+                'success': False,
+                'error': 'order_id es requerido'
+            }), 400
+
+        # Obtener pedido
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': f'Pedido {order_id} no encontrado'
+            }), 404
+
+        order_number = order.get_meta('_order_number')
+
+        # Buscar o crear registro de prioridad (donde guardamos el estado atendido)
+        priority = DispatchPriority.query.filter_by(order_id=order_id).first()
+
+        if not priority:
+            priority = DispatchPriority(
+                order_id=order_id,
+                order_number=order_number
+            )
+            db.session.add(priority)
+
+        # Actualizar valores
+        priority.is_atendido = is_atendido
+        priority.atendido_by = current_user.username if is_atendido else None
+        priority.atendido_at = datetime.utcnow() if is_atendido else None
+
+        db.session.commit()
+
+        action = "marcado como atendido/empaquetado" if is_atendido else "desmarcado como atendido"
+        current_app.logger.info(
+            f"Pedido {order_number} {action} por {current_user.username}"
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Pedido {order_number} {action}',
+            'order_id': order_id,
+            'order_number': order_number,
+            'is_atendido': is_atendido
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error configurando estado atendido: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
