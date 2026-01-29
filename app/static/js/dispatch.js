@@ -158,22 +158,26 @@ function applyFilters() {
 
 /**
  * Limpiar todos los filtros y recargar pedidos
+ * Resetea las fechas al mes actual (primer día del mes hasta hoy)
  */
 function clearFilters() {
-    // Limpiar campos de fecha
-    document.getElementById('filter-date-from').value = '';
-    document.getElementById('filter-date-to').value = '';
+    // Resetear fechas al mes actual (NO dejarlas vacías)
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    document.getElementById('filter-date-from').value = formatDateForInput(firstDayOfMonth);
+    document.getElementById('filter-date-to').value = formatDateForInput(today);
 
     // Desmarcar todos los checkboxes
     document.getElementById('filter-priority').checked = false;
     document.getElementById('filter-atendido').checked = false;
     document.getElementById('filter-no-atendido').checked = false;
 
-    // Recargar pedidos sin filtros (mostrar todo)
+    // Recargar pedidos con filtro de mes actual y sin checkboxes
     loadOrders();
 
     // Feedback visual
-    showToast('info', 'Filtros Limpiados', 'Mostrando todos los pedidos');
+    showToast('info', 'Filtros Reseteados', 'Mostrando pedidos del mes actual');
 }
 
 /**
