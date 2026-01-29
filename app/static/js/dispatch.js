@@ -157,6 +157,26 @@ function applyFilters() {
 }
 
 /**
+ * Limpiar todos los filtros y recargar pedidos
+ */
+function clearFilters() {
+    // Limpiar campos de fecha
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+
+    // Desmarcar todos los checkboxes
+    document.getElementById('filter-priority').checked = false;
+    document.getElementById('filter-atendido').checked = false;
+    document.getElementById('filter-no-atendido').checked = false;
+
+    // Recargar pedidos sin filtros (mostrar todo)
+    loadOrders();
+
+    // Feedback visual
+    showToast('info', 'Filtros Limpiados', 'Mostrando todos los pedidos');
+}
+
+/**
  * Cargar pedidos desde el backend
  */
 async function loadOrders() {
