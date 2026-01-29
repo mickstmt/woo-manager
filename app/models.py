@@ -1113,6 +1113,11 @@ class DispatchPriority(db.Model):
     is_priority = db.Column(db.Boolean, default=False, nullable=False)
     priority_level = db.Column(db.Enum('normal', 'high', 'urgent', name='priority_level_enum'), default='normal')
 
+    # Configuración de atención/empaquetado (Ready/Packed)
+    is_atendido = db.Column(db.Boolean, default=False, nullable=False)
+    atendido_by = db.Column(db.String(100))
+    atendido_at = db.Column(db.DateTime)
+
     # Metadata
     marked_by = db.Column(db.String(100))
     marked_at = db.Column(db.DateTime)
@@ -1132,6 +1137,9 @@ class DispatchPriority(db.Model):
             'order_number': self.order_number,
             'is_priority': self.is_priority,
             'priority_level': self.priority_level,
+            'is_atendido': self.is_atendido,
+            'atendido_by': self.atendido_by,
+            'atendido_at': self.atendido_at.strftime('%Y-%m-%d %H:%M:%S') if self.atendido_at else None,
             'marked_by': self.marked_by,
             'marked_at': self.marked_at.strftime('%Y-%m-%d %H:%M:%S') if self.marked_at else None,
             'priority_note': self.priority_note

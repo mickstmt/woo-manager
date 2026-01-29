@@ -83,7 +83,7 @@ const BULK_TRACKING_PROVIDERS = {
 };
 
 // Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('Módulo de Despacho inicializado');
 
     // Establecer fechas por defecto: primer día del mes actual hasta hoy
@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Limpiar instancia del modal cuando se cierra
     const modalElement = document.getElementById('orderDetailModal');
     if (modalElement) {
-        modalElement.addEventListener('hidden.bs.modal', function() {
+        modalElement.addEventListener('hidden.bs.modal', function () {
             // Limpiar cualquier backdrop residual
             const backdrops = document.querySelectorAll('.modal-backdrop');
             backdrops.forEach(backdrop => backdrop.remove());
@@ -285,6 +285,9 @@ function createOrderCard(order, columnMethod) {
     if (order.is_priority) {
         card.classList.add('priority-' + order.priority_level);
     }
+    if (order.is_atendido) {
+        card.classList.add('atendido');
+    }
     if (order.is_stale) {
         card.classList.add('stale');
     }
@@ -292,7 +295,7 @@ function createOrderCard(order, columnMethod) {
     // Determinar si es columna con selección masiva (CHAMO o DINSIDES)
     const isBulkColumn = columnMethod === 'Motorizado (CHAMO)' || columnMethod === 'DINSIDES';
     const columnKey = columnMethod === 'Motorizado (CHAMO)' ? 'chamo' :
-                      columnMethod === 'DINSIDES' ? 'dinsides' : null;
+        columnMethod === 'DINSIDES' ? 'dinsides' : null;
 
     // Construir HTML de la tarjeta
     let html = `
@@ -371,6 +374,11 @@ function createOrderCard(order, columnMethod) {
             <button class="btn btn-outline-primary btn-icon btn-detail" data-order-id="${order.id}" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
                 <i class="bi bi-eye"></i>
             </button>
+            <button class="btn ${order.is_atendido ? 'btn-success' : 'btn-outline-success'} btn-icon btn-atendido" 
+                    onclick="toggleAtendido(${order.id}, ${order.is_atendido})" 
+                    title="${order.is_atendido ? 'Marcar como Pendiente' : 'Marcar como Atendido/Empaquetado'}">
+                <i class="bi bi-check-circle${order.is_atendido ? '-fill' : ''}"></i>
+            </button>
             <a href="https://www.izistoreperu.com/wp-admin/post.php?post=${order.id}&action=edit" target="_blank" class="btn btn-outline-secondary btn-icon" title="Ver en WooCommerce">
                 <i class="bi bi-wordpress"></i>
             </a>
@@ -413,7 +421,7 @@ function initializeDragDrop() {
             dragClass: 'sortable-drag',
             handle: '.order-card', // Toda la tarjeta es arrastrable
 
-            onEnd: function(evt) {
+            onEnd: function (evt) {
                 // Obtener información del movimiento
                 const orderId = evt.item.dataset.orderId;
                 const orderNumber = evt.item.dataset.orderNumber;
@@ -569,11 +577,11 @@ async function showOrderDetail(orderId) {
                                 <span class="badge bg-primary rounded-pill">x${product.quantity}</span>
                             </div>
                             ${product.image
-                                ? `<img src="${product.image}" alt="${product.name}" class="product-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">`
-                                : `<div class="product-thumbnail-placeholder" style="width: 60px; height: 60px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                    ? `<img src="${product.image}" alt="${product.name}" class="product-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">`
+                    : `<div class="product-thumbnail-placeholder" style="width: 60px; height: 60px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
                                     <i class="bi bi-image" style="font-size: 24px; color: #adb5bd;"></i>
                                    </div>`
-                            }
+                }
                             <div class="flex-grow-1">
                                 ${product.sku ? `<div class="text-muted small mb-1">SKU: ${product.sku}</div>` : ''}
                                 <div class="fw-bold">${product.name}</div>
@@ -594,11 +602,19 @@ async function showOrderDetail(orderId) {
             `;
         }
 
-        // Botón de prioridad
-        const card = document.querySelector(`[data-order-id="${orderId}"]`);
-        const isPriority = card && (card.classList.contains('priority-high') || card.classList.contains('priority-urgent'));
         document.getElementById('priority-btn-text').textContent =
             isPriority ? 'Quitar Prioridad' : 'Marcar Prioritario';
+
+        // Botón de Atendido
+        const isAtendido = card && card.classList.contains('atendido');
+        document.getElementById('atendido-btn-text').textContent =
+            isAtendido ? 'Marcar como Pendiente' : 'Marcar como Atendido/Empaquetado';
+
+        const atendidoBtn = document.getElementById('btn-atendido-modal');
+        if (atendidoBtn) {
+            atendidoBtn.className = isAtendido ? 'btn btn-success btn-sm' : 'btn btn-outline-success btn-sm';
+            atendidoBtn.onclick = () => toggleAtendido(orderId, isAtendido);
+        }
 
         // Cargar historial
         loadOrderHistory(orderId);
@@ -737,6 +753,56 @@ async function togglePriority() {
     } catch (error) {
         console.error('Error cambiando prioridad:', error);
         showError('Error al cambiar prioridad: ' + error.message);
+    }
+}
+
+/**
+ * Toggle estado Atendido/Empaquetado del pedido
+ */
+async function toggleAtendido(orderId, currentStatus) {
+    try {
+        const response = await fetch('/dispatch/api/atendido', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                order_id: parseInt(orderId),
+                is_atendido: !currentStatus
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Error al cambiar estado');
+        }
+
+        // Recargar pedidos para reflejar cambio
+        loadOrders();
+
+        // Si el modal está abierto, actualizarlo o cerrarlo
+        const modalElement = document.getElementById('orderDetailModal');
+        if (modalElement && modalElement.classList.contains('show')) {
+            // Actualizar botones del modal sin cerrarlo para mejor UX
+            const atendidoBtn = document.getElementById('btn-atendido-modal');
+            const btnText = document.getElementById('atendido-btn-text');
+            const isNowAtendido = !currentStatus;
+
+            if (atendidoBtn) {
+                atendidoBtn.className = isNowAtendido ? 'btn btn-success btn-sm' : 'btn btn-outline-success btn-sm';
+                atendidoBtn.onclick = () => toggleAtendido(orderId, isNowAtendido);
+            }
+            if (btnText) {
+                btnText.textContent = isNowAtendido ? 'Marcar como Pendiente' : 'Marcar como Atendido/Empaquetado';
+            }
+        }
+
+        showToast('success', 'Pedido Actualizado', data.message);
+
+    } catch (error) {
+        console.error('Error cambiando estado atendido:', error);
+        showToast('danger', 'Error', 'Error al cambiar estado: ' + error.message);
     }
 }
 
@@ -1050,7 +1116,7 @@ function updateNavigationButtons() {
 function updateCardCheckboxColumn(cardElement, newMethod) {
     const isBulkColumn = newMethod === 'Motorizado (CHAMO)' || newMethod === 'DINSIDES';
     const newColumnKey = newMethod === 'Motorizado (CHAMO)' ? 'chamo' :
-                         newMethod === 'DINSIDES' ? 'dinsides' : null;
+        newMethod === 'DINSIDES' ? 'dinsides' : null;
 
     const existingCheckbox = cardElement.querySelector('.bulk-order-checkbox');
     const orderNumberDiv = cardElement.querySelector('.order-number');
@@ -1072,7 +1138,7 @@ function updateCardCheckboxColumn(cardElement, newMethod) {
             newCheckbox.dataset.orderId = orderId;
             newCheckbox.dataset.orderNumber = orderNumber;
             newCheckbox.dataset.column = newColumnKey;
-            newCheckbox.onchange = function() { onOrderCheckboxChange(this); };
+            newCheckbox.onchange = function () { onOrderCheckboxChange(this); };
             orderNumberDiv.insertBefore(newCheckbox, orderNumberDiv.firstChild);
         }
     } else {
