@@ -704,6 +704,8 @@ def set_priority():
             }), 404
 
         order_number = order.get_meta('_order_number')
+        if not order_number:
+            order_number = f"#{order_id}"
 
         # Buscar o crear registro de prioridad
         priority = DispatchPriority.query.filter_by(order_id=order_id).first()
@@ -786,6 +788,8 @@ def set_atendido():
             }), 404
 
         order_number = order.get_meta('_order_number')
+        if not order_number:
+            order_number = f"#{order_id}"
 
         # Buscar o crear registro de prioridad (donde guardamos el estado atendido)
         priority = DispatchPriority.query.filter_by(order_id=order_id).first()

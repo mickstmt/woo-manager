@@ -602,11 +602,16 @@ async function showOrderDetail(orderId) {
             `;
         }
 
+        // Obtener estado actual del pedido desde la tarjeta en el DOM
+        const card = document.querySelector(`[data-order-id="${orderId}"]`);
+        const isPriority = card && (card.classList.contains('priority-high') || card.classList.contains('priority-urgent'));
+        const isAtendido = card && card.classList.contains('atendido');
+
+        // Botón de Prioridad
         document.getElementById('priority-btn-text').textContent =
             isPriority ? 'Quitar Prioridad' : 'Marcar Prioritario';
 
         // Botón de Atendido
-        const isAtendido = card && card.classList.contains('atendido');
         document.getElementById('atendido-btn-text').textContent =
             isAtendido ? 'Marcar como Pendiente' : 'Marcar como Atendido/Empaquetado';
 
