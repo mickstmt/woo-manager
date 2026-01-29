@@ -650,6 +650,9 @@ async function showOrderDetail(orderId) {
             atendidoBtn.onclick = () => toggleAtendido(orderId, isAtendido);
         }
 
+        // Actualizar indicador de columna
+        updateColumnIndicator(orderId);
+
         // Cargar historial
         loadOrderHistory(orderId);
 
@@ -1144,6 +1147,58 @@ function navigateOrder(direction) {
         btnNext.disabled = false;
         console.error('Error navegando a orden:', error);
     });
+}
+
+/**
+ * Actualizar indicador de columna en el modal
+ */
+function updateColumnIndicator(orderId) {
+    const columnNameElement = document.getElementById('modal-column-name');
+    const columnIndicator = document.getElementById('modal-column-indicator');
+
+    if (!columnNameElement || !columnIndicator) return;
+
+    // Buscar la tarjeta del pedido en el DOM para obtener su columna
+    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+
+    if (card) {
+        // Encontrar la columna padre
+        const column = card.closest('.column-cards');
+        if (column) {
+            // Obtener el título de la columna desde el header
+            const columnHeader = column.closest('.kanban-column').querySelector('.column-title');
+            if (columnHeader) {
+                const columnName = columnHeader.textContent.trim();
+                columnNameElement.textContent = columnName;
+
+                // Cambiar color del badge según la columna
+                columnIndicator.className = 'badge';
+                columnIndicator.style.fontSize = '0.85rem';
+                columnIndicator.style.fontWeight = '500';
+
+                // Asignar color según columna
+                if (columnName.includes('Por Asignar')) {
+                    columnIndicator.classList.add('bg-secondary');
+                } else if (columnName.includes('Olva')) {
+                    columnIndicator.classList.add('bg-info');
+                } else if (columnName.includes('Recojo')) {
+                    columnIndicator.classList.add('bg-success');
+                } else if (columnName.includes('CHAMO')) {
+                    columnIndicator.classList.add('bg-warning', 'text-dark');
+                } else if (columnName.includes('SHALOM')) {
+                    columnIndicator.classList.add('bg-danger');
+                } else if (columnName.includes('DINSIDES')) {
+                    columnIndicator.classList.add('bg-primary');
+                } else {
+                    columnIndicator.classList.add('bg-secondary');
+                }
+            }
+        }
+    } else {
+        // Si no se encuentra la tarjeta, mostrar "Desconocido"
+        columnNameElement.textContent = 'Desconocido';
+        columnIndicator.className = 'badge bg-secondary';
+    }
 }
 
 /**
