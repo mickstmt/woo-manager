@@ -563,6 +563,7 @@ def api_profits():
                 'costo_envio_pen': c_envio,
                 'ganancia_pen': ganancia,
                 'margen_porcentaje': round(margen, 2),
+                'cliente_nombre': fname or 'Sin nombre',
                 'cliente_apellido': lname or '',
                 'is_community': is_comm == 'yes',
                 'items': items,
