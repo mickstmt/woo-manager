@@ -167,20 +167,24 @@ async function loadOrders() {
         const dateFrom = document.getElementById('filter-date-from').value;
         const dateTo = document.getElementById('filter-date-to').value;
         const priorityOnly = document.getElementById('filter-priority').checked;
+        const atendidoOnly = document.getElementById('filter-atendido').checked;
+        const noAtendidoOnly = document.getElementById('filter-no-atendido').checked;
 
-        // Debug: Log de fechas
-        console.log('Filtro de fechas:', { dateFrom, dateTo, priorityOnly });
+        // Debug: Log de filtros
+        console.log('Filtros aplicados:', { dateFrom, dateTo, priorityOnly, atendidoOnly, noAtendidoOnly });
 
         // Solo aplicar filtro de fechas si AMBAS fechas están presentes
         if (dateFrom && dateTo) {
             params.append('date_from', dateFrom);
             params.append('date_to', dateTo);
-            console.log('Filtro aplicado - Params:', params.toString());
+            console.log('Filtro de fechas - Params:', params.toString());
         } else {
-            console.log('Filtro NO aplicado - falta una o ambas fechas');
+            console.log('Filtro de fechas NO aplicado - falta una o ambas fechas');
         }
 
         if (priorityOnly) params.append('priority_only', 'true');
+        if (atendidoOnly) params.append('atendido_only', 'true');
+        if (noAtendidoOnly) params.append('no_atendido_only', 'true');
 
         // Fetch data
         const response = await fetch(`/dispatch/api/orders?${params.toString()}`);
@@ -399,6 +403,7 @@ function createOrderCard(order, columnMethod) {
 function updateStats(stats) {
     document.getElementById('stat-total').textContent = stats.total || 0;
     document.getElementById('stat-priority').textContent = stats.priority || 0;
+    document.getElementById('stat-atendido').textContent = stats.atendido || 0;
     document.getElementById('stat-stale').textContent = stats.stale || 0;
 }
 

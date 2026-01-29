@@ -18,6 +18,10 @@
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
+.stat-card.stat-atendido {
+    background: linear-gradient(135deg, #52c234 0%, #20c997 100%);
+}
+
 .stat-card.stat-stale {
     background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }

@@ -299,6 +299,8 @@ def get_orders():
         date_from = request.args.get('date_from')
         date_to = request.args.get('date_to')
         priority_only = request.args.get('priority_only', 'false').lower() == 'true'
+        atendido_only = request.args.get('atendido_only', 'false').lower() == 'true'
+        no_atendido_only = request.args.get('no_atendido_only', 'false').lower() == 'true'
         shipping_methods_filter = request.args.get('shipping_methods', '').split(',') if request.args.get('shipping_methods') else None
 
         # Convertir formato de fecha si viene en formato dd/mm/yyyy a yyyy-mm-dd
@@ -399,6 +401,9 @@ def get_orders():
             -- Filtro por prioridad
             {priority_filter}
 
+            -- Filtro por estado de atendido
+            {atendido_filter}
+
             ORDER BY
                 dp.is_priority DESC,
                 dp.priority_level DESC,
@@ -408,6 +413,7 @@ def get_orders():
         # Construir filtros dinámicos
         date_filter = ""
         priority_filter = ""
+        atendido_filter = ""
         params = {}
 
         # NOTA: El filtro de fechas es OPCIONAL
@@ -422,10 +428,17 @@ def get_orders():
         if priority_only:
             priority_filter = "AND dp.is_priority = TRUE"
 
+        # Filtros de estado de atendido (mutuamente excluyentes)
+        if atendido_only:
+            atendido_filter = "AND dp.is_atendido = TRUE"
+        elif no_atendido_only:
+            atendido_filter = "AND (dp.is_atendido = FALSE OR dp.is_atendido IS NULL)"
+
         # Reemplazar placeholders
         query_str = str(query).format(
             date_filter=date_filter,
-            priority_filter=priority_filter
+            priority_filter=priority_filter,
+            atendido_filter=atendido_filter
         )
 
         # Log para debug
@@ -541,6 +554,11 @@ def get_orders():
             for order in orders
             if order['is_priority']
         )
+        atendido_orders = sum(
+            1 for orders in orders_by_method.values()
+            for order in orders
+            if order['is_atendido']
+        )
         stale_orders = sum(
             1 for orders in orders_by_method.values()
             for order in orders
@@ -553,6 +571,7 @@ def get_orders():
             'stats': {
                 'total': total_orders,
                 'priority': priority_orders,
+                'atendido': atendido_orders,
                 'stale': stale_orders
             }
         })

@@ -32,6 +32,10 @@
                             <div class="stat-label">Prioritarios</div>
                             <div class="stat-value" id="stat-priority">0</div>
                         </div>
+                        <div class="stat-card stat-atendido">
+                            <div class="stat-label">Atendidos</div>
+                            <div class="stat-value" id="stat-atendido">0</div>
+                        </div>
                         <div class="stat-card stat-stale">
                             <div class="stat-label">Estancados</div>
                             <div class="stat-value" id="stat-stale">0</div>
@@ -59,11 +63,23 @@
                                 placeholder="dd/mm/aaaa">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Filtros</label>
+                            <label class="form-label">Filtros de Estado</label>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="filter-priority">
                                 <label class="form-check-label" for="filter-priority">
                                     Solo prioritarios
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="filter-atendido">
+                                <label class="form-check-label" for="filter-atendido">
+                                    Solo atendidos
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="filter-no-atendido">
+                                <label class="form-check-label" for="filter-no-atendido">
+                                    Solo no atendidos
                                 </label>
                             </div>
                         </div>
