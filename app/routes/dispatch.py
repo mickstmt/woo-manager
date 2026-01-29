@@ -175,7 +175,9 @@ def get_column_from_shipping_method(order_id):
                 return 'DINSIDES'
 
             else:
-                current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón (normalizado: '{shipping_method_name}')")
+                # Solo generar warning si NO es "Entrega a Domicilio" (caso genérico esperado)
+                if 'entrega' not in shipping_method_name and 'domicilio' not in shipping_method_name:
+                    current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón (normalizado: '{shipping_method_name}')")
 
         else:
             current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene método de envío")
