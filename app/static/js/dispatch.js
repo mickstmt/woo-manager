@@ -1171,10 +1171,12 @@ function updateColumnIndicator(orderId) {
                 const columnName = columnHeader.textContent.trim();
                 columnNameElement.textContent = columnName;
 
-                // Cambiar color del badge según la columna
+                // Cambiar color del badge según la columna (tamaño grande y prominente)
                 columnIndicator.className = 'badge';
-                columnIndicator.style.fontSize = '0.85rem';
-                columnIndicator.style.fontWeight = '500';
+                columnIndicator.style.fontSize = '1.1rem';
+                columnIndicator.style.fontWeight = '600';
+                columnIndicator.style.padding = '0.6rem 1.2rem';
+                columnIndicator.style.borderRadius = '8px';
 
                 // Asignar color según columna
                 if (columnName.includes('Por Asignar')) {
