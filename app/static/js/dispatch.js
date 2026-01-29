@@ -765,6 +765,28 @@ async function togglePriority() {
  * Toggle estado Atendido/Empaquetado del pedido
  */
 async function toggleAtendido(orderId, currentStatus) {
+    // Encontrar el botón que activó la acción (puede estar en tarjeta o modal)
+    const cardBtn = document.querySelector(`.order-card[data-order-id="${orderId}"] .btn-atendido`);
+    const modalBtn = document.getElementById('btn-atendido-modal');
+    const modalBtnText = document.getElementById('atendido-btn-text');
+
+    // Guardar contenido original y aplicar estado de carga
+    let cardBtnOriginalHtml, modalBtnOriginalHtml;
+
+    if (cardBtn) {
+        cardBtnOriginalHtml = cardBtn.innerHTML;
+        cardBtn.disabled = true;
+        cardBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    }
+
+    if (modalBtn) {
+        modalBtnOriginalHtml = modalBtnText ? modalBtnText.textContent : '';
+        modalBtn.disabled = true;
+        if (modalBtnText) {
+            modalBtnText.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+        }
+    }
+
     try {
         const response = await fetch('/dispatch/api/atendido', {
             method: 'POST',
@@ -786,16 +808,16 @@ async function toggleAtendido(orderId, currentStatus) {
         // Recargar pedidos para reflejar cambio
         loadOrders();
 
-        // Si el modal está abierto, actualizarlo o cerrarlo
+        // Si el modal está abierto, actualizarlo
         const modalElement = document.getElementById('orderDetailModal');
         if (modalElement && modalElement.classList.contains('show')) {
-            // Actualizar botones del modal sin cerrarlo para mejor UX
             const atendidoBtn = document.getElementById('btn-atendido-modal');
             const btnText = document.getElementById('atendido-btn-text');
             const isNowAtendido = !currentStatus;
 
             if (atendidoBtn) {
                 atendidoBtn.className = isNowAtendido ? 'btn btn-success btn-sm' : 'btn btn-outline-success btn-sm';
+                atendidoBtn.disabled = false;
                 atendidoBtn.onclick = () => toggleAtendido(orderId, isNowAtendido);
             }
             if (btnText) {
@@ -808,6 +830,19 @@ async function toggleAtendido(orderId, currentStatus) {
     } catch (error) {
         console.error('Error cambiando estado atendido:', error);
         showToast('danger', 'Error', 'Error al cambiar estado: ' + error.message);
+
+        // Restaurar estado original en caso de error
+        if (cardBtn && cardBtnOriginalHtml) {
+            cardBtn.disabled = false;
+            cardBtn.innerHTML = cardBtnOriginalHtml;
+        }
+
+        if (modalBtn && modalBtnOriginalHtml) {
+            modalBtn.disabled = false;
+            if (modalBtnText) {
+                modalBtnText.textContent = modalBtnOriginalHtml;
+            }
+        }
     }
 }
 
