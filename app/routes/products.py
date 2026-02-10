@@ -58,12 +58,27 @@ def list_products():
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f'term_{i}'
-                parent_conditions.append(f"""
-                    (p.post_title LIKE :{param_name} 
-                    OR p.ID LIKE :{param_name} 
-                    OR pm.meta_value LIKE :{param_name})
-                """)
-                params[param_name] = f'%{term}%'
+                
+                # Reglas de búsqueda inteligente:
+                # - Si son 5 dígitos exactos: Buscar por ID
+                # - Si son 7 dígitos exactos: Buscar por SKU
+                # - Si no: Buscar solo por Título
+                
+                is_numeric = term.isdigit()
+                term_len = len(term)
+                
+                if is_numeric and term_len == 5:
+                    # Búsqueda por ID exacto
+                    parent_conditions.append(f"(p.ID = :{param_name})")
+                    params[param_name] = term
+                elif is_numeric and term_len == 7:
+                    # Búsqueda por SKU exacto
+                    parent_conditions.append(f"(pm.meta_value = :{param_name})")
+                    params[param_name] = term
+                else:
+                    # Búsqueda por Título (parcial)
+                    parent_conditions.append(f"(p.post_title LIKE :{param_name})")
+                    params[param_name] = f'%{term}%'
             
             parent_where_clause = " AND ".join(parent_conditions)
             
@@ -83,14 +98,20 @@ def list_products():
             # Construir condiciones para búsqueda de variaciones (AND logic)
             variation_conditions = []
             for i, term in enumerate(search_terms):
-                param_name = f'term_{i}'
-                variation_conditions.append(f"""
-                    (v.post_title LIKE :{param_name} 
-                    OR v.ID LIKE :{param_name} 
-                    OR vm.meta_value LIKE :{param_name}
-                    OR v.post_parent LIKE :{param_name})
-                """)
-                # Los términos ya están en params
+                param_name = f'term_{i}' # Los términos ya están en params
+
+                is_numeric = term.isdigit()
+                term_len = len(term)
+
+                if is_numeric and term_len == 5:
+                    # Si es 5 dígitos, buscar por ID de variación O ID padre
+                    variation_conditions.append(f"(v.ID = :{param_name} OR v.post_parent = :{param_name})")
+                elif is_numeric and term_len == 7:
+                    # Si es 7 dígitos, buscar por SKU de variación
+                    variation_conditions.append(f"(vm.meta_value = :{param_name})")
+                else:
+                    # Búsqueda por título de variación
+                    variation_conditions.append(f"(v.post_title LIKE :{param_name})")
             
             variation_where_clause = " AND ".join(variation_conditions)
             
