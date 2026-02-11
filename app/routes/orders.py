@@ -1173,6 +1173,31 @@ def get_variations(product_id):
         if not parent_result:
             return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
 
+        # Obtener atributos activos del producto padre para validar
+        parent_attrs_query = text("""
+            SELECT meta_value
+            FROM wpyz_postmeta
+            WHERE post_id = :product_id
+            AND meta_key = '_product_attributes'
+            LIMIT 1
+        """)
+        parent_attrs_result = db.session.execute(parent_attrs_query, {'product_id': product_id}).fetchone()
+
+        # Parsear atributos activos del padre
+        active_attributes = set()
+        if parent_attrs_result and parent_attrs_result[0]:
+            import phpserialize
+            try:
+                attrs_data = phpserialize.loads(parent_attrs_result[0].encode('utf-8'))
+                if isinstance(attrs_data, dict):
+                    for attr_key in attrs_data.keys():
+                        # Convertir bytes a string si es necesario
+                        if isinstance(attr_key, bytes):
+                            attr_key = attr_key.decode('utf-8')
+                        active_attributes.add(attr_key)
+            except Exception as e:
+                current_app.logger.warning(f"Error parsing product attributes: {e}")
+
         # Query optimizada: obtener todas las variaciones con sus metadatos y atributos
         variations_query = text("""
             SELECT
@@ -1262,6 +1287,10 @@ def get_variations(product_id):
                 for attr in attrs:
                     if attr and ':' in attr:
                         key, value = attr.split(':', 1)
+
+                        # Validar que el atributo esté activo en el producto padre
+                        if key not in active_attributes:
+                            continue
 
                         if key.startswith('attribute_pa_'):
                             attr_name = key.replace('attribute_pa_', '').replace('_', ' ').title()
