@@ -381,6 +381,14 @@
         background: #e7f3ff;
     }
 
+    /* Modo oscuro: borde más visible para variación seleccionada */
+    [data-theme="dark"] .variation-swatch.active {
+        border-color: #4a9eff;
+        border-width: 4px;
+        background: rgba(13, 110, 253, 0.2);
+        box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.3);
+    }
+
     .variation-swatch.out-of-stock {
         opacity: 0.6;
         cursor: pointer;
