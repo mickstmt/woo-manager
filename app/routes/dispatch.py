@@ -1020,10 +1020,10 @@ def get_order_detail(order_id):
                 'error': f'Pedido {order_id} no encontrado'
             }), 404
 
-        # Query para obtener productos del pedido con SKU
-        # NOTA: Los atributos los extraemos del order_item_name directamente
+        # Query para obtener productos del pedido con SKU y atributos
         products_query = text("""
             SELECT
+                oi.order_item_id,
                 oi.order_item_name as product_name,
                 oim_qty.meta_value as quantity,
                 COALESCE(oim_variation_id.meta_value, oim_product_id.meta_value) as product_id,
@@ -1053,8 +1053,9 @@ def get_order_detail(order_id):
         # Construir lista de productos con imágenes
         products_list = []
         for row in products_result:
-            product_id = row[2]
-            product_name_raw = row[0]
+            order_item_id = row[0]
+            product_id = row[3]
+            product_name_raw = row[1]
 
             # DEBUG: Log para ver qué está trayendo la BD
             current_app.logger.info(f"DEBUG - Product name raw from DB: {product_name_raw}")
@@ -1087,8 +1088,35 @@ def get_order_detail(order_id):
                     clean_product_name = parts[0].strip()
                     attributes_from_name = parts[1].strip()
 
-            # Los atributos solo vienen del nombre (row[4] ya no existe - eliminamos el GROUP_CONCAT)
-            final_attributes = attributes_from_name
+            # Obtener atributos desde los metadatos del order_item (más confiable)
+            attributes_query = text("""
+                SELECT meta_key, meta_value
+                FROM wpyz_woocommerce_order_itemmeta
+                WHERE order_item_id = :order_item_id
+                  AND (meta_key LIKE 'pa_%' OR meta_key LIKE '_reduced_stock%' = false)
+                  AND meta_key NOT IN ('_qty', '_product_id', '_variation_id', '_line_subtotal', '_line_total', '_line_tax', '_line_subtotal_tax')
+                ORDER BY meta_key
+            """)
+
+            attributes_result = db.session.execute(attributes_query, {'order_item_id': order_item_id}).fetchall()
+
+            # Construir string de atributos desde metadatos
+            attributes_from_meta = []
+            for attr_row in attributes_result:
+                meta_key = attr_row[0]
+                meta_value = attr_row[1]
+
+                # Solo incluir atributos de producto (pa_*) y excluir metadatos técnicos
+                if meta_key.startswith('pa_') or (meta_key.startswith('_') == False and meta_key not in ['_qty', '_product_id', '_variation_id']):
+                    # Limpiar el nombre del atributo (quitar 'pa_')
+                    clean_attr_name = meta_key.replace('pa_', '').replace('_', ' ').title()
+                    attributes_from_meta.append(f"{meta_value}")
+
+            # Usar atributos de metadatos si existen, sino usar del nombre
+            if attributes_from_meta:
+                final_attributes = ', '.join(attributes_from_meta)
+            else:
+                final_attributes = attributes_from_name
 
             # Obtener imagen del producto
             image_url = None
@@ -1116,8 +1144,8 @@ def get_order_detail(order_id):
 
             products_list.append({
                 'name': clean_product_name,
-                'quantity': int(row[1]) if row[1] else 1,
-                'sku': row[3] if row[3] else None,
+                'quantity': int(row[2]) if row[2] else 1,
+                'sku': row[4] if row[4] else None,
                 'attributes': final_attributes,
                 'image': image_url
             })
