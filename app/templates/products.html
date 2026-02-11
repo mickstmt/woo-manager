@@ -721,7 +721,7 @@
             html += '<td class="text-end"><span class="d-md-none small text-muted">S/ </span>' + parseFloat(product.price).toFixed(2) + '</td>';
 
             // Stock
-            let stockDisplay = product.stock !== null ? product.stock : '';
+            let stockDisplay = product.stock !== null ? parseInt(parseFloat(product.stock)) : '';
             html += '<td class="text-end">';
             html += '<div class="d-flex flex-column align-items-end justify-content-center">';
             if (stockDisplay !== '') html += '<span>' + stockDisplay + '</span>';
@@ -824,7 +824,9 @@
             // Stock badge
             let stockBadge = '';
             if (product.stock_status === 'instock') {
-                stockBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle">En Stock (' + product.stock + ')</span>';
+                // Convertir stock a entero para evitar decimales innecesarios
+                const stockInt = product.stock ? parseInt(parseFloat(product.stock)) : 0;
+                stockBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle">En Stock (' + stockInt + ')</span>';
             } else if (product.stock_status === 'outofstock') {
                 stockBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Sin Stock</span>';
             } else {
@@ -957,7 +959,9 @@
             // Stock badge
             let stockBadge = '';
             if (v.stock_status === 'instock') {
-                stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle">Stock: ${v.stock}</span>`;
+                // Convertir stock a entero para evitar decimales innecesarios
+                const stockInt = v.stock ? parseInt(parseFloat(v.stock)) : 0;
+                stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle">Stock: ${stockInt}</span>`;
             } else {
                 stockBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Sin Stock</span>`;
             }
