@@ -760,7 +760,7 @@ def list_orders():
         }
 
         if search:
-            # Buscar por order_number (W-XXXXX), email, nombre, teléfono, ID
+            # Buscar por order_number (W-XXXXX), email, nombre, teléfono, DNI, ID
             search_filter = """
                 AND (
                     om_order_number.meta_value LIKE :search
@@ -768,6 +768,7 @@ def list_orders():
                     OR ba.first_name LIKE :search
                     OR ba.last_name LIKE :search
                     OR ba.phone LIKE :search
+                    OR ba.company LIKE :search
                     OR CAST(o.id AS CHAR) LIKE :search
                 )
             """
@@ -2338,7 +2339,8 @@ def list_external():
                     OrderExternal.customer_email.ilike(f'%{search}%'),
                     OrderExternal.customer_first_name.ilike(f'%{search}%'),
                     OrderExternal.customer_last_name.ilike(f'%{search}%'),
-                    OrderExternal.customer_phone.ilike(f'%{search}%')
+                    OrderExternal.customer_phone.ilike(f'%{search}%'),
+                    OrderExternal.customer_dni.ilike(f'%{search}%')
                 )
             )
 
