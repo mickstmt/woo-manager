@@ -2778,7 +2778,10 @@
                 // Campos custom para WooCommerce
                 billing_ruc: $('#ruc').val() || '',
                 billing_entrega: deliveryType,
-                billing_referencia: isPickup ? '' : ($('#reference').val() || '')
+                billing_referencia: isPickup ? '' : ($('#reference').val() || ''),
+                // Campos de toggle (comunidad y COD)
+                is_community: $('#is-community').is(':checked'),
+                is_cod: $('#is-cod').is(':checked')
             },
             items: cart.map(item => ({
                 product_id: item.product_id || 0,
@@ -2793,9 +2796,7 @@
             discount_percentage: parseFloat($('#discount-percentage').val()) || 0,
             payment_method: $('#payment-method').val(),
             payment_method_title: $('#payment-method option:selected').text(),
-            customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)',
-            is_community: $('#is-community').is(':checked'),
-            is_cod: $('#is-cod').is(':checked')
+            customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)'
         };
 
         // Determinar endpoint y método según modo
