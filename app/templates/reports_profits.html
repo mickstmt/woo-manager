@@ -388,7 +388,32 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-3">Selecciona los estados de pedidos que deseas incluir en la exportación:</p>
+                <p class="mb-3">Selecciona el formato y los estados de pedidos que deseas incluir:</p>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-layout-text-sidebar-reverse"></i> Tipo de
+                        Reporte:</label>
+                    <div class="d-flex gap-3 mt-1">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="report_type" id="report-consolidated"
+                                value="consolidated" checked>
+                            <label class="form-check-label" for="report-consolidated">
+                                Consolidado <small class="text-muted d-block">(Un pedido por fila)</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="report_type" id="report-detailed"
+                                value="detailed">
+                            <label class="form-check-label" for="report-detailed">
+                                Detallado <small class="text-muted d-block">(Un producto por fila)</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fw-bold"><i class="bi bi-check2-square"></i> Estados a incluir:</label>
+                </div>
 
                 <div class="mb-3">
                     <div class="form-check mb-2">
@@ -668,6 +693,9 @@
             return;
         }
 
+        // Obtener tipo de reporte
+        const reportType = document.querySelector('input[name="report_type"]:checked').value;
+
         // Cerrar modal
         bootstrap.Modal.getInstance(document.getElementById('exportFilterModal')).hide();
 
@@ -678,9 +706,9 @@
         const statusesParam = selectedStatuses.join(',');
         let url;
         if (currentSource === 'externos') {
-            url = `/reports/api/profits/externos/export?start_date=${startDate}&end_date=${endDate}&statuses=${statusesParam}`;
+            url = `/reports/api/profits/externos/export?start_date=${startDate}&end_date=${endDate}&statuses=${statusesParam}&report_type=${reportType}`;
         } else {
-            url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}&statuses=${statusesParam}`;
+            url = `/reports/api/profits/export?start_date=${startDate}&end_date=${endDate}&source=${currentSource}&statuses=${statusesParam}&report_type=${reportType}`;
         }
 
         // Crear elemento <a> temporal para descargar

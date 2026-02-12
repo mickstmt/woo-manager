@@ -804,6 +804,7 @@ def export_profits_externos_excel():
         start_date = request.args.get('start_date', type=str)
         end_date = request.args.get('end_date', type=str)
         statuses_param = request.args.get('statuses', type=str, default='')
+        report_type = request.args.get('report_type', type=str, default='consolidated')
 
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
@@ -871,27 +872,40 @@ def export_profits_externos_excel():
 
         # 4. Consulta masiva de items para todas las órdenes encontradas
         items_sql = text("""
-            SELECT order_ext_id, product_sku, quantity
+            SELECT order_ext_id, product_name, product_sku, quantity, price
             FROM woo_orders_ext_items
             WHERE order_ext_id IN :order_ids
         """)
         items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
         
-        # Agrupar items por pedido (solo necesitamos el costo total por pedido para el Excel resumen)
+        # Agrupar items por pedido
         costo_total_usd_by_order = {}
+        detailed_items = {} # {order_id: [item_data, ...]}
+
         for row in items_results:
-            oid, sku, qty = row
+            oid, name, sku, qty, price = row
             if oid not in costo_total_usd_by_order: costo_total_usd_by_order[oid] = 0.0
+            if oid not in detailed_items: detailed_items[oid] = []
             
             # Buscar costo del SKU
-            costo_unitario = 0.0
+            costo_unitario_usd = 0.0
             if sku:
                 for fc_sku, cost in fc_costs_map.items():
                     if fc_sku in sku:
-                        costo_unitario = cost
+                        costo_unitario_usd = float(cost)
                         break
             
-            costo_total_usd_by_order[oid] += costo_unitario * int(qty or 0)
+            costo_total_item_usd = costo_unitario_usd * int(qty or 1)
+            costo_total_usd_by_order[oid] += costo_total_item_usd
+
+            detailed_items[oid].append({
+                'nombre': name,
+                'sku': sku or 'N/A',
+                'qty': int(qty or 1),
+                'costo_unit_usd': costo_unitario_usd,
+                'costo_total_usd': costo_total_item_usd,
+                'venta_total_pen': float(price or 0) * int(qty or 1)
+            })
 
         # 5. Combinar y calcular
         orders_data = []
@@ -968,22 +982,21 @@ def export_profits_externos_excel():
         period_cell.alignment = Alignment(horizontal="center")
 
         # Headers (fila 4)
-        headers = [
-            'Pedido ID',
-            'Número',
-            'Fecha',
-            'Estado',
-            'Plataforma',
-            'Venta (PEN)',
-            'T.C.',
-            'Costo (USD)',
-            'Costo (PEN)',
-            'Comisión (PEN)',
-            'Envío (PEN)',
-            'Ganancia (PEN)',
-            'Margen %',
-            'Cliente'
-        ]
+        if report_type == 'detailed':
+            headers = [
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Cliente', 
+                'Producto', 'SKU', 'Cantidad', 
+                'P. Venta Linea (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
+                'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
+                'T.C.', 'Envío Pedido (PEN)'
+            ]
+        else:
+            headers = [
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 
+                'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 
+                'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 
+                'Margen %', 'Cliente'
+            ]
 
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
@@ -996,29 +1009,67 @@ def export_profits_externos_excel():
         # Datos
         row_num = 5
         for order in orders_data:
-            ws.cell(row=row_num, column=1, value=order['pedido_id'])
-            ws.cell(row=row_num, column=2, value=order['numero_pedido'])
-            ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
-            ws.cell(row=row_num, column=4, value=order['estado'])
-            ws.cell(row=row_num, column=5, value=order['metodo_pago'])
-            ws.cell(row=row_num, column=6, value=round(order['total_venta_pen'], 2))
-            ws.cell(row=row_num, column=7, value=round(order['tipo_cambio'], 2))
-            ws.cell(row=row_num, column=8, value=round(order['costo_total_usd'], 2))
-            ws.cell(row=row_num, column=9, value=round(order['costo_total_pen'], 2))
-            ws.cell(row=row_num, column=10, value=round(order['comision_pen'], 2))
-            ws.cell(row=row_num, column=11, value=round(order['costo_envio_pen'], 2))
-            ws.cell(row=row_num, column=12, value=round(order['ganancia_pen'], 2))
-            ws.cell(row=row_num, column=13, value=round(order['margen_porcentaje'], 2))
-            ws.cell(row=row_num, column=14, value=order['cliente'])
+            oid = order['pedido_id']
+            tc = order['tipo_cambio']
 
-            # Aplicar bordes
-            for col in range(1, 15):
-                ws.cell(row=row_num, column=col).border = border
+            if report_type == 'detailed':
+                items = detailed_items.get(oid, [])
+                for item in items:
+                    costo_item_usd = item['costo_total_usd']
+                    costo_item_pen = costo_item_usd * tc
+                    venta_item_pen = item['venta_total_pen']
+                    
+                    ganancia_item_pen = round(venta_item_pen - costo_item_pen, 2)
+                    margen_item = round((ganancia_item_pen / venta_item_pen * 100), 2) if venta_item_pen > 0 else 0
 
-            row_num += 1
+                    ws.cell(row=row_num, column=1, value=oid)
+                    ws.cell(row=row_num, column=2, value=order['numero_pedido'])
+                    ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
+                    ws.cell(row=row_num, column=4, value=order['estado'])
+                    ws.cell(row=row_num, column=5, value=order['metodo_pago'])
+                    ws.cell(row=row_num, column=6, value=order['cliente'])
+                    ws.cell(row=row_num, column=7, value=item['nombre'])
+                    ws.cell(row=row_num, column=8, value=item['sku'])
+                    ws.cell(row=row_num, column=9, value=item['qty'])
+                    ws.cell(row=row_num, column=10, value=venta_item_pen)
+                    ws.cell(row=row_num, column=11, value=item['costo_unit_usd'])
+                    ws.cell(row=row_num, column=12, value=costo_item_usd)
+                    ws.cell(row=row_num, column=13, value=costo_item_pen)
+                    ws.cell(row=row_num, column=14, value=ganancia_item_pen)
+                    ws.cell(row=row_num, column=15, value=margen_item)
+                    ws.cell(row=row_num, column=16, value=tc)
+                    ws.cell(row=row_num, column=17, value=order['costo_envio_pen'])
+
+                    for col in range(1, 18):
+                        ws.cell(row=row_num, column=col).border = border
+                    row_num += 1
+            else:
+                ws.cell(row=row_num, column=1, value=oid)
+                ws.cell(row=row_num, column=2, value=order['numero_pedido'])
+                ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
+                ws.cell(row=row_num, column=4, value=order['estado'])
+                ws.cell(row=row_num, column=5, value=order['metodo_pago'])
+                ws.cell(row=row_num, column=6, value=round(order['total_venta_pen'], 2))
+                ws.cell(row=row_num, column=7, value=round(tc, 2))
+                ws.cell(row=row_num, column=8, value=round(order['costo_total_usd'], 2))
+                ws.cell(row=row_num, column=9, value=round(order['costo_total_pen'], 2))
+                ws.cell(row=row_num, column=10, value=round(order['comision_pen'], 2))
+                ws.cell(row=row_num, column=11, value=round(order['costo_envio_pen'], 2))
+                ws.cell(row=row_num, column=12, value=round(order['ganancia_pen'], 2))
+                ws.cell(row=row_num, column=13, value=round(order['margen_porcentaje'], 2))
+                ws.cell(row=row_num, column=14, value=order['cliente'])
+
+                # Aplicar bordes
+                for col in range(1, 15):
+                    ws.cell(row=row_num, column=col).border = border
+
+                row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
+        if report_type == 'detailed':
+            column_widths = [10, 15, 12, 12, 20, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12]
+        else:
+            column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -1064,6 +1115,7 @@ def export_profits_excel():
         end_date = request.args.get('end_date', type=str)
         source = request.args.get('source', type=str, default='all')
         statuses_param = request.args.get('statuses', type=str, default='')
+        report_type = request.args.get('report_type', type=str, default='consolidated')
 
         if not end_date:
             end_date = datetime.now().strftime('%Y-%m-%d')
@@ -1143,29 +1195,53 @@ def export_profits_excel():
         order_ids = [r[0] for r in orders_results]
 
         # 4. Consulta masiva de items para todas las órdenes encontradas
-        items_by_order = {}
+        # Usamos diccionarios diferentes según el tipo de reporte
+        items_by_order = {}       # Para Consolidado: {order_id: costo_total_usd}
+        detailed_items = {}       # Para Detallado: {order_id: [item_data, ...]}
+
         if order_ids:
             items_sql = text("""
                 SELECT
                     oi.order_id,
+                    oi.order_item_name as product_name,
                     oim_qty.meta_value as qty,
-                    pm_sku.meta_value as sku
+                    pm_sku.meta_value as sku,
+                    oim_total.meta_value as line_total
                 FROM wpyz_woocommerce_order_items oi
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id AND oim_pid.meta_key = '_product_id'
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
+                INNER JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id AND oim_total.meta_key = '_line_total'
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id AND oim_vid.meta_key = '_variation_id'
                 LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id AND pm_sku.meta_key = '_sku'
                 WHERE oi.order_id IN :order_ids AND oi.order_item_type = 'line_item'
             """)
             items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
             
-            for oid, qty, sku in items_results:
-                if oid not in items_by_order: items_by_order[oid] = 0.0
+            for oid, name, qty, sku, line_total in items_results:
+                # Calcular costo unitario
+                costo_unitario_usd = 0.0
                 if sku:
                     for fc_sku, cost in fc_costs_map.items():
                         if fc_sku in sku:
-                            items_by_order[oid] += float(cost) * int(qty or 0)
+                            costo_unitario_usd = float(cost)
                             break
+                
+                costo_total_usd = costo_unitario_usd * int(qty or 1)
+
+                # Para el reporte Consolidado
+                if oid not in items_by_order: items_by_order[oid] = 0.0
+                items_by_order[oid] += costo_total_usd
+
+                # Para el reporte Detallado
+                if oid not in detailed_items: detailed_items[oid] = []
+                detailed_items[oid].append({
+                    'nombre': name,
+                    'qty': int(qty or 1),
+                    'sku': sku or 'N/A',
+                    'costo_unit_usd': costo_unitario_usd,
+                    'costo_total_usd': costo_total_usd,
+                    'venta_total_pen': float(line_total or 0)
+                })
 
         # Crear workbook de Excel
         wb = Workbook()
@@ -1189,7 +1265,17 @@ def export_profits_excel():
         period_cell.value = f"Período: {start_date} a {end_date}"
         period_cell.alignment = Alignment(horizontal="center")
 
-        headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
+        if report_type == 'detailed':
+            headers = [
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Cliente', 
+                'Producto', 'SKU', 'Cantidad', 
+                'P. Venta Linea (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
+                'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
+                'T.C.', 'Envío Pedido (PEN)', 'Comunidad'
+            ]
+        else:
+            headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
+        
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
             cell.value = header
@@ -1198,45 +1284,83 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            oid, num, fecha, status, p_raw, total_venta_pen, cliente, c_envio, is_comm = r
+            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, c_envio, is_comm = r
             tc = get_tc_for_date(fecha)
-            costo_usd = items_by_order.get(oid, 0.0)
-            costo_pen = costo_usd * tc
             envio_pen = float(c_envio or 0)
 
             # Normalizar plataforma
             is_whatsapp = num and str(num).startswith('W-')
             plataforma = normalize_payment_method(p_raw, is_whatsapp=is_whatsapp)
 
-            comision_pen = round(float(total_venta_pen or 0) * 0.05, 2) if 'TARJETA' in plataforma else 0
-            ganancia_pen = round(float(total_venta_pen or 0) - costo_pen - envio_pen - comision_pen, 2)
-            margen_porcentaje = round((ganancia_pen / float(total_venta_pen or 1) * 100), 2) if total_venta_pen and float(total_venta_pen) > 0 else 0
+            if report_type == 'detailed':
+                items = detailed_items.get(oid, [])
+                for item in items:
+                    costo_item_usd = item['costo_total_usd']
+                    costo_item_pen = costo_item_usd * tc
+                    venta_item_pen = item['venta_total_pen']
+                    
+                    ganancia_item_pen = round(venta_item_pen - costo_item_pen, 2)
+                    margen_item = round((ganancia_item_pen / venta_item_pen * 100), 2) if venta_item_pen > 0 else 0
 
-            # Solo incluir pedidos con items con costo (HAVING anterior)
-            if costo_usd == 0 and oid not in items_by_order: continue
+                    ws.cell(row=row_num, column=1, value=oid)
+                    ws.cell(row=row_num, column=2, value=num or oid)
+                    ws.cell(row=row_num, column=3, value=str(fecha))
+                    ws.cell(row=row_num, column=4, value=status)
+                    ws.cell(row=row_num, column=5, value=plataforma)
+                    ws.cell(row=row_num, column=6, value=cliente or '')
+                    ws.cell(row=row_num, column=7, value=item['nombre'])
+                    ws.cell(row=row_num, column=8, value=item['sku'])
+                    ws.cell(row=row_num, column=9, value=item['qty'])
+                    ws.cell(row=row_num, column=10, value=venta_item_pen)
+                    ws.cell(row=row_num, column=11, value=item['costo_unit_usd'])
+                    ws.cell(row=row_num, column=12, value=costo_item_usd)
+                    ws.cell(row=row_num, column=13, value=costo_item_pen)
+                    ws.cell(row=row_num, column=14, value=ganancia_item_pen)
+                    ws.cell(row=row_num, column=15, value=margen_item)
+                    ws.cell(row=row_num, column=16, value=tc)
+                    ws.cell(row=row_num, column=17, value=envio_pen)
+                    ws.cell(row=row_num, column=18, value='SÍ' if is_comm == 'yes' else 'NO')
 
-            ws.cell(row=row_num, column=1, value=oid)
-            ws.cell(row=row_num, column=2, value=num or oid)
-            ws.cell(row=row_num, column=3, value=str(fecha))
-            ws.cell(row=row_num, column=4, value=status)
-            ws.cell(row=row_num, column=5, value=plataforma)
-            ws.cell(row=row_num, column=6, value=float(total_venta_pen or 0))
-            ws.cell(row=row_num, column=7, value=tc)
-            ws.cell(row=row_num, column=8, value=costo_usd)
-            ws.cell(row=row_num, column=9, value=costo_pen)
-            ws.cell(row=row_num, column=10, value=comision_pen)
-            ws.cell(row=row_num, column=11, value=envio_pen)
-            ws.cell(row=row_num, column=12, value=ganancia_pen)
-            ws.cell(row=row_num, column=13, value=margen_porcentaje)
-            ws.cell(row=row_num, column=14, value=cliente or '')
-            ws.cell(row=row_num, column=15, value='SÍ' if is_comm == 'yes' else 'NO')
+                    for col in range(1, 19):
+                        ws.cell(row=row_num, column=col).border = border
+                    row_num += 1
+            else:
+                costo_usd = items_by_order.get(oid, 0.0)
+                costo_pen = costo_usd * tc
+                
+                comision_pen = round(float(total_venta_pen_order or 0) * 0.05, 2) if 'TARJETA' in plataforma else 0
+                ganancia_pen = round(float(total_venta_pen_order or 0) - costo_pen - envio_pen - comision_pen, 2)
+                margen_porcentaje = round((ganancia_pen / float(total_venta_pen_order or 1) * 100), 2) if total_venta_pen_order and float(total_venta_pen_order) > 0 else 0
 
-            for col in range(1, 16):
-                ws.cell(row=row_num, column=col).border = border
-            row_num += 1
+                # Solo incluir pedidos con items con costo (si es consolidado)
+                if costo_usd == 0 and oid not in items_by_order: continue
+
+                ws.cell(row=row_num, column=1, value=oid)
+                ws.cell(row=row_num, column=2, value=num or oid)
+                ws.cell(row=row_num, column=3, value=str(fecha))
+                ws.cell(row=row_num, column=4, value=status)
+                ws.cell(row=row_num, column=5, value=plataforma)
+                ws.cell(row=row_num, column=6, value=float(total_venta_pen_order or 0))
+                ws.cell(row=row_num, column=7, value=tc)
+                ws.cell(row=row_num, column=8, value=costo_usd)
+                ws.cell(row=row_num, column=9, value=costo_pen)
+                ws.cell(row=row_num, column=10, value=comision_pen)
+                ws.cell(row=row_num, column=11, value=envio_pen)
+                ws.cell(row=row_num, column=12, value=ganancia_pen)
+                ws.cell(row=row_num, column=13, value=margen_porcentaje)
+                ws.cell(row=row_num, column=14, value=cliente or '')
+                ws.cell(row=row_num, column=15, value='SÍ' if is_comm == 'yes' else 'NO')
+
+                for col in range(1, 16):
+                    ws.cell(row=row_num, column=col).border = border
+                row_num += 1
 
         # Ajustar anchos de columna
-        column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30, 12]
+        if report_type == 'detailed':
+            column_widths = [10, 15, 12, 12, 20, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12, 10]
+        else:
+            column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30, 12]
+            
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
