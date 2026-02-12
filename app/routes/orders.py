@@ -3129,43 +3129,55 @@ def update_item_meta_val(item_id, key, val):
     db.session.execute(upd, {'val': val, 'iid': item_id, 'key': key})
 
 
+def upsert_order_meta(order_id, meta_key, meta_value):
+    """Inserta o actualiza un meta en wpyz_wc_orders_meta"""
+    from sqlalchemy import text
+    check = text("SELECT id FROM wpyz_wc_orders_meta WHERE order_id=:oid AND meta_key=:key")
+    r = db.session.execute(check, {'oid': order_id, 'key': meta_key}).fetchone()
+    if r:
+        db.session.execute(text("UPDATE wpyz_wc_orders_meta SET meta_value=:val WHERE id=:mid"), {'val': meta_value, 'mid': r[0]})
+    else:
+        db.session.execute(text("INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value) VALUES (:oid, :key, :val)"), {'oid': order_id, 'key': meta_key, 'val': meta_value})
+
+
 def update_order_general_data(order_id, data):
     from sqlalchemy import text
-    
+    from decimal import Decimal, ROUND_DOWN
+
     # 1. Pago
     payment_method = data.get('payment_method', 'cod')
     # Mapeo simple de titulos
     titles = {
-        'yape': 'Yape', 'plin': 'Plin', 'efectivo': 'Efectivo', 
+        'yape': 'Yape', 'plin': 'Plin', 'efectivo': 'Efectivo',
         'transferencia': 'Transferencia Bancaria', 'bacs': 'Banca Virtual',
         'tarjeta_credito': 'Tarjeta de Crédito', 'tarjeta_debito': 'Tarjeta de Débito'
     }
     payment_title = titles.get(payment_method, payment_method)
-    
+
     # Actualizar wpyz_wc_orders columns
     upd_order = text("""
-        UPDATE wpyz_wc_orders 
-        SET payment_method=:pm, payment_method_title=:pmt, customer_note=:note 
+        UPDATE wpyz_wc_orders
+        SET payment_method=:pm, payment_method_title=:pmt, customer_note=:note
         WHERE id=:oid
     """)
     db.session.execute(upd_order, {
-        'pm': payment_method, 
+        'pm': payment_method,
         'pmt': payment_title,
         'note': data.get('customer_note', ''),
         'oid': order_id
     })
-    
+
     # 2. Envío (Shipping Item)
     # Buscar si ya existe item tipo shipping
     check_shipping = text("SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='shipping'")
     res = db.session.execute(check_shipping, {'oid': order_id}).fetchone()
-    
+
     shipping_cost = float(data.get('shipping_cost', 0))
     # shipping_method_title podria venir en data o deducirse
     # En el payload de edición, vendría 'shipping_method_title' o similar
     # Asumimos que el frontend (wizard) lo manda como parte de shipping o suelto
     # Por simplificación, actualizamos costo.
-    
+
     if res:
         # Update
         ship_item_id = res[0]
@@ -3177,35 +3189,116 @@ def update_order_general_data(order_id, data):
         # Insert Shipping Item si no existia (raro)
         pass # Por ahora omitimos
 
+    # 3. Descuento (Discount Item - tipo 'fee')
+    discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
+
+    # Calcular monto del descuento basado en los items (sin envío)
+    sum_items_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key ='_line_total'
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='line_item')
+    """)
+    items_total = db.session.execute(sum_items_q, {'oid': order_id}).scalar() or Decimal('0')
+
+    discount_amount = Decimal('0')
+    if discount_percentage > 0:
+        discount_amount = (Decimal(str(items_total)) * discount_percentage / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+    # Buscar si ya existe item de descuento (tipo 'fee')
+    check_discount = text("SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='fee'")
+    disc_res = db.session.execute(check_discount, {'oid': order_id}).fetchone()
+
+    if discount_amount > 0:
+        discount_percentage_str = str(discount_percentage.quantize(Decimal('0.01')))
+        discount_amount_str = str(discount_amount.quantize(Decimal('0.01')))
+
+        if disc_res:
+            # Actualizar item existente
+            disc_item_id = disc_res[0]
+            # Actualizar nombre
+            upd_disc_name = text("UPDATE wpyz_woocommerce_order_items SET order_item_name=:name WHERE order_item_id=:iid")
+            db.session.execute(upd_disc_name, {'name': f'Descuento ({discount_percentage_str}%)', 'iid': disc_item_id})
+            # Actualizar metas
+            update_item_meta_val(disc_item_id, '_fee_amount', f'-{discount_amount_str}')
+            update_item_meta_val(disc_item_id, '_line_total', f'-{discount_amount_str}')
+            update_item_meta_val(disc_item_id, '_line_tax', '0')
+        else:
+            # Crear nuevo item de descuento
+            ins_disc = text("""
+                INSERT INTO wpyz_woocommerce_order_items (order_item_name, order_item_type, order_id)
+                VALUES (:name, 'fee', :oid)
+            """)
+            db.session.execute(ins_disc, {'name': f'Descuento ({discount_percentage_str}%)', 'oid': order_id})
+            db.session.flush()
+
+            # Obtener el ID del item recién creado
+            disc_item_id = db.session.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+
+            # Insertar metas
+            disc_metas = {
+                '_fee_amount': f'-{discount_amount_str}',
+                '_line_total': f'-{discount_amount_str}',
+                '_line_tax': '0',
+                '_line_subtotal': f'-{discount_amount_str}',
+                '_line_subtotal_tax': '0'
+            }
+            for k, v in disc_metas.items():
+                ins_meta = text("INSERT INTO wpyz_woocommerce_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (:iid, :key, :val)")
+                db.session.execute(ins_meta, {'iid': disc_item_id, 'key': k, 'val': v})
+    else:
+        # Si no hay descuento, eliminar item de descuento si existe
+        if disc_res:
+            disc_item_id = disc_res[0]
+            del_metas = text("DELETE FROM wpyz_woocommerce_order_itemmeta WHERE order_item_id=:iid")
+            del_item = text("DELETE FROM wpyz_woocommerce_order_items WHERE order_item_id=:iid")
+            db.session.execute(del_metas, {'iid': disc_item_id})
+            db.session.execute(del_item, {'iid': disc_item_id})
+
+    # Guardar metas de descuento en wpyz_wc_orders_meta
+    upsert_order_meta(order_id, '_wc_discount_percentage', str(discount_percentage))
+    upsert_order_meta(order_id, '_wc_discount_amount', str(discount_amount.quantize(Decimal('0.01'))))
+
 
 def recalculate_order_totals(order_id):
     """
-    Suma todos los items y shipping, calcula impuestos y actualiza wpyz_wc_orders.
+    Suma todos los items, descuentos y shipping, calcula impuestos y actualiza wpyz_wc_orders.
     """
     from sqlalchemy import text
-    
-    # Sumar items line_total
+
+    # Sumar items line_total (productos)
     sum_items_q = text("""
-        SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) 
-        FROM wpyz_woocommerce_order_itemmeta 
-        WHERE meta_key ='_line_total' 
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key ='_line_total'
         AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='line_item')
     """)
     items_total = db.session.execute(sum_items_q, {'oid': order_id}).scalar() or 0
-    
+
+    # Sumar descuentos (fees - generalmente negativos)
+    sum_fees_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key ='_line_total'
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='fee')
+    """)
+    fees_total = db.session.execute(sum_fees_q, {'oid': order_id}).scalar() or 0
+
     # Sumar shipping cost
     sum_ship_q = text("""
-        SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) 
-        FROM wpyz_woocommerce_order_itemmeta 
-        WHERE meta_key ='cost' 
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key ='cost'
         AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='shipping')
     """)
     shipping_total = db.session.execute(sum_ship_q, {'oid': order_id}).scalar() or 0
-    
-    # Calcular Impuestos (IGV 18%) -> Asumiendo que precios incluyen IGV o se calcula sobre total
-    # La lógica de WooCommerce es compleja. Aquí simplificamos:
+
+    # Calcular Total (items + fees + shipping)
+    # Los fees ya vienen con signo negativo, así que se restan automáticamente
+    total_net = float(items_total) + float(fees_total) + float(shipping_total)
+
+    # Calcular Impuestos (IGV 18%) -> Asumiendo que precios incluyen IGV
     # Tax = Total - (Total / 1.18)
-    total_net = float(items_total) + float(shipping_total)
     tax_amount = total_net - (total_net / 1.18)
     
     # Actualizar wpyz_wc_orders
