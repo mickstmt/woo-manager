@@ -2863,7 +2863,8 @@
                         $('.modal-header').removeClass('bg-primary').addClass('bg-success');
                     } else {
                         // Si el modal ya se cerró, mostrar notificación
-                        showNotification('success', `Pedido #${response.order_number || response.order_id} creado exitosamente`);
+                        const action = isEditMode ? 'actualizado' : 'creado';
+                        showNotification('success', `Pedido #${response.order_number || response.order_id} ${action} exitosamente`);
                     }
                 } else {
                     // Actualizar modal con error

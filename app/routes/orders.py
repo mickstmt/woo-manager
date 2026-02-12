@@ -1371,7 +1371,7 @@ def create_order():
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
         discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
         shipping_method_title = data.get('shipping_method_title', '')  # Título del método de envío
-        is_cod = data.get('is_cod', False)  # Pago contraentrega
+        is_cod = customer.get('is_cod', False)  # Pago contraentrega
 
         current_app.logger.info(f"Creating order with discount: {discount_percentage}%")
 
@@ -1804,7 +1804,7 @@ def create_order():
 
             # Notas del cliente (se muestran en el correo)
             ('_customer_note', data.get('customer_note', '')),
-            ('_is_community', 'yes' if data.get('is_community') else 'no'),
+            ('_is_community', 'yes' if customer.get('is_community') else 'no'),
             ('_is_cod', 'yes' if is_cod else 'no'),
 
             # Configuración de impuestos
@@ -2537,7 +2537,7 @@ def save_order_external():
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
 
         # Pago contraentrega
-        is_cod = data.get('is_cod', False)
+        is_cod = customer.get('is_cod', False)
 
         # Total
         total_amount = subtotal - discount_amount + shipping_cost
@@ -2929,10 +2929,18 @@ def update_order(order_id):
         
         # 6. Recalcular Totales y Actualizar Cabecera del Pedido
         recalculate_order_totals(order_id)
-        
+
+        # 7. Commit de todas las transacciones
+        db.session.commit()
+
+        # 8. Obtener número de pedido para la respuesta
+        order = Order.query.get(order_id)
+        order_number = order.get_meta('_order_number') if order else f"#{order_id}"
+
         return jsonify({
             'success': True,
             'order_id': order_id,
+            'order_number': order_number,
             'message': 'Pedido actualizado correctamente'
         })
 
