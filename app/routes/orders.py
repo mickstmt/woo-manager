@@ -3173,21 +3173,47 @@ def update_order_general_data(order_id, data):
     res = db.session.execute(check_shipping, {'oid': order_id}).fetchone()
 
     shipping_cost = float(data.get('shipping_cost', 0))
-    # shipping_method_title podria venir en data o deducirse
-    # En el payload de edición, vendría 'shipping_method_title' o similar
-    # Asumimos que el frontend (wizard) lo manda como parte de shipping o suelto
-    # Por simplificación, actualizamos costo.
+    shipping_method_title = data.get('shipping_method_title', '')
 
     if res:
-        # Update
+        # Update shipping item existente
         ship_item_id = res[0]
-        # Update costo en meta
+
+        # Actualizar nombre del método de envío
+        if shipping_method_title:
+            upd_ship_name = text("UPDATE wpyz_woocommerce_order_items SET order_item_name=:name WHERE order_item_id=:iid")
+            db.session.execute(upd_ship_name, {'name': shipping_method_title, 'iid': ship_item_id})
+
+        # Actualizar costo en meta
         update_item_meta_val(ship_item_id, 'cost', shipping_cost)
         # Update total (shipping no suele tener subtotal dif de total salvo impuestos)
         update_item_meta_val(ship_item_id, 'total', shipping_cost)
     else:
-        # Insert Shipping Item si no existia (raro)
-        pass # Por ahora omitimos
+        # Insert Shipping Item si no existía (puede pasar si el pedido no tenía envío antes)
+        if shipping_cost > 0 or shipping_method_title:
+            ins_ship = text("""
+                INSERT INTO wpyz_woocommerce_order_items (order_item_name, order_item_type, order_id)
+                VALUES (:name, 'shipping', :oid)
+            """)
+            db.session.execute(ins_ship, {
+                'name': shipping_method_title or 'Envío',
+                'oid': order_id
+            })
+            db.session.flush()
+
+            # Obtener ID del item creado
+            ship_item_id = db.session.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+
+            # Crear metas
+            ship_metas = {
+                'cost': shipping_cost,
+                'total': shipping_cost,
+                'method_id': 'flat_rate',  # Default
+                'method_title': shipping_method_title or 'Envío'
+            }
+            for k, v in ship_metas.items():
+                ins_meta = text("INSERT INTO wpyz_woocommerce_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (:iid, :key, :val)")
+                db.session.execute(ins_meta, {'iid': ship_item_id, 'key': k, 'val': v})
 
     # 3. Descuento (Discount Item - tipo 'fee')
     discount_percentage = Decimal(str(data.get('discount_percentage', 0)))

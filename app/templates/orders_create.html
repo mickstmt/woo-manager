@@ -2566,6 +2566,26 @@
 
         console.log('[populateOrderData] Datos de envío:', data.shipping);
 
+        // VALIDACIÓN: Advertir si el pedido no tiene distrito (posible problema de datos)
+        if (deliveryType !== 'billing_recojo' && (!cust.city || cust.city.trim() === '')) {
+            console.warn('⚠️ ADVERTENCIA: Este pedido NO tiene distrito configurado');
+            console.warn('⚠️ Order ID:', data.order_id, 'Delivery Type:', deliveryType);
+
+            // Mostrar alerta al usuario
+            showNotification('warning',
+                `⚠️ Este pedido no tiene distrito configurado. Por favor selecciona el distrito correcto antes de guardar.`,
+                8000 // Duración más larga
+            );
+
+            // Resaltar el campo de distrito
+            setTimeout(() => {
+                $('#city').addClass('is-invalid');
+                $('html, body').animate({
+                    scrollTop: $('#city').offset().top - 100
+                }, 500);
+            }, 1000);
+        }
+
         // Cargar ubigeo y métodos de envío
         setTimeout(() => {
             console.log('[populateOrderData] Timeout 1 - Seleccionando departamento:', cust.state);
@@ -2645,6 +2665,7 @@
 
     function submitOrder() {
         const btn = $('#btn-submit');
+        const originalHtml = btn.html(); // Guardar HTML original del botón
         btn.prop('disabled', true);
         const loadingText = isEditMode ? 'Actualizando pedido...' : 'Creando pedido...';
         btn.html(`<span class="spinner-border spinner-border-sm me-2"></span>${loadingText}`);
@@ -2683,6 +2704,42 @@
         // Verificar tipo de entrega
         const deliveryType = $('#delivery-type').val();
         const isPickup = deliveryType === 'billing_recojo';
+
+        // VALIDACIÓN: Si no es recojo en almacén, el distrito es obligatorio
+        if (!isPickup) {
+            const distrito = $('#city').val();
+            const departamento = $('#state').val();
+
+            if (!distrito || distrito.trim() === '') {
+                btn.prop('disabled', false);
+                btn.html(originalHtml);
+                showNotification('error', 'Por favor selecciona un distrito válido en la dirección de entrega');
+
+                // Scroll y resaltar el campo de distrito
+                $('html, body').animate({
+                    scrollTop: $('#city').offset().top - 100
+                }, 500);
+                $('#city').addClass('is-invalid');
+                setTimeout(() => $('#city').removeClass('is-invalid'), 3000);
+
+                return;
+            }
+
+            if (!departamento || departamento.trim() === '') {
+                btn.prop('disabled', false);
+                btn.html(originalHtml);
+                showNotification('error', 'Por favor selecciona un departamento válido en la dirección de entrega');
+
+                // Scroll y resaltar el campo de departamento
+                $('html, body').animate({
+                    scrollTop: $('#state').offset().top - 100
+                }, 500);
+                $('#state').addClass('is-invalid');
+                setTimeout(() => $('#state').removeClass('is-invalid'), 3000);
+
+                return;
+            }
+        }
 
         // Preparar datos
         const orderData = {
