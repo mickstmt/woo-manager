@@ -365,7 +365,17 @@ def get_orders():
                 sa.city as shipping_district,
 
                 -- Pago contraentrega (COD)
-                om_is_cod.meta_value as is_cod
+                om_is_cod.meta_value as is_cod,
+
+                -- Costo de envío (para calcular monto COD)
+                (SELECT SUM(CAST(oim_cost.meta_value AS DECIMAL(10,2)))
+                 FROM wpyz_woocommerce_order_items oi
+                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_cost
+                     ON oi.order_item_id = oim_cost.order_item_id
+                     AND oim_cost.meta_key = 'cost'
+                 WHERE oi.order_id = o.id
+                   AND oi.order_item_type = 'shipping'
+                 LIMIT 1) as shipping_cost
 
             FROM wpyz_wc_orders o
 
@@ -552,7 +562,8 @@ def get_orders():
                 'is_stale': (row[14] or 0) > 24,  # Más de 24h sin mover
                 'created_by': row[15] or 'Desconocido',
                 'shipping_district': row[16] or None,  # Distrito de envío
-                'is_cod': row[17] == 'yes'  # Pago contraentrega
+                'is_cod': row[17] == 'yes',  # Pago contraentrega
+                'shipping_cost': float(row[18]) if row[18] else 0  # Costo de envío (para COD)
             }
 
             # Agregar a la columna correspondiente (con fallback de seguridad)
@@ -1006,7 +1017,16 @@ def get_order_detail(order_id):
                 -- DNI del cliente (guardado en billing company)
                 ba.company as customer_dni,
                 -- Pago contraentrega (COD)
-                om_is_cod.meta_value as is_cod
+                om_is_cod.meta_value as is_cod,
+                -- Costo de envío (para calcular monto COD = total - shipping)
+                (SELECT SUM(CAST(oim_cost.meta_value AS DECIMAL(10,2)))
+                 FROM wpyz_woocommerce_order_items oi
+                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_cost
+                     ON oi.order_item_id = oim_cost.order_item_id
+                     AND oim_cost.meta_key = 'cost'
+                 WHERE oi.order_id = o.id
+                   AND oi.order_item_type = 'shipping'
+                 LIMIT 1) as shipping_cost
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -1195,6 +1215,8 @@ def get_order_detail(order_id):
             'customer_dni': order_result[17] or None,
             # Pago contraentrega (COD)
             'is_cod': order_result[18] == 'yes',
+            # Costo de envío (para calcular monto COD)
+            'shipping_cost': float(order_result[19]) if order_result[19] else 0,
             'products': products_list
         }
 
@@ -1239,6 +1261,12 @@ def add_tracking():
         shipping_provider = data.get('shipping_provider')
         date_shipped = data.get('date_shipped')
         mark_as_shipped = data.get('mark_as_shipped', False)
+        tracking_message = data.get('tracking_message')  # Mensaje personalizado para COD (CHAMO/DINSIDES)
+
+        # Si hay mensaje personalizado (CHAMO o DINSIDES con COD), usarlo como tracking_number
+        if tracking_message:
+            tracking_number = tracking_message
+            current_app.logger.info(f"[TRACKING] Order {order_id}: Usando mensaje personalizado COD")
 
         # Validar parámetros requeridos
         if not all([order_id, tracking_number, shipping_provider]):

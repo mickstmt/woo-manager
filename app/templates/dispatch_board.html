@@ -251,7 +251,7 @@
                     <h5 class="modal-title mb-0">
                         <i class="bi bi-receipt"></i>
                         Pedido <span id="modal-order-number"></span>
-                        <small class="text-muted" style="font-size: 0.85em;">(WC: <span id="modal-wc-order-id"></span>)</small>
+                        <small class="text-muted" style="font-size: 0.85em;" id="modal-whatsapp-indicator"></small>
                     </h5>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-next-order"
                         onclick="navigateOrder('next')" title="Pedido siguiente">
@@ -461,6 +461,21 @@
                     <div class="mb-3">
                         <label for="tracking-date-shipped" class="form-label">Fecha de Envío</label>
                         <input type="date" class="form-control" id="tracking-date-shipped">
+                    </div>
+
+                    <!-- Campo de mensaje de tracking (solo para CHAMO y DINSIDES) -->
+                    <div class="mb-3" id="tracking-message-container" style="display: none;">
+                        <label for="tracking-message" class="form-label">
+                            Mensaje de Tracking
+                            <span class="badge bg-info ms-1" id="tracking-cod-badge" style="display: none;">COD</span>
+                        </label>
+                        <textarea class="form-control" id="tracking-message" rows="6" readonly></textarea>
+                        <small class="form-text text-muted">
+                            Este mensaje se enviará automáticamente al cliente.
+                            <span id="tracking-cod-info" style="display: none;" class="text-primary fw-bold">
+                                Monto COD calculado automáticamente.
+                            </span>
+                        </small>
                     </div>
 
                     <div class="form-check">

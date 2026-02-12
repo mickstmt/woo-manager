@@ -46,9 +46,11 @@ function generateBulkTrackingMessage(column, dateStr, orderData = {}) {
     // Reemplazar placeholders
     let message = template.replace('@fecha_envio', formattedDate);
 
-    // Si es COD, reemplazar monto
+    // Si es COD, reemplazar monto (Total - Costo de envío ya pagado)
     if (orderData.is_cod && orderData.total) {
-        message = message.replace('@monto', orderData.total.toFixed(2));
+        const shippingCost = orderData.shipping_cost || 0;
+        const codAmount = orderData.total - shippingCost;
+        message = message.replace('@monto', codAmount.toFixed(2));
     }
 
     return message;
@@ -597,8 +599,21 @@ async function showOrderDetail(orderId) {
         const order = data.order;
 
         // Llenar modal con datos del pedido
-        document.getElementById('modal-order-number').textContent = order.number;
-        document.getElementById('modal-wc-order-id').textContent = order.id;
+        // Formato del título: mostrar siempre #ID de WooCommerce primero
+        // Si es pedido WhatsApp, agregar (W-XXXXX) como indicador de origen
+        const isWhatsAppOrder = order.number && order.number.startsWith('W-');
+        const mainOrderNumber = `#${order.id}`;
+
+        document.getElementById('modal-order-number').textContent = mainOrderNumber;
+
+        const whatsappIndicator = document.getElementById('modal-whatsapp-indicator');
+        if (isWhatsAppOrder) {
+            // Pedido de WhatsApp: mostrar "(W-00414)" como indicador
+            whatsappIndicator.textContent = `(${order.number})`;
+        } else {
+            // Pedido normal: no mostrar indicador
+            whatsappIndicator.textContent = '';
+        }
         document.getElementById('modal-customer-name').textContent = order.customer_name;
         document.getElementById('modal-customer-phone').textContent = order.customer_phone;
         document.getElementById('modal-customer-dni').textContent = order.customer_dni || '-';
@@ -666,7 +681,11 @@ async function showOrderDetail(orderId) {
         const codAlertSection = document.getElementById('cod-alert-section');
         if (codAlertSection) {
             if (order.is_cod) {
-                document.getElementById('modal-cod-amount').textContent = order.total.toFixed(2);
+                // Calcular monto COD: Total - Costo de envío (ya pagado)
+                const shippingCost = order.shipping_cost || 0;
+                const codAmount = order.total - shippingCost;
+
+                document.getElementById('modal-cod-amount').textContent = codAmount.toFixed(2);
                 codAlertSection.style.display = 'block';
             } else {
                 codAlertSection.style.display = 'none';
@@ -1018,7 +1037,7 @@ function showError(message) {
 /**
  * Mostrar modal de agregar tracking
  */
-function showTrackingModal(orderId, orderNumber) {
+async function showTrackingModal(orderId, orderNumber) {
     currentOrderId = orderId;
 
     // Actualizar título del modal
@@ -1032,29 +1051,101 @@ function showTrackingModal(orderId, orderNumber) {
     const dateString = today.toISOString().split('T')[0];
     document.getElementById('tracking-date-shipped').value = dateString;
 
+    // Ocultar campo de mensaje por defecto
+    document.getElementById('tracking-message-container').style.display = 'none';
+
+    // Obtener datos del pedido para detectar COD
+    try {
+        const response = await fetch(`/dispatch/api/order/${orderId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            // Guardar datos del pedido para usarlos en handleProviderChange
+            currentOrderData = data.order;
+        }
+    } catch (error) {
+        console.error('Error obteniendo datos del pedido:', error);
+        currentOrderData = null;
+    }
+
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
     modal.show();
 }
 
 /**
+ * Generar mensaje de tracking para pedido individual
+ * @param {string} provider - Proveedor de envío
+ * @param {string} dateStr - Fecha de envío (yyyy-mm-dd)
+ * @param {object} orderData - Datos del pedido
+ */
+function generateIndividualTrackingMessage(provider, dateStr, orderData) {
+    if (!orderData) return '';
+
+    // Solo generar mensaje para CHAMO y DINSIDES
+    let column = null;
+    if (provider === 'Motorizado Izi') {
+        column = 'chamo';
+    } else if (provider === 'Dinsides Courier') {
+        column = 'dinsides';
+    }
+
+    if (!column) return '';
+
+    // Usar la misma lógica que el tracking masivo
+    return generateBulkTrackingMessage(column, dateStr, orderData);
+}
+
+/**
  * Manejar cambio en el selector de proveedor de envío
  * Si se selecciona "Recojo en Almacén", deshabilitar tracking number
+ * Si se selecciona CHAMO o DINSIDES, mostrar mensaje personalizado
  */
 function handleProviderChange() {
     const providerSelect = document.getElementById('tracking-provider');
     const trackingNumberInput = document.getElementById('tracking-number');
+    const messageContainer = document.getElementById('tracking-message-container');
+    const messageTextarea = document.getElementById('tracking-message');
+    const codBadge = document.getElementById('tracking-cod-badge');
+    const codInfo = document.getElementById('tracking-cod-info');
 
-    if (providerSelect.value === 'Recojo en Almacén') {
-        // Deshabilitar tracking number y poner valor por defecto
+    const provider = providerSelect.value;
+
+    // Manejar "Recojo en Almacén"
+    if (provider === 'Recojo en Almacén') {
         trackingNumberInput.value = 'RECOJO';
         trackingNumberInput.disabled = true;
         trackingNumberInput.required = false;
+        messageContainer.style.display = 'none';
+        return;
+    }
+
+    // Habilitar tracking number
+    trackingNumberInput.value = '';
+    trackingNumberInput.disabled = false;
+    trackingNumberInput.required = true;
+
+    // Mostrar mensaje solo para CHAMO y DINSIDES
+    if (provider === 'Motorizado Izi' || provider === 'Dinsides Courier') {
+        messageContainer.style.display = 'block';
+
+        // Obtener fecha de envío
+        const dateShipped = document.getElementById('tracking-date-shipped').value;
+
+        // Generar mensaje
+        const message = generateIndividualTrackingMessage(provider, dateShipped, currentOrderData);
+        messageTextarea.value = message;
+
+        // Mostrar/ocultar badge COD
+        if (currentOrderData && currentOrderData.is_cod) {
+            codBadge.style.display = 'inline-block';
+            codInfo.style.display = 'inline';
+        } else {
+            codBadge.style.display = 'none';
+            codInfo.style.display = 'none';
+        }
     } else {
-        // Habilitar tracking number y limpiar
-        trackingNumberInput.value = '';
-        trackingNumberInput.disabled = false;
-        trackingNumberInput.required = true;
+        messageContainer.style.display = 'none';
     }
 }
 
@@ -1078,6 +1169,12 @@ async function saveTracking() {
         return;
     }
 
+    // Obtener mensaje personalizado si aplica (CHAMO o DINSIDES)
+    let trackingMessage = null;
+    if (shippingProvider === 'Motorizado Izi' || shippingProvider === 'Dinsides Courier') {
+        trackingMessage = document.getElementById('tracking-message').value.trim();
+    }
+
     // Mostrar loading en el botón
     const saveBtn = document.getElementById('btn-save-tracking');
     const originalText = saveBtn.innerHTML;
@@ -1085,18 +1182,25 @@ async function saveTracking() {
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
 
     try {
+        const requestBody = {
+            order_id: currentOrderId,
+            tracking_number: trackingNumber,
+            shipping_provider: shippingProvider,
+            date_shipped: dateShipped,
+            mark_as_shipped: markAsShipped
+        };
+
+        // Agregar mensaje solo si existe (CHAMO o DINSIDES)
+        if (trackingMessage) {
+            requestBody.tracking_message = trackingMessage;
+        }
+
         const response = await fetch('/dispatch/api/add-tracking', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                order_id: currentOrderId,
-                tracking_number: trackingNumber,
-                shipping_provider: shippingProvider,
-                date_shipped: dateShipped,
-                mark_as_shipped: markAsShipped
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
