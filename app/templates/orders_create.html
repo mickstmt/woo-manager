@@ -1153,6 +1153,29 @@
                                 showNotification('success', `Método seleccionado: ${methodTitle} - S/ ${parseFloat(cost).toFixed(2)}`);
                             }
                         });
+
+                        // ⚠️ IMPORTANTE: Si COD está marcado, seleccionar automáticamente "Envío 1 día hábil"
+                        if ($('#is-cod').is(':checked')) {
+                            console.log('[loadMetodosEnvio] COD está marcado, buscando "1 día hábil"...');
+
+                            // Buscar opción que contenga "1 día hábil"
+                            let unDiaHabilOption = null;
+                            $shippingSelect.find('option').each(function() {
+                                const text = $(this).text().toLowerCase();
+                                if (text.includes('1 día hábil') || text.includes('1 hábil') || text.includes('1 dia habil') || text.includes('1 habíl')) {
+                                    unDiaHabilOption = $(this);
+                                    return false; // break
+                                }
+                            });
+
+                            if (unDiaHabilOption) {
+                                const cost = unDiaHabilOption.val();
+                                $shippingSelect.val(cost).trigger('change.cost');
+                                console.log('[loadMetodosEnvio] "1 día hábil" seleccionado automáticamente para COD');
+                            } else {
+                                console.warn('[loadMetodosEnvio] No se encontró "1 día hábil" para COD');
+                            }
+                        }
                     } else {
                         $shippingSelect.empty()
                             .append('<option value="">No hay métodos disponibles para este tipo de entrega</option>');
@@ -2509,6 +2532,7 @@
     // ==================== ENVÍO DE PEDIDO / ACTUALIZACIÓN ====================
 
     let createdOrderId = null;
+    let processingModalActive = false; // Controla si el modal de procesamiento está activo
     let isEditMode = {{ 'true' if edit_mode else 'false' }};
     let editingOrderId = {{ order_id|default ('null') }};
 
@@ -2564,7 +2588,7 @@
         $('#dni').val(cust.company); // Usamos company para DNI
         $('#ruc').val(cust.billing_ruc);
         $('#is-community').prop('checked', cust.is_community);
-        $('#is-cod').prop('checked', cust.is_cod);
+        $('#is-cod').prop('checked', cust.is_cod).trigger('change'); // Trigger change para aplicar lógica de COD
 
         // 3. Dirección y Entrega
         const deliveryType = cust.billing_entrega || 'billing_domicilio'; // Default
@@ -2715,6 +2739,7 @@
         $('.modal-header').removeClass('bg-success bg-danger').addClass('bg-primary');
 
         // Mostrar el modal ANTES de enviar
+        processingModalActive = true; // Activar flag de modal
         modal.show();
 
         // Verificar tipo de entrega
@@ -2825,74 +2850,129 @@
             data: JSON.stringify(orderData),
             timeout: 60000, // 60 segundos timeout
             success: function (response) {
-                if (response.success) {
-                    // Guardar ID del pedido
-                    createdOrderId = response.order_id;
+                try {
+                    console.log('✅ Respuesta recibida:', response);
+                    console.log('response.success:', response.success);
+                    console.log('response.order_id:', response.order_id);
+                    console.log('response.order_number:', response.order_number);
 
-                    // Si el modal aún está visible, actualizar con éxito
-                    if ($('#orderCreatedModal').hasClass('show')) {
-                        $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
-                        $('#modal-title-text').text(isEditMode ? '¡Pedido Actualizado!' : '¡Pedido Creado Exitosamente!');
-                        $('#modal-message').html(`
-                        <div class="alert alert-success">
-                            <strong>Pedido #${response.order_number || response.order_id}</strong> ${isEditMode ? 'actualizado' : 'creado'} correctamente
-                        </div>
-                        <p class="text-muted">¿Qué deseas hacer ahora?</p>
-                    `);
+                    if (response.success) {
+                        console.log('✅ Entrando a bloque success');
 
-                        // Actualizar botones (NO mostrar "Ver en WooCommerce" si es pedido externo)
-                        const viewWooButton = orderType === 'external' ? '' : `
-                        <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
-                            <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
-                        </button>
-                    `;
+                        // Guardar ID del pedido
+                        createdOrderId = response.order_id;
+                        console.log('createdOrderId guardado:', createdOrderId);
 
-                        $('#modal-actions').html(`
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
-                                <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
+                        // Si el modal de procesamiento está activo, actualizarlo
+                        console.log('processingModalActive:', processingModalActive);
+
+                        if (processingModalActive) {
+                            console.log('🔄 Actualizando modal a estado success...');
+
+                            $('#modal-icon').html('<i class="bi bi-check-circle-fill fs-4"></i>');
+                            console.log('✓ modal-icon actualizado');
+
+                            $('#modal-title-text').text(isEditMode ? '¡Pedido Actualizado!' : '¡Pedido Creado Exitosamente!');
+                            console.log('✓ modal-title-text actualizado');
+
+                            $('#modal-message').html(`
+                            <div class="alert alert-success">
+                                <strong>Pedido #${response.order_number || response.order_id}</strong> ${isEditMode ? 'actualizado' : 'creado'} correctamente
+                            </div>
+                            <p class="text-muted">¿Qué deseas hacer ahora?</p>
+                        `);
+                            console.log('✓ modal-message actualizado');
+
+                            // Actualizar botones (NO mostrar "Ver en WooCommerce" si es pedido externo)
+                            const viewWooButton = orderType === 'external' ? '' : `
+                            <button type="button" class="btn btn-outline-success" onclick="viewInWooCommerce()">
+                                <i class="bi bi-box-arrow-up-right"></i> Ver en WooCommerce
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
-                                <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
-                            </button>
-                            ${viewWooButton}
-                        </div>
-                    `);
+                        `;
 
-                        // Cambiar color del header a éxito
-                        $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                            $('#modal-actions').html(`
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="createNewOrder()">
+                                    <i class="bi bi-plus-circle"></i> Crear Nuevo Pedido
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="goToOrdersList()">
+                                    <i class="bi bi-list-ul"></i> Ir a Lista de Pedidos
+                                </button>
+                                ${viewWooButton}
+                            </div>
+                        `);
+                            console.log('✓ modal-actions actualizado');
+
+                            // Cambiar color del header a éxito
+                            $('.modal-header').removeClass('bg-primary').addClass('bg-success');
+                            console.log('✓ modal-header color actualizado');
+
+                            console.log('✅ Modal actualizado correctamente a estado success');
+
+                            // Desactivar flag de procesamiento
+                            processingModalActive = false;
+                        } else {
+                            console.log('ℹ️ Modal ya cerrado, mostrando notificación');
+                            // Si el modal ya se cerró, mostrar notificación
+                            const action = isEditMode ? 'actualizado' : 'creado';
+                            showNotification('success', `Pedido #${response.order_number || response.order_id} ${action} exitosamente`);
+                        }
                     } else {
-                        // Si el modal ya se cerró, mostrar notificación
-                        const action = isEditMode ? 'actualizado' : 'creado';
-                        showNotification('success', `Pedido #${response.order_number || response.order_id} ${action} exitosamente`);
-                    }
-                } else {
-                    // Actualizar modal con error
-                    $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
-                    $('#modal-title-text').text(isEditMode ? 'Error al Actualizar' : 'Error al Crear Pedido');
-                    $('#modal-message').html(`
-                    <div class="alert alert-danger">
-                        ${response.error || 'Error desconocido'}
-                    </div>
-                `);
+                        console.log('❌ response.success es false');
+                        console.log('response.error:', response.error);
 
-                    // Cambiar color del header a error
+                        // Actualizar modal con error
+                        $('#modal-icon').html('<i class="bi bi-x-circle-fill fs-4"></i>');
+                        $('#modal-title-text').text(isEditMode ? 'Error al Actualizar' : 'Error al Crear Pedido');
+                        $('#modal-message').html(`
+                        <div class="alert alert-danger">
+                            ${response.error || 'Error desconocido'}
+                        </div>
+                    `);
+
+                        // Cambiar color del header a error
+                        $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
+
+                        // Mostrar solo opción de cerrar
+                        $('#modal-actions').html(`
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cerrar
+                        </button>
+                    `).show();
+
+                        // Re-habilitar botón
+                        btn.prop('disabled', false);
+                        const btnText = isEditMode ? 'Actualizar Pedido' : 'Crear Pedido';
+                        btn.html(`<i class="bi bi-check-circle"></i> <span id="btn-submit-text">${btnText}</span>`);
+
+                        // Desactivar flag de procesamiento
+                        processingModalActive = false;
+                    }
+                } catch (error) {
+                    console.error('💥 ERROR en success callback:', error);
+                    console.error('Stack trace:', error.stack);
+
+                    // Mostrar error en modal
+                    $('#modal-icon').html('<i class="bi bi-exclamation-triangle-fill fs-4"></i>');
+                    $('#modal-title-text').text('Error Inesperado');
+                    $('#modal-message').html(`
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    `);
                     $('.modal-header').removeClass('bg-primary').addClass('bg-danger');
 
-                    // Mostrar solo opción de cerrar
-                    $('#modal-actions').html(`
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cerrar
-                    </button>
-                `).show();
-
-                    // Re-habilitar botón
-                    btn.prop('disabled', false);
-                    const btnText = isEditMode ? 'Actualizar Pedido' : 'Crear Pedido';
-                    btn.html(`<i class="bi bi-check-circle"></i> <span id="btn-submit-text">${btnText}</span>`);
+                    // Desactivar flag de procesamiento
+                    processingModalActive = false;
                 }
             },
             error: function (xhr, status, error) {
+                console.log('❌ AJAX Error triggered');
+                console.log('xhr:', xhr);
+                console.log('status:', status);
+                console.log('error:', error);
+                console.log('xhr.responseJSON:', xhr.responseJSON);
+
                 let errorMessage = 'Error de conexión';
 
                 // Determinar el tipo de error
@@ -2935,6 +3015,9 @@
                 // Re-habilitar botón
                 btn.prop('disabled', false);
                 btn.html(isEditMode ? '<i class="bi bi-check-circle"></i> Actualizar Pedido' : '<i class="bi bi-check-circle"></i> Crear Pedido');
+
+                // Desactivar flag de procesamiento
+                processingModalActive = false;
             }
         });
     }
@@ -3032,6 +3115,14 @@
                 loadMetodosEnvio(distrito);
             }
         }
+
+        // IMPORTANTE: Si el tipo de entrega NO es domicilio, desmarcar COD automáticamente
+        const codCheckbox = $('#is-cod');
+        if (deliveryType !== 'billing_domicilio' && codCheckbox.is(':checked')) {
+            codCheckbox.prop('checked', false);
+            showNotification('warning', '⚠️ El pago contraentrega (COD) solo está disponible para entregas a domicilio. Se ha desmarcado automáticamente.');
+            console.log('COD desmarcado automáticamente porque el tipo de entrega cambió a:', deliveryType);
+        }
     }
 
     function showLoadingOverlay(message = 'Cargando...') {
@@ -3097,5 +3188,78 @@
             }
         });
     }
+
+    // Event listener para resetear flag cuando el modal se cierre
+    document.addEventListener('DOMContentLoaded', function() {
+        const orderModal = document.getElementById('orderCreatedModal');
+        if (orderModal) {
+            orderModal.addEventListener('hidden.bs.modal', function() {
+                console.log('Modal cerrado, reseteando flag processingModalActive');
+                processingModalActive = false;
+            });
+        }
+
+        // Event listener para checkbox de COD (Pago Contraentrega)
+        const codCheckbox = document.getElementById('is-cod');
+        if (codCheckbox) {
+            codCheckbox.addEventListener('change', function(e) {
+                const isCod = this.checked;
+                console.log('COD checkbox changed:', isCod);
+
+                if (isCod) {
+                    // Si marca COD, forzar tipo de entrega a domicilio
+                    const deliveryTypeSelect = $('#delivery-type');
+                    const previousDeliveryType = deliveryTypeSelect.val();
+
+                    // Solo cambiar si no está ya en domicilio
+                    if (previousDeliveryType !== 'billing_domicilio') {
+                        deliveryTypeSelect.val('billing_domicilio').trigger('change');
+                        showNotification('info', '⚠️ Para pedidos contraentrega (COD), el tipo de entrega debe ser a domicilio');
+                    }
+
+                    // Deshabilitar delivery-type mientras COD esté marcado
+                    deliveryTypeSelect.prop('disabled', true);
+
+                    // Si hay distrito seleccionado, recargar métodos y seleccionar "1 día hábil"
+                    const distrito = $('#city').val();
+                    if (distrito && distrito.trim() !== '') {
+                        console.log('Recargando métodos de envío para COD, distrito:', distrito);
+
+                        loadMetodosEnvio(distrito, function() {
+                            // Callback: después de cargar métodos, seleccionar "1 día hábil"
+                            const $shippingSelect = $('#shipping-method');
+                            const options = $shippingSelect.find('option');
+
+                            // Buscar opción que contenga "1 día hábil" o "1 hábil"
+                            let unDiaHabilOption = null;
+                            options.each(function() {
+                                const text = $(this).text().toLowerCase();
+                                if (text.includes('1 día hábil') || text.includes('1 hábil') || text.includes('1 dia habil') || text.includes('1 habíl')) {
+                                    unDiaHabilOption = $(this);
+                                    return false; // break
+                                }
+                            });
+
+                            if (unDiaHabilOption) {
+                                $shippingSelect.val(unDiaHabilOption.val()).trigger('change');
+                                console.log('Método "1 día hábil" seleccionado automáticamente');
+                                showNotification('success', '✓ Tipo de entrega cambiado a Domicilio y método "Envío 1 día hábil" seleccionado');
+                            } else {
+                                console.warn('No se encontró opción "1 día hábil"');
+                                showNotification('warning', 'Advertencia: No se encontró el método "Envío 1 día hábil". Por favor selecciónalo manualmente.');
+                            }
+                        });
+                    } else {
+                        showNotification('info', 'Por favor selecciona un distrito para cargar los métodos de envío');
+                    }
+
+                } else {
+                    // Si desmarca COD, rehabilitar delivery-type
+                    $('#delivery-type').prop('disabled', false);
+                    showNotification('info', 'COD desactivado. Puedes cambiar el tipo de entrega si lo deseas.');
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}
