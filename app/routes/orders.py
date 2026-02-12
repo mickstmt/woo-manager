@@ -2742,6 +2742,7 @@ def get_order_external(order_id):
                 'customer_note': order.customer_note or '',
                 'created_by': order.created_by or '',
                 'external_source': order.external_source or 'otro',
+                'is_cod': order.is_cod,
                 'items': items_data
             }
         })
