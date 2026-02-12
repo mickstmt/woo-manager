@@ -86,11 +86,12 @@ const BULK_TRACKING_PROVIDERS = {
 document.addEventListener('DOMContentLoaded', function () {
     console.log('Módulo de Despacho inicializado');
 
-    // Establecer fechas por defecto: primer día del mes actual hasta hoy
+    // Establecer fechas por defecto: últimos 30 días
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
 
-    document.getElementById('filter-date-from').value = formatDateForInput(firstDayOfMonth);
+    document.getElementById('filter-date-from').value = formatDateForInput(thirtyDaysAgo);
     document.getElementById('filter-date-to').value = formatDateForInput(today);
 
     // Cargar pedidos con filtro de fechas del mes actual
@@ -158,14 +159,15 @@ function applyFilters() {
 
 /**
  * Limpiar todos los filtros y recargar pedidos
- * Resetea las fechas al mes actual (primer día del mes hasta hoy)
+ * Resetea las fechas a los últimos 30 días
  */
 function clearFilters() {
-    // Resetear fechas al mes actual (NO dejarlas vacías)
+    // Resetear fechas a los últimos 30 días (NO dejarlas vacías)
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
 
-    document.getElementById('filter-date-from').value = formatDateForInput(firstDayOfMonth);
+    document.getElementById('filter-date-from').value = formatDateForInput(thirtyDaysAgo);
     document.getElementById('filter-date-to').value = formatDateForInput(today);
 
     // Desmarcar todos los checkboxes
@@ -173,7 +175,7 @@ function clearFilters() {
     document.getElementById('filter-atendido').checked = false;
     document.getElementById('filter-no-atendido').checked = false;
 
-    // Recargar pedidos con filtro de mes actual y sin checkboxes
+    // Recargar pedidos con filtro de últimos 30 días y sin checkboxes
     loadOrders();
 
     // Feedback visual
