@@ -1766,28 +1766,41 @@ def bulk_tracking_preview():
         # Obtener todos los pedidos Shalom en estado processing
         shalom_orders = get_shalom_orders_by_dni()
 
-        # Hacer matching por DNI
+        # Hacer matching por DNI (con normalización)
         total_ok = 0
         total_ya_completado = 0
         total_no_encontrado = 0
 
         for envio in envios:
-            dni = envio['dni_destinatario']
+            dni_excel = envio['dni_destinatario']
 
-            if not dni or len(dni) < 8:
+            if not dni_excel or len(dni_excel) < 7:
                 envio['validacion'] = 'error'
-                envio['mensaje'] = 'DNI inválido'
+                envio['mensaje'] = 'DNI inválido (muy corto)'
                 total_no_encontrado += 1
                 continue
 
-            if dni in shalom_orders:
-                pedido = shalom_orders[dni]
-                envio['pedido_id'] = pedido['id']
-                envio['pedido_numero'] = pedido['numero']
-                envio['cliente_nombre'] = pedido['cliente']
-                envio['estado_pedido'] = pedido['estado']
+            # Normalizar DNI del Excel para obtener variantes
+            dni_variants = normalize_dni(dni_excel)
 
-                if pedido['estado'] == 'wc-completed':
+            # Buscar en cualquiera de las variantes
+            pedido_encontrado = None
+            for variant in dni_variants:
+                if variant in shalom_orders:
+                    pedido_encontrado = shalom_orders[variant]
+                    break
+
+            if pedido_encontrado:
+                envio['pedido_id'] = pedido_encontrado['id']
+                envio['pedido_numero'] = pedido_encontrado['numero']
+                envio['cliente_nombre'] = pedido_encontrado['cliente']
+                envio['estado_pedido'] = pedido_encontrado['estado']
+
+                # Mostrar DNI original del pedido para verificación
+                if 'dni_original' in pedido_encontrado:
+                    envio['dni_pedido'] = pedido_encontrado['dni_original']
+
+                if pedido_encontrado['estado'] == 'wc-completed':
                     envio['validacion'] = 'warning'
                     envio['mensaje'] = 'Pedido ya completado'
                     total_ya_completado += 1
@@ -1797,7 +1810,7 @@ def bulk_tracking_preview():
                     total_ok += 1
             else:
                 envio['validacion'] = 'error'
-                envio['mensaje'] = 'DNI no encontrado en pedidos Shalom'
+                envio['mensaje'] = f'DNI no encontrado (buscado: {", ".join(dni_variants[:2])}...)'
                 total_no_encontrado += 1
 
         return jsonify({
@@ -1822,13 +1835,58 @@ def bulk_tracking_preview():
         }), 500
 
 
+def normalize_dni(dni):
+    """
+    Normaliza un DNI eliminando espacios y caracteres no numéricos.
+    Devuelve múltiples variantes para búsqueda flexible.
+
+    Args:
+        dni: DNI a normalizar
+
+    Returns:
+        list: Lista de variantes del DNI (sin ceros, con ceros, original)
+    """
+    if not dni:
+        return []
+
+    # Limpiar: solo números
+    dni_clean = ''.join(c for c in str(dni) if c.isdigit())
+
+    if not dni_clean:
+        return []
+
+    variants = []
+
+    # Variante 1: Sin ceros iniciales (como viene de Excel)
+    dni_sin_ceros = dni_clean.lstrip('0') or '0'
+    variants.append(dni_sin_ceros)
+
+    # Variante 2: Con 8 dígitos (DNI peruano estándar)
+    if len(dni_clean) <= 8:
+        dni_8_digitos = dni_clean.zfill(8)
+        if dni_8_digitos not in variants:
+            variants.append(dni_8_digitos)
+
+    # Variante 3: Con 9 dígitos (Carnet de Extranjería)
+    if len(dni_clean) <= 9:
+        dni_9_digitos = dni_clean.zfill(9)
+        if dni_9_digitos not in variants:
+            variants.append(dni_9_digitos)
+
+    # Variante 4: Original limpio
+    if dni_clean not in variants:
+        variants.append(dni_clean)
+
+    return variants
+
+
 def get_shalom_orders_by_dni():
     """
     Obtiene todos los pedidos Shalom en estado processing,
-    indexados por DNI del cliente.
+    indexados por DNI del cliente (con normalización flexible).
 
     Returns:
-        dict: {dni: {id, numero, cliente, estado}}
+        dict: {dni_normalizado: {id, numero, cliente, estado, dni_original}}
     """
     query = text("""
         SELECT
@@ -1856,22 +1914,30 @@ def get_shalom_orders_by_dni():
 
     results = db.session.execute(query).fetchall()
 
-    # Indexar por DNI (solo pedidos Shalom)
+    # Indexar por TODAS las variantes del DNI (para búsqueda flexible)
     orders_by_dni = {}
     for row in results:
         shipping_method = row[5] or ''
         # Verificar si es pedido Shalom
         if 'shalom' in shipping_method.lower():
-            dni = str(row[3] or '').strip()
-            if dni and len(dni) >= 8:
-                # Si hay múltiples pedidos con el mismo DNI, quedarse con el más reciente (processing primero)
-                if dni not in orders_by_dni or row[4] == 'wc-processing':
-                    orders_by_dni[dni] = {
-                        'id': row[0],
-                        'numero': row[1],
-                        'cliente': row[2],
-                        'estado': row[4]
-                    }
+            dni_original = str(row[3] or '').strip()
+            if dni_original and len(dni_original) >= 7:
+                # Obtener todas las variantes del DNI
+                dni_variants = normalize_dni(dni_original)
+
+                pedido_data = {
+                    'id': row[0],
+                    'numero': row[1],
+                    'cliente': row[2],
+                    'estado': row[4],
+                    'dni_original': dni_original
+                }
+
+                # Indexar por TODAS las variantes
+                for variant in dni_variants:
+                    # Si hay múltiples pedidos, quedarse con processing primero
+                    if variant not in orders_by_dni or row[4] == 'wc-processing':
+                        orders_by_dni[variant] = pedido_data
 
     return orders_by_dni
 
