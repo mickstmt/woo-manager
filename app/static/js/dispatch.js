@@ -568,6 +568,7 @@ async function showOrderDetail(orderId) {
 
         // Llenar modal con datos del pedido
         document.getElementById('modal-order-number').textContent = order.number;
+        document.getElementById('modal-wc-order-id').textContent = order.id;
         document.getElementById('modal-customer-name').textContent = order.customer_name;
         document.getElementById('modal-customer-phone').textContent = order.customer_phone;
         document.getElementById('modal-customer-dni').textContent = order.customer_dni || '-';
