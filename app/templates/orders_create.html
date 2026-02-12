@@ -762,6 +762,21 @@
                             </p>
                         </div>
                     </div>
+
+                    <!-- Nueva sección: Pago Contraentrega (COD) -->
+                    <div class="mt-4 pt-4 border-top">
+                        <div class="form-check form-switch card p-3 border-info bg-light shadow-sm">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" id="is-cod"
+                                style="width: 3rem; height: 1.5rem; cursor: pointer;">
+                            <label class="form-check-label fw-bold text-primary" for="is-cod"
+                                style="cursor: pointer; font-size: 1.1rem;">
+                                <i class="bi bi-cash-coin"></i> ¿Es Pago Contraentrega?
+                            </label>
+                            <p class="text-muted small mb-0 mt-2">
+                                Marca esta opción si el cliente pagará al recibir el pedido (COD - Cash On Delivery).
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2549,6 +2564,7 @@
         $('#dni').val(cust.company); // Usamos company para DNI
         $('#ruc').val(cust.billing_ruc);
         $('#is-community').prop('checked', cust.is_community);
+        $('#is-cod').prop('checked', cust.is_cod);
 
         // 3. Dirección y Entrega
         const deliveryType = cust.billing_entrega || 'billing_domicilio'; // Default
@@ -2778,7 +2794,8 @@
             payment_method: $('#payment-method').val(),
             payment_method_title: $('#payment-method option:selected').text(),
             customer_note: $('#customer-note').val() || 'Pedido creado desde WooCommerce Manager (WhatsApp)',
-            is_community: $('#is-community').is(':checked')
+            is_community: $('#is-community').is(':checked'),
+            is_cod: $('#is-cod').is(':checked')
         };
 
         // Determinar endpoint y método según modo

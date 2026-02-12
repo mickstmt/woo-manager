@@ -17,20 +17,41 @@ let bulkSelectedColumn = null; // 'chamo' o 'dinsides'
 
 // Plantillas de mensajes de tracking por columna (con placeholder @fecha_envio)
 const BULK_TRACKING_TEMPLATES = {
-    chamo: "Hola, somos izistore. Su pedido estará llegando el @fecha_envio entre las 11:00 am y 7:00 pm.",
-    dinsides: "Hola, somos izistore. Su pedido está programado para ser entregado el: @fecha_envio entre las 11:00 AM y 7:00 PM."
+    chamo: {
+        normal: "Hola, somos izistore. Su pedido estará llegando el @fecha_envio entre las 11:00 am y 7:00 pm.",
+        cod: "Hola, somos izistore. Su pedido estará llegando el @fecha_envio entre las 11:00 am y 7:00 pm.\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\nMonto a cancelar: S/ @monto\n\nPor favor, tenga el monto exacto disponible para el courier."
+    },
+    dinsides: {
+        normal: "Hola, somos izistore. Su pedido está programado para ser entregado el: @fecha_envio entre las 11:00 AM y 7:00 PM.",
+        cod: "Hola, somos izistore. Su pedido está programado para ser entregado el: @fecha_envio entre las 11:00 AM y 7:00 PM.\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\nMonto a cancelar: S/ @monto\n\nPor favor, tenga el monto exacto disponible para el courier."
+    }
 };
 
 /**
- * Generar mensaje de tracking reemplazando @fecha_envio con la fecha formateada
+ * Generar mensaje de tracking reemplazando placeholders
+ * @param {string} column - Columna (chamo o dinsides)
+ * @param {string} dateStr - Fecha de envío (yyyy-mm-dd)
+ * @param {object} orderData - Datos del pedido (incluye is_cod, total, etc.)
  */
-function generateBulkTrackingMessage(column, dateStr) {
-    const template = BULK_TRACKING_TEMPLATES[column];
-    if (!template) return '';
+function generateBulkTrackingMessage(column, dateStr, orderData = {}) {
+    const templates = BULK_TRACKING_TEMPLATES[column];
+    if (!templates) return '';
+
+    // Seleccionar template según si es COD o no
+    const template = orderData.is_cod ? templates.cod : templates.normal;
 
     // Formatear fecha a formato legible (ej: "21 de enero")
     const formattedDate = formatDateForMessage(dateStr);
-    return template.replace('@fecha_envio', formattedDate);
+
+    // Reemplazar placeholders
+    let message = template.replace('@fecha_envio', formattedDate);
+
+    // Si es COD, reemplazar monto
+    if (orderData.is_cod && orderData.total) {
+        message = message.replace('@monto', orderData.total.toFixed(2));
+    }
+
+    return message;
 }
 
 /**
@@ -375,6 +396,13 @@ function createOrderCard(order, columnMethod) {
         </span>`;
     }
 
+    // Badge de pago contraentrega (COD)
+    if (order.is_cod) {
+        html += `<span class="badge cod-badge ms-1" title="Pago Contraentrega">
+            <i class="bi bi-cash-coin"></i> COD
+        </span>`;
+    }
+
     html += `
             </div>
         </div>
@@ -632,6 +660,17 @@ async function showOrderDetail(orderId) {
                 <h6 class="border-bottom pb-2">Productos</h6>
                 ${productsHtml}
             `;
+        }
+
+        // Mostrar/ocultar alerta de contraentrega (COD)
+        const codAlertSection = document.getElementById('cod-alert-section');
+        if (codAlertSection) {
+            if (order.is_cod) {
+                document.getElementById('modal-cod-amount').textContent = order.total.toFixed(2);
+                codAlertSection.style.display = 'block';
+            } else {
+                codAlertSection.style.display = 'none';
+            }
         }
 
         // Obtener estado actual del pedido desde la tarjeta en el DOM
@@ -1455,9 +1494,22 @@ function updateBulkTrackingPreview() {
     }
 
     console.log('updateBulkTrackingPreview - bulkSelectedColumn:', bulkSelectedColumn);
+    // Mostrar mensaje normal (los pedidos COD recibirán mensaje personalizado automáticamente)
     const message = generateBulkTrackingMessage(bulkSelectedColumn, dateValue);
     console.log('updateBulkTrackingPreview - message:', message);
-    document.getElementById('confirm-message').textContent = message;
+
+    // Verificar si hay pedidos COD en la selección
+    const hasCodOrders = bulkSelectedOrders.some(o => {
+        const card = document.querySelector(`[data-order-id="${o.orderId}"]`);
+        return card && card.querySelector('.cod-badge');
+    });
+
+    let displayMessage = message;
+    if (hasCodOrders) {
+        displayMessage += '\n\n📌 Nota: Los pedidos con pago contraentrega (COD) recibirán un mensaje personalizado con el monto a pagar.';
+    }
+
+    document.getElementById('confirm-message').textContent = displayMessage;
 }
 
 /**

@@ -179,7 +179,8 @@ def get_order_for_edit(order_id):
                 'billing_ruc': order_meta.get('_billing_ruc', ''),
                 'billing_entrega': order_meta.get('_billing_entrega', ''),
                 'billing_referencia': order_meta.get('_billing_referencia', ''),
-                'is_community': order_meta.get('_is_community') == 'yes'
+                'is_community': order_meta.get('_is_community') == 'yes',
+                'is_cod': order_meta.get('_is_cod') == 'yes'
             }
     
     # Si falta info en address, intentar sacarla de order_meta (backwards compatibility)
@@ -1370,6 +1371,7 @@ def create_order():
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
         discount_percentage = Decimal(str(data.get('discount_percentage', 0)))
         shipping_method_title = data.get('shipping_method_title', '')  # Título del método de envío
+        is_cod = data.get('is_cod', False)  # Pago contraentrega
 
         current_app.logger.info(f"Creating order with discount: {discount_percentage}%")
 
@@ -1803,6 +1805,7 @@ def create_order():
             # Notas del cliente (se muestran en el correo)
             ('_customer_note', data.get('customer_note', '')),
             ('_is_community', 'yes' if data.get('is_community') else 'no'),
+            ('_is_cod', 'yes' if is_cod else 'no'),
 
             # Configuración de impuestos
             ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
@@ -2533,6 +2536,9 @@ def save_order_external():
         # Envío
         shipping_cost = Decimal(str(data.get('shipping_cost', 0)))
 
+        # Pago contraentrega
+        is_cod = data.get('is_cod', False)
+
         # Total
         total_amount = subtotal - discount_amount + shipping_cost
 
@@ -2568,7 +2574,8 @@ def save_order_external():
             total_amount=total_amount,
             customer_note=data.get('customer_note', ''),
             created_by=current_user.username,
-            external_source=data.get('external_source', 'otro')  # marketplace, tienda_fisica, otro
+            external_source=data.get('external_source', 'otro'),  # marketplace, tienda_fisica, otro
+            is_cod=is_cod  # Pago contraentrega
         )
 
         db.session.add(order_ext)
@@ -2976,7 +2983,8 @@ def update_order_customer_data(order_id, customer):
         '_billing_ruc': customer.get('ruc', ''),
         '_billing_entrega': customer.get('billing_entrega', ''),
         '_billing_referencia': customer.get('reference', ''),
-        '_is_community': 'yes' if customer.get('is_community') else 'no'
+        '_is_community': 'yes' if customer.get('is_community') else 'no',
+        '_is_cod': 'yes' if customer.get('is_cod') else 'no'
     }
     
     for key, val in meta_updates.items():

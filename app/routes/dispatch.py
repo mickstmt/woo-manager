@@ -362,7 +362,10 @@ def get_orders():
                 om_created.meta_value as created_by,
 
                 -- Distrito de envío (para pedidos 1 día hábil)
-                sa.city as shipping_district
+                sa.city as shipping_district,
+
+                -- Pago contraentrega (COD)
+                om_is_cod.meta_value as is_cod
 
             FROM wpyz_wc_orders o
 
@@ -394,6 +397,11 @@ def get_orders():
             LEFT JOIN wpyz_wc_orders_meta om_billing_entrega
                 ON o.id = om_billing_entrega.order_id
                 AND om_billing_entrega.meta_key = '_billing_entrega'
+
+            -- Metadata de pago contraentrega (COD)
+            LEFT JOIN wpyz_wc_orders_meta om_is_cod
+                ON o.id = om_is_cod.order_id
+                AND om_is_cod.meta_key = '_is_cod'
 
             WHERE o.status = 'wc-processing'
 
@@ -543,7 +551,8 @@ def get_orders():
                 'hours_since_update': row[14] or 0,
                 'is_stale': (row[14] or 0) > 24,  # Más de 24h sin mover
                 'created_by': row[15] or 'Desconocido',
-                'shipping_district': row[16] or None  # Distrito de envío
+                'shipping_district': row[16] or None,  # Distrito de envío
+                'is_cod': row[17] == 'yes'  # Pago contraentrega
             }
 
             # Agregar a la columna correspondiente (con fallback de seguridad)
@@ -995,7 +1004,9 @@ def get_order_detail(order_id):
                 -- Notas del cliente
                 o.customer_note,
                 -- DNI del cliente (guardado en billing company)
-                ba.company as customer_dni
+                ba.company as customer_dni,
+                -- Pago contraentrega (COD)
+                om_is_cod.meta_value as is_cod
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -1009,6 +1020,9 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_wc_orders_meta om_created
                 ON o.id = om_created.order_id
                 AND om_created.meta_key = '_created_by'
+            LEFT JOIN wpyz_wc_orders_meta om_is_cod
+                ON o.id = om_is_cod.order_id
+                AND om_is_cod.meta_key = '_is_cod'
             WHERE o.id = :order_id
         """)
 
@@ -1179,6 +1193,8 @@ def get_order_detail(order_id):
             'customer_note': order_result[16] or None,
             # DNI del cliente
             'customer_dni': order_result[17] or None,
+            # Pago contraentrega (COD)
+            'is_cod': order_result[18] == 'yes',
             'products': products_list
         }
 
@@ -1439,10 +1455,16 @@ def bulk_tracking_simple():
         # Formatear fecha para el mensaje
         fecha_formateada = format_date_spanish(shipping_date)
 
-        # Plantillas de mensajes con fecha dinámica
+        # Plantillas de mensajes con fecha dinámica (normal y COD)
         message_templates = {
-            'chamo': f"Hola, somos izistore. Su pedido estará llegando el {fecha_formateada} entre las 11:00 am y 7:00 pm.",
-            'dinsides': f"Hola, somos izistore. Su pedido está programado para ser entregado el {fecha_formateada} entre las 11:00 AM y 7:00 PM."
+            'chamo': {
+                'normal': f"Hola, somos izistore. Su pedido estará llegando el {fecha_formateada} entre las 11:00 am y 7:00 pm.",
+                'cod': f"Hola, somos izistore. Su pedido estará llegando el {fecha_formateada} entre las 11:00 am y 7:00 pm.\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\nMonto a cancelar: S/ {{monto}}\n\nPor favor, tenga el monto exacto disponible para el courier."
+            },
+            'dinsides': {
+                'normal': f"Hola, somos izistore. Su pedido está programado para ser entregado el {fecha_formateada} entre las 11:00 AM y 7:00 PM.",
+                'cod': f"Hola, somos izistore. Su pedido está programado para ser entregado el {fecha_formateada} entre las 11:00 AM y 7:00 PM.\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\nMonto a cancelar: S/ {{monto}}\n\nPor favor, tenga el monto exacto disponible para el courier."
+            }
         }
 
         # Proveedores por columna
@@ -1451,7 +1473,6 @@ def bulk_tracking_simple():
             'dinsides': "Dinsides Courier"
         }
 
-        tracking_message = message_templates[column]
         shipping_provider = providers[column]
         date_shipped = shipping_date  # Usar la fecha seleccionada
         timestamp = int(datetime.utcnow().timestamp())
@@ -1487,6 +1508,16 @@ def bulk_tracking_simple():
 
                 # Obtener número de pedido
                 order_number = order.get_meta('_order_number') or f"#{order_id}"
+
+                # Verificar si es pedido COD y generar mensaje personalizado
+                is_cod = order.get_meta('_is_cod') == 'yes'
+                if is_cod:
+                    tracking_message = message_templates[column]['cod'].format(
+                        monto=f"{float(order.total_amount):.2f}"
+                    )
+                    current_app.logger.info(f"[BULK-TRACKING-SIMPLE] Pedido {order_number} es COD, usando mensaje personalizado")
+                else:
+                    tracking_message = message_templates[column]['normal']
 
                 # Crear tracking items en formato PHP serializado
                 tracking_items = [{

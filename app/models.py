@@ -680,6 +680,7 @@ class OrderExternal(db.Model):
     customer_note = db.Column(db.Text)
     created_by = db.Column(db.String(100))
     external_source = db.Column(db.String(100))  # marketplace, tienda física, etc.
+    is_cod = db.Column(db.Boolean, default=False, nullable=False)  # Pago contraentrega (Cash On Delivery)
 
     # Relaciones
     items = db.relationship('OrderExternalItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')

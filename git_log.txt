@@ -1,0 +1,15 @@
+﻿ec9fdbd fix(quotations): resolve JSON serialization error in edit template
+da1d7bb feat(quotations): implement WooCommerce order conversion - Phase 6 complete
+44139f0 feat(quotations): implement PDF generation - Phase 5 complete
+ecff67a feat(quotations): implement creation and edit wizards - Phase 4 complete
+2d8d9cf feat(quotations): add list and detail views - Phase 3 progress
+07263c9 feat(quotations): implement base quotations module - Phase 1 & 2
+c75877e feat(reports): add WooCommerce order ID column to reports
+e1160d1 perf(reports): improve loading times for external orders
+69c9129 fix(reports): minor correction in earnings report
+1fd0ee2 refactor(reports): optimize earnings report loading and reduce code complexity
+58c6b03 fix(admin): minor adjustments to backup module
+b4725ab feat(admin): enhance backup functionality with additional features
+71a6942 feat(purchases): add pagination to purchases module and update sidebar navigation
+b298997 refactor(base): optimize base.html template structure
+f26f1c5 feat: implement new features in admin and orders modules
