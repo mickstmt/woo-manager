@@ -23,7 +23,7 @@ ORDER BY c.comment_date ASC;
 
 
 -- ============================================
--- 2. Action Scheduler - Acciones ejecutadas cerca del incidente
+-- 2. Action Scheduler - Acciones ejecutadas cerca del incidente 
 -- ============================================
 -- Buscar acciones programadas que se ejecutaron entre 11:30 - 11:35
 SELECT
