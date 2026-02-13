@@ -1296,10 +1296,14 @@
     }
 
     function renderWooCommerceOrders(orders) {
+        const container = $('#orders-container-woocommerce');
+
         if (orders.length === 0) {
-            $('#orders-container-woocommerce').html(`
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> No se encontraron pedidos de WooCommerce
+            container.html(`
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">No se encontraron pedidos</h5>
+                    <p>Intenta con otros filtros de búsqueda</p>
                 </div>
             `);
             return;
@@ -1307,85 +1311,73 @@
 
         let html = '';
         orders.forEach(order => {
-            // Determinar clase de badge según estado
-            let badgeClass = 'bg-secondary';
-            let statusText = order.status.replace('wc-', '');
+            const statusClass = order.status.includes('trash') ? 'secondary' :
+                order.status.includes('delivered') ? 'success' :
+                    order.status.includes('completed') ? 'info' :
+                        order.status.includes('cancelled') ? 'danger' : 'warning';
 
-            switch (order.status) {
-                case 'wc-pending':
-                    badgeClass = 'bg-warning';
-                    statusText = 'Pendiente';
-                    break;
-                case 'wc-processing':
-                    badgeClass = 'bg-info';
-                    statusText = 'Procesando';
-                    break;
-                case 'wc-completed':
-                    badgeClass = 'bg-success';
-                    statusText = 'Completado';
-                    break;
-                case 'wc-cancelled':
-                    badgeClass = 'bg-danger';
-                    statusText = 'Cancelado';
-                    break;
-                case 'wc-on-hold':
-                    badgeClass = 'bg-secondary';
-                    statusText = 'En espera';
-                    break;
-            }
+            const statusText = order.status === 'trash' ? 'PAPELERA' :
+                order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
 
-            const isCod = order.is_cod === 'yes';
             const isCommunity = order.is_community === 'yes';
+            const customerName = `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim() || 'Sin nombre';
 
             html += `
-                <div class="order-card">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h5 class="mb-2">
-                                <span class="badge ${badgeClass}">${statusText}</span>
-                                Pedido ${order.order_number}
-                                ${isCod ? '<span class="badge bg-warning text-dark"><i class="bi bi-cash"></i> COD</span>' : ''}
-                                ${isCommunity ? '<span class="badge bg-info"><i class="bi bi-people"></i> Comunidad</span>' : ''}
-                                ${order.order_source ? `<span class="badge bg-secondary">${order.order_source}</span>` : ''}
-                            </h5>
-                            <p class="mb-1">
-                                <strong><i class="bi bi-person"></i> ${order.customer_first_name || ''} ${order.customer_last_name || ''}</strong>
-                            </p>
-                            <p class="mb-1 text-muted">
-                                <i class="bi bi-envelope"></i> ${order.customer_email}
-                                ${order.customer_phone ? `| <i class="bi bi-telephone"></i> ${order.customer_phone}` : ''}
-                            </p>
-                            <p class="mb-1 text-muted">
-                                <i class="bi bi-truck"></i> ${order.shipping_method || 'Sin método de envío'}
-                                ${order.tracking_number ? ' | <span class="badge bg-success">Con tracking</span>' : ''}
-                            </p>
-                            <p class="mb-0 text-muted small">
-                                <i class="bi bi-calendar"></i> ${order.date_created} |
-                                <i class="bi bi-box-seam"></i> ${order.items_count} item(s)
-                            </p>
-                        </div>
-                        <div class="col-md-4 text-end">
-                            <h4 class="mb-3 text-primary">${order.currency} ${parseFloat(order.total_amount).toFixed(2)}</h4>
-                            <div class="btn-group-vertical w-100" role="group">
-                                <a href="https://www.izistoreperu.com/wp-admin/post.php?post=${order.id}&action=edit"
-                                   target="_blank"
-                                   class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-wordpress"></i> Ver en WooCommerce
-                                </a>
-                                <button class="btn btn-sm btn-outline-primary" onclick="editOrder(${order.id})">
-                                    <i class="bi bi-pencil"></i> Editar
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrderWooCommerce(${order.id}, '${order.order_number}')">
-                                    <i class="bi bi-trash"></i> Eliminar
-                                </button>
-                            </div>
+            <div class="order-card">
+                <div class="row align-items-center">
+                    <div class="col-6 col-md-1">
+                        <h5 class="mb-0 text-primary">${order.order_number}</h5>
+                        <small class="text-muted d-none d-md-inline">ID: ${order.id}</small>
+                        ${isCommunity ? '<div class="mt-1"><span class="badge" style="background-color: #6f42c1;">Comunidad</span></div>' : ''}
+                        <!-- Info condensada solo en móvil -->
+                        <div class="d-md-none mt-1">
+                            <span class="badge bg-${statusClass} status-badge">${statusText}</span>
                         </div>
                     </div>
+                    <div class="col-md-2 d-none d-md-block">
+                        <span class="badge bg-${statusClass} status-badge">${statusText}</span><br>
+                        ${order.order_source ? `<small class="text-muted"><i class="bi bi-tag"></i> ${order.order_source}</small>` : '<small class="text-muted"><i class="bi bi-globe"></i> Web</small>'}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <strong class="order-customer-name">${customerName}</strong><br>
+                        <small class="text-muted d-none d-md-inline">${order.customer_email}</small>
+                        <small class="text-muted d-none d-md-inline"><br><i class="bi bi-phone"></i> ${order.customer_phone || 'N/A'}</small>
+                        <!-- Solo teléfono en móvil -->
+                        <small class="text-muted d-md-none"><i class="bi bi-phone"></i> ${order.customer_phone || 'N/A'}</small>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <strong>${order.currency} ${parseFloat(order.total_amount).toFixed(2)}</strong><br>
+                        <small class="text-muted d-none d-md-inline">${order.payment_method_title || order.payment_method || 'N/A'}</small>
+                    </div>
+                    <div class="col-md-2 d-none d-md-block">
+                        <small class="text-muted">${order.date_created}</small><br>
+                        <small class="text-muted"><i class="bi bi-box"></i> ${order.items_count} item(s)</small><br>
+                        <small class="text-muted"><i class="bi bi-truck"></i> ${order.shipping_method || 'N/A'}</small><br>
+                        ${order.tracking_number ?
+                    `<small class="text-success"><i class="bi bi-check-circle-fill"></i> Con tracking</small>` :
+                    `<small class="text-muted"><i class="bi bi-dash-circle"></i> Sin tracking</small>`
+                }
+                    </div>
+                    <div class="col-6 col-md-2 text-end d-flex flex-column gap-2 justify-content-end align-items-end">
+                        <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-warning w-100 w-md-auto">
+                            <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-lg-inline">Ver en WooCommerce</span>
+                        </a>
+                        ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
+                    `<a href="/orders/edit/${order.id}" class="btn btn-sm btn-primary w-100 w-md-auto">
+                            <i class="bi bi-pencil"></i> <span class="d-none d-lg-inline">Editar</span>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100 w-md-auto" onclick="confirmTrashOrder(${order.id}, '${order.order_number}')">
+                            <i class="bi bi-trash"></i> <span class="d-none d-lg-inline">Papelera</span>
+                        </button>` : ''}
+                    </div>
                 </div>
-            `;
+            </div>
+        `;
         });
 
-        $('#orders-container-woocommerce').html(html);
+        container.html(html);
     }
 
     function renderPaginationWooCommerce(pagination) {
@@ -1425,29 +1417,6 @@
     function gotoPageWooCommerce(page) {
         currentPageWooCommerce = page;
         loadOrdersWooCommerce();
-    }
-
-    function deleteOrderWooCommerce(orderId, orderNumber) {
-        if (!confirm(`¿Está seguro de eliminar el pedido ${orderNumber}? Esta acción no se puede deshacer.`)) {
-            return;
-        }
-
-        $.ajax({
-            url: `/orders/api/delete/${orderId}`,
-            method: 'DELETE',
-            success: function (response) {
-                if (response.success) {
-                    showNotification('success', 'Pedido eliminado exitosamente');
-                    loadOrdersWooCommerce();
-                    updateOrderCounts();
-                } else {
-                    showNotification('error', response.error || 'Error al eliminar pedido');
-                }
-            },
-            error: function () {
-                showNotification('error', 'Error de conexión');
-            }
-        });
     }
 
     // ============================================
@@ -2065,13 +2034,14 @@
                         msg += ' Stock restaurado correctamente.';
                     }
 
-                    // Mostrar notificación
-                    // Asumiendo que existe showNotification o usamos alert/toast
-                    // Aquí usaremos un alert simple o reload si no hay toast global accesible facil
-                    // Pero orders_list suele tener refresh
-
-                    // Reload orders
-                    loadOrders(currentPage);
+                    // Reload orders según la pestaña activa
+                    if (currentChannel === 'woocommerce') {
+                        loadOrdersWooCommerce();
+                    } else if (currentChannel === 'external') {
+                        loadOrdersExternal();
+                    } else {
+                        loadOrders(currentPage);
+                    }
 
                     // Mostrar feedback (si hay toast container global)
                     if (typeof showToast === 'function') {
