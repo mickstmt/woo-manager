@@ -876,8 +876,8 @@ def list_woocommerce():
         # Limitar per_page
         per_page = min(per_page, 100)
 
-        # Query optimizada - Solo pedidos SIN _order_number (W-XXXXX) desde 2025-01-01
-        query = text("""
+        # Query base (como string, no TextClause todavía)
+        query_template = """
             SELECT DISTINCT
                 o.id,
                 o.status,
@@ -921,10 +921,10 @@ def list_woocommerce():
             {source_filter}
             ORDER BY o.date_created_gmt DESC
             LIMIT :limit OFFSET :offset
-        """)
+        """
 
-        # Query para contar total
-        count_query = text("""
+        # Query para contar total (como string)
+        count_query_template = """
             SELECT COUNT(DISTINCT o.id)
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_order_number
@@ -939,7 +939,7 @@ def list_woocommerce():
             {search_filter}
             {status_filter}
             {source_filter}
-        """)
+        """
 
         # Construir filtros dinámicos
         search_filter = ""
@@ -977,21 +977,21 @@ def list_woocommerce():
             source_filter_clause = "AND om_source.meta_value = :source"
             params['source'] = source_filter
 
-        # Reemplazar placeholders
-        final_query = query.statement.format(
+        # Reemplazar placeholders en los strings
+        final_query_str = query_template.format(
             search_filter=search_filter,
             status_filter=status_filter_clause,
             source_filter=source_filter_clause
         )
-        final_count_query = count_query.statement.format(
+        final_count_query_str = count_query_template.format(
             search_filter=search_filter,
             status_filter=status_filter_clause,
             source_filter=source_filter_clause
         )
 
         # Ejecutar queries
-        result = db.session.execute(text(final_query), params).fetchall()
-        total_count = db.session.execute(text(final_count_query), params).scalar()
+        result = db.session.execute(text(final_query_str), params).fetchall()
+        total_count = db.session.execute(text(final_count_query_str), params).scalar()
 
         # Formatear resultados
         import pytz
