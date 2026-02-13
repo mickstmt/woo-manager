@@ -1381,37 +1381,41 @@
     }
 
     function renderPaginationWooCommerce(pagination) {
+        const container = $('#pagination-container-woocommerce');
+
         if (pagination.pages <= 1) {
-            $('#pagination-container-woocommerce').html('');
+            container.html('');
             return;
         }
 
         let html = '<nav><ul class="pagination justify-content-center">';
 
-        // Botón anterior
-        if (pagination.has_prev) {
-            html += `<li class="page-item">
-                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.prev_num}); return false;">Anterior</a>
-                    </li>`;
-        }
+        // Anterior
+        html += `<li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.prev_num}); return false;">Anterior</a>
+             </li>`;
 
-        // Números de página
+        // Números de página (con lógica inteligente)
         for (let i = 1; i <= pagination.pages; i++) {
-            const isActive = i === pagination.page ? 'active' : '';
-            html += `<li class="page-item ${isActive}">
-                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${i}); return false;">${i}</a>
-                    </li>`;
+            if (i === pagination.page) {
+                // Página actual
+                html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+            } else if (i === 1 || i === pagination.pages || Math.abs(i - pagination.page) <= 2) {
+                // Primera, última, o páginas cercanas (±2)
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="gotoPageWooCommerce(${i}); return false;">${i}</a></li>`;
+            } else if (Math.abs(i - pagination.page) === 3) {
+                // Mostrar "..." en la posición 3 de distancia
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
         }
 
-        // Botón siguiente
-        if (pagination.has_next) {
-            html += `<li class="page-item">
-                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.next_num}); return false;">Siguiente</a>
-                    </li>`;
-        }
+        // Siguiente
+        html += `<li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.next_num}); return false;">Siguiente</a>
+             </li>`;
 
         html += '</ul></nav>';
-        $('#pagination-container-woocommerce').html(html);
+        container.html(html);
     }
 
     function gotoPageWooCommerce(page) {
