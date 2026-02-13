@@ -2717,7 +2717,8 @@ def mark_as_delivered():
         result = db.session.execute(shipping_query, {'order_id': order_id}).fetchone()
         shipping_method = result[0] if result and result[0] else ''
 
-        if 'Recojo' not in shipping_method:
+        # Validar que sea exactamente "Recojo en Almacén" (NO "Recojo Agencia Shalom")
+        if shipping_method != 'Recojo en Almacén':
             return jsonify({
                 'success': False,
                 'error': 'Este endpoint solo funciona para pedidos de Recojo en Almacén'

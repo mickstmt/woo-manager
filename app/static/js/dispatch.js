@@ -450,15 +450,15 @@ function createOrderCard(order, columnMethod) {
                 <i class="bi bi-wordpress"></i>
             </a>`;
 
-    // Botón "Entregado" solo para pedidos de Recojo en Almacén
-    const isRecojo = order.shipping_method && order.shipping_method.includes('Recojo');
-    if (isRecojo) {
+    // Botón "Entregado" solo para pedidos de "Recojo en Almacén" (NO "Recojo Agencia Shalom")
+    // Para otros métodos de envío, mostrar botón de "Agregar Tracking"
+    const isRecojoAlmacen = order.shipping_method && order.shipping_method === 'Recojo en Almacén';
+    if (isRecojoAlmacen) {
         html += `
             <button class="btn btn-primary btn-icon" onclick="markAsDelivered(${order.id}, '${order.number}')" title="Marcar como Entregado">
                 <i class="bi bi-box-seam"></i>
             </button>`;
     } else {
-        // Botón "Agregar Tracking" para otros métodos de envío
         html += `
             <button class="btn btn-outline-success btn-icon" onclick="showTrackingModal(${order.id}, '${order.number}')" title="Agregar Tracking">
                 <i class="bi bi-truck"></i>
@@ -741,9 +741,9 @@ async function showOrderDetail(orderId) {
         // Actualizar botones de navegación
         updateNavigationButtons();
 
-        // Mostrar/ocultar botón "Entregado" según si es pedido de Recojo
+        // Mostrar/ocultar botón "Entregado" según si es pedido de Recojo en Almacén (NO Recojo Agencia Shalom)
         const btnMarkDelivered = document.getElementById('btn-mark-delivered');
-        const isRecojo = order.shipping_method && order.shipping_method.includes('Recojo');
+        const isRecojo = order.shipping_method && order.shipping_method === 'Recojo en Almacén';
         if (btnMarkDelivered) {
             btnMarkDelivered.style.display = isRecojo ? 'inline-block' : 'none';
         }
