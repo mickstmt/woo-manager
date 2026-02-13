@@ -1108,6 +1108,8 @@ function handleProviderChange() {
     const messageTextarea = document.getElementById('tracking-message');
     const codBadge = document.getElementById('tracking-cod-badge');
     const codInfo = document.getElementById('tracking-cod-info');
+    const trackingNumberRequired = document.getElementById('tracking-number-required');
+    const trackingNumberHelp = document.getElementById('tracking-number-help');
 
     const provider = providerSelect.value;
 
@@ -1116,14 +1118,18 @@ function handleProviderChange() {
         trackingNumberInput.value = 'RECOJO';
         trackingNumberInput.disabled = true;
         trackingNumberInput.required = false;
+        trackingNumberRequired.textContent = '';
+        trackingNumberHelp.textContent = 'Se generará automáticamente';
         messageContainer.style.display = 'none';
         return;
     }
 
-    // Habilitar tracking number
+    // Habilitar tracking number por defecto
     trackingNumberInput.value = '';
     trackingNumberInput.disabled = false;
     trackingNumberInput.required = true;
+    trackingNumberRequired.textContent = '*';
+    trackingNumberHelp.textContent = 'Ingrese el código de seguimiento del envío';
 
     // Mostrar mensaje solo para CHAMO y DINSIDES
     if (provider === 'Motorizado Izi' || provider === 'Dinsides Courier') {
@@ -1136,16 +1142,26 @@ function handleProviderChange() {
         const message = generateIndividualTrackingMessage(provider, dateShipped, currentOrderData);
         messageTextarea.value = message;
 
-        // Mostrar/ocultar badge COD
-        if (currentOrderData && currentOrderData.is_cod) {
+        // Si es COD, hacer tracking_number OPCIONAL (porque se usará el mensaje)
+        const isCOD = currentOrderData && currentOrderData.is_cod;
+        if (isCOD) {
+            trackingNumberInput.required = false;
+            trackingNumberInput.placeholder = 'Opcional - Se usará el mensaje personalizado COD';
+            trackingNumberRequired.textContent = '';
+            trackingNumberHelp.innerHTML = '<span class="text-info">✓ Opcional para pedidos COD - Se usará el mensaje personalizado</span>';
             codBadge.style.display = 'inline-block';
             codInfo.style.display = 'inline';
         } else {
+            trackingNumberInput.required = true;
+            trackingNumberInput.placeholder = 'Ej: IZI26010841608660';
+            trackingNumberRequired.textContent = '*';
+            trackingNumberHelp.textContent = 'Ingrese el código de seguimiento del envío';
             codBadge.style.display = 'none';
             codInfo.style.display = 'none';
         }
     } else {
         messageContainer.style.display = 'none';
+        trackingNumberInput.placeholder = 'Ej: IZI26010841608660';
     }
 }
 
@@ -1158,8 +1174,18 @@ async function saveTracking() {
     const dateShipped = document.getElementById('tracking-date-shipped').value;
     const markAsShipped = document.getElementById('tracking-mark-shipped').checked;
 
+    // Obtener mensaje personalizado si aplica (CHAMO o DINSIDES)
+    let trackingMessage = null;
+    if (shippingProvider === 'Motorizado Izi' || shippingProvider === 'Dinsides Courier') {
+        trackingMessage = document.getElementById('tracking-message').value.trim();
+    }
+
     // Validar campos
-    if (!trackingNumber && shippingProvider !== 'Recojo en Almacén') {
+    // Tracking number es opcional si:
+    // 1. Es "Recojo en Almacén", O
+    // 2. Es CHAMO/DINSIDES con mensaje personalizado (COD)
+    const hasTrackingMessage = trackingMessage && trackingMessage.length > 0;
+    if (!trackingNumber && shippingProvider !== 'Recojo en Almacén' && !hasTrackingMessage) {
         showError('Por favor ingrese el número de tracking');
         return;
     }
@@ -1167,12 +1193,6 @@ async function saveTracking() {
     if (!shippingProvider) {
         showError('Por favor seleccione el proveedor de envío');
         return;
-    }
-
-    // Obtener mensaje personalizado si aplica (CHAMO o DINSIDES)
-    let trackingMessage = null;
-    if (shippingProvider === 'Motorizado Izi' || shippingProvider === 'Dinsides Courier') {
-        trackingMessage = document.getElementById('tracking-message').value.trim();
     }
 
     // Mostrar loading en el botón

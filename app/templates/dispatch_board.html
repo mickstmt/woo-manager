@@ -438,10 +438,12 @@
             <div class="modal-body">
                 <form id="tracking-form">
                     <div class="mb-3">
-                        <label for="tracking-number" class="form-label">Número de Tracking *</label>
+                        <label for="tracking-number" class="form-label" id="tracking-number-label">
+                            Número de Tracking <span id="tracking-number-required">*</span>
+                        </label>
                         <input type="text" class="form-control" id="tracking-number" placeholder="Ej: IZI26010841608660"
                             required>
-                        <small class="form-text text-muted">Ingrese el código de seguimiento del envío</small>
+                        <small class="form-text text-muted" id="tracking-number-help">Ingrese el código de seguimiento del envío</small>
                     </div>
 
                     <div class="mb-3">
