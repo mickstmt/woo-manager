@@ -419,6 +419,10 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <!-- Botón "Entregado" solo para pedidos de Recojo en Almacén -->
+                <button type="button" class="btn btn-primary" id="btn-mark-delivered" style="display: none;" onclick="markAsDelivered(currentOrderId, currentOrderData?.number)">
+                    <i class="bi bi-box-seam"></i> Marcar como Entregado
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -542,6 +546,42 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-success" id="btn-confirm-bulk" onclick="confirmBulkTracking()">
                     <i class="bi bi-check-circle"></i> Confirmar y Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Marcar como Entregado -->
+<div class="modal fade" id="confirmDeliveredModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-box-seam"></i> Confirmar Entrega
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    ¿Confirma que desea marcar el pedido <strong id="delivered-order-number"></strong> como <strong>ENTREGADO</strong>?
+                </p>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Esta acción:
+                    <ul class="mb-0 mt-2">
+                        <li>Cambiará el estado del pedido a "Completado"</li>
+                        <li>Registrará el evento en el historial de despacho</li>
+                        <li>El pedido desaparecerá del tablero Kanban</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-delivered" onclick="confirmMarkAsDelivered()">
+                    <i class="bi bi-check-circle"></i> Confirmar Entrega
                 </button>
             </div>
         </div>

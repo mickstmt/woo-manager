@@ -6,6 +6,8 @@ let currentOrderData = null;
 let sortableInstances = [];
 let currentVisibleOrderIds = []; // Lista de IDs de pedidos visibles
 let orderDetailModalInstance = null; // Instancia única del modal
+let pendingDeliveryOrderId = null; // ID del pedido a marcar como entregado
+let pendingDeliveryOrderNumber = null; // Número del pedido a marcar como entregado
 
 // ============================================
 // SELECCIÓN MASIVA CHAMO/DINSIDES
@@ -439,17 +441,31 @@ function createOrderCard(order, columnMethod) {
             <button class="btn btn-outline-primary btn-icon btn-detail" data-order-id="${order.id}" onclick="showOrderDetail(${order.id})" title="Ver Detalle">
                 <i class="bi bi-eye"></i>
             </button>
-            <button class="btn ${order.is_atendido ? 'btn-success' : 'btn-outline-success'} btn-icon btn-atendido" 
-                    onclick="toggleAtendido(${order.id}, ${order.is_atendido})" 
+            <button class="btn ${order.is_atendido ? 'btn-success' : 'btn-outline-success'} btn-icon btn-atendido"
+                    onclick="toggleAtendido(${order.id}, ${order.is_atendido})"
                     title="${order.is_atendido ? 'Marcar como Pendiente' : 'Marcar como Atendido/Empaquetado'}">
                 <i class="bi bi-check-circle${order.is_atendido ? '-fill' : ''}"></i>
             </button>
             <a href="https://www.izistoreperu.com/wp-admin/post.php?post=${order.id}&action=edit" target="_blank" class="btn btn-outline-secondary btn-icon" title="Ver en WooCommerce">
                 <i class="bi bi-wordpress"></i>
-            </a>
+            </a>`;
+
+    // Botón "Entregado" solo para pedidos de Recojo en Almacén
+    const isRecojo = order.shipping_method && order.shipping_method.includes('Recojo');
+    if (isRecojo) {
+        html += `
+            <button class="btn btn-primary btn-icon" onclick="markAsDelivered(${order.id}, '${order.number}')" title="Marcar como Entregado">
+                <i class="bi bi-box-seam"></i>
+            </button>`;
+    } else {
+        // Botón "Agregar Tracking" para otros métodos de envío
+        html += `
             <button class="btn btn-outline-success btn-icon" onclick="showTrackingModal(${order.id}, '${order.number}')" title="Agregar Tracking">
                 <i class="bi bi-truck"></i>
-            </button>
+            </button>`;
+    }
+
+    html += `
         </div>
     `;
 
@@ -724,6 +740,13 @@ async function showOrderDetail(orderId) {
 
         // Actualizar botones de navegación
         updateNavigationButtons();
+
+        // Mostrar/ocultar botón "Entregado" según si es pedido de Recojo
+        const btnMarkDelivered = document.getElementById('btn-mark-delivered');
+        const isRecojo = order.shipping_method && order.shipping_method.includes('Recojo');
+        if (btnMarkDelivered) {
+            btnMarkDelivered.style.display = isRecojo ? 'inline-block' : 'none';
+        }
 
         // Obtener o crear instancia del modal (reutilizar si ya existe)
         const modalElement = document.getElementById('orderDetailModal');
@@ -1255,6 +1278,91 @@ async function saveTracking() {
         // Restaurar botón
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Marcar pedido de Recojo en Almacén como Entregado
+ * @param {number} orderId - ID del pedido
+ * @param {string} orderNumber - Número del pedido
+ */
+function markAsDelivered(orderId, orderNumber) {
+    // Guardar datos temporalmente
+    pendingDeliveryOrderId = orderId;
+    pendingDeliveryOrderNumber = orderNumber;
+
+    // Actualizar número de pedido en el modal
+    document.getElementById('delivered-order-number').textContent = orderNumber;
+
+    // Mostrar modal de confirmación
+    const modal = new bootstrap.Modal(document.getElementById('confirmDeliveredModal'));
+    modal.show();
+}
+
+/**
+ * Confirmar y ejecutar el marcado como entregado
+ */
+async function confirmMarkAsDelivered() {
+    if (!pendingDeliveryOrderId || !pendingDeliveryOrderNumber) {
+        showError('Error: No hay pedido seleccionado');
+        return;
+    }
+
+    const orderId = pendingDeliveryOrderId;
+    const orderNumber = pendingDeliveryOrderNumber;
+
+    // Deshabilitar botón mientras procesa
+    const btn = document.getElementById('btn-confirm-delivered');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+
+    // Cerrar modal inmediatamente
+    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmDeliveredModal'));
+    if (modal) {
+        modal.hide();
+    }
+
+    try {
+        const response = await fetch('/dispatch/api/mark-as-delivered', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                order_id: orderId
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Error al marcar como entregado');
+        }
+
+        // Mostrar mensaje de éxito
+        showSuccess(`Pedido ${orderNumber} marcado como Entregado exitosamente`);
+
+        // Recargar pedidos para reflejar cambios
+        await loadOrders();
+
+        // Si el modal de detalles está abierto, cerrarlo
+        const detailModal = bootstrap.Modal.getInstance(document.getElementById('orderDetailModal'));
+        if (detailModal) {
+            detailModal.hide();
+        }
+
+        // Limpiar variables temporales
+        pendingDeliveryOrderId = null;
+        pendingDeliveryOrderNumber = null;
+
+    } catch (error) {
+        console.error('Error marcando como entregado:', error);
+        showError('Error al marcar como entregado: ' + error.message);
+    } finally {
+        // Restaurar botón
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
 
