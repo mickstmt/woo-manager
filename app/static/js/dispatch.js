@@ -418,8 +418,13 @@ function createOrderCard(order, columnMethod) {
             </div>
     `;
 
-    // Mostrar distrito solo para pedidos de "1 día hábil"
-    if (order.shipping_method && order.shipping_method.toLowerCase().includes('1 día') && order.shipping_district) {
+    // Mostrar distrito para pedidos de "1 día hábil" y "Olva Courier"
+    const mostrarDistrito = order.shipping_method && order.shipping_district && (
+        order.shipping_method.toLowerCase().includes('1 día') ||
+        order.shipping_method.toLowerCase().includes('olva')
+    );
+
+    if (mostrarDistrito) {
         html += `
             <div class="shipping-district mt-1">
                 <i class="bi bi-geo-alt-fill"></i>
