@@ -851,6 +851,215 @@ def list_orders():
         }), 500
 
 
+@bp.route('/api/list-woocommerce')
+@login_required
+def list_woocommerce():
+    """
+    Listar pedidos nativos de WooCommerce (sin W-XXXXX) desde 2025-01-01
+
+    Query params:
+    - page: número de página
+    - per_page: items por página
+    - search: búsqueda por ID, email, nombre, teléfono
+    - status: filtrar por estado del pedido
+    - source: filtrar por fuente del pedido (_order_source)
+    """
+    try:
+        from sqlalchemy import text
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        source_filter = request.args.get('source', '', type=str)
+
+        # Limitar per_page
+        per_page = min(per_page, 100)
+
+        # Query optimizada - Solo pedidos SIN _order_number (W-XXXXX) desde 2025-01-01
+        query = text("""
+            SELECT DISTINCT
+                o.id,
+                o.status,
+                o.total_amount,
+                o.currency,
+                o.billing_email,
+                o.payment_method,
+                o.payment_method_title,
+                o.date_created_gmt,
+                ba.first_name,
+                ba.last_name,
+                ba.phone,
+                CONCAT('#', o.id) as order_number,
+                om_source.meta_value as order_source,
+                om_is_cod.meta_value as is_cod,
+                om_is_community.meta_value as is_community,
+                (SELECT COUNT(*) FROM wpyz_woocommerce_order_items WHERE order_id = o.id AND order_item_type = 'line_item') as items_count,
+                (SELECT oi.order_item_name
+                 FROM wpyz_woocommerce_order_items oi
+                 WHERE oi.order_id = o.id AND oi.order_item_type = 'shipping'
+                 LIMIT 1) as shipping_method,
+                om_tracking.meta_value as tracking_number
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om_order_number
+                ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_orders_meta om_source
+                ON o.id = om_source.order_id AND om_source.meta_key = '_order_source'
+            LEFT JOIN wpyz_wc_orders_meta om_is_cod
+                ON o.id = om_is_cod.order_id AND om_is_cod.meta_key = '_is_cod'
+            LEFT JOIN wpyz_wc_orders_meta om_is_community
+                ON o.id = om_is_community.order_id AND om_is_community.meta_key = '_is_community'
+            LEFT JOIN wpyz_wc_orders_meta om_tracking
+                ON o.id = om_tracking.order_id AND om_tracking.meta_key = '_tracking_number'
+            LEFT JOIN wpyz_wc_order_addresses ba
+                ON o.id = ba.order_id AND ba.address_type = 'billing'
+            WHERE o.status != 'trash'
+              AND om_order_number.meta_value IS NULL
+              AND o.date_created_gmt >= '2025-01-01 00:00:00'
+            {search_filter}
+            {status_filter}
+            {source_filter}
+            ORDER BY o.date_created_gmt DESC
+            LIMIT :limit OFFSET :offset
+        """)
+
+        # Query para contar total
+        count_query = text("""
+            SELECT COUNT(DISTINCT o.id)
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om_order_number
+                ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_orders_meta om_source
+                ON o.id = om_source.order_id AND om_source.meta_key = '_order_source'
+            LEFT JOIN wpyz_wc_order_addresses ba
+                ON o.id = ba.order_id AND ba.address_type = 'billing'
+            WHERE o.status != 'trash'
+              AND om_order_number.meta_value IS NULL
+              AND o.date_created_gmt >= '2025-01-01 00:00:00'
+            {search_filter}
+            {status_filter}
+            {source_filter}
+        """)
+
+        # Construir filtros dinámicos
+        search_filter = ""
+        status_filter_clause = ""
+        source_filter_clause = ""
+        params = {
+            'limit': per_page,
+            'offset': (page - 1) * per_page
+        }
+
+        # Filtro de búsqueda
+        if search:
+            search_filter = """
+                AND (
+                    o.id = :search_id
+                    OR o.billing_email LIKE :search_like
+                    OR ba.first_name LIKE :search_like
+                    OR ba.last_name LIKE :search_like
+                    OR ba.phone LIKE :search_like
+                )
+            """
+            try:
+                params['search_id'] = int(search)
+            except ValueError:
+                params['search_id'] = 0
+            params['search_like'] = f'%{search}%'
+
+        # Filtro de estado
+        if status_filter:
+            status_filter_clause = "AND o.status = :status"
+            params['status'] = status_filter
+
+        # Filtro de fuente
+        if source_filter:
+            source_filter_clause = "AND om_source.meta_value = :source"
+            params['source'] = source_filter
+
+        # Reemplazar placeholders
+        final_query = query.statement.format(
+            search_filter=search_filter,
+            status_filter=status_filter_clause,
+            source_filter=source_filter_clause
+        )
+        final_count_query = count_query.statement.format(
+            search_filter=search_filter,
+            status_filter=status_filter_clause,
+            source_filter=source_filter_clause
+        )
+
+        # Ejecutar queries
+        result = db.session.execute(text(final_query), params).fetchall()
+        total_count = db.session.execute(text(final_count_query), params).scalar()
+
+        # Formatear resultados
+        import pytz
+        peru_tz = pytz.timezone('America/Lima')
+        orders = []
+
+        for row in result:
+            # Convertir fecha UTC a hora de Perú
+            if row.date_created_gmt:
+                date_created_utc = pytz.UTC.localize(row.date_created_gmt)
+                date_created_peru = date_created_utc.astimezone(peru_tz)
+                date_str = date_created_peru.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                date_str = None
+
+            orders.append({
+                'id': row.id,
+                'order_number': row.order_number,
+                'customer_first_name': row.first_name,
+                'customer_last_name': row.last_name,
+                'customer_email': row.billing_email,
+                'customer_phone': row.phone,
+                'total_amount': float(row.total_amount) if row.total_amount else 0.0,
+                'currency': row.currency,
+                'status': row.status,
+                'payment_method': row.payment_method,
+                'payment_method_title': row.payment_method_title,
+                'is_cod': row.is_cod,
+                'is_community': row.is_community,
+                'shipping_method': row.shipping_method,
+                'tracking_number': row.tracking_number,
+                'items_count': row.items_count,
+                'order_source': row.order_source,
+                'date_created': date_str
+            })
+
+        # Calcular paginación
+        total_pages = (total_count + per_page - 1) // per_page
+        has_prev = page > 1
+        has_next = page < total_pages
+        prev_num = page - 1 if has_prev else None
+        next_num = page + 1 if has_next else None
+
+        return jsonify({
+            'success': True,
+            'orders': orders,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total_count,
+                'pages': total_pages,
+                'has_prev': has_prev,
+                'has_next': has_next,
+                'prev_num': prev_num,
+                'next_num': next_num
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        current_app.logger.error(f'Error listing WooCommerce orders: {str(e)}\n{traceback.format_exc()}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/get-users')
 @login_required
 def get_users():
@@ -2406,18 +2615,33 @@ def list_external():
 @login_required
 def count_orders():
     """
-    Contar pedidos por canal (whatsapp o external)
+    Contar pedidos por canal (woocommerce, whatsapp o external)
 
     Query params:
-    - channel: 'whatsapp' o 'external'
+    - channel: 'woocommerce', 'whatsapp' o 'external'
     """
     try:
         from sqlalchemy import text
         channel = request.args.get('channel', 'whatsapp', type=str)
 
-        if channel == 'external':
+        if channel == 'woocommerce':
+            # Contar pedidos nativos de WooCommerce (sin _order_number) desde 2025-01-01
+            count_query = text("""
+                SELECT COUNT(DISTINCT o.id)
+                FROM wpyz_wc_orders o
+                LEFT JOIN wpyz_wc_orders_meta om_number ON o.id = om_number.order_id
+                    AND om_number.meta_key = '_order_number'
+                WHERE o.status != 'trash'
+                  AND om_number.meta_value IS NULL
+                  AND o.date_created_gmt >= '2025-01-01 00:00:00'
+            """)
+            result = db.session.execute(count_query).fetchone()
+            count = result[0] if result else 0
+
+        elif channel == 'external':
             count = OrderExternal.query.count()
-        else:
+
+        else:  # whatsapp
             # Contar pedidos de WhatsApp (creados por el manager)
             # Los pedidos del manager tienen meta_key '_created_by' con el username
             # y meta_key '_order_number' (sin formato W-, ese es solo visual en frontend)

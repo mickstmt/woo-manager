@@ -148,27 +148,102 @@
 
         <!-- Pestañas de canales -->
         <ul class="nav nav-tabs mb-3" id="orderChannelTabs" role="tablist">
+            <!-- Pestaña 1: Pedidos WooCommerce (PRINCIPAL) -->
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="whatsapp-tab" data-bs-toggle="tab" data-bs-target="#whatsapp-orders"
-                    type="button" role="tab" aria-controls="whatsapp-orders" aria-selected="true"
+                <button class="nav-link active" id="woocommerce-tab" data-bs-toggle="tab" data-bs-target="#woocommerce-orders"
+                    type="button" role="tab" aria-controls="woocommerce-orders" aria-selected="true"
+                    onclick="switchChannel('woocommerce')">
+                    <i class="bi bi-cart3"></i> Pedidos Tienda
+                    <span class="badge bg-primary ms-2" id="woocommerce-count">0</span>
+                </button>
+            </li>
+            <!-- Pestaña 2: Pedidos WhatsApp -->
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="whatsapp-tab" data-bs-toggle="tab" data-bs-target="#whatsapp-orders"
+                    type="button" role="tab" aria-controls="whatsapp-orders" aria-selected="false"
                     onclick="switchChannel('whatsapp')">
                     <i class="bi bi-whatsapp"></i> Pedidos WhatsApp
                     <span class="badge bg-success ms-2" id="whatsapp-count">0</span>
                 </button>
             </li>
+            <!-- Pestaña 3: Pedidos Externos -->
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="external-tab" data-bs-toggle="tab" data-bs-target="#external-orders"
                     type="button" role="tab" aria-controls="external-orders" aria-selected="false"
                     onclick="switchChannel('external')">
                     <i class="bi bi-shop"></i> Pedidos Externos
-                    <span class="badge bg-primary ms-2" id="external-count">0</span>
+                    <span class="badge bg-warning ms-2" id="external-count">0</span>
                 </button>
             </li>
         </ul>
 
         <div class="tab-content" id="orderChannelTabsContent">
+
+            <!-- Tab WooCommerce (PRINCIPAL - ACTIVO) -->
+            <div class="tab-pane fade show active" id="woocommerce-orders" role="tabpanel" aria-labelledby="woocommerce-tab">
+                <!-- Filtros para WooCommerce -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="search-input-woocommerce"
+                                        placeholder="Buscar por ID, email, nombre, teléfono...">
+                                    <button class="btn btn-primary" onclick="searchOrdersWooCommerce()">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="status-filter-woocommerce">
+                                    <option value="">Todos los estados</option>
+                                    <option value="wc-pending">Pendiente</option>
+                                    <option value="wc-processing">Procesando</option>
+                                    <option value="wc-on-hold">En espera</option>
+                                    <option value="wc-completed">Completado</option>
+                                    <option value="wc-cancelled">Cancelado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="source-filter-woocommerce">
+                                    <option value="">Todas las fuentes</option>
+                                    <option value="web">Web</option>
+                                    <option value="marketplace">Marketplace</option>
+                                    <option value="manual">Manual</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="per-page-select-woocommerce">
+                                    <option value="20">20 por página</option>
+                                    <option value="50">50 por página</option>
+                                    <option value="100">100 por página</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading-woocommerce" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando pedidos...</p>
+                </div>
+
+                <!-- Lista de pedidos WooCommerce -->
+                <div id="orders-container-woocommerce"></div>
+
+                <!-- Paginación WooCommerce -->
+                <div id="pagination-container-woocommerce" class="mt-3"></div>
+            </div>
+            <!-- Fin Tab WooCommerce -->
+
             <!-- Tab WhatsApp -->
-            <div class="tab-pane fade show active" id="whatsapp-orders" role="tabpanel" aria-labelledby="whatsapp-tab">
+            <div class="tab-pane fade" id="whatsapp-orders" role="tabpanel" aria-labelledby="whatsapp-tab">
                 <!-- Filtros para WhatsApp -->
                 <div class="card mb-3">
                     <div class="card-body">
@@ -588,7 +663,7 @@
 {% block extra_js %}
 <script>
     // Variables globales
-    let currentChannel = 'whatsapp'; // 'whatsapp' o 'external'
+    let currentChannel = 'woocommerce'; // 'woocommerce', 'whatsapp' o 'external'
     let currentPage = 1;
     let perPage = 20;
     let searchTerm = '';
@@ -597,15 +672,22 @@
     let sourceFilter = ''; // Para pedidos externos
     let selectedProducts = [];
 
+    // Variables para WooCommerce
+    let currentPageWooCommerce = 1;
+    let perPageWooCommerce = 20;
+    let searchTermWooCommerce = '';
+    let statusFilterWooCommerce = '';
+    let sourceFilterWooCommerce = '';
+
     // Variables para externos
     let currentPageExternal = 1;
     let perPageExternal = 20;
     let searchTermExternal = '';
 
     $(document).ready(function () {
-        // Cargar usuarios y pedidos
+        // Cargar usuarios y pedidos WooCommerce (pestaña principal)
         loadUsers();
-        loadOrders();
+        loadOrdersWooCommerce();
 
         // Cargar contadores
         updateOrderCounts();
@@ -663,6 +745,46 @@
                 }
             }, 600);
         });
+
+        // ========================================
+        // Event Listeners para Pedidos WooCommerce
+        // ========================================
+
+        // Enter para buscar pedidos WooCommerce
+        $('#search-input-woocommerce').on('keypress', function (e) {
+            if (e.which === 13) {
+                searchOrdersWooCommerce();
+            }
+        });
+
+        // Búsqueda en tiempo real - Pedidos WooCommerce (Debounced)
+        let searchOrdersWooCommerceTimeout;
+        $('#search-input-woocommerce').on('input', function () {
+            clearTimeout(searchOrdersWooCommerceTimeout);
+            searchOrdersWooCommerceTimeout = setTimeout(() => {
+                const query = $(this).val().trim();
+                if (query.length >= 3 || query.length === 0) {
+                    searchOrdersWooCommerce();
+                }
+            }, 600);
+        });
+
+        // Filtros WooCommerce
+        $('#status-filter-woocommerce').on('change', function () {
+            searchOrdersWooCommerce();
+        });
+
+        $('#source-filter-woocommerce').on('change', function () {
+            searchOrdersWooCommerce();
+        });
+
+        $('#per-page-select-woocommerce').on('change', function () {
+            searchOrdersWooCommerce();
+        });
+
+        // ========================================
+        // Fin Event Listeners WooCommerce
+        // ========================================
 
         // Enter para buscar pedidos externos
         $('#search-input-external').on('keypress', function (e) {
@@ -1110,12 +1232,227 @@
 
     function switchChannel(channel) {
         currentChannel = channel;
-        if (channel === 'external') {
+        if (channel === 'woocommerce') {
+            loadOrdersWooCommerce();
+        } else if (channel === 'external') {
             loadOrdersExternal();
         } else {
-            loadOrders();
+            loadOrders(); // whatsapp
         }
     }
+
+    // ============================================
+    // FUNCIONES PARA PEDIDOS WOOCOMMERCE
+    // ============================================
+
+    function loadOrdersWooCommerce() {
+        $('#loading-woocommerce').show();
+        $('#orders-container-woocommerce').hide();
+
+        $.ajax({
+            url: '/orders/api/list-woocommerce',
+            method: 'GET',
+            data: {
+                page: currentPageWooCommerce,
+                per_page: perPageWooCommerce,
+                search: searchTermWooCommerce,
+                status: statusFilterWooCommerce,
+                source: sourceFilterWooCommerce
+            },
+            success: function (response) {
+                $('#loading-woocommerce').hide();
+                $('#orders-container-woocommerce').show();
+
+                if (response.success) {
+                    renderWooCommerceOrders(response.orders);
+                    renderPaginationWooCommerce(response.pagination);
+                    $('#woocommerce-count').text(response.pagination.total);
+                } else {
+                    $('#orders-container-woocommerce').html(`
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> ${response.error || 'Error al cargar pedidos'}
+                        </div>
+                    `);
+                }
+            },
+            error: function (xhr) {
+                $('#loading-woocommerce').hide();
+                $('#orders-container-woocommerce').show().html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle"></i> Error de conexión
+                    </div>
+                `);
+            }
+        });
+    }
+
+    function searchOrdersWooCommerce() {
+        searchTermWooCommerce = $('#search-input-woocommerce').val();
+        statusFilterWooCommerce = $('#status-filter-woocommerce').val();
+        sourceFilterWooCommerce = $('#source-filter-woocommerce').val();
+        perPageWooCommerce = parseInt($('#per-page-select-woocommerce').val());
+        currentPageWooCommerce = 1;
+        loadOrdersWooCommerce();
+    }
+
+    function renderWooCommerceOrders(orders) {
+        if (orders.length === 0) {
+            $('#orders-container-woocommerce').html(`
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No se encontraron pedidos de WooCommerce
+                </div>
+            `);
+            return;
+        }
+
+        let html = '';
+        orders.forEach(order => {
+            // Determinar clase de badge según estado
+            let badgeClass = 'bg-secondary';
+            let statusText = order.status.replace('wc-', '');
+
+            switch (order.status) {
+                case 'wc-pending':
+                    badgeClass = 'bg-warning';
+                    statusText = 'Pendiente';
+                    break;
+                case 'wc-processing':
+                    badgeClass = 'bg-info';
+                    statusText = 'Procesando';
+                    break;
+                case 'wc-completed':
+                    badgeClass = 'bg-success';
+                    statusText = 'Completado';
+                    break;
+                case 'wc-cancelled':
+                    badgeClass = 'bg-danger';
+                    statusText = 'Cancelado';
+                    break;
+                case 'wc-on-hold':
+                    badgeClass = 'bg-secondary';
+                    statusText = 'En espera';
+                    break;
+            }
+
+            const isCod = order.is_cod === 'yes';
+            const isCommunity = order.is_community === 'yes';
+
+            html += `
+                <div class="order-card">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="mb-2">
+                                <span class="badge ${badgeClass}">${statusText}</span>
+                                Pedido ${order.order_number}
+                                ${isCod ? '<span class="badge bg-warning text-dark"><i class="bi bi-cash"></i> COD</span>' : ''}
+                                ${isCommunity ? '<span class="badge bg-info"><i class="bi bi-people"></i> Comunidad</span>' : ''}
+                                ${order.order_source ? `<span class="badge bg-secondary">${order.order_source}</span>` : ''}
+                            </h5>
+                            <p class="mb-1">
+                                <strong><i class="bi bi-person"></i> ${order.customer_first_name || ''} ${order.customer_last_name || ''}</strong>
+                            </p>
+                            <p class="mb-1 text-muted">
+                                <i class="bi bi-envelope"></i> ${order.customer_email}
+                                ${order.customer_phone ? `| <i class="bi bi-telephone"></i> ${order.customer_phone}` : ''}
+                            </p>
+                            <p class="mb-1 text-muted">
+                                <i class="bi bi-truck"></i> ${order.shipping_method || 'Sin método de envío'}
+                                ${order.tracking_number ? ' | <span class="badge bg-success">Con tracking</span>' : ''}
+                            </p>
+                            <p class="mb-0 text-muted small">
+                                <i class="bi bi-calendar"></i> ${order.date_created} |
+                                <i class="bi bi-box-seam"></i> ${order.items_count} item(s)
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h4 class="mb-3 text-primary">${order.currency} ${parseFloat(order.total_amount).toFixed(2)}</h4>
+                            <div class="btn-group-vertical w-100" role="group">
+                                <a href="https://www.izistoreperu.com/wp-admin/post.php?post=${order.id}&action=edit"
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-wordpress"></i> Ver en WooCommerce
+                                </a>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editOrder(${order.id})">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrderWooCommerce(${order.id}, '${order.order_number}')">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        $('#orders-container-woocommerce').html(html);
+    }
+
+    function renderPaginationWooCommerce(pagination) {
+        if (pagination.pages <= 1) {
+            $('#pagination-container-woocommerce').html('');
+            return;
+        }
+
+        let html = '<nav><ul class="pagination justify-content-center">';
+
+        // Botón anterior
+        if (pagination.has_prev) {
+            html += `<li class="page-item">
+                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.prev_num}); return false;">Anterior</a>
+                    </li>`;
+        }
+
+        // Números de página
+        for (let i = 1; i <= pagination.pages; i++) {
+            const isActive = i === pagination.page ? 'active' : '';
+            html += `<li class="page-item ${isActive}">
+                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${i}); return false;">${i}</a>
+                    </li>`;
+        }
+
+        // Botón siguiente
+        if (pagination.has_next) {
+            html += `<li class="page-item">
+                        <a class="page-link" href="#" onclick="gotoPageWooCommerce(${pagination.next_num}); return false;">Siguiente</a>
+                    </li>`;
+        }
+
+        html += '</ul></nav>';
+        $('#pagination-container-woocommerce').html(html);
+    }
+
+    function gotoPageWooCommerce(page) {
+        currentPageWooCommerce = page;
+        loadOrdersWooCommerce();
+    }
+
+    function deleteOrderWooCommerce(orderId, orderNumber) {
+        if (!confirm(`¿Está seguro de eliminar el pedido ${orderNumber}? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+
+        $.ajax({
+            url: `/orders/api/delete/${orderId}`,
+            method: 'DELETE',
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', 'Pedido eliminado exitosamente');
+                    loadOrdersWooCommerce();
+                    updateOrderCounts();
+                } else {
+                    showNotification('error', response.error || 'Error al eliminar pedido');
+                }
+            },
+            error: function () {
+                showNotification('error', 'Error de conexión');
+            }
+        });
+    }
+
+    // ============================================
+    // FIN FUNCIONES WOOCOMMERCE
+    // ============================================
 
     function loadOrdersExternal() {
         $('#loading-external').show();
@@ -1605,6 +1942,18 @@
     }
 
     function updateOrderCounts() {
+        // Actualizar contador de WooCommerce
+        $.ajax({
+            url: '/orders/count',
+            method: 'GET',
+            data: { channel: 'woocommerce' },
+            success: function (response) {
+                if (response.success) {
+                    $('#woocommerce-count').text(response.count);
+                }
+            }
+        });
+
         // Actualizar contador de WhatsApp
         $.ajax({
             url: '/orders/count',
