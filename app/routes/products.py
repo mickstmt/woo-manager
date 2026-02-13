@@ -72,9 +72,9 @@ def list_products():
                     parent_conditions.append(f"(p.ID = :{param_name})")
                     params[param_name] = term
                 elif is_numeric and term_len == 7:
-                    # Búsqueda por SKU exacto
-                    parent_conditions.append(f"(pm.meta_value = :{param_name})")
-                    params[param_name] = term
+                    # Búsqueda por SKU (exacto o compuesto como 1003226-VARIANTE)
+                    parent_conditions.append(f"(pm.meta_value LIKE :{param_name})")
+                    params[param_name] = f'{term}%'
                 else:
                     # Búsqueda por Título (parcial)
                     parent_conditions.append(f"(p.post_title LIKE :{param_name})")
@@ -107,8 +107,8 @@ def list_products():
                     # Si es 5 dígitos, buscar por ID de variación O ID padre
                     variation_conditions.append(f"(v.ID = :{param_name} OR v.post_parent = :{param_name})")
                 elif is_numeric and term_len == 7:
-                    # Si es 7 dígitos, buscar por SKU de variación
-                    variation_conditions.append(f"(vm.meta_value = :{param_name})")
+                    # Si es 7 dígitos, buscar por SKU de variación (exacto o compuesto)
+                    variation_conditions.append(f"(vm.meta_value LIKE :{param_name})")
                 else:
                     # Búsqueda por título de variación
                     variation_conditions.append(f"(v.post_title LIKE :{param_name})")
