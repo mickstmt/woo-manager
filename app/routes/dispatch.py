@@ -2669,3 +2669,97 @@ def bulk_tracking_olva_process():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@bp.route('/api/mark-as-delivered', methods=['POST'])
+@login_required
+@master_required
+def mark_as_delivered():
+    """
+    Marcar pedido de Recojo en Almacén como Entregado (completado).
+
+    Request Body:
+        {
+            "order_id": 42402
+        }
+
+    Returns:
+        JSON con confirmación del cambio
+    """
+    try:
+        data = request.get_json()
+        order_id = data.get('order_id')
+
+        # Validar parámetro requerido
+        if not order_id:
+            return jsonify({
+                'success': False,
+                'error': 'Parámetro faltante: order_id es requerido'
+            }), 400
+
+        # Validar que el pedido existe
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                'success': False,
+                'error': f'Pedido {order_id} no encontrado'
+            }), 404
+
+        # Validar que es un pedido de Recojo en Almacén
+        # Obtener shipping_method mediante SQL (no existe como atributo directo)
+        shipping_query = text("""
+            SELECT oi.order_item_name
+            FROM wpyz_woocommerce_order_items oi
+            WHERE oi.order_id = :order_id
+              AND oi.order_item_type = 'shipping'
+            LIMIT 1
+        """)
+        result = db.session.execute(shipping_query, {'order_id': order_id}).fetchone()
+        shipping_method = result[0] if result and result[0] else ''
+
+        if 'Recojo' not in shipping_method:
+            return jsonify({
+                'success': False,
+                'error': 'Este endpoint solo funciona para pedidos de Recojo en Almacén'
+            }), 400
+
+        current_app.logger.info(f"[DELIVERED] Order {order_id}: Marcando como entregado")
+
+        # Cambiar estado a wc-completed
+        order.status = 'wc-completed'
+        order.date_updated_gmt = datetime.utcnow()
+
+        # Registrar nota en el pedido
+        from app.models import OrderNote
+        note = OrderNote(
+            order_id=order_id,
+            note_type='system',
+            note=f'Pedido de Recojo en Almacén marcado como Entregado por {current_user.username}',
+            added_by=current_user.id
+        )
+        db.session.add(note)
+
+        db.session.commit()
+
+        current_app.logger.info(f"[DELIVERED] Order {order_id}: Marcado como entregado exitosamente")
+
+        # Obtener número de pedido para la respuesta
+        order_number = order.get_meta('_order_number') or f'#{order_id}'
+
+        return jsonify({
+            'success': True,
+            'order_id': order_id,
+            'order_number': order_number,
+            'new_status': 'wc-completed',
+            'message': 'Pedido marcado como Entregado exitosamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marcando pedido como entregado: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
