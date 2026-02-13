@@ -2729,22 +2729,22 @@ def mark_as_delivered():
         order.status = 'wc-completed'
         order.date_updated_gmt = datetime.utcnow()
 
-        # Registrar nota en el pedido
-        from app.models import OrderNote
-        note = OrderNote(
+        # Registrar en historial de despacho
+        order_number = order.get_meta('_order_number') or f'#{order_id}'
+        history_entry = DispatchHistory(
             order_id=order_id,
-            note_type='system',
-            note=f'Pedido de Recojo en Almacén marcado como Entregado por {current_user.username}',
-            added_by=current_user.id
+            order_number=order_number,
+            previous_shipping_method='Recojo en Almacén',
+            new_shipping_method='Recojo en Almacén',
+            changed_by=current_user.username,
+            changed_at=datetime.utcnow(),
+            dispatch_note=f'Marcado como ENTREGADO por {current_user.username}'
         )
-        db.session.add(note)
+        db.session.add(history_entry)
 
         db.session.commit()
 
         current_app.logger.info(f"[DELIVERED] Order {order_id}: Marcado como entregado exitosamente")
-
-        # Obtener número de pedido para la respuesta
-        order_number = order.get_meta('_order_number') or f'#{order_id}'
 
         return jsonify({
             'success': True,
