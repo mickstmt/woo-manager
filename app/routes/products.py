@@ -58,21 +58,34 @@ def list_products():
             params = {}
             for i, term in enumerate(search_terms):
                 param_name = f'term_{i}'
-                
+
                 # Reglas de búsqueda inteligente:
+                # - Si contiene guión y empieza con 7 dígitos: Buscar por SKU completo (ej: 1003228-CSHWGT4BR22M)
                 # - Si son 5 dígitos exactos: Buscar por ID
-                # - Si son 7 dígitos exactos: Buscar por SKU
+                # - Si son 7 dígitos exactos: Buscar por SKU base (ej: 1003226 → 1003226-VARIANTE)
                 # - Si no: Buscar solo por Título
-                
+
                 is_numeric = term.isdigit()
                 term_len = len(term)
-                
-                if is_numeric and term_len == 5:
+                has_dash = '-' in term
+
+                # Detectar SKU completo con guión (ej: 1003228-CSHWGT4BR22M)
+                if has_dash:
+                    parts = term.split('-')
+                    if len(parts) >= 2 and parts[0].isdigit() and len(parts[0]) == 7:
+                        # Búsqueda por SKU completo
+                        parent_conditions.append(f"(pm.meta_value LIKE :{param_name})")
+                        params[param_name] = f'%{term}%'
+                    else:
+                        # Si tiene guión pero no coincide con formato SKU, buscar por título
+                        parent_conditions.append(f"(p.post_title LIKE :{param_name})")
+                        params[param_name] = f'%{term}%'
+                elif is_numeric and term_len == 5:
                     # Búsqueda por ID exacto
                     parent_conditions.append(f"(p.ID = :{param_name})")
                     params[param_name] = term
                 elif is_numeric and term_len == 7:
-                    # Búsqueda por SKU (exacto o compuesto como 1003226-VARIANTE)
+                    # Búsqueda por SKU base (encuentra 1003226 y 1003226-VARIANTE)
                     parent_conditions.append(f"(pm.meta_value LIKE :{param_name})")
                     params[param_name] = f'{term}%'
                 else:
@@ -102,12 +115,22 @@ def list_products():
 
                 is_numeric = term.isdigit()
                 term_len = len(term)
+                has_dash = '-' in term
 
-                if is_numeric and term_len == 5:
+                # Detectar SKU completo con guión (ej: 1003228-CSHWGT4BR22M)
+                if has_dash:
+                    parts = term.split('-')
+                    if len(parts) >= 2 and parts[0].isdigit() and len(parts[0]) == 7:
+                        # Búsqueda por SKU completo de variación
+                        variation_conditions.append(f"(vm.meta_value LIKE :{param_name})")
+                    else:
+                        # Si tiene guión pero no coincide con formato SKU, buscar por título
+                        variation_conditions.append(f"(v.post_title LIKE :{param_name})")
+                elif is_numeric and term_len == 5:
                     # Si es 5 dígitos, buscar por ID de variación O ID padre
                     variation_conditions.append(f"(v.ID = :{param_name} OR v.post_parent = :{param_name})")
                 elif is_numeric and term_len == 7:
-                    # Si es 7 dígitos, buscar por SKU de variación (exacto o compuesto)
+                    # Si es 7 dígitos, buscar por SKU base de variación (encuentra 1003226 y 1003226-VARIANTE)
                     variation_conditions.append(f"(vm.meta_value LIKE :{param_name})")
                 else:
                     # Búsqueda por título de variación
