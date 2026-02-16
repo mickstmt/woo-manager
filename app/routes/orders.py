@@ -1084,7 +1084,7 @@ def get_order_detail(order_id):
                 o.id,
                 o.status,
                 o.date_created_gmt,
-                o.date_modified_gmt,
+                o.date_updated_gmt,
                 o.total_amount,
                 o.currency,
                 o.payment_method,
