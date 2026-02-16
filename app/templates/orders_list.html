@@ -1443,22 +1443,38 @@
             method: 'GET',
             success: function (response) {
                 if (response.success) {
-                    renderOrderDetail(response.order);
-                    $('#detail-loading').hide();
-                    $('#detail-content').show();
+                    try {
+                        renderOrderDetail(response.order);
+                        $('#detail-loading').hide();
+                        $('#detail-content').show();
+                    } catch (error) {
+                        console.error('Error rendering order detail:', error);
+                        showDetailError('Error al renderizar detalles del pedido: ' + error.message);
+                    }
                 } else {
                     showDetailError(response.error || 'Error al cargar detalles del pedido');
                 }
             },
-            error: function () {
+            error: function (xhr, status, error) {
+                console.error('AJAX error:', status, error);
                 showDetailError('Error de conexión al cargar detalles del pedido');
             }
         });
     }
 
     function renderOrderDetail(order) {
+        // Validar que order existe
+        if (!order) {
+            throw new Error('Order object is null or undefined');
+        }
+
+        // Asegurar que products existe como array
+        if (!order.products) {
+            order.products = [];
+        }
+
         // Número de pedido en el título
-        $('#detail-order-number').text(order.order_number);
+        $('#detail-order-number').text(order.order_number || 'N/A');
 
         // Información general
         const statusClass = order.status.includes('completed') ? 'success' :
@@ -1482,9 +1498,18 @@
 
         // Pago
         $('#detail-payment-method').text(order.payment_method_title || order.payment_method || 'N/A');
-        $('#detail-subtotal').text(`${order.currency} ${order.subtotal.toFixed(2)}`);
-        $('#detail-shipping-cost').text(`${order.currency} ${order.shipping.cost.toFixed(2)}`);
-        $('#detail-total').text(`${order.currency} ${order.total.toFixed(2)}`);
+        $('#detail-subtotal').text(`${order.currency} ${(order.subtotal || 0).toFixed(2)}`);
+        $('#detail-shipping-cost').text(`${order.currency} ${(order.shipping.cost || 0).toFixed(2)}`);
+
+        // Mostrar impuestos si existen
+        if (order.total_tax && order.total_tax > 0) {
+            $('#detail-tax').text(`${order.currency} ${order.total_tax.toFixed(2)}`);
+            $('#detail-tax-row').show();
+        } else {
+            $('#detail-tax-row').hide();
+        }
+
+        $('#detail-total').text(`${order.currency} ${(order.total || 0).toFixed(2)}`);
 
         // Badges (COD, Comunidad)
         let badges = '';
@@ -1502,8 +1527,8 @@
         }
 
         // Datos de facturación
-        const billing = order.billing;
-        $('#detail-billing-name').text(`${billing.first_name} ${billing.last_name}`.trim() || 'N/A');
+        const billing = order.billing || {};
+        $('#detail-billing-name').text(`${billing.first_name || ''} ${billing.last_name || ''}`.trim() || 'N/A');
         if (billing.company) {
             $('#detail-billing-company').text(billing.company).show();
         } else {
@@ -1517,8 +1542,8 @@
         $('#detail-billing-address').text(billingAddress);
 
         // Datos de envío
-        const shipping = order.shipping;
-        $('#detail-shipping-name').text(`${shipping.first_name} ${shipping.last_name}`.trim() || 'Igual que facturación');
+        const shipping = order.shipping || {};
+        $('#detail-shipping-name').text(`${shipping.first_name || ''} ${shipping.last_name || ''}`.trim() || 'Igual que facturación');
         if (shipping.company) {
             $('#detail-shipping-company').text(shipping.company).show();
         } else {
@@ -1540,19 +1565,31 @@
             $('#detail-tracking-row').hide();
         }
 
+        // Referencia de dirección
+        if (order.shipping.reference) {
+            $('#detail-shipping-reference').text(order.shipping.reference);
+            $('#detail-shipping-reference-row').show();
+        } else {
+            $('#detail-shipping-reference-row').hide();
+        }
+
         // Productos
         let productsHtml = '';
-        order.products.forEach(product => {
-            productsHtml += `
-                <tr>
-                    <td>${product.name}</td>
-                    <td><code>${product.sku}</code></td>
-                    <td class="text-center">${product.quantity}</td>
-                    <td class="text-end">${order.currency} ${product.price.toFixed(2)}</td>
-                    <td class="text-end fw-bold">${order.currency} ${product.total.toFixed(2)}</td>
-                </tr>
-            `;
-        });
+        if (order.products && order.products.length > 0) {
+            order.products.forEach(product => {
+                productsHtml += `
+                    <tr>
+                        <td>${product.name || 'N/A'}</td>
+                        <td><code>${product.sku || 'N/A'}</code></td>
+                        <td class="text-center">${product.quantity || 0}</td>
+                        <td class="text-end">${order.currency} ${(product.price || 0).toFixed(2)}</td>
+                        <td class="text-end fw-bold">${order.currency} ${(product.total || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            productsHtml = '<tr><td colspan="5" class="text-center text-muted">No hay productos</td></tr>';
+        }
         $('#detail-products-table').html(productsHtml);
 
         // Notas del cliente
@@ -1754,7 +1791,7 @@
             method: 'GET',
             success: function (response) {
                 if (response.success) {
-                    renderOrderDetail(response.order);
+                    renderExternalOrderDetail(response.order);
                 } else {
                     $('#viewOrderExternalContent').html(`
                     <div class="alert alert-danger">
@@ -1773,7 +1810,7 @@
         });
     }
 
-    function renderOrderDetail(order) {
+    function renderExternalOrderDetail(order) {
         const sourceLabels = {
             'marketplace': 'Marketplace',
             'tienda_fisica': 'Tienda Física',
@@ -1781,7 +1818,8 @@
         };
 
         let itemsHtml = '';
-        order.items.forEach(item => {
+        if (order.items && order.items.length > 0) {
+            order.items.forEach(item => {
             itemsHtml += `
             <tr>
                 <td>${item.product_name}</td>
@@ -1791,7 +1829,8 @@
                 <td class="text-end">S/ ${item.total.toFixed(2)}</td>
             </tr>
         `;
-        });
+            });
+        }
 
         const html = `
         <div class="row">
@@ -2226,6 +2265,10 @@
                                     <td class="fw-bold">Envío:</td>
                                     <td id="detail-shipping-cost"></td>
                                 </tr>
+                                <tr id="detail-tax-row" style="display: none;">
+                                    <td class="fw-bold">Impuestos:</td>
+                                    <td id="detail-tax" class="text-muted"></td>
+                                </tr>
                                 <tr>
                                     <td class="fw-bold" style="font-size: 1.1rem;">TOTAL:</td>
                                     <td id="detail-total" class="fw-bold text-primary" style="font-size: 1.1rem;"></td>
@@ -2265,6 +2308,10 @@
                             </p>
                             <p class="mb-0" id="detail-tracking-row" style="display: none;">
                                 <strong>Tracking:</strong> <span id="detail-tracking" class="badge bg-success"></span>
+                            </p>
+                            <p class="mb-0" id="detail-shipping-reference-row" style="display: none;">
+                                <i class="bi bi-signpost-2"></i>
+                                <strong>Referencia:</strong> <span id="detail-shipping-reference" class="text-muted"></span>
                             </p>
                         </div>
                     </div>

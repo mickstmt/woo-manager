@@ -1098,7 +1098,9 @@ def get_order_detail(order_id):
                 om_is_community.meta_value as is_community,
                 om_tracking.meta_value as tracking_number,
                 om_tracking_provider.meta_value as tracking_provider,
-                om_customer_note.meta_value as customer_note
+                om_customer_note.meta_value as customer_note,
+                om_order_tax.meta_value as order_tax,
+                om_shipping_tax.meta_value as shipping_tax
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
@@ -1108,6 +1110,8 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_wc_orders_meta om_tracking ON o.id = om_tracking.order_id AND om_tracking.meta_key = '_tracking_number'
             LEFT JOIN wpyz_wc_orders_meta om_tracking_provider ON o.id = om_tracking_provider.order_id AND om_tracking_provider.meta_key = '_tracking_provider'
             LEFT JOIN wpyz_wc_orders_meta om_customer_note ON o.id = om_customer_note.order_id AND om_customer_note.meta_key = '_customer_note'
+            LEFT JOIN wpyz_wc_orders_meta om_order_tax ON o.id = om_order_tax.order_id AND om_order_tax.meta_key = '_order_tax'
+            LEFT JOIN wpyz_wc_orders_meta om_shipping_tax ON o.id = om_shipping_tax.order_id AND om_shipping_tax.meta_key = '_order_shipping_tax'
             WHERE o.id = :order_id
         """)
 
@@ -1135,6 +1139,16 @@ def get_order_detail(order_id):
         """)
         shipping = db.session.execute(shipping_query, {'order_id': order_id}).fetchone()
 
+        # Referencia de dirección (desde postmeta legacy)
+        shipping_reference_query = text("""
+            SELECT meta_value
+            FROM wpyz_postmeta
+            WHERE post_id = :order_id AND meta_key = '_billing_referencia'
+            LIMIT 1
+        """)
+        shipping_reference_result = db.session.execute(shipping_reference_query, {'order_id': order_id}).fetchone()
+        shipping_reference = shipping_reference_result[0] if shipping_reference_result else None
+
         # Productos
         products_query = text("""
             SELECT
@@ -1143,6 +1157,7 @@ def get_order_detail(order_id):
                 oim_qty.meta_value as quantity,
                 oim_total.meta_value as total,
                 oim_subtotal.meta_value as subtotal,
+                oim_tax.meta_value as tax,
                 oim_product_id.meta_value as product_id,
                 oim_variation_id.meta_value as variation_id,
                 oim_sku.meta_value as sku
@@ -1150,6 +1165,7 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id AND oim_total.meta_key = '_line_total'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_subtotal ON oi.order_item_id = oim_subtotal.order_item_id AND oim_subtotal.meta_key = '_line_subtotal'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_tax ON oi.order_item_id = oim_tax.order_item_id AND oim_tax.meta_key = '_line_tax'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_product_id ON oi.order_item_id = oim_product_id.order_item_id AND oim_product_id.meta_key = '_product_id'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_variation_id ON oi.order_item_id = oim_variation_id.order_item_id AND oim_variation_id.meta_key = '_variation_id'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_sku ON oi.order_item_id = oim_sku.order_item_id AND oim_sku.meta_key = '_sku'
@@ -1207,6 +1223,8 @@ def get_order_detail(order_id):
             'tracking_number': order_result.tracking_number,
             'tracking_provider': order_result.tracking_provider,
             'customer_note': order_result.customer_note,
+            'order_tax': float(order_result.order_tax) if order_result.order_tax else 0.0,
+            'shipping_tax': float(order_result.shipping_tax) if order_result.shipping_tax else 0.0,
             'billing': {
                 'first_name': billing.first_name if billing else '',
                 'last_name': billing.last_name if billing else '',
@@ -1232,14 +1250,17 @@ def get_order_detail(order_id):
                 'country': shipping.country if shipping else '',
                 'phone': shipping.phone if shipping else '',
                 'method': shipping_method_result.order_item_name if shipping_method_result else '',
-                'cost': shipping_cost
+                'cost': shipping_cost,
+                'reference': shipping_reference
             },
             'products': []
         }
 
         # Agregar productos
         subtotal_products = 0
+        total_products_tax = 0
         for product in products_result:
+            product_tax = float(product.tax) if product.tax else 0.0
             product_data = {
                 'name': product.product_name,
                 'sku': product.sku or 'N/A',
@@ -1247,13 +1268,16 @@ def get_order_detail(order_id):
                 'price': float(product.subtotal) / int(product.quantity) if product.quantity and float(product.quantity) > 0 else 0,
                 'subtotal': float(product.subtotal) if product.subtotal else 0.0,
                 'total': float(product.total) if product.total else 0.0,
+                'tax': product_tax,
                 'product_id': product.product_id,
                 'variation_id': product.variation_id
             }
             order_data['products'].append(product_data)
             subtotal_products += product_data['total']
+            total_products_tax += product_tax
 
         order_data['subtotal'] = subtotal_products
+        order_data['total_tax'] = total_products_tax + order_data['shipping_tax']
 
         return jsonify({
             'success': True,
