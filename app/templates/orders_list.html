@@ -1577,13 +1577,19 @@
         let productsHtml = '';
         if (order.products && order.products.length > 0) {
             order.products.forEach(product => {
+                // Calcular precios CON impuestos incluidos
+                const productTax = product.tax || 0;
+                const quantity = product.quantity || 1;
+                const priceWithTax = (product.price || 0) + (productTax / quantity);
+                const totalWithTax = (product.total || 0) + productTax;
+
                 productsHtml += `
                     <tr>
                         <td>${product.name || 'N/A'}</td>
                         <td><code>${product.sku || 'N/A'}</code></td>
-                        <td class="text-center">${product.quantity || 0}</td>
-                        <td class="text-end">${order.currency} ${(product.price || 0).toFixed(2)}</td>
-                        <td class="text-end fw-bold">${order.currency} ${(product.total || 0).toFixed(2)}</td>
+                        <td class="text-center">${quantity}</td>
+                        <td class="text-end">${order.currency} ${priceWithTax.toFixed(2)}</td>
+                        <td class="text-end fw-bold">${order.currency} ${totalWithTax.toFixed(2)}</td>
                     </tr>
                 `;
             });
