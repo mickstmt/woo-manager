@@ -1026,7 +1026,13 @@ def get_order_detail(order_id):
                      AND oim_cost.meta_key = 'cost'
                  WHERE oi.order_id = o.id
                    AND oi.order_item_type = 'shipping'
-                 LIMIT 1) as shipping_cost
+                 LIMIT 1) as shipping_cost,
+                -- Referencia de la dirección (legacy postmeta)
+                (SELECT meta_value
+                 FROM wpyz_postmeta
+                 WHERE post_id = o.id
+                   AND meta_key = '_billing_referencia'
+                 LIMIT 1) as shipping_reference
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -1217,6 +1223,8 @@ def get_order_detail(order_id):
             'is_cod': order_result[18] == 'yes',
             # Costo de envío (para calcular monto COD)
             'shipping_cost': float(order_result[19]) if order_result[19] else 0,
+            # Referencia de la dirección
+            'shipping_reference': order_result[20] or None,
             'products': products_list
         }
 

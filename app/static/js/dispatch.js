@@ -650,6 +650,16 @@ async function showOrderDetail(orderId) {
         document.getElementById('modal-shipping-district').textContent = order.shipping_district || '-';
         document.getElementById('modal-shipping-department').textContent = order.shipping_department || '-';
 
+        // Referencia de la dirección
+        const referenceContainer = document.getElementById('shipping-reference-container');
+        const referenceElement = document.getElementById('modal-shipping-reference');
+        if (order.shipping_reference) {
+            referenceElement.textContent = order.shipping_reference;
+            referenceContainer.style.display = 'block';
+        } else {
+            referenceContainer.style.display = 'none';
+        }
+
         // Notas del cliente - prellenar en el textarea de notas de despacho
         const dispatchNoteInput = document.getElementById('dispatch-note-input');
         if (dispatchNoteInput) {
