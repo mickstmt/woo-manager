@@ -1195,7 +1195,7 @@ def get_order_detail(order_id):
             'order_number': order_result.order_number or f'#{order_result.id}',
             'status': order_result.status,
             'date_created': format_datetime(order_result.date_created_gmt),
-            'date_modified': format_datetime(order_result.date_modified_gmt),
+            'date_modified': format_datetime(order_result.date_updated_gmt),
             'total': float(order_result.total_amount) if order_result.total_amount else 0.0,
             'currency': order_result.currency,
             'payment_method': order_result.payment_method,
