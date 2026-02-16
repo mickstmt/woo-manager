@@ -888,7 +888,7 @@
                 order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
 
             html += `
-            <div class="order-card">
+            <div class="order-card" onclick="showOrderDetail(${order.id})" style="cursor: pointer;" title="Click para ver detalles">
                 <div class="row align-items-center">
                     <div class="col-6 col-md-1">
                         <h5 class="mb-0 text-primary">${order.order_number || '#' + order.id}</h5>
@@ -1323,7 +1323,7 @@
             const customerName = `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim() || 'Sin nombre';
 
             html += `
-            <div class="order-card">
+            <div class="order-card" onclick="showOrderDetail(${order.id})" style="cursor: pointer;" title="Click para ver detalles">
                 <div class="row align-items-center">
                     <div class="col-6 col-md-1">
                         <h5 class="mb-0 text-primary">${order.order_number}</h5>
@@ -1421,6 +1421,163 @@
     function gotoPageWooCommerce(page) {
         currentPageWooCommerce = page;
         loadOrdersWooCommerce();
+    }
+
+    // ============================================
+    // MODAL DE DETALLES (para todos los pedidos)
+    // ============================================
+
+    function showOrderDetail(orderId) {
+        // Abrir modal
+        const modal = new bootstrap.Modal(document.getElementById('orderDetailModal'));
+        modal.show();
+
+        // Mostrar loading
+        $('#detail-loading').show();
+        $('#detail-content').hide();
+        $('#detail-error').hide();
+
+        // Cargar datos del pedido
+        $.ajax({
+            url: `/orders/api/get-order-detail/${orderId}`,
+            method: 'GET',
+            success: function (response) {
+                if (response.success) {
+                    renderOrderDetail(response.order);
+                    $('#detail-loading').hide();
+                    $('#detail-content').show();
+                } else {
+                    showDetailError(response.error || 'Error al cargar detalles del pedido');
+                }
+            },
+            error: function () {
+                showDetailError('Error de conexión al cargar detalles del pedido');
+            }
+        });
+    }
+
+    function renderOrderDetail(order) {
+        // Número de pedido en el título
+        $('#detail-order-number').text(order.order_number);
+
+        // Información general
+        const statusClass = order.status.includes('completed') ? 'success' :
+            order.status.includes('processing') ? 'info' :
+                order.status.includes('cancelled') ? 'danger' :
+                    order.status.includes('pending') ? 'warning' : 'secondary';
+        const statusText = order.status.replace('wc-', '').replace('-', ' ').toUpperCase();
+
+        $('#detail-status').html(`<span class="badge bg-${statusClass}">${statusText}</span>`);
+        $('#detail-date-created').text(order.date_created || 'N/A');
+        $('#detail-date-modified').text(order.date_modified || 'N/A');
+        $('#detail-source').text(order.order_source || (order.created_by ? 'WhatsApp' : 'Web'));
+
+        // Mostrar creado por solo si existe
+        if (order.created_by) {
+            $('#detail-created-by').text(order.created_by);
+            $('#detail-created-by-row').show();
+        } else {
+            $('#detail-created-by-row').hide();
+        }
+
+        // Pago
+        $('#detail-payment-method').text(order.payment_method_title || order.payment_method || 'N/A');
+        $('#detail-subtotal').text(`${order.currency} ${order.subtotal.toFixed(2)}`);
+        $('#detail-shipping-cost').text(`${order.currency} ${order.shipping.cost.toFixed(2)}`);
+        $('#detail-total').text(`${order.currency} ${order.total.toFixed(2)}`);
+
+        // Badges (COD, Comunidad)
+        let badges = '';
+        if (order.is_cod) {
+            badges += '<span class="badge bg-warning text-dark me-1"><i class="bi bi-cash"></i> COD</span>';
+        }
+        if (order.is_community) {
+            badges += '<span class="badge" style="background-color: #6f42c1;"><i class="bi bi-people"></i> Comunidad</span>';
+        }
+        if (badges) {
+            $('#detail-badges').html(badges);
+            $('#detail-badges-row').show();
+        } else {
+            $('#detail-badges-row').hide();
+        }
+
+        // Datos de facturación
+        const billing = order.billing;
+        $('#detail-billing-name').text(`${billing.first_name} ${billing.last_name}`.trim() || 'N/A');
+        if (billing.company) {
+            $('#detail-billing-company').text(billing.company).show();
+        } else {
+            $('#detail-billing-company').hide();
+        }
+        $('#detail-billing-email').text(billing.email || 'N/A');
+        $('#detail-billing-phone').text(billing.phone || 'N/A');
+
+        let billingAddress = [billing.address_1, billing.address_2, billing.city, billing.state, billing.postcode]
+            .filter(x => x).join(', ') || 'N/A';
+        $('#detail-billing-address').text(billingAddress);
+
+        // Datos de envío
+        const shipping = order.shipping;
+        $('#detail-shipping-name').text(`${shipping.first_name} ${shipping.last_name}`.trim() || 'Igual que facturación');
+        if (shipping.company) {
+            $('#detail-shipping-company').text(shipping.company).show();
+        } else {
+            $('#detail-shipping-company').hide();
+        }
+        $('#detail-shipping-phone').text(shipping.phone || billing.phone || 'N/A');
+
+        let shippingAddress = [shipping.address_1, shipping.address_2, shipping.city, shipping.state, shipping.postcode]
+            .filter(x => x).join(', ') || 'Igual que facturación';
+        $('#detail-shipping-address').text(shippingAddress);
+
+        $('#detail-shipping-method').text(shipping.method || 'N/A');
+
+        // Tracking
+        if (order.tracking_number) {
+            $('#detail-tracking').text(order.tracking_number);
+            $('#detail-tracking-row').show();
+        } else {
+            $('#detail-tracking-row').hide();
+        }
+
+        // Productos
+        let productsHtml = '';
+        order.products.forEach(product => {
+            productsHtml += `
+                <tr>
+                    <td>${product.name}</td>
+                    <td><code>${product.sku}</code></td>
+                    <td class="text-center">${product.quantity}</td>
+                    <td class="text-end">${order.currency} ${product.price.toFixed(2)}</td>
+                    <td class="text-end fw-bold">${order.currency} ${product.total.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        $('#detail-products-table').html(productsHtml);
+
+        // Notas del cliente
+        if (order.customer_note) {
+            $('#detail-customer-note').text(order.customer_note);
+            $('#detail-notes-row').show();
+        } else {
+            $('#detail-notes-row').hide();
+        }
+
+        // Botones
+        $('#detail-btn-woocommerce').attr('href', `https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}`);
+
+        if (['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status)) {
+            $('#detail-btn-edit').attr('href', `/orders/edit/${order.id}`).show();
+        } else {
+            $('#detail-btn-edit').hide();
+        }
+    }
+
+    function showDetailError(message) {
+        $('#detail-loading').hide();
+        $('#detail-content').hide();
+        $('#detail-error-message').text(message);
+        $('#detail-error').show();
     }
 
     // ============================================
@@ -2000,6 +2157,168 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-danger" id="confirm-trash-btn">
                     <i class="bi bi-trash"></i> Mover a Papelera
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Detalles del Pedido -->
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-receipt"></i> Detalles del Pedido <span id="detail-order-number"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading -->
+                <div id="detail-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando detalles del pedido...</p>
+                </div>
+
+                <!-- Contenido del pedido -->
+                <div id="detail-content" style="display: none;">
+                    <!-- Sección 1: Información General -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-info-circle"></i> Información General</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td class="fw-bold" style="width: 40%;">Estado:</td>
+                                    <td id="detail-status"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Fecha de creación:</td>
+                                    <td id="detail-date-created"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Última modificación:</td>
+                                    <td id="detail-date-modified"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Fuente:</td>
+                                    <td id="detail-source"></td>
+                                </tr>
+                                <tr id="detail-created-by-row" style="display: none;">
+                                    <td class="fw-bold">Creado por:</td>
+                                    <td id="detail-created-by"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-credit-card"></i> Pago</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td class="fw-bold" style="width: 40%;">Método de pago:</td>
+                                    <td id="detail-payment-method"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Subtotal:</td>
+                                    <td id="detail-subtotal"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Envío:</td>
+                                    <td id="detail-shipping-cost"></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold" style="font-size: 1.1rem;">TOTAL:</td>
+                                    <td id="detail-total" class="fw-bold text-primary" style="font-size: 1.1rem;"></td>
+                                </tr>
+                                <tr id="detail-badges-row">
+                                    <td class="fw-bold">Extras:</td>
+                                    <td id="detail-badges"></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Sección 2: Cliente -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-person"></i> Datos de Facturación</h6>
+                            <p class="mb-1"><strong id="detail-billing-name"></strong></p>
+                            <p class="mb-1" id="detail-billing-company"></p>
+                            <p class="mb-1"><i class="bi bi-envelope"></i> <span id="detail-billing-email"></span></p>
+                            <p class="mb-1"><i class="bi bi-telephone"></i> <span id="detail-billing-phone"></span></p>
+                            <p class="mb-0 text-muted small">
+                                <i class="bi bi-geo-alt"></i>
+                                <span id="detail-billing-address"></span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-truck"></i> Datos de Envío</h6>
+                            <p class="mb-1"><strong id="detail-shipping-name"></strong></p>
+                            <p class="mb-1" id="detail-shipping-company"></p>
+                            <p class="mb-1"><i class="bi bi-telephone"></i> <span id="detail-shipping-phone"></span></p>
+                            <p class="mb-1 text-muted small">
+                                <i class="bi bi-geo-alt"></i>
+                                <span id="detail-shipping-address"></span>
+                            </p>
+                            <p class="mb-0">
+                                <strong>Método:</strong> <span id="detail-shipping-method"></span>
+                            </p>
+                            <p class="mb-0" id="detail-tracking-row" style="display: none;">
+                                <strong>Tracking:</strong> <span id="detail-tracking" class="badge bg-success"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Sección 3: Productos -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-box-seam"></i> Productos</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>SKU</th>
+                                            <th class="text-center">Cantidad</th>
+                                            <th class="text-end">Precio Unit.</th>
+                                            <th class="text-end">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="detail-products-table">
+                                        <!-- Se llenará dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 4: Notas -->
+                    <div class="row" id="detail-notes-row" style="display: none;">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-chat-left-text"></i> Notas del Cliente</h6>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <span id="detail-customer-note"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error -->
+                <div id="detail-error" class="alert alert-danger" style="display: none;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span id="detail-error-message"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a id="detail-btn-woocommerce" href="#" target="_blank" class="btn btn-outline-warning">
+                    <i class="bi bi-wordpress"></i> Ver en WooCommerce
+                </a>
+                <a id="detail-btn-edit" href="#" class="btn btn-primary" style="display: none;">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Cerrar
                 </button>
             </div>
         </div>

@@ -1060,6 +1060,216 @@ def list_woocommerce():
         }), 500
 
 
+@bp.route('/api/get-order-detail/<int:order_id>')
+@login_required
+def get_order_detail(order_id):
+    """
+    Obtener detalles completos de un pedido (WhatsApp o WooCommerce)
+
+    Retorna:
+    - Información básica del pedido
+    - Productos con detalles
+    - Dirección de envío y facturación
+    - Tracking
+    - Notas del pedido
+    - Historial de cambios de estado
+    """
+    try:
+        from sqlalchemy import text
+        import pytz
+
+        # Query principal del pedido
+        order_query = text("""
+            SELECT
+                o.id,
+                o.status,
+                o.date_created_gmt,
+                o.date_modified_gmt,
+                o.total_amount,
+                o.currency,
+                o.payment_method,
+                o.payment_method_title,
+                o.billing_email,
+                o.customer_id,
+                om_order_number.meta_value as order_number,
+                om_created_by.meta_value as created_by,
+                om_source.meta_value as order_source,
+                om_is_cod.meta_value as is_cod,
+                om_is_community.meta_value as is_community,
+                om_tracking.meta_value as tracking_number,
+                om_tracking_provider.meta_value as tracking_provider,
+                om_customer_note.meta_value as customer_note
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
+            LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
+            LEFT JOIN wpyz_wc_orders_meta om_source ON o.id = om_source.order_id AND om_source.meta_key = '_order_source'
+            LEFT JOIN wpyz_wc_orders_meta om_is_cod ON o.id = om_is_cod.order_id AND om_is_cod.meta_key = '_is_cod'
+            LEFT JOIN wpyz_wc_orders_meta om_is_community ON o.id = om_is_community.order_id AND om_is_community.meta_key = '_is_community'
+            LEFT JOIN wpyz_wc_orders_meta om_tracking ON o.id = om_tracking.order_id AND om_tracking.meta_key = '_tracking_number'
+            LEFT JOIN wpyz_wc_orders_meta om_tracking_provider ON o.id = om_tracking_provider.order_id AND om_tracking_provider.meta_key = '_tracking_provider'
+            LEFT JOIN wpyz_wc_orders_meta om_customer_note ON o.id = om_customer_note.order_id AND om_customer_note.meta_key = '_customer_note'
+            WHERE o.id = :order_id
+        """)
+
+        order_result = db.session.execute(order_query, {'order_id': order_id}).fetchone()
+
+        if not order_result:
+            return jsonify({
+                'success': False,
+                'error': 'Pedido no encontrado'
+            }), 404
+
+        # Dirección de facturación
+        billing_query = text("""
+            SELECT first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone
+            FROM wpyz_wc_order_addresses
+            WHERE order_id = :order_id AND address_type = 'billing'
+        """)
+        billing = db.session.execute(billing_query, {'order_id': order_id}).fetchone()
+
+        # Dirección de envío
+        shipping_query = text("""
+            SELECT first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone
+            FROM wpyz_wc_order_addresses
+            WHERE order_id = :order_id AND address_type = 'shipping'
+        """)
+        shipping = db.session.execute(shipping_query, {'order_id': order_id}).fetchone()
+
+        # Productos
+        products_query = text("""
+            SELECT
+                oi.order_item_id,
+                oi.order_item_name as product_name,
+                oim_qty.meta_value as quantity,
+                oim_total.meta_value as total,
+                oim_subtotal.meta_value as subtotal,
+                oim_product_id.meta_value as product_id,
+                oim_variation_id.meta_value as variation_id,
+                oim_sku.meta_value as sku
+            FROM wpyz_woocommerce_order_items oi
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id AND oim_total.meta_key = '_line_total'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_subtotal ON oi.order_item_id = oim_subtotal.order_item_id AND oim_subtotal.meta_key = '_line_subtotal'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_product_id ON oi.order_item_id = oim_product_id.order_item_id AND oim_product_id.meta_key = '_product_id'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_variation_id ON oi.order_item_id = oim_variation_id.order_item_id AND oim_variation_id.meta_key = '_variation_id'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_sku ON oi.order_item_id = oim_sku.order_item_id AND oim_sku.meta_key = '_sku'
+            WHERE oi.order_id = :order_id AND oi.order_item_type = 'line_item'
+            ORDER BY oi.order_item_id
+        """)
+        products_result = db.session.execute(products_query, {'order_id': order_id}).fetchall()
+
+        # Método de envío
+        shipping_method_query = text("""
+            SELECT order_item_name, order_item_id
+            FROM wpyz_woocommerce_order_items
+            WHERE order_id = :order_id AND order_item_type = 'shipping'
+            LIMIT 1
+        """)
+        shipping_method_result = db.session.execute(shipping_method_query, {'order_id': order_id}).fetchone()
+
+        # Costo de envío
+        shipping_cost = 0
+        if shipping_method_result:
+            shipping_cost_query = text("""
+                SELECT meta_value
+                FROM wpyz_woocommerce_order_itemmeta
+                WHERE order_item_id = :item_id AND meta_key = 'cost'
+            """)
+            shipping_cost_result = db.session.execute(shipping_cost_query, {'item_id': shipping_method_result.order_item_id}).fetchone()
+            if shipping_cost_result and shipping_cost_result[0]:
+                shipping_cost = float(shipping_cost_result[0])
+
+        # Formatear datos
+        peru_tz = pytz.timezone('America/Lima')
+
+        def format_datetime(dt):
+            if dt:
+                dt_utc = pytz.UTC.localize(dt)
+                dt_peru = dt_utc.astimezone(peru_tz)
+                return dt_peru.strftime('%Y-%m-%d %H:%M:%S')
+            return None
+
+        # Construir respuesta
+        order_data = {
+            'id': order_result.id,
+            'order_number': order_result.order_number or f'#{order_result.id}',
+            'status': order_result.status,
+            'date_created': format_datetime(order_result.date_created_gmt),
+            'date_modified': format_datetime(order_result.date_modified_gmt),
+            'total': float(order_result.total_amount) if order_result.total_amount else 0.0,
+            'currency': order_result.currency,
+            'payment_method': order_result.payment_method,
+            'payment_method_title': order_result.payment_method_title,
+            'created_by': order_result.created_by,
+            'order_source': order_result.order_source,
+            'is_cod': order_result.is_cod == 'yes',
+            'is_community': order_result.is_community == 'yes',
+            'tracking_number': order_result.tracking_number,
+            'tracking_provider': order_result.tracking_provider,
+            'customer_note': order_result.customer_note,
+            'billing': {
+                'first_name': billing.first_name if billing else '',
+                'last_name': billing.last_name if billing else '',
+                'company': billing.company if billing else '',
+                'address_1': billing.address_1 if billing else '',
+                'address_2': billing.address_2 if billing else '',
+                'city': billing.city if billing else '',
+                'state': billing.state if billing else '',
+                'postcode': billing.postcode if billing else '',
+                'country': billing.country if billing else '',
+                'email': billing.email if billing else order_result.billing_email,
+                'phone': billing.phone if billing else ''
+            },
+            'shipping': {
+                'first_name': shipping.first_name if shipping else '',
+                'last_name': shipping.last_name if shipping else '',
+                'company': shipping.company if shipping else '',
+                'address_1': shipping.address_1 if shipping else '',
+                'address_2': shipping.address_2 if shipping else '',
+                'city': shipping.city if shipping else '',
+                'state': shipping.state if shipping else '',
+                'postcode': shipping.postcode if shipping else '',
+                'country': shipping.country if shipping else '',
+                'phone': shipping.phone if shipping else '',
+                'method': shipping_method_result.order_item_name if shipping_method_result else '',
+                'cost': shipping_cost
+            },
+            'products': []
+        }
+
+        # Agregar productos
+        subtotal_products = 0
+        for product in products_result:
+            product_data = {
+                'name': product.product_name,
+                'sku': product.sku or 'N/A',
+                'quantity': int(product.quantity) if product.quantity else 0,
+                'price': float(product.subtotal) / int(product.quantity) if product.quantity and float(product.quantity) > 0 else 0,
+                'subtotal': float(product.subtotal) if product.subtotal else 0.0,
+                'total': float(product.total) if product.total else 0.0,
+                'product_id': product.product_id,
+                'variation_id': product.variation_id
+            }
+            order_data['products'].append(product_data)
+            subtotal_products += product_data['total']
+
+        order_data['subtotal'] = subtotal_products
+
+        return jsonify({
+            'success': True,
+            'order': order_data
+        })
+
+    except Exception as e:
+        import traceback
+        current_app.logger.error(f'Error getting order detail: {str(e)}\n{traceback.format_exc()}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 @bp.route('/get-users')
 @login_required
 def get_users():
