@@ -1174,35 +1174,46 @@ def get_order_detail(order_id):
         """)
         products_result = db.session.execute(products_query, {'order_id': order_id}).fetchall()
 
-        # Obtener atributos de cada item del pedido
+        # Obtener atributos de las variaciones desde postmeta
+        item_attributes = {}
         if products_result:
-            order_item_ids = [p.order_item_id for p in products_result]
-            attributes_query = text("""
-                SELECT
-                    order_item_id,
-                    meta_key,
-                    meta_value
-                FROM wpyz_woocommerce_order_itemmeta
-                WHERE order_item_id IN :item_ids
-                AND (meta_key LIKE 'pa_%' OR meta_key LIKE 'attribute_%' OR meta_key IN ('Medida', 'Color', 'Talla'))
-            """)
-            attributes_result = db.session.execute(attributes_query, {'item_ids': tuple(order_item_ids)}).fetchall()
+            # Obtener IDs de variaciones
+            variation_ids = [p.variation_id for p in products_result if p.variation_id and p.variation_id != '0']
 
-            # Organizar atributos por order_item_id
-            item_attributes = {}
-            for attr in attributes_result:
-                item_id = attr.order_item_id
-                if item_id not in item_attributes:
-                    item_attributes[item_id] = []
+            if variation_ids:
+                # Construir query para obtener atributos de las variaciones
+                ids_placeholder = ','.join([str(id) for id in variation_ids])
+                variation_attrs_query = text(f"""
+                    SELECT
+                        post_id,
+                        meta_key,
+                        meta_value
+                    FROM wpyz_postmeta
+                    WHERE post_id IN ({ids_placeholder})
+                    AND meta_key LIKE 'attribute_%'
+                """)
+                variation_attrs_result = db.session.execute(variation_attrs_query).fetchall()
 
-                # Limpiar nombre del atributo
-                attr_name = attr.meta_key.replace('pa_', '').replace('attribute_', '').replace('_', ' ').title()
-                attr_value = attr.meta_value
+                # Organizar atributos por variation_id
+                variation_attributes = {}
+                for attr in variation_attrs_result:
+                    variation_id = str(attr.post_id)
+                    if variation_id not in variation_attributes:
+                        variation_attributes[variation_id] = []
 
-                if attr_value:
-                    item_attributes[item_id].append(f"{attr_value}")
-        else:
-            item_attributes = {}
+                    # Limpiar nombre del atributo
+                    attr_key = attr.meta_key.replace('attribute_pa_', '').replace('attribute_', '')
+                    attr_value = attr.meta_value
+
+                    if attr_value:
+                        variation_attributes[variation_id].append(attr_value)
+
+                # Mapear variation_id a order_item_id
+                for product in products_result:
+                    if product.variation_id and product.variation_id != '0':
+                        var_id = str(product.variation_id)
+                        if var_id in variation_attributes:
+                            item_attributes[product.order_item_id] = variation_attributes[var_id]
 
         # Método de envío
         shipping_method_query = text("""

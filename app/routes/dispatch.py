@@ -1128,17 +1128,20 @@ def get_order_detail(order_id):
                     clean_product_name = parts[0].strip()
                     attributes_from_name = parts[1].strip()
 
-            # Obtener atributos desde los metadatos del order_item (más confiable)
-            attributes_query = text("""
-                SELECT meta_key, meta_value
-                FROM wpyz_woocommerce_order_itemmeta
-                WHERE order_item_id = :order_item_id
-                  AND (meta_key LIKE 'pa_%' OR meta_key LIKE '_reduced_stock%' = false)
-                  AND meta_key NOT IN ('_qty', '_product_id', '_variation_id', '_line_subtotal', '_line_total', '_line_tax', '_line_subtotal_tax')
-                ORDER BY meta_key
-            """)
+            # Obtener atributos desde wpyz_postmeta del producto variación
+            attributes_from_meta = []
+            if product_id:
+                attributes_query = text("""
+                    SELECT meta_key, meta_value
+                    FROM wpyz_postmeta
+                    WHERE post_id = :product_id
+                      AND meta_key LIKE 'attribute_%'
+                    ORDER BY meta_key
+                """)
 
-            attributes_result = db.session.execute(attributes_query, {'order_item_id': order_item_id}).fetchall()
+                attributes_result = db.session.execute(attributes_query, {'product_id': product_id}).fetchall()
+            else:
+                attributes_result = []
 
             # Construir string de atributos desde metadatos
             attributes_from_meta = []
@@ -1146,11 +1149,10 @@ def get_order_detail(order_id):
                 meta_key = attr_row[0]
                 meta_value = attr_row[1]
 
-                # Solo incluir atributos de producto (pa_*) y excluir metadatos técnicos
-                if meta_key.startswith('pa_') or (meta_key.startswith('_') == False and meta_key not in ['_qty', '_product_id', '_variation_id']):
-                    # Limpiar el nombre del atributo (quitar 'pa_')
-                    clean_attr_name = meta_key.replace('pa_', '').replace('_', ' ').title()
-                    attributes_from_meta.append(f"{meta_value}")
+                # Limpiar el nombre del atributo (quitar 'attribute_pa_' o 'attribute_')
+                attr_value_clean = meta_value
+                if attr_value_clean:
+                    attributes_from_meta.append(attr_value_clean)
 
             # Usar atributos de metadatos si existen, sino usar del nombre
             if attributes_from_meta:
