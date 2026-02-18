@@ -424,6 +424,10 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <!-- Botón "Copiar Info para CHAMO" solo para pedidos en columna CHAMO -->
+                <button type="button" class="btn btn-info" id="btn-copy-chamo-info" style="display: none;" onclick="copyChamoInfo()">
+                    <i class="bi bi-clipboard-check"></i> Copiar Info para CHAMO
+                </button>
                 <!-- Botón "Entregado" solo para pedidos de Recojo en Almacén -->
                 <button type="button" class="btn btn-primary" id="btn-mark-delivered" style="display: none;" onclick="markAsDelivered(currentOrderId, currentOrderData?.number)">
                     <i class="bi bi-box-seam"></i> Marcar como Entregado
@@ -587,6 +591,32 @@
                 </button>
                 <button type="button" class="btn btn-primary" id="btn-confirm-delivered" onclick="confirmMarkAsDelivered()">
                     <i class="bi bi-check-circle"></i> Confirmar Entrega
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Copiar Info CHAMO -->
+<div class="modal fade" id="copyChamoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clipboard-check"></i> Información para CHAMO
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-2">
+                    <i class="bi bi-info-circle"></i> Puedes editar el texto antes de copiarlo. Usa <kbd>Ctrl+C</kbd> para copiar.
+                </p>
+                <textarea id="chamo-info-text" class="form-control" rows="9" style="font-family: monospace; font-size: 0.9rem;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="selectAndCopyChamoText()">
+                    <i class="bi bi-clipboard"></i> Seleccionar Todo
                 </button>
             </div>
         </div>

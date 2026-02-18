@@ -1323,9 +1323,12 @@ def get_order_detail(order_id):
                 'variation_id': product.variation_id
             }
             order_data['products'].append(product_data)
-            subtotal_products += product_data['total']
+            # En Perú, los precios SIEMPRE incluyen IGV
+            # Sumar total + impuestos para obtener el precio real con IGV incluido
+            subtotal_products += product_data['total'] + product_tax
             total_products_tax += product_tax
 
+        # El subtotal debe incluir los impuestos (contexto peruano)
         order_data['subtotal'] = subtotal_products
         order_data['total_tax'] = total_products_tax + order_data['shipping_tax']
 
@@ -3814,10 +3817,15 @@ def update_order_general_data(order_id, data):
 def recalculate_order_totals(order_id):
     """
     Suma todos los items, descuentos y shipping, calcula impuestos y actualiza wpyz_wc_orders.
+
+    IMPORTANTE: En Perú, los precios SIEMPRE incluyen IGV (18%)
+    - _line_total = precio sin IGV (WooCommerce lo guarda así)
+    - _line_tax = IGV del producto
+    - Total real = _line_total + _line_tax + shipping
     """
     from sqlalchemy import text
 
-    # Sumar items line_total (productos)
+    # Sumar items line_total (productos SIN impuestos en WooCommerce)
     sum_items_q = text("""
         SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
         FROM wpyz_woocommerce_order_itemmeta
@@ -3825,6 +3833,15 @@ def recalculate_order_totals(order_id):
         AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='line_item')
     """)
     items_total = db.session.execute(sum_items_q, {'oid': order_id}).scalar() or 0
+
+    # Sumar impuestos de items (_line_tax) - CRÍTICO: Esto es el IGV que faltaba sumar
+    sum_items_tax_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key ='_line_tax'
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='line_item')
+    """)
+    items_tax = db.session.execute(sum_items_tax_q, {'oid': order_id}).scalar() or 0
 
     # Sumar descuentos (fees - generalmente negativos)
     sum_fees_q = text("""
@@ -3844,13 +3861,22 @@ def recalculate_order_totals(order_id):
     """)
     shipping_total = db.session.execute(sum_ship_q, {'oid': order_id}).scalar() or 0
 
-    # Calcular Total (items + fees + shipping)
-    # Los fees ya vienen con signo negativo, así que se restan automáticamente
-    total_net = float(items_total) + float(fees_total) + float(shipping_total)
+    # Sumar impuestos del envío si existen
+    sum_shipping_tax_q = text("""
+        SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
+        FROM wpyz_woocommerce_order_itemmeta
+        WHERE meta_key IN ('tax_amount', '_line_tax')
+        AND order_item_id IN (SELECT order_item_id FROM wpyz_woocommerce_order_items WHERE order_id=:oid AND order_item_type='shipping')
+    """)
+    shipping_tax = db.session.execute(sum_shipping_tax_q, {'oid': order_id}).scalar() or 0
 
-    # Calcular Impuestos (IGV 18%) -> Asumiendo que precios incluyen IGV
-    # Tax = Total - (Total / 1.18)
-    tax_amount = total_net - (total_net / 1.18)
+    # Calcular Total REAL con IGV incluido (contexto peruano)
+    # Total = items_total (sin IGV) + items_tax (IGV) + fees + shipping
+    # Esto da el total REAL que debe pagar el cliente
+    total_net = float(items_total) + float(items_tax) + float(fees_total) + float(shipping_total)
+
+    # Tax amount es la suma de todos los impuestos
+    tax_amount = float(items_tax) + float(shipping_tax)
     
     # Actualizar wpyz_wc_orders
     upd_totals = text("""

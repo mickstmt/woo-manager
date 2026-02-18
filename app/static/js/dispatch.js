@@ -619,6 +619,9 @@ async function showOrderDetail(orderId) {
 
         const order = data.order;
 
+        // Guardar datos del pedido en variable global para funciones auxiliares
+        currentOrderData = order;
+
         // Llenar modal con datos del pedido
         // Formato del título: mostrar siempre #ID de WooCommerce primero
         // Si es pedido WhatsApp, agregar (W-XXXXX) como indicador de origen
@@ -1483,12 +1486,24 @@ function updateColumnIndicator(orderId) {
                 } else {
                     columnIndicator.classList.add('bg-secondary');
                 }
+
+                // Mostrar/ocultar botón "Copiar Info para CHAMO" solo si está en columna CHAMO
+                const btnCopyChamoInfo = document.getElementById('btn-copy-chamo-info');
+                if (btnCopyChamoInfo) {
+                    btnCopyChamoInfo.style.display = columnName.includes('CHAMO') ? 'inline-block' : 'none';
+                }
             }
         }
     } else {
         // Si no se encuentra la tarjeta, mostrar "Desconocido"
         columnNameElement.textContent = 'Desconocido';
         columnIndicator.className = 'badge bg-secondary';
+
+        // Ocultar botón si no se encuentra la tarjeta
+        const btnCopyChamoInfo = document.getElementById('btn-copy-chamo-info');
+        if (btnCopyChamoInfo) {
+            btnCopyChamoInfo.style.display = 'none';
+        }
     }
 }
 
@@ -1818,5 +1833,83 @@ async function confirmBulkTracking() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Copiar información del pedido para CHAMO al portapapeles
+ */
+function copyChamoInfo() {
+    if (!currentOrderData) {
+        showError('No hay datos del pedido disponibles');
+        return;
+    }
+
+    try {
+        const order = currentOrderData;
+
+        // Debug: verificar datos
+        console.log('Datos del pedido:', order);
+
+        // Construir la información a copiar
+        let info = '';
+
+        // Número del pedido (WooCommerce ID, NO el número W-XXXXX)
+        info += `Pedido: #${order.id || 'N/A'}\n`;
+
+        // Nombre completo del cliente
+        info += `Nombre: ${order.customer_name || 'N/A'}\n`;
+
+        // Número de teléfono
+        info += `Teléfono: ${order.customer_phone || 'N/A'}\n`;
+
+        // Dirección
+        info += `Dirección: ${order.shipping_address || 'N/A'}\n`;
+
+        // Referencia (siempre mostrar, aunque esté vacía)
+        info += `Referencia: ${order.shipping_reference || 'N/A'}\n`;
+
+        // Si es contraentrega, agregar el monto
+        if (order.is_cod) {
+            // Calcular monto COD: Suma del total de productos (line_total ya incluye IGV)
+            // En Perú, los precios de productos SIEMPRE incluyen IGV
+            const codAmount = order.products.reduce((sum, product) => {
+                return sum + (product.line_total || 0);
+            }, 0);
+
+            info += `\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\n`;
+            info += `Monto a cancelar: S/ ${codAmount.toFixed(2)}`;
+        }
+
+        // Mostrar en modal personalizado
+        document.getElementById('chamo-info-text').value = info;
+        const modal = new bootstrap.Modal(document.getElementById('copyChamoModal'));
+        modal.show();
+
+        // Seleccionar automáticamente el texto al abrir
+        setTimeout(() => {
+            document.getElementById('chamo-info-text').select();
+        }, 300);
+
+    } catch (error) {
+        console.error('Error copiando al portapapeles:', error);
+        showError('Error al copiar información: ' + error.message);
+    }
+}
+
+/**
+ * Seleccionar todo el texto del modal CHAMO
+ */
+function selectAndCopyChamoText() {
+    const textarea = document.getElementById('chamo-info-text');
+    textarea.select();
+    textarea.setSelectionRange(0, 99999); // Para móviles
+
+    // Intentar copiar automáticamente
+    try {
+        document.execCommand('copy');
+        showSuccess('✓ Texto seleccionado. Ahora puedes pegarlo con Ctrl+V');
+    } catch (err) {
+        showSuccess('✓ Texto seleccionado. Cópialo con Ctrl+C');
     }
 }

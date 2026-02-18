@@ -1509,7 +1509,10 @@
             $('#detail-tax-row').hide();
         }
 
-        $('#detail-total').text(`${order.currency} ${(order.total || 0).toFixed(2)}`);
+        // Calcular total correcto: Subtotal (con IGV) + Envío
+        // En Perú, el subtotal ya incluye IGV, así que solo sumamos el envío
+        const calculatedTotal = (order.subtotal || 0) + (order.shipping.cost || 0);
+        $('#detail-total').text(`${order.currency} ${calculatedTotal.toFixed(2)}`);
 
         // Badges (COD, Comunidad)
         let badges = '';

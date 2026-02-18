@@ -1060,7 +1060,7 @@ def get_order_detail(order_id):
                 'error': f'Pedido {order_id} no encontrado'
             }), 404
 
-        # Query para obtener productos del pedido con SKU y atributos
+        # Query para obtener productos del pedido con SKU, atributos y precios
         products_query = text("""
             SELECT
                 oi.order_item_id,
@@ -1071,7 +1071,8 @@ def get_order_detail(order_id):
                  FROM wpyz_postmeta pm
                  WHERE pm.post_id = COALESCE(oim_variation_id.meta_value, oim_product_id.meta_value)
                    AND pm.meta_key = '_sku'
-                 LIMIT 1) as sku
+                 LIMIT 1) as sku,
+                oim_line_total.meta_value as line_total
             FROM wpyz_woocommerce_order_items oi
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_qty
                 ON oi.order_item_id = oim_qty.order_item_id
@@ -1083,6 +1084,9 @@ def get_order_detail(order_id):
                 ON oi.order_item_id = oim_variation_id.order_item_id
                 AND oim_variation_id.meta_key = '_variation_id'
                 AND oim_variation_id.meta_value != '0'
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_line_total
+                ON oi.order_item_id = oim_line_total.order_item_id
+                AND oim_line_total.meta_key = '_line_total'
             WHERE oi.order_id = :order_id
               AND oi.order_item_type = 'line_item'
             ORDER BY oi.order_item_id
@@ -1188,6 +1192,7 @@ def get_order_detail(order_id):
                 'name': clean_product_name,
                 'quantity': int(row[2]) if row[2] else 1,
                 'sku': row[4] if row[4] else None,
+                'line_total': float(row[5]) if row[5] else 0,  # Total de la línea (con IGV incluido)
                 'attributes': final_attributes,
                 'image': image_url
             })
