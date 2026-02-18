@@ -1148,6 +1148,71 @@ class DispatchPriority(db.Model):
 
 
 # =====================================================================
+# MODELO PARA REGISTRO DE ENVÍOS CHAMO
+# =====================================================================
+
+class ChamoShipment(db.Model):
+    """
+    Registro de envíos realizados por CHAMO courier
+
+    Tabla: woo_chamo_shipments
+    Propósito: Registrar todos los envíos realizados por CHAMO para control y facturación
+    Solo se registran envíos cuando el tracking es enviado desde la columna CHAMO
+    """
+    __tablename__ = 'woo_chamo_shipments'
+
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    order_id = db.Column(db.BigInteger, nullable=False)
+    order_number = db.Column(db.String(50), nullable=False)
+
+    # Shipment details
+    tracking_number = db.Column(db.Text, nullable=False)
+    delivery_date = db.Column(db.Date, nullable=False)
+    shipping_provider = db.Column(db.String(100), default='Motorizado Izi')
+
+    # Customer info
+    customer_name = db.Column(db.String(200))
+    customer_phone = db.Column(db.String(50))
+    customer_email = db.Column(db.String(320))
+    customer_address = db.Column(db.Text)
+    customer_district = db.Column(db.String(100))
+
+    # Financial
+    order_total = db.Column(db.Numeric(10, 2), nullable=False)
+    shipping_cost = db.Column(db.Numeric(10, 2), default=0)
+    cod_amount = db.Column(db.Numeric(10, 2), default=0)
+    is_cod = db.Column(db.Boolean, default=False)
+
+    # Metadata
+    sent_by = db.Column(db.String(100), nullable=False)
+    sent_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    sent_via = db.Column(db.Enum('individual', 'bulk', name='sent_via_enum'), default='individual')
+    column_at_send = db.Column(db.String(100), default='Motorizado (CHAMO)')
+    notes = db.Column(db.Text)
+
+    def to_dict(self):
+        """Convertir a diccionario para JSON"""
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'order_number': self.order_number,
+            'tracking_number': self.tracking_number,
+            'delivery_date': self.delivery_date.strftime('%Y-%m-%d') if self.delivery_date else None,
+            'customer_name': self.customer_name,
+            'customer_phone': self.customer_phone,
+            'order_total': float(self.order_total) if self.order_total else 0,
+            'cod_amount': float(self.cod_amount) if self.cod_amount else 0,
+            'is_cod': self.is_cod,
+            'sent_by': self.sent_by,
+            'sent_at': self.sent_at.strftime('%Y-%m-%d %H:%M:%S') if self.sent_at else None,
+            'sent_via': self.sent_via
+        }
+
+    def __repr__(self):
+        return f'<ChamoShipment Order:{self.order_number} Delivery:{self.delivery_date}>'
+
+
+# =====================================================================
 # MODELOS PARA COTIZACIONES (QUOTATIONS)
 # =====================================================================
 

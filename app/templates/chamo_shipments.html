@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Registro de Envíos CHAMO{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="bi bi-bicycle"></i> Registro de Envíos CHAMO</h2>
+            <p class="text-muted">Control y facturación de envíos realizados por CHAMO</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4" id="stats-container">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Envíos</h6>
+                    <h3 id="stat-total">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Envíos COD</h6>
+                    <h3 id="stat-cod">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Pedidos</h6>
+                    <h3 id="stat-amount">S/ -</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Total COD</h6>
+                    <h3 id="stat-cod-amount">S/ -</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha Desde</label>
+                            <input type="date" class="form-control" id="filter-date-from">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha Hasta</label>
+                            <input type="date" class="form-control" id="filter-date-to">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" id="filter-cod">
+                                <option value="">Todos</option>
+                                <option value="true">Solo COD</option>
+                                <option value="false">Solo Normal</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="loadShipments()">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-success w-100" onclick="exportCSV()">
+                                <i class="bi bi-download"></i> Exportar CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="shipments-table">
+                            <thead>
+                                <tr>
+                                    <th>Pedido</th>
+                                    <th>Fecha Entrega</th>
+                                    <th>Cliente</th>
+                                    <th>Distrito</th>
+                                    <th>Total</th>
+                                    <th>COD</th>
+                                    <th>Enviado Por</th>
+                                    <th>Fecha Envío</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shipments-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border"></div>
+                                        <p>Cargando envíos...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load shipments with filters
+async function loadShipments() {
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+    const isCod = document.getElementById('filter-cod').value;
+
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (isCod) params.append('is_cod', isCod);
+
+    try {
+        const response = await fetch(`/dispatch/api/chamo-shipments?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderShipments(data.shipments);
+            loadStats();
+        } else {
+            console.error('Error loading shipments:', data.error);
+            showError('Error cargando envíos: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error loading shipments:', error);
+        showError('Error de conexión al cargar envíos');
+    }
+}
+
+// Render shipments table
+function renderShipments(shipments) {
+    const tbody = document.getElementById('shipments-tbody');
+
+    if (shipments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No se encontraron envíos</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = shipments.map(s => `
+        <tr>
+            <td><strong>${s.order_number}</strong></td>
+            <td>${s.delivery_date || '-'}</td>
+            <td>${s.customer_name || '-'}</td>
+            <td>${s.customer_district || '-'}</td>
+            <td>S/ ${(s.order_total || 0).toFixed(2)}</td>
+            <td>
+                ${s.is_cod ? `<span class="badge bg-warning text-dark">COD S/ ${(s.cod_amount || 0).toFixed(2)}</span>` : '<span class="badge bg-secondary">Normal</span>'}
+            </td>
+            <td>${s.sent_by || '-'}</td>
+            <td>${s.sent_at || '-'}</td>
+        </tr>
+    `).join('');
+}
+
+// Load statistics
+async function loadStats() {
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+
+    try {
+        const response = await fetch(`/dispatch/api/chamo-shipments/stats?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('stat-total').textContent = data.stats.total_shipments;
+            document.getElementById('stat-cod').textContent = data.stats.total_cod;
+            document.getElementById('stat-amount').textContent = `S/ ${data.stats.total_amount.toFixed(2)}`;
+            document.getElementById('stat-cod-amount').textContent = `S/ ${data.stats.total_cod_amount.toFixed(2)}`;
+        } else {
+            console.error('Error loading stats:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Export to CSV
+function exportCSV() {
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+    const isCod = document.getElementById('filter-cod').value;
+
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (isCod) params.append('is_cod', isCod);
+
+    window.location.href = `/dispatch/api/chamo-shipments/export?${params}`;
+}
+
+// Show error message
+function showError(message) {
+    const tbody = document.getElementById('shipments-tbody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center text-danger">
+                <i class="bi bi-exclamation-triangle"></i> ${message}
+            </td>
+        </tr>
+    `;
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Set default date range (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('filter-date-to').value = today.toISOString().split('T')[0];
+    document.getElementById('filter-date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
+
+    // Load initial data
+    loadShipments();
+    loadStats();
+});
+</script>
+{% endblock %}

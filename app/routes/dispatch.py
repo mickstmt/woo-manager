@@ -191,6 +191,146 @@ def get_column_from_shipping_method(order_id):
         return 'Por Asignar'
 
 
+def register_chamo_shipment(order_id, order_number, tracking_number, delivery_date, sent_via='individual'):
+    """
+    Registra envío de CHAMO cuando se envía tracking.
+
+    Args:
+        order_id: ID del pedido
+        order_number: Número del pedido
+        tracking_number: Mensaje de tracking enviado
+        delivery_date: Fecha de entrega (YYYY-MM-DD)
+        sent_via: 'individual' o 'bulk'
+
+    Returns:
+        ChamoShipment o None si falla
+    """
+    from app.models import ChamoShipment
+    from datetime import datetime, date, timedelta
+
+    try:
+        # Validar que el pedido esté en columna CHAMO
+        current_column = get_column_from_shipping_method(order_id)
+        if current_column != 'Motorizado (CHAMO)':
+            current_app.logger.warning(
+                f"[CHAMO-REGISTRY] Order {order_number}: NOT in CHAMO column "
+                f"(current: {current_column}), skipping"
+            )
+            return None
+
+        # Prevenir duplicados recientes (últimos 5 minutos)
+        existing = ChamoShipment.query.filter(
+            ChamoShipment.order_id == order_id,
+            ChamoShipment.sent_at >= datetime.utcnow() - timedelta(minutes=5)
+        ).first()
+
+        if existing:
+            current_app.logger.info(
+                f"[CHAMO-REGISTRY] Order {order_number}: Already registered recently "
+                f"(ID: {existing.id}), skipping"
+            )
+            return existing
+
+        # Obtener datos del pedido
+        query = text("""
+            SELECT
+                o.total_amount,
+                ba.first_name,
+                ba.last_name,
+                ba.phone,
+                o.billing_email,
+                ba.address_1,
+                sa.city as district,
+                om_is_cod.meta_value as is_cod,
+                (SELECT SUM(CAST(oim_cost.meta_value AS DECIMAL(10,2)))
+                 FROM wpyz_woocommerce_order_items oi
+                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_cost
+                   ON oi.order_item_id = oim_cost.order_item_id
+                   AND oim_cost.meta_key = 'cost'
+                 WHERE oi.order_id = o.id
+                   AND oi.order_item_type = 'shipping'
+                ) as shipping_cost
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_order_addresses ba
+                ON o.id = ba.order_id AND ba.address_type = 'billing'
+            LEFT JOIN wpyz_wc_order_addresses sa
+                ON o.id = sa.order_id AND sa.address_type = 'shipping'
+            LEFT JOIN wpyz_wc_orders_meta om_is_cod
+                ON o.id = om_is_cod.order_id AND om_is_cod.meta_key = '_is_cod'
+            WHERE o.id = :order_id
+        """)
+
+        result = db.session.execute(query, {'order_id': order_id}).fetchone()
+
+        if not result:
+            current_app.logger.error(
+                f"[CHAMO-REGISTRY] Order {order_number}: Datos no encontrados"
+            )
+            return None
+
+        # Extraer y procesar datos
+        order_total = float(result[0]) if result[0] else 0
+        customer_name = f"{result[1] or ''} {result[2] or ''}".strip()
+        customer_phone = result[3]
+        customer_email = result[4]
+        customer_address = result[5]
+        customer_district = result[6]
+        is_cod = result[7] == 'yes'
+        shipping_cost = float(result[8]) if result[8] else 0
+
+        # Calcular monto COD (total - envío ya pagado)
+        cod_amount = order_total - shipping_cost if is_cod else 0
+
+        # Convertir delivery_date
+        if isinstance(delivery_date, str):
+            delivery_date_obj = datetime.strptime(delivery_date, '%Y-%m-%d').date()
+        elif isinstance(delivery_date, date):
+            delivery_date_obj = delivery_date
+        else:
+            delivery_date_obj = date.today()
+
+        # Crear registro
+        chamo_shipment = ChamoShipment(
+            order_id=order_id,
+            order_number=order_number,
+            tracking_number=tracking_number,
+            delivery_date=delivery_date_obj,
+            shipping_provider='Motorizado Izi',
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            customer_email=customer_email,
+            customer_address=customer_address,
+            customer_district=customer_district,
+            order_total=order_total,
+            shipping_cost=shipping_cost,
+            cod_amount=cod_amount,
+            is_cod=is_cod,
+            sent_by=current_user.username,
+            sent_at=datetime.utcnow(),
+            sent_via=sent_via,
+            column_at_send='Motorizado (CHAMO)'
+        )
+
+        db.session.add(chamo_shipment)
+        db.session.flush()
+
+        current_app.logger.info(
+            f"[CHAMO-REGISTRY] Order {order_number}: Registrado "
+            f"(ID: {chamo_shipment.id}, Delivery: {delivery_date_obj}, "
+            f"COD: {is_cod}, Via: {sent_via})"
+        )
+
+        return chamo_shipment
+
+    except Exception as e:
+        current_app.logger.error(
+            f"[CHAMO-REGISTRY] Error registrando {order_number}: {str(e)}"
+        )
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return None
+
+
 # ============================================
 # MIDDLEWARE DE AUTORIZACIÓN
 # ============================================
@@ -1324,6 +1464,17 @@ def add_tracking():
         current_app.logger.info(f"[TRACKING] Order {order_id}: Agregando tracking {tracking_number} con provider '{shipping_provider}'")
         current_app.logger.info(f"[TRACKING] Serialized data: {serialized_items}")
 
+        # REGISTRO CHAMO: Si el pedido está en columna CHAMO, registrar envío
+        current_column = get_column_from_shipping_method(order_id)
+        if current_column == 'Motorizado (CHAMO)':
+            register_chamo_shipment(
+                order_id=order_id,
+                order_number=order.get_meta('_order_number') or f"#{order_id}",
+                tracking_number=tracking_number,
+                delivery_date=date_shipped,
+                sent_via='individual'
+            )
+
         # Guardar metadatos en wpyz_postmeta (para compatibilidad con el plugin)
         # IMPORTANTE: El plugin de WooCommerce Shipment Tracking requiere registros DUPLICADOS
         # Por eso insertamos cada meta_key DOS VECES (sin ON DUPLICATE KEY UPDATE)
@@ -1533,6 +1684,7 @@ def bulk_tracking_simple():
         resultados = []
         exitosos = 0
         fallidos = 0
+        chamo_registered = 0  # Contador de envíos CHAMO registrados
 
         current_app.logger.info(f"[BULK-TRACKING-SIMPLE] Iniciando proceso para {len(order_ids)} pedidos de {column.upper()}")
 
@@ -1639,6 +1791,18 @@ def bulk_tracking_simple():
                     f"[BULK-TRACKING-SIMPLE] Tracking asignado a {order_number} ({column.upper()}) por {current_user.username}"
                 )
 
+                # REGISTRO CHAMO: Si la columna es CHAMO, registrar envío
+                if column == 'chamo':
+                    chamo_reg = register_chamo_shipment(
+                        order_id=order_id,
+                        order_number=order_number,
+                        tracking_number=tracking_message,
+                        delivery_date=shipping_date,
+                        sent_via='bulk'
+                    )
+                    if chamo_reg:
+                        chamo_registered += 1
+
                 # Rate limiting - esperar 1 segundo entre pedidos
                 if len(order_ids) > 1:
                     time.sleep(1)
@@ -1657,13 +1821,19 @@ def bulk_tracking_simple():
             f"[BULK-TRACKING-SIMPLE] Proceso completado: {exitosos} exitosos, {fallidos} fallidos"
         )
 
-        return jsonify({
+        response_data = {
             'success': True,
             'exitosos': exitosos,
             'fallidos': fallidos,
             'total': len(order_ids),
             'resultados': resultados
-        })
+        }
+
+        # Si es CHAMO, agregar info de registros
+        if column == 'chamo':
+            response_data['chamo_registered'] = chamo_registered
+
+        return jsonify(response_data)
 
     except Exception as e:
         current_app.logger.error(f"Error en bulk_tracking_simple: {str(e)}")
@@ -2775,6 +2945,236 @@ def mark_as_delivered():
         current_app.logger.error(f"Error marcando pedido como entregado: {str(e)}")
         import traceback
         current_app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ============================================
+# ENDPOINTS PARA REGISTRO DE ENVÍOS CHAMO
+# ============================================
+
+@bp.route('/chamo-shipments')
+@login_required
+@master_required
+def chamo_shipments_page():
+    """Página principal de registro de envíos CHAMO"""
+    return render_template('chamo_shipments.html')
+
+
+@bp.route('/api/chamo-shipments', methods=['GET'])
+@login_required
+@master_required
+def get_chamo_shipments():
+    """
+    Obtener lista de envíos CHAMO con filtros.
+
+    Query params:
+        - date_from: Fecha inicio (YYYY-MM-DD)
+        - date_to: Fecha fin (YYYY-MM-DD)
+        - is_cod: Filtrar por COD (true/false)
+        - sent_by: Filtrar por usuario
+        - limit: Límite de resultados (default 100)
+        - offset: Offset para paginación (default 0)
+    """
+    try:
+        from app.models import ChamoShipment
+        from datetime import datetime
+
+        # Obtener parámetros de filtro
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        is_cod = request.args.get('is_cod')
+        sent_by = request.args.get('sent_by')
+        limit = int(request.args.get('limit', 100))
+        offset = int(request.args.get('offset', 0))
+
+        # Construir query
+        query = ChamoShipment.query
+
+        # Filtros
+        if date_from:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+
+        if date_to:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+
+        if is_cod is not None:
+            is_cod_bool = is_cod.lower() == 'true'
+            query = query.filter(ChamoShipment.is_cod == is_cod_bool)
+
+        if sent_by:
+            query = query.filter(ChamoShipment.sent_by == sent_by)
+
+        # Ordenar por fecha de envío (más reciente primero)
+        query = query.order_by(ChamoShipment.sent_at.desc())
+
+        # Contar total antes de paginación
+        total = query.count()
+
+        # Paginación
+        shipments = query.limit(limit).offset(offset).all()
+
+        # Convertir a JSON
+        shipments_data = [s.to_dict() for s in shipments]
+
+        return jsonify({
+            'success': True,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'shipments': shipments_data
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error obteniendo envíos CHAMO: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/api/chamo-shipments/export', methods=['GET'])
+@login_required
+@master_required
+def export_chamo_shipments():
+    """
+    Exportar envíos CHAMO a CSV para facturación.
+
+    Query params: igual que get_chamo_shipments
+    """
+    try:
+        from app.models import ChamoShipment
+        from datetime import datetime
+        import csv
+        from io import StringIO
+        from flask import make_response
+
+        # Obtener parámetros (mismos que get_chamo_shipments)
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        is_cod = request.args.get('is_cod')
+        sent_by = request.args.get('sent_by')
+
+        # Construir query (mismo código que arriba)
+        query = ChamoShipment.query
+
+        if date_from:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+
+        if date_to:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+
+        if is_cod is not None:
+            is_cod_bool = is_cod.lower() == 'true'
+            query = query.filter(ChamoShipment.is_cod == is_cod_bool)
+
+        if sent_by:
+            query = query.filter(ChamoShipment.sent_by == sent_by)
+
+        query = query.order_by(ChamoShipment.delivery_date.asc())
+        shipments = query.all()
+
+        # Crear CSV
+        si = StringIO()
+        writer = csv.writer(si)
+
+        # Headers
+        writer.writerow([
+            'ID', 'Pedido', 'Fecha Entrega', 'Cliente', 'Teléfono', 'Distrito',
+            'Total Pedido', 'Costo Envío', 'Monto COD', 'Es COD',
+            'Enviado Por', 'Fecha Envío', 'Método'
+        ])
+
+        # Datos
+        for s in shipments:
+            writer.writerow([
+                s.id,
+                s.order_number,
+                s.delivery_date.strftime('%Y-%m-%d') if s.delivery_date else '',
+                s.customer_name or '',
+                s.customer_phone or '',
+                s.customer_district or '',
+                f"{float(s.order_total):.2f}" if s.order_total else '0.00',
+                f"{float(s.shipping_cost):.2f}" if s.shipping_cost else '0.00',
+                f"{float(s.cod_amount):.2f}" if s.cod_amount else '0.00',
+                'Sí' if s.is_cod else 'No',
+                s.sent_by,
+                s.sent_at.strftime('%Y-%m-%d %H:%M:%S') if s.sent_at else '',
+                s.sent_via
+            ])
+
+        # Crear respuesta
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = f"attachment; filename=chamo_shipments_{datetime.now().strftime('%Y%m%d')}.csv"
+        output.headers["Content-type"] = "text/csv; charset=utf-8"
+
+        return output
+
+    except Exception as e:
+        current_app.logger.error(f"Error exportando envíos CHAMO: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/api/chamo-shipments/stats', methods=['GET'])
+@login_required
+@master_required
+def get_chamo_stats():
+    """
+    Obtener estadísticas de envíos CHAMO.
+
+    Query params:
+        - date_from: Fecha inicio (YYYY-MM-DD)
+        - date_to: Fecha fin (YYYY-MM-DD)
+    """
+    try:
+        from app.models import ChamoShipment
+        from datetime import datetime
+        from sqlalchemy import func
+
+        # Obtener parámetros
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+
+        # Query base
+        query = db.session.query(
+            func.count(ChamoShipment.id).label('total_shipments'),
+            func.sum(ChamoShipment.is_cod).label('total_cod'),
+            func.sum(ChamoShipment.order_total).label('total_amount'),
+            func.sum(ChamoShipment.cod_amount).label('total_cod_amount')
+        )
+
+        if date_from:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+
+        if date_to:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+
+        result = query.first()
+
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_shipments': result.total_shipments or 0,
+                'total_cod': result.total_cod or 0,
+                'total_normal': (result.total_shipments or 0) - (result.total_cod or 0),
+                'total_amount': float(result.total_amount or 0),
+                'total_cod_amount': float(result.total_cod_amount or 0)
+            }
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error obteniendo stats CHAMO: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
