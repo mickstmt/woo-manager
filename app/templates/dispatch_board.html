@@ -397,6 +397,10 @@
                             <i class="bi bi-check-circle"></i>
                             <span id="atendido-btn-text">Marcar como Atendido</span>
                         </button>
+                        <!-- Botón "Solicitud" solo para pedidos en columna CHAMO -->
+                        <button type="button" class="btn btn-info btn-sm" id="btn-copy-chamo-info" style="display: none;" onclick="copyChamoInfo()">
+                            <i class="bi bi-clipboard-check"></i> Solicitud
+                        </button>
                     </div>
                 </div>
 
@@ -424,10 +428,6 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <!-- Botón "Copiar Info para CHAMO" solo para pedidos en columna CHAMO -->
-                <button type="button" class="btn btn-info" id="btn-copy-chamo-info" style="display: none;" onclick="copyChamoInfo()">
-                    <i class="bi bi-clipboard-check"></i> Copiar Info para CHAMO
-                </button>
                 <!-- Botón "Entregado" solo para pedidos de Recojo en Almacén -->
                 <button type="button" class="btn btn-primary" id="btn-mark-delivered" style="display: none;" onclick="markAsDelivered(currentOrderId, currentOrderData?.number)">
                     <i class="bi bi-box-seam"></i> Marcar como Entregado

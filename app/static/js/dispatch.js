@@ -1867,7 +1867,7 @@ function copyChamoInfo() {
         info += `Dirección: ${order.shipping_address || 'N/A'}\n`;
 
         // Distrito
-        info += `Distrito: ${order.shipping_city || 'N/A'}\n`;
+        info += `Distrito: ${order.shipping_district || 'N/A'}\n`;
 
         // Referencia (siempre mostrar, aunque esté vacía)
         info += `Referencia: ${order.shipping_reference || 'N/A'}\n`;
