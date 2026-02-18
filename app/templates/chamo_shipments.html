@@ -63,11 +63,11 @@
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Fecha Desde</label>
-                            <input type="date" class="form-control" id="filter-date-from">
+                            <input type="date" class="form-control" id="filter-date-from" autocomplete="off">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Fecha Hasta</label>
-                            <input type="date" class="form-control" id="filter-date-to">
+                            <input type="date" class="form-control" id="filter-date-to" autocomplete="off">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Tipo</label>
@@ -245,8 +245,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    document.getElementById('filter-date-to').value = today.toISOString().split('T')[0];
-    document.getElementById('filter-date-from').value = firstDayOfMonth.toISOString().split('T')[0];
+    const dateToValue = today.toISOString().split('T')[0];
+    const dateFromValue = firstDayOfMonth.toISOString().split('T')[0];
+
+    console.log('[CHAMO] Setting dates:', { dateFrom: dateFromValue, dateTo: dateToValue });
+
+    document.getElementById('filter-date-to').value = dateToValue;
+    document.getElementById('filter-date-from').value = dateFromValue;
+
+    console.log('[CHAMO] Dates after setting:', {
+        dateFrom: document.getElementById('filter-date-from').value,
+        dateTo: document.getElementById('filter-date-to').value
+    });
 
     // Load initial data
     loadShipments();
