@@ -1174,6 +1174,36 @@ def get_order_detail(order_id):
         """)
         products_result = db.session.execute(products_query, {'order_id': order_id}).fetchall()
 
+        # Obtener atributos de cada item del pedido
+        if products_result:
+            order_item_ids = [p.order_item_id for p in products_result]
+            attributes_query = text("""
+                SELECT
+                    order_item_id,
+                    meta_key,
+                    meta_value
+                FROM wpyz_woocommerce_order_itemmeta
+                WHERE order_item_id IN :item_ids
+                AND (meta_key LIKE 'pa_%' OR meta_key LIKE 'attribute_%' OR meta_key IN ('Medida', 'Color', 'Talla'))
+            """)
+            attributes_result = db.session.execute(attributes_query, {'item_ids': tuple(order_item_ids)}).fetchall()
+
+            # Organizar atributos por order_item_id
+            item_attributes = {}
+            for attr in attributes_result:
+                item_id = attr.order_item_id
+                if item_id not in item_attributes:
+                    item_attributes[item_id] = []
+
+                # Limpiar nombre del atributo
+                attr_name = attr.meta_key.replace('pa_', '').replace('attribute_', '').replace('_', ' ').title()
+                attr_value = attr.meta_value
+
+                if attr_value:
+                    item_attributes[item_id].append(f"{attr_value}")
+        else:
+            item_attributes = {}
+
         # Método de envío
         shipping_method_query = text("""
             SELECT order_item_name, order_item_id
@@ -1261,8 +1291,17 @@ def get_order_detail(order_id):
         total_products_tax = 0
         for product in products_result:
             product_tax = float(product.tax) if product.tax else 0.0
+
+            # Construir nombre con atributos si existen
+            product_name = product.product_name
+            if product.order_item_id in item_attributes and item_attributes[product.order_item_id]:
+                # Agregar atributos al nombre si no están ya incluidos
+                attributes_str = ', '.join(item_attributes[product.order_item_id])
+                if attributes_str and attributes_str not in product_name:
+                    product_name = f"{product_name} - {attributes_str}"
+
             product_data = {
-                'name': product.product_name,
+                'name': product_name,
                 'sku': product.sku or 'N/A',
                 'quantity': int(product.quantity) if product.quantity else 0,
                 'price': float(product.subtotal) / int(product.quantity) if product.quantity and float(product.quantity) > 0 else 0,
