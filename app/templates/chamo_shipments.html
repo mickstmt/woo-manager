@@ -239,46 +239,32 @@ function showError(message) {
     `;
 }
 
-// Function to set dates
-function setDefaultDates() {
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    const dateToValue = today.toISOString().split('T')[0];
-    const dateFromValue = firstDayOfMonth.toISOString().split('T')[0];
-
-    console.log('[CHAMO] Setting dates:', { dateFrom: dateFromValue, dateTo: dateToValue });
+// Load on page ready
+document.addEventListener('DOMContentLoaded', function () {
+    // Establecer fechas predeterminadas (primer día del mes hasta hoy)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(1); // Primer día del mes actual
 
     const dateFromInput = document.getElementById('filter-date-from');
     const dateToInput = document.getElementById('filter-date-to');
 
-    // Clear and set values
-    dateFromInput.value = '';
-    dateToInput.value = '';
+    // Verificar si Flatpickr está inicializado (mismo patrón que reports_profits.html)
+    if (dateFromInput._flatpickr) {
+        dateFromInput._flatpickr.setDate(startDate, true);
+    } else {
+        dateFromInput.valueAsDate = startDate;
+    }
 
-    setTimeout(() => {
-        dateFromInput.value = dateFromValue;
-        dateToInput.value = dateToValue;
+    if (dateToInput._flatpickr) {
+        dateToInput._flatpickr.setDate(endDate, true);
+    } else {
+        dateToInput.valueAsDate = endDate;
+    }
 
-        console.log('[CHAMO] Dates after setting:', {
-            dateFrom: dateFromInput.value,
-            dateTo: dateToInput.value
-        });
-    }, 100);
-}
-
-// Load on page ready
-document.addEventListener('DOMContentLoaded', () => {
-    setDefaultDates();
-
-    // Force set dates again after a delay to override any autocomplete
-    setTimeout(setDefaultDates, 500);
-
-    // Load initial data
-    setTimeout(() => {
-        loadShipments();
-        loadStats();
-    }, 600);
+    // Cargar datos iniciales
+    loadShipments();
+    loadStats();
 });
 </script>
 {% endblock %}
