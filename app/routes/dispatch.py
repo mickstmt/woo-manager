@@ -3194,9 +3194,10 @@ def get_chamo_stats():
         date_to = request.args.get('date_to')
 
         # Query base
+        from sqlalchemy import cast, Integer
         query = db.session.query(
             func.count(ChamoShipment.id).label('total_shipments'),
-            func.sum(ChamoShipment.is_cod).label('total_cod'),
+            func.sum(cast(ChamoShipment.is_cod, Integer)).label('total_cod'),
             func.sum(ChamoShipment.order_total).label('total_amount'),
             func.sum(ChamoShipment.cod_amount).label('total_cod_amount'),
             func.sum(ChamoShipment.shipping_cost).label('total_shipping_cost')
@@ -3217,9 +3218,9 @@ def get_chamo_stats():
         return jsonify({
             'success': True,
             'stats': {
-                'total_shipments': result.total_shipments or 0,
-                'total_cod': result.total_cod or 0,
-                'total_normal': (result.total_shipments or 0) - (result.total_cod or 0),
+                'total_shipments': int(result.total_shipments or 0),
+                'total_cod': int(result.total_cod or 0),
+                'total_normal': int((result.total_shipments or 0) - (result.total_cod or 0)),
                 'total_amount': float(result.total_amount or 0),
                 'total_cod_amount': float(result.total_cod_amount or 0),
                 'total_shipping_cost': float(result.total_shipping_cost or 0)

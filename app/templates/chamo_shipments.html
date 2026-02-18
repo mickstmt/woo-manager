@@ -109,7 +109,7 @@
                                     <th>Cliente</th>
                                     <th>Distrito</th>
                                     <th>Total</th>
-                                    <th class="table-primary">Costo Envío</th>
+                                    <th>Costo Envío</th>
                                     <th>COD</th>
                                     <th>Enviado Por</th>
                                     <th>Fecha Envío</th>
@@ -176,7 +176,7 @@ function renderShipments(shipments) {
             <td>${s.customer_name || '-'}</td>
             <td>${s.customer_district || '-'}</td>
             <td>S/ ${(s.order_total || 0).toFixed(2)}</td>
-            <td class="table-primary"><strong>S/ ${(s.shipping_cost || 0).toFixed(2)}</strong></td>
+            <td><strong class="text-primary">S/ ${(s.shipping_cost || 0).toFixed(2)}</strong></td>
             <td>
                 ${s.is_cod ? `<span class="badge bg-warning text-dark">COD S/ ${(s.cod_amount || 0).toFixed(2)}</span>` : '<span class="badge bg-secondary">Normal</span>'}
             </td>
