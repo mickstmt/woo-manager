@@ -116,7 +116,7 @@ def normalize_text(text):
 
 def get_column_from_shipping_method(order_id):
     """
-    Determina la columna del Kanban basándose en el método de envío del pedido.
+    Determina la columna del Kanban basándose en el historial de despacho o método de envío.
 
     Args:
         order_id: ID del pedido
@@ -126,6 +126,22 @@ def get_column_from_shipping_method(order_id):
              'Motorizado (CHAMO)', o 'Por Asignar')
     """
     try:
+        # PRIMERO: Verificar si hay historial de despacho (posición manual en kanban)
+        history_query = text("""
+            SELECT dh.new_shipping_method
+            FROM woo_dispatch_history dh
+            WHERE dh.order_id = :order_id
+            ORDER BY dh.changed_at DESC
+            LIMIT 1
+        """)
+        history_result = db.session.execute(history_query, {'order_id': order_id}).fetchone()
+
+        if history_result and history_result[0]:
+            # Si hay historial, usar la última posición manual
+            current_app.logger.debug(f"[DISPATCH] Order {order_id}: Usando columna de historial '{history_result[0]}'")
+            return history_result[0]
+
+        # SEGUNDO: Si no hay historial, determinar por método de envío
         # Obtener el nombre del método de envío (con fallback para pedidos sin shipping item)
         query = text("""
             SELECT
