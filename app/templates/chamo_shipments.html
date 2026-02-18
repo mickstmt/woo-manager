@@ -13,7 +13,7 @@
 
     <!-- Stats Cards -->
     <div class="row mb-4" id="stats-container">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card">
                 <div class="card-body">
                     <h6 class="text-muted">Total Envíos</h6>
@@ -21,7 +21,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card">
                 <div class="card-body">
                     <h6 class="text-muted">Envíos COD</h6>
@@ -42,6 +42,14 @@
                 <div class="card-body">
                     <h6 class="text-muted">Total COD</h6>
                     <h3 id="stat-cod-amount">S/ -</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="text-muted">Costo Envío</h6>
+                    <h3 id="stat-shipping-cost" class="text-primary">S/ -</h3>
                 </div>
             </div>
         </div>
@@ -101,6 +109,7 @@
                                     <th>Cliente</th>
                                     <th>Distrito</th>
                                     <th>Total</th>
+                                    <th class="table-primary">Costo Envío</th>
                                     <th>COD</th>
                                     <th>Enviado Por</th>
                                     <th>Fecha Envío</th>
@@ -108,7 +117,7 @@
                             </thead>
                             <tbody id="shipments-tbody">
                                 <tr>
-                                    <td colspan="8" class="text-center">
+                                    <td colspan="9" class="text-center">
                                         <div class="spinner-border"></div>
                                         <p>Cargando envíos...</p>
                                     </td>
@@ -156,7 +165,7 @@ function renderShipments(shipments) {
     const tbody = document.getElementById('shipments-tbody');
 
     if (shipments.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No se encontraron envíos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No se encontraron envíos</td></tr>';
         return;
     }
 
@@ -167,6 +176,7 @@ function renderShipments(shipments) {
             <td>${s.customer_name || '-'}</td>
             <td>${s.customer_district || '-'}</td>
             <td>S/ ${(s.order_total || 0).toFixed(2)}</td>
+            <td class="table-primary"><strong>S/ ${(s.shipping_cost || 0).toFixed(2)}</strong></td>
             <td>
                 ${s.is_cod ? `<span class="badge bg-warning text-dark">COD S/ ${(s.cod_amount || 0).toFixed(2)}</span>` : '<span class="badge bg-secondary">Normal</span>'}
             </td>
@@ -194,6 +204,7 @@ async function loadStats() {
             document.getElementById('stat-cod').textContent = data.stats.total_cod;
             document.getElementById('stat-amount').textContent = `S/ ${data.stats.total_amount.toFixed(2)}`;
             document.getElementById('stat-cod-amount').textContent = `S/ ${data.stats.total_cod_amount.toFixed(2)}`;
+            document.getElementById('stat-shipping-cost').textContent = `S/ ${data.stats.total_shipping_cost.toFixed(2)}`;
         } else {
             console.error('Error loading stats:', data.error);
         }
@@ -221,7 +232,7 @@ function showError(message) {
     const tbody = document.getElementById('shipments-tbody');
     tbody.innerHTML = `
         <tr>
-            <td colspan="8" class="text-center text-danger">
+            <td colspan="9" class="text-center text-danger">
                 <i class="bi bi-exclamation-triangle"></i> ${message}
             </td>
         </tr>

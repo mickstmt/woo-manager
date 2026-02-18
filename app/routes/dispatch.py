@@ -207,6 +207,35 @@ def get_column_from_shipping_method(order_id):
         return 'Por Asignar'
 
 
+def parse_date_flexible(date_string):
+    """
+    Parsea una fecha que puede venir en múltiples formatos.
+
+    Args:
+        date_string: Fecha en formato YYYY-MM-DD o DD/MM/YYYY
+
+    Returns:
+        date object o None si falla
+    """
+    if not date_string:
+        return None
+
+    from datetime import datetime
+
+    # Intentar múltiples formatos
+    formats = ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y']
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_string, fmt).date()
+        except ValueError:
+            continue
+
+    # Si ninguno funciona, loguear y retornar None
+    current_app.logger.warning(f"[PARSE-DATE] No se pudo parsear fecha: {date_string}")
+    return None
+
+
 def register_chamo_shipment(order_id, order_number, tracking_number, delivery_date, sent_via='individual'):
     """
     Registra envío de CHAMO cuando se envía tracking.
@@ -3011,12 +3040,14 @@ def get_chamo_shipments():
 
         # Filtros
         if date_from:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+            date_from_obj = parse_date_flexible(date_from)
+            if date_from_obj:
+                query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
 
         if date_to:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+            date_to_obj = parse_date_flexible(date_to)
+            if date_to_obj:
+                query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
 
         if is_cod is not None:
             is_cod_bool = is_cod.lower() == 'true'
@@ -3079,12 +3110,14 @@ def export_chamo_shipments():
         query = ChamoShipment.query
 
         if date_from:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+            date_from_obj = parse_date_flexible(date_from)
+            if date_from_obj:
+                query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
 
         if date_to:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+            date_to_obj = parse_date_flexible(date_to)
+            if date_to_obj:
+                query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
 
         if is_cod is not None:
             is_cod_bool = is_cod.lower() == 'true'
@@ -3165,16 +3198,19 @@ def get_chamo_stats():
             func.count(ChamoShipment.id).label('total_shipments'),
             func.sum(ChamoShipment.is_cod).label('total_cod'),
             func.sum(ChamoShipment.order_total).label('total_amount'),
-            func.sum(ChamoShipment.cod_amount).label('total_cod_amount')
+            func.sum(ChamoShipment.cod_amount).label('total_cod_amount'),
+            func.sum(ChamoShipment.shipping_cost).label('total_shipping_cost')
         )
 
         if date_from:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
+            date_from_obj = parse_date_flexible(date_from)
+            if date_from_obj:
+                query = query.filter(ChamoShipment.delivery_date >= date_from_obj)
 
         if date_to:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
-            query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
+            date_to_obj = parse_date_flexible(date_to)
+            if date_to_obj:
+                query = query.filter(ChamoShipment.delivery_date <= date_to_obj)
 
         result = query.first()
 
@@ -3185,7 +3221,8 @@ def get_chamo_stats():
                 'total_cod': result.total_cod or 0,
                 'total_normal': (result.total_shipments or 0) - (result.total_cod or 0),
                 'total_amount': float(result.total_amount or 0),
-                'total_cod_amount': float(result.total_cod_amount or 0)
+                'total_cod_amount': float(result.total_cod_amount or 0),
+                'total_shipping_cost': float(result.total_shipping_cost or 0)
             }
         })
 
