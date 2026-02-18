@@ -241,12 +241,12 @@ function showError(message) {
 
 // Load on page ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Set default date range (last 30 days)
+    // Set default date range (from first day of current month to today)
     const today = new Date();
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     document.getElementById('filter-date-to').value = today.toISOString().split('T')[0];
-    document.getElementById('filter-date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('filter-date-from').value = firstDayOfMonth.toISOString().split('T')[0];
 
     // Load initial data
     loadShipments();
