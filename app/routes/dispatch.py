@@ -1778,6 +1778,18 @@ def bulk_tracking_simple():
                     'serialized_items': serialized_items
                 })
 
+                # REGISTRO CHAMO: Si la columna es CHAMO, registrar envío (ANTES del commit)
+                if column == 'chamo':
+                    chamo_reg = register_chamo_shipment(
+                        order_id=order_id,
+                        order_number=order_number,
+                        tracking_number=tracking_message,
+                        delivery_date=shipping_date,
+                        sent_via='bulk'
+                    )
+                    if chamo_reg:
+                        chamo_registered += 1
+
                 db.session.commit()
 
                 exitosos += 1
@@ -1790,18 +1802,6 @@ def bulk_tracking_simple():
                 current_app.logger.info(
                     f"[BULK-TRACKING-SIMPLE] Tracking asignado a {order_number} ({column.upper()}) por {current_user.username}"
                 )
-
-                # REGISTRO CHAMO: Si la columna es CHAMO, registrar envío
-                if column == 'chamo':
-                    chamo_reg = register_chamo_shipment(
-                        order_id=order_id,
-                        order_number=order_number,
-                        tracking_number=tracking_message,
-                        delivery_date=shipping_date,
-                        sent_via='bulk'
-                    )
-                    if chamo_reg:
-                        chamo_registered += 1
 
                 # Rate limiting - esperar 1 segundo entre pedidos
                 if len(order_ids) > 1:
