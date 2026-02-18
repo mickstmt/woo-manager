@@ -241,30 +241,33 @@ function showError(message) {
 
 // Load on page ready
 document.addEventListener('DOMContentLoaded', function () {
-    // Establecer fechas predeterminadas (primer día del mes hasta hoy)
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(1); // Primer día del mes actual
+    // Esperar a que Flatpickr termine de inicializarse
+    setTimeout(function() {
+        // Establecer fechas predeterminadas (primer día del mes hasta hoy)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(1); // Primer día del mes actual
 
-    const dateFromInput = document.getElementById('filter-date-from');
-    const dateToInput = document.getElementById('filter-date-to');
+        const dateFromInput = document.getElementById('filter-date-from');
+        const dateToInput = document.getElementById('filter-date-to');
 
-    // Verificar si Flatpickr está inicializado (mismo patrón que reports_profits.html)
-    if (dateFromInput._flatpickr) {
-        dateFromInput._flatpickr.setDate(startDate, true);
-    } else {
-        dateFromInput.valueAsDate = startDate;
-    }
+        // Verificar si Flatpickr está inicializado (mismo patrón que reports_profits.html)
+        if (dateFromInput._flatpickr) {
+            dateFromInput._flatpickr.setDate(startDate, true);
+        } else {
+            dateFromInput.valueAsDate = startDate;
+        }
 
-    if (dateToInput._flatpickr) {
-        dateToInput._flatpickr.setDate(endDate, true);
-    } else {
-        dateToInput.valueAsDate = endDate;
-    }
+        if (dateToInput._flatpickr) {
+            dateToInput._flatpickr.setDate(endDate, true);
+        } else {
+            dateToInput.valueAsDate = endDate;
+        }
 
-    // Cargar datos iniciales
-    loadShipments();
-    loadStats();
+        // Cargar datos iniciales
+        loadShipments();
+        loadStats();
+    }, 200); // Esperar 200ms para que Flatpickr se inicialice
 });
 </script>
 {% endblock %}
