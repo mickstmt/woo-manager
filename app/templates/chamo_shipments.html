@@ -239,9 +239,8 @@ function showError(message) {
     `;
 }
 
-// Load on page ready
-document.addEventListener('DOMContentLoaded', () => {
-    // Set default date range (from first day of current month to today)
+// Function to set dates
+function setDefaultDates() {
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
@@ -250,17 +249,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('[CHAMO] Setting dates:', { dateFrom: dateFromValue, dateTo: dateToValue });
 
-    document.getElementById('filter-date-to').value = dateToValue;
-    document.getElementById('filter-date-from').value = dateFromValue;
+    const dateFromInput = document.getElementById('filter-date-from');
+    const dateToInput = document.getElementById('filter-date-to');
 
-    console.log('[CHAMO] Dates after setting:', {
-        dateFrom: document.getElementById('filter-date-from').value,
-        dateTo: document.getElementById('filter-date-to').value
-    });
+    // Clear and set values
+    dateFromInput.value = '';
+    dateToInput.value = '';
+
+    setTimeout(() => {
+        dateFromInput.value = dateFromValue;
+        dateToInput.value = dateToValue;
+
+        console.log('[CHAMO] Dates after setting:', {
+            dateFrom: dateFromInput.value,
+            dateTo: dateToInput.value
+        });
+    }, 100);
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', () => {
+    setDefaultDates();
+
+    // Force set dates again after a delay to override any autocomplete
+    setTimeout(setDefaultDates, 500);
 
     // Load initial data
-    loadShipments();
-    loadStats();
+    setTimeout(() => {
+        loadShipments();
+        loadStats();
+    }, 600);
 });
 </script>
 {% endblock %}
