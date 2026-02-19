@@ -1906,7 +1906,8 @@ function buildChamoInfoBlock(order) {
     info += `Referencia: ${order.shipping_reference || 'N/A'}`;
 
     if (order.is_cod) {
-        const codAmount = (order.products || []).reduce((sum, p) => sum + (p.line_total || 0), 0);
+        // Mismo cálculo que el mensaje de tracking: total del pedido - costo de envío ya pagado
+        const codAmount = (order.total || 0) - (order.shipping_cost || 0);
         info += `\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\n`;
         info += `Monto a cancelar: S/ ${codAmount.toFixed(2)}`;
     }
