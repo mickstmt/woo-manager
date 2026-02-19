@@ -16,6 +16,7 @@ let pendingDeliveryOrderNumber = null; // Número del pedido a marcar como entre
 // Variables para selección masiva
 let bulkSelectedOrders = [];  // Array de {orderId, orderNumber}
 let bulkSelectedColumn = null; // 'chamo' o 'dinsides'
+let chamoOrdersCache = {};    // Cache de datos completos de pedidos CHAMO {orderId: orderData}
 
 // Plantillas de mensajes de tracking por columna (con placeholder @fecha_envio)
 const BULK_TRACKING_TEMPLATES = {
@@ -281,6 +282,7 @@ function renderOrders(ordersByMethod) {
 
     // Limpiar todas las columnas y resetear lista de IDs visibles
     currentVisibleOrderIds = [];
+    chamoOrdersCache = {}; // Resetear caché de pedidos CHAMO
     Object.values(columnMap).forEach(columnId => {
         const column = document.getElementById(columnId);
         if (column) {
@@ -312,6 +314,10 @@ function renderOrders(ordersByMethod) {
 
         // Crear tarjetas de pedidos (pasando el método de la columna)
         orders.forEach(order => {
+            // Guardar datos en caché si es columna CHAMO
+            if (method === 'Motorizado (CHAMO)') {
+                chamoOrdersCache[order.id] = order;
+            }
             const card = createOrderCard(order, method);
             column.appendChild(card);
         });
@@ -1643,6 +1649,12 @@ function updateBulkSelection() {
     const countSpan = document.getElementById('bulk-selected-count');
     const columnSpan = document.getElementById('bulk-selected-column');
 
+    // Mostrar/ocultar botón de solicitud masiva en header de CHAMO
+    const bulkSolicitudBtn = document.getElementById('btn-bulk-chamo-solicitud');
+    if (bulkSolicitudBtn) {
+        bulkSolicitudBtn.style.display = (bulkSelectedOrders.length > 0 && bulkSelectedColumn === 'chamo') ? 'inline-block' : 'none';
+    }
+
     if (bulkSelectedOrders.length > 0) {
         actionBar.style.display = 'block';
         countSpan.textContent = bulkSelectedOrders.length;
@@ -1848,44 +1860,8 @@ function copyChamoInfo() {
     try {
         const order = currentOrderData;
 
-        // Debug: verificar datos
-        console.log('Datos del pedido:', order);
-
-        // Construir la información a copiar
-        let info = '';
-
-        // Número del pedido (WooCommerce ID, NO el número W-XXXXX)
-        info += `Pedido: #${order.id || 'N/A'}\n`;
-
-        // Nombre completo del cliente
-        info += `Nombre: ${order.customer_name || 'N/A'}\n`;
-
-        // Número de teléfono
-        info += `Teléfono: ${order.customer_phone || 'N/A'}\n`;
-
-        // Dirección
-        info += `Dirección: ${order.shipping_address || 'N/A'}\n`;
-
-        // Distrito
-        info += `Distrito: ${order.shipping_district || 'N/A'}\n`;
-
-        // Referencia (siempre mostrar, aunque esté vacía)
-        info += `Referencia: ${order.shipping_reference || 'N/A'}\n`;
-
-        // Si es contraentrega, agregar el monto
-        if (order.is_cod) {
-            // Calcular monto COD: Suma del total de productos (line_total ya incluye IGV)
-            // En Perú, los precios de productos SIEMPRE incluyen IGV
-            const codAmount = order.products.reduce((sum, product) => {
-                return sum + (product.line_total || 0);
-            }, 0);
-
-            info += `\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\n`;
-            info += `Monto a cancelar: S/ ${codAmount.toFixed(2)}`;
-        }
-
-        // Mostrar en modal personalizado
-        document.getElementById('chamo-info-text').value = info;
+        // Mostrar en modal personalizado usando función reutilizable
+        document.getElementById('chamo-info-text').value = buildChamoInfoBlock(order);
         const modal = new bootstrap.Modal(document.getElementById('copyChamoModal'));
         modal.show();
 
@@ -1909,6 +1885,81 @@ function selectAndCopyChamoText() {
     textarea.setSelectionRange(0, 99999); // Para móviles
 
     // Intentar copiar automáticamente
+    try {
+        document.execCommand('copy');
+        showSuccess('✓ Texto seleccionado. Ahora puedes pegarlo con Ctrl+V');
+    } catch (err) {
+        showSuccess('✓ Texto seleccionado. Cópialo con Ctrl+C');
+    }
+}
+
+/**
+ * Construir bloque de info de un pedido para CHAMO (reutilizable)
+ */
+function buildChamoInfoBlock(order) {
+    let info = '';
+    info += `Pedido: #${order.id || 'N/A'}\n`;
+    info += `Nombre: ${order.customer_name || 'N/A'}\n`;
+    info += `Teléfono: ${order.customer_phone || 'N/A'}\n`;
+    info += `Dirección: ${order.shipping_address || 'N/A'}\n`;
+    info += `Distrito: ${order.shipping_district || 'N/A'}\n`;
+    info += `Referencia: ${order.shipping_reference || 'N/A'}`;
+
+    if (order.is_cod) {
+        const codAmount = (order.products || []).reduce((sum, p) => sum + (p.line_total || 0), 0);
+        info += `\n\n⚠️ IMPORTANTE: Este pedido es PAGO CONTRAENTREGA.\n`;
+        info += `Monto a cancelar: S/ ${codAmount.toFixed(2)}`;
+    }
+
+    return info;
+}
+
+/**
+ * Copiar información masiva de pedidos CHAMO seleccionados
+ */
+function copyBulkChamoInfo() {
+    const chamoSelected = bulkSelectedOrders.filter(o => {
+        const cb = document.querySelector(`.bulk-order-checkbox[data-order-id="${o.orderId}"]`);
+        return cb && cb.dataset.column === 'chamo';
+    });
+
+    if (chamoSelected.length === 0) {
+        showError('No hay pedidos CHAMO seleccionados');
+        return;
+    }
+
+    const blocks = [];
+
+    chamoSelected.forEach((selected, index) => {
+        const order = chamoOrdersCache[selected.orderId];
+        if (!order) {
+            blocks.push(`--- Pedido ${selected.orderNumber} ---\n(Datos no disponibles)`);
+            return;
+        }
+        blocks.push(`--- Pedido ${index + 1} de ${chamoSelected.length} (${selected.orderNumber}) ---\n${buildChamoInfoBlock(order)}`);
+    });
+
+    const fullText = blocks.join('\n\n');
+
+    document.getElementById('bulk-chamo-info-text').value = fullText;
+    document.getElementById('bulk-chamo-count').textContent = chamoSelected.length;
+
+    const modal = new bootstrap.Modal(document.getElementById('bulkChamoSolicitudModal'));
+    modal.show();
+
+    setTimeout(() => {
+        document.getElementById('bulk-chamo-info-text').select();
+    }, 300);
+}
+
+/**
+ * Seleccionar todo el texto del modal de solicitud masiva CHAMO
+ */
+function selectAndCopyBulkChamoText() {
+    const textarea = document.getElementById('bulk-chamo-info-text');
+    textarea.select();
+    textarea.setSelectionRange(0, 99999);
+
     try {
         document.execCommand('copy');
         showSuccess('✓ Texto seleccionado. Ahora puedes pegarlo con Ctrl+V');
