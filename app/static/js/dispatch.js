@@ -1916,8 +1916,9 @@ function buildChamoInfoBlock(order) {
 
 /**
  * Copiar información masiva de pedidos CHAMO seleccionados
+ * Hace peticiones paralelas al endpoint de detalle para obtener datos completos
  */
-function copyBulkChamoInfo() {
+async function copyBulkChamoInfo() {
     const chamoSelected = bulkSelectedOrders.filter(o => {
         const cb = document.querySelector(`.bulk-order-checkbox[data-order-id="${o.orderId}"]`);
         return cb && cb.dataset.column === 'chamo';
@@ -1928,28 +1929,37 @@ function copyBulkChamoInfo() {
         return;
     }
 
-    const blocks = [];
-
-    chamoSelected.forEach((selected, index) => {
-        const order = chamoOrdersCache[selected.orderId];
-        if (!order) {
-            blocks.push(`--- Pedido ${selected.orderNumber} ---\n(Datos no disponibles)`);
-            return;
-        }
-        blocks.push(`--- Pedido ${index + 1} de ${chamoSelected.length} (${selected.orderNumber}) ---\n${buildChamoInfoBlock(order)}`);
-    });
-
-    const fullText = blocks.join('\n\n');
-
-    document.getElementById('bulk-chamo-info-text').value = fullText;
-    document.getElementById('bulk-chamo-count').textContent = chamoSelected.length;
-
+    // Mostrar modal con loading mientras se cargan los datos completos
     const modal = new bootstrap.Modal(document.getElementById('bulkChamoSolicitudModal'));
+    document.getElementById('bulk-chamo-info-text').value = 'Cargando datos...';
+    document.getElementById('bulk-chamo-count').textContent = chamoSelected.length;
     modal.show();
 
-    setTimeout(() => {
-        document.getElementById('bulk-chamo-info-text').select();
-    }, 300);
+    try {
+        // Fetch datos completos de todos los pedidos en paralelo
+        const responses = await Promise.all(
+            chamoSelected.map(o => fetch(`/dispatch/api/orders/${o.orderId}`).then(r => r.json()))
+        );
+
+        const blocks = responses.map((data, index) => {
+            const selected = chamoSelected[index];
+            if (!data.success || !data.order) {
+                return `--- Pedido ${index + 1} de ${chamoSelected.length} (${selected.orderNumber}) ---\n(Error al cargar datos)`;
+            }
+            return `--- Pedido ${index + 1} de ${chamoSelected.length} (${selected.orderNumber}) ---\n${buildChamoInfoBlock(data.order)}`;
+        });
+
+        const fullText = blocks.join('\n\n');
+        document.getElementById('bulk-chamo-info-text').value = fullText;
+
+        setTimeout(() => {
+            document.getElementById('bulk-chamo-info-text').select();
+        }, 100);
+
+    } catch (error) {
+        console.error('Error cargando datos masivos CHAMO:', error);
+        document.getElementById('bulk-chamo-info-text').value = 'Error al cargar los datos de los pedidos.';
+    }
 }
 
 /**
