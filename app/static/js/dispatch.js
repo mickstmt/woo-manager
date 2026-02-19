@@ -1954,8 +1954,8 @@ async function copyBulkChamoInfo() {
         const dd = String(today.getDate()).padStart(2, '0');
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const yyyy = today.getFullYear();
-        const separator = '─'.repeat(36);
-        const header = `FECHA DE ENTREGA: ${dd}/${mm}/${yyyy}\n${separator}`;
+        const separator = '-'.repeat(32);
+        const header = `FECHA DE ENTREGA ${dd}/${mm}/${yyyy}\n${separator}\n${separator}`;
 
         const fullText = `${header}\n\n${blocks.join('\n\n')}`;
         document.getElementById('bulk-chamo-info-text').value = fullText;
