@@ -1949,7 +1949,15 @@ async function copyBulkChamoInfo() {
             return `--- Pedido ${index + 1} de ${chamoSelected.length} (${selected.orderNumber}) ---\n${buildChamoInfoBlock(data.order)}`;
         });
 
-        const fullText = blocks.join('\n\n');
+        // Encabezado con fecha de entrega en formato DD/MM/YYYY
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        const separator = '─'.repeat(36);
+        const header = `FECHA DE ENTREGA: ${dd}/${mm}/${yyyy}\n${separator}`;
+
+        const fullText = `${header}\n\n${blocks.join('\n\n')}`;
         document.getElementById('bulk-chamo-info-text').value = fullText;
 
         setTimeout(() => {
