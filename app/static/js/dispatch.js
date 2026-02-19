@@ -1938,7 +1938,7 @@ async function copyBulkChamoInfo() {
     try {
         // Fetch datos completos de todos los pedidos en paralelo
         const responses = await Promise.all(
-            chamoSelected.map(o => fetch(`/dispatch/api/orders/${o.orderId}`).then(r => r.json()))
+            chamoSelected.map(o => fetch(`/dispatch/api/order/${o.orderId}`).then(r => r.json()))
         );
 
         const blocks = responses.map((data, index) => {
