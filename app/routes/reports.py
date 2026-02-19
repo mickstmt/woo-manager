@@ -508,13 +508,12 @@ def api_profits():
             if oid not in items_by_order: items_by_order[oid] = []
             
             # Calcular costo unitario buscando en el mapa (Lógica LIKE %sku% en Python)
+            # Se suman TODOS los componentes que hagan match (consistente con purchases.py)
             cost_unit = 0.0
             if sku:
-                # Buscar si alguna llave del fc_costs_map (que son de longitud 7) está contenida en el SKU de Woo
                 for fc_sku, cost in fc_costs_map.items():
                     if fc_sku in sku:
-                        cost_unit = cost
-                        break
+                        cost_unit += cost
 
             items_by_order[oid].append({
                 'producto': name,
