@@ -192,6 +192,9 @@
                                     </span>
                                     <input type="text" class="form-control" id="search-input-woocommerce"
                                         placeholder="Buscar por ID, email, nombre, teléfono...">
+                                    <button class="btn btn-outline-secondary" id="clear-woocommerce" style="display:none;" onclick="clearSearch('woocommerce')" title="Limpiar búsqueda">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
                                     <button class="btn btn-primary" onclick="searchOrdersWooCommerce()">
                                         Buscar
                                     </button>
@@ -255,6 +258,9 @@
                                     </span>
                                     <input type="text" class="form-control" id="search-input"
                                         placeholder="Buscar por ID, email, nombre, teléfono o DNI...">
+                                    <button class="btn btn-outline-secondary" id="clear-whatsapp" style="display:none;" onclick="clearSearch('whatsapp')" title="Limpiar búsqueda">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
                                     <button class="btn btn-primary" onclick="searchOrders()">
                                         Buscar
                                     </button>
@@ -316,6 +322,9 @@
                                     </span>
                                     <input type="text" class="form-control" id="search-input-external"
                                         placeholder="Buscar por ID, email, nombre, teléfono o DNI...">
+                                    <button class="btn btn-outline-secondary" id="clear-external" style="display:none;" onclick="clearSearch('external')" title="Limpiar búsqueda">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
                                     <button class="btn btn-primary" onclick="searchOrdersExternal()">
                                         Buscar
                                     </button>
@@ -830,6 +839,24 @@
         currentPage = 1;
         loadOrders();
     }
+
+    function clearSearch(tab) {
+        const map = {
+            'woocommerce': { input: '#search-input-woocommerce', btn: '#clear-woocommerce', fn: () => { searchTermWooCommerce = ''; currentPageWooCommerce = 1; loadOrdersWooCommerce(); } },
+            'whatsapp':    { input: '#search-input',             btn: '#clear-whatsapp',    fn: () => { searchTerm = ''; currentPage = 1; loadOrders(); } },
+            'external':    { input: '#search-input-external',    btn: '#clear-external',    fn: () => { searchTermExternal = ''; currentPageExternal = 1; loadOrdersExternal(); } }
+        };
+        const cfg = map[tab];
+        if (!cfg) return;
+        $(cfg.input).val('');
+        $(cfg.btn).hide();
+        cfg.fn();
+    }
+
+    // Mostrar/ocultar botón X según contenido de cada input
+    $('#search-input-woocommerce').on('input', function() { $('#clear-woocommerce').toggle($(this).val().length > 0); });
+    $('#search-input').on('input', function()             { $('#clear-whatsapp').toggle($(this).val().length > 0); });
+    $('#search-input-external').on('input', function()    { $('#clear-external').toggle($(this).val().length > 0); });
 
     function loadOrders(page = 1) {
         currentPage = page;
