@@ -2935,23 +2935,13 @@ def mark_as_delivered():
                 'error': f'Pedido {order_id} no encontrado'
             }), 404
 
-        # Validar que es un pedido de Recojo en Almacén
-        # Obtener shipping_method mediante SQL (no existe como atributo directo)
-        shipping_query = text("""
-            SELECT oi.order_item_name
-            FROM wpyz_woocommerce_order_items oi
-            WHERE oi.order_id = :order_id
-              AND oi.order_item_type = 'shipping'
-            LIMIT 1
-        """)
-        result = db.session.execute(shipping_query, {'order_id': order_id}).fetchone()
-        shipping_method = result[0] if result and result[0] else ''
-
-        # Validar que sea exactamente "Recojo en Almacén" (NO "Recojo Agencia Shalom")
-        if shipping_method != 'Recojo en Almacén':
+        # Validar que el pedido pertenezca a la columna de Recojo en Almacén
+        # Usamos la función centralizada para asegurar consistencia con el tablero Kanban
+        column = get_column_from_shipping_method(order_id)
+        if column != 'Recojo en Almacén':
             return jsonify({
                 'success': False,
-                'error': 'Este endpoint solo funciona para pedidos de Recojo en Almacén'
+                'error': f'Este pedido está en la columna "{column}". Solo se pueden marcar como entregados pedidos de Recojo en Almacén.'
             }), 400
 
         current_app.logger.info(f"[DELIVERED] Order {order_id}: Marcando como entregado")

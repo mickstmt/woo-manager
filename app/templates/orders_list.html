@@ -1498,6 +1498,90 @@
     }
 
     // ============================================
+    // ACCIONES RÁPIDAS (Quick Actions)
+    // ============================================
+
+    function changeStatusToProcessing(orderId) {
+        event.stopPropagation(); // Evitar abrir el modal de detalle
+
+        if (!confirm(`¿Estás seguro de que deseas mover el pedido #${orderId} a "Procesando"?`)) {
+            return;
+        }
+
+        $.ajax({
+            url: `/orders/api/status-to-processing/${orderId}`,
+            method: 'POST',
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', response.message);
+                    // Recargar la lista activa
+                    if (currentChannel === 'woocommerce') {
+                        loadOrdersWooCommerce();
+                    } else if (currentChannel === 'whatsapp') {
+                        loadOrders();
+                    }
+                } else {
+                    showNotification('error', response.error || 'Error al cambiar estado');
+                }
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+            }
+        });
+    }
+
+    let pendingTrashOrderId = null;
+
+    function confirmTrashOrder(orderId, orderNumber) {
+        event.stopPropagation();
+        pendingTrashOrderId = orderId;
+        $('#trash-order-number').text(orderNumber);
+        $('#trashOrderModal').modal('show');
+    }
+
+    $('#confirm-trash-btn').on('click', function () {
+        if (!pendingTrashOrderId) return;
+
+        const restoreStock = $('#restore-stock-check').is(':checked');
+        const btn = $(this);
+        const originalHtml = btn.html();
+
+        btn.prop('disabled', true);
+        btn.html('<span class="spinner-border spinner-border-sm me-1"></span>Procesando...');
+
+        $.ajax({
+            url: `/orders/api/trash-order/${pendingTrashOrderId}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ restore_stock: restoreStock }),
+            success: function (response) {
+                if (response.success) {
+                    showNotification('success', response.message);
+                    $('#trashOrderModal').modal('hide');
+                    // Recargar la lista activa
+                    if (currentChannel === 'woocommerce') {
+                        loadOrdersWooCommerce();
+                    } else if (currentChannel === 'whatsapp') {
+                        loadOrders();
+                    }
+                } else {
+                    showNotification('error', response.error || 'Error al mover a papelera');
+                }
+            },
+            error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+            },
+            complete: function () {
+                btn.prop('disabled', false);
+                btn.html(originalHtml);
+                pendingTrashOrderId = null;
+            }
+        });
+    });
+
+    // ============================================
     // MODAL DE DETALLES (para todos los pedidos)
     // ============================================
 
