@@ -348,10 +348,23 @@ function createOrderCard(order, columnMethod) {
     }
     if (order.is_atendido) {
         card.classList.add('atendido');
+        card.classList.add('collapsed');
     }
     if (order.is_stale) {
         card.classList.add('stale');
     }
+
+    // Toggle colapsado al hacer click en la tarjeta (pero no en botones)
+    card.addEventListener('click', function (e) {
+        // No colapsar si se hizo click en un botón o enlace
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.form-check-input')) {
+            return;
+        }
+
+        if (this.classList.contains('atendido')) {
+            this.classList.toggle('collapsed');
+        }
+    });
 
     // Determinar si es columna con selección masiva (CHAMO o DINSIDES)
     const isBulkColumn = columnMethod === 'Motorizado (CHAMO)' || columnMethod === 'DINSIDES';
@@ -415,6 +428,10 @@ function createOrderCard(order, columnMethod) {
 
     html += `
             </div>
+        </div>
+        <div class="compact-info">
+            <i class="bi bi-person-fill"></i> <strong>${order.customer_name}</strong> | 
+            <i class="bi bi-geo-alt"></i> ${order.shipping_district || 'N/A'}
         </div>
         <div class="card-body">
             <div class="customer-name">${order.customer_name}</div>
@@ -945,7 +962,21 @@ async function toggleAtendido(orderId, currentStatus) {
             throw new Error(data.error || 'Error al cambiar estado');
         }
 
-        // Recargar pedidos para reflejar cambio
+        // Actualizar clase visual, estado y colapsado inmediatamente
+        const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        if (card) {
+            if (currentStatus) {
+                // Estaba atendido, ahora pasa a pendiente: quitar clases
+                card.classList.remove('atendido');
+                card.classList.remove('collapsed');
+            } else {
+                // Estaba pendiente, ahora pasa a atendido: agregar clases
+                card.classList.add('atendido');
+                card.classList.add('collapsed');
+            }
+        }
+
+        // Recargar pedidos para reflejar cambio (mantener por consistencia)
         loadOrders();
 
         // Si el modal está abierto, actualizarlo

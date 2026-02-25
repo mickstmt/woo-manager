@@ -175,6 +175,7 @@
 }
 
 @media (max-width: 768px) {
+
     /* Header del módulo */
     .dispatch-header {
         flex-direction: column;
@@ -212,6 +213,7 @@
 }
 
 @media (max-width: 576px) {
+
     /* Título más pequeño en mobile - permitir wrap */
     .dispatch-header h2 {
         font-size: 1.3rem;
@@ -394,6 +396,38 @@
     border: 4px solid #28a745 !important;
     background: linear-gradient(135deg, rgba(40, 167, 69, 0.25) 0%, rgba(40, 167, 69, 0.15) 50%, var(--bg-body) 100%);
     box-shadow: 0 4px 12px rgba(40, 167, 69, 0.5);
+}
+
+/* Tarjetas colapsadas */
+.order-card.collapsed {
+    border-width: 2px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: #f8f9fa;
+    /* Fondo más neutro cuando está colapsado */
+}
+
+/* Solo mostrar información compacta cuando está colapsado */
+.order-card .compact-info {
+    display: none;
+    padding: 4px 10px;
+}
+
+.order-card.collapsed .compact-info {
+    display: block;
+    font-size: 0.85rem;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.order-card.collapsed .card-body,
+.order-card.collapsed .card-footer {
+    display: none !important;
+}
+
+.order-card.collapsed .card-header {
+    border-bottom: none;
 }
 
 /* ============================================
@@ -872,6 +906,7 @@
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
