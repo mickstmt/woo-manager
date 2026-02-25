@@ -985,6 +985,11 @@
                 }
                     </div>
                     <div class="col-6 col-md-2 text-end d-flex gap-2 justify-content-end align-items-center">
+                        ${order.status === 'wc-on-hold' ? `
+                            <button type="button" class="btn btn-sm btn-success" onclick="changeStatusToProcessing(${order.id})" title="Marcar como Procesando">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                        ` : ''}
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
                            target="_blank"
                            class="btn btn-sm btn-outline-warning" title="Ver en WooCommerce">
@@ -992,11 +997,6 @@
                         </a>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
                     `
-                        ${order.status === 'wc-on-hold' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="changeStatusToProcessing(${order.id})" title="Marcar como Procesando">
-                                <i class="bi bi-play-fill"></i>
-                            </button>
-                        ` : ''}
                         <a href="/orders/edit/${order.id}" class="btn btn-sm btn-primary" title="Editar Pedido">
                             <i class="bi bi-pencil"></i>
                         </a>
@@ -1426,6 +1426,11 @@
                 }
                     </div>
                     <div class="col-6 col-md-2 text-end d-flex gap-2 justify-content-end align-items-center">
+                        ${order.status === 'wc-on-hold' ? `
+                            <button type="button" class="btn btn-sm btn-success" onclick="changeStatusToProcessing(${order.id})" title="Marcar como Procesando">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                        ` : ''}
                         <a href="https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}"
                            target="_blank"
                            class="btn btn-sm btn-outline-warning" title="Ver en WooCommerce">
@@ -1433,11 +1438,6 @@
                         </a>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
                     `
-                        ${order.status === 'wc-on-hold' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="changeStatusToProcessing(${order.id})" title="Marcar como Procesando">
-                                <i class="bi bi-play-fill"></i>
-                            </button>
-                        ` : ''}
                         <a href="/orders/edit/${order.id}" class="btn btn-sm btn-primary" title="Editar Pedido">
                             <i class="bi bi-pencil"></i>
                         </a>
