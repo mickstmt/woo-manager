@@ -50,7 +50,8 @@ def create_app(config_name=None):
         try:
             return User.query.get(int(user_id))
         except Exception as e:
-            # Si falla la conexión, invalidar sesión
+            # Si falla la conexión, invalidar sesión y limpiar
+            db.session.rollback()
             import logging
             logging.error(f"Error al cargar usuario {user_id}: {str(e)}")
             return None
@@ -84,7 +85,8 @@ def create_app(config_name=None):
                 current_user.last_login = get_local_time()
                 db.session.commit()
             except Exception as e:
-                # Si hay error de BD, redirigir a login
+                # Si hay error de BD, limpiar y redirigir a login
+                db.session.rollback()
                 import logging
                 logging.error(f"Error en require_login: {str(e)}")
                 flash('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'warning')
