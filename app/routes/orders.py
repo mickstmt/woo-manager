@@ -696,6 +696,7 @@ def list_orders():
         search = request.args.get('search', '', type=str)
         created_by_filter = request.args.get('created_by', '', type=str)
         status_filter = request.args.get('status', '', type=str)
+        payment_method_filter = request.args.get('payment_method', '', type=str)
 
         # Limitar per_page
         per_page = min(per_page, 100)
@@ -734,6 +735,7 @@ def list_orders():
             {search_filter}
             {created_by_filter}
             {status_filter}
+            {payment_method_filter}
             ORDER BY o.date_created_gmt DESC
             LIMIT :limit OFFSET :offset
         """)
@@ -749,12 +751,14 @@ def list_orders():
             {search_filter}
             {created_by_filter}
             {status_filter}
+            {payment_method_filter}
         """)
 
         # Construir filtros dinámicos
         search_filter = ""
         created_by_filter_clause = ""
         status_filter_clause = ""
+        payment_method_filter_clause = ""
         params = {
             'limit': per_page,
             'offset': (page - 1) * per_page
@@ -783,16 +787,22 @@ def list_orders():
             status_filter_clause = "AND o.status = :status"
             params['status'] = status_filter
 
+        if payment_method_filter:
+            payment_method_filter_clause = "AND o.payment_method = :payment_method"
+            params['payment_method'] = payment_method_filter
+
         # Formatear queries con filtros
         final_query = query.text.format(
             search_filter=search_filter,
             created_by_filter=created_by_filter_clause,
-            status_filter=status_filter_clause
+            status_filter=status_filter_clause,
+            payment_method_filter=payment_method_filter_clause
         )
         final_count_query = count_query.text.format(
             search_filter=search_filter,
             created_by_filter=created_by_filter_clause,
-            status_filter=status_filter_clause
+            status_filter=status_filter_clause,
+            payment_method_filter=payment_method_filter_clause
         )
 
         # Ejecutar queries
@@ -872,6 +882,7 @@ def list_woocommerce():
         search = request.args.get('search', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         source_filter = request.args.get('source', '', type=str)
+        payment_method_filter = request.args.get('payment_method', '', type=str)
 
         # Limitar per_page
         per_page = min(per_page, 100)
@@ -919,6 +930,7 @@ def list_woocommerce():
             {search_filter}
             {status_filter}
             {source_filter}
+            {payment_method_filter}
             ORDER BY o.date_created_gmt DESC
             LIMIT :limit OFFSET :offset
         """
@@ -939,12 +951,14 @@ def list_woocommerce():
             {search_filter}
             {status_filter}
             {source_filter}
+            {payment_method_filter}
         """
 
         # Construir filtros dinámicos
         search_filter = ""
         status_filter_clause = ""
         source_filter_clause = ""
+        payment_method_filter_clause = ""
         params = {
             'limit': per_page,
             'offset': (page - 1) * per_page
@@ -977,16 +991,22 @@ def list_woocommerce():
             source_filter_clause = "AND om_source.meta_value = :source"
             params['source'] = source_filter
 
+        if payment_method_filter:
+            payment_method_filter_clause = "AND o.payment_method = :payment_method"
+            params['payment_method'] = payment_method_filter
+
         # Reemplazar placeholders en los strings
         final_query_str = query_template.format(
             search_filter=search_filter,
             status_filter=status_filter_clause,
-            source_filter=source_filter_clause
+            source_filter=source_filter_clause,
+            payment_method_filter=payment_method_filter_clause
         )
         final_count_query_str = count_query_template.format(
             search_filter=search_filter,
             status_filter=status_filter_clause,
-            source_filter=source_filter_clause
+            source_filter=source_filter_clause,
+            payment_method_filter=payment_method_filter_clause
         )
 
         # Ejecutar queries
@@ -2819,13 +2839,13 @@ def list_external():
     - page: número de página (default: 1)
     - per_page: registros por página (default: 20)
     - search: búsqueda por ID, email, nombre o teléfono
-    - source: filtrar por fuente (marketplace, tienda_fisica, otro)
+    - payment_method: filtrar por método de pago (yape, plin, efectivo, etc.)
     """
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '', type=str).strip()
-        source = request.args.get('source', '', type=str).strip()
+        payment_method = request.args.get('payment_method', '', type=str).strip()
 
         # Query base
         query = OrderExternal.query
@@ -2843,9 +2863,9 @@ def list_external():
                 )
             )
 
-        # Filtro por fuente
-        if source:
-            query = query.filter(OrderExternal.external_source == source)
+        # Filtro por método de pago
+        if payment_method:
+            query = query.filter(OrderExternal.payment_method == payment_method)
 
         # Ordenar por fecha descendente
         query = query.order_by(desc(OrderExternal.date_created_gmt))
@@ -3902,6 +3922,72 @@ def recalculate_order_totals(order_id):
             db.session.execute(text("INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value) VALUES (:oid, :key, :val)"), {'oid': order_id, 'key': k, 'val': v})
     
     db.session.commit()
+
+
+@bp.route('/api/status-to-processing/<int:order_id>', methods=['POST'])
+@login_required
+def status_to_processing(order_id):
+    """
+    Cambia el estado de un pedido de 'wc-on-hold' a 'wc-processing'.
+    Sincroniza con wpyz_posts y dispara correo de WooCommerce.
+    """
+    try:
+        from sqlalchemy import text
+        
+        # 1. Verificar estado actual
+        order_q = text("SELECT status, payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :oid")
+        order_data = db.session.execute(order_q, {'oid': order_id}).fetchone()
+        
+        if not order_data:
+            return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
+            
+        current_status = order_data.status
+        payment_method = order_data.payment_method
+        payment_method_title = order_data.payment_method_title
+        
+        if current_status != 'wc-on-hold' and current_status != 'on-hold':
+            return jsonify({'success': False, 'error': f'El pedido no está en espera (Estado actual: {current_status})'}), 400
+            
+        # 2. Actualizar estado en tablas de WooCommerce (HPOS + Legacy)
+        # wpyz_wc_orders
+        db.session.execute(
+            text("UPDATE wpyz_wc_orders SET status = 'wc-processing', date_updated_gmt = UTC_TIMESTAMP() WHERE id = :oid"),
+            {'oid': order_id}
+        )
+        
+        # wpyz_posts (Legacy compatibility)
+        db.session.execute(
+            text("UPDATE wpyz_posts SET post_status = 'wc-processing', post_modified = UTC_TIMESTAMP(), post_modified_gmt = UTC_TIMESTAMP() WHERE ID = :oid"),
+            {'oid': order_id}
+        )
+        
+        db.session.commit()
+        
+        # 3. Disparar email de WooCommerce en background
+        def send_email_async(oid, pm, pmt, app):
+            with app.app_context():
+                try:
+                    trigger_woocommerce_email(oid, pm, pmt)
+                except Exception as e:
+                    current_app.logger.error(f"Error al disparar email tras cambio de estado: {e}")
+        
+        import threading
+        email_thread = threading.Thread(
+            target=send_email_async,
+            args=(order_id, payment_method, payment_method_title, current_app._get_current_object())
+        )
+        email_thread.daemon = True
+        email_thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Pedido pasado a Procesando correctamente'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error en status_to_processing: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @bp.route('/trash/<int:order_id>', methods=['POST'])
