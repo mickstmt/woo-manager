@@ -430,8 +430,17 @@ function createOrderCard(order, columnMethod) {
             </div>
         </div>
         <div class="compact-info">
-            <i class="bi bi-person-fill"></i> <strong>${order.customer_name}</strong> | 
-            <i class="bi bi-geo-alt"></i> ${order.shipping_district || 'N/A'}
+            <div class="compact-name">
+                <i class="bi bi-person-fill"></i> 
+                <strong>${(() => {
+            const parts = (order.customer_name || 'N/A').split(' ');
+            if (parts.length > 2) return `${parts[0]} ${parts[1]}`;
+            return order.customer_name;
+        })()}</strong>
+            </div>
+            <div class="compact-location">
+                <i class="bi bi-geo-alt"></i> ${order.shipping_district || 'N/A'}
+            </div>
         </div>
         <div class="card-body">
             <div class="customer-name">${order.customer_name}</div>

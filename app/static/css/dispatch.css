@@ -414,11 +414,23 @@
 
 .order-card.collapsed .compact-info {
     display: block;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #495057;
+    line-height: 1.2;
+}
+
+.compact-name,
+.compact-location {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.compact-location {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 1px;
 }
 
 .order-card.collapsed .card-body,
