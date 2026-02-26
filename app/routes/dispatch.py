@@ -609,6 +609,8 @@ def get_orders():
             -- Filtro por estado de atendido
             {atendido_filter}
 
+            GROUP BY o.id
+
             ORDER BY
                 dp.is_priority DESC,
                 dp.priority_level DESC,
