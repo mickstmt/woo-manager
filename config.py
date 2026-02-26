@@ -137,11 +137,11 @@ class ProductionConfig(Config):
         'pool_recycle': 600,          # Reciclar cada 10 minutos para evitar desconexión del host
         'pool_pre_ping': True,        # Verificar antes de usar (CRÍTICO)
         'max_overflow': 10,
-        'pool_timeout': 30,
+        'pool_timeout': 60,           # Mayor margen para obtener conexión
         'connect_args': {
             'connect_timeout': 10,
-            'read_timeout': 30,
-            'write_timeout': 30
+            'read_timeout': 60,       # Aumentado a 60s para consultas pesadas
+            'write_timeout': 60
         }
     }
 

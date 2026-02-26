@@ -505,7 +505,7 @@ def get_orders():
 
         # Query base: TODOS los pedidos wc-processing (WooCommerce nativos + WhatsApp)
         query = text("""
-            SELECT DISTINCT
+            SELECT
                 o.id,
                 COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
                 om_number.meta_value as whatsapp_number,  -- Número W-XXXXX si existe
@@ -784,6 +784,7 @@ def get_orders():
         })
 
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error obteniendo pedidos para despacho: {str(e)}")
         import traceback
         current_app.logger.error(traceback.format_exc())
