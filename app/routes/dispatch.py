@@ -3057,9 +3057,10 @@ def export_chamo_shipments():
     try:
         from app.models import ChamoShipment
         from datetime import datetime
-        import csv
-        from io import StringIO
+        from io import BytesIO
         from flask import make_response
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
 
         # Obtener parámetros (mismos que get_chamo_shipments)
         date_from = request.args.get('date_from')
@@ -3067,7 +3068,7 @@ def export_chamo_shipments():
         is_cod = request.args.get('is_cod')
         sent_by = request.args.get('sent_by')
 
-        # Construir query (mismo código que arriba)
+        # Construir query
         query = ChamoShipment.query
 
         if date_from:
@@ -3090,39 +3091,58 @@ def export_chamo_shipments():
         query = query.order_by(ChamoShipment.delivery_date.asc())
         shipments = query.all()
 
-        # Crear CSV
-        si = StringIO()
-        writer = csv.writer(si)
+        # Crear workbook Excel
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Envíos CHAMO'
 
-        # Headers
-        writer.writerow([
+        # Estilos de encabezado
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='1F4E79', end_color='1F4E79', fill_type='solid')
+        header_align = Alignment(horizontal='center')
+
+        headers = [
             'ID', 'Pedido', 'Fecha Entrega', 'Cliente', 'Teléfono', 'Distrito',
             'Total Pedido', 'Costo Envío', 'Monto COD', 'Es COD',
             'Enviado Por', 'Fecha Envío', 'Método'
-        ])
+        ]
+
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
 
         # Datos
-        for s in shipments:
-            writer.writerow([
-                s.id,
-                s.order_number,
-                s.delivery_date.strftime('%Y-%m-%d') if s.delivery_date else '',
-                s.customer_name or '',
-                s.customer_phone or '',
-                s.customer_district or '',
-                f"{float(s.order_total):.2f}" if s.order_total else '0.00',
-                f"{float(s.shipping_cost):.2f}" if s.shipping_cost else '0.00',
-                f"{float(s.cod_amount):.2f}" if s.cod_amount else '0.00',
-                'Sí' if s.is_cod else 'No',
-                s.sent_by,
-                s.sent_at.strftime('%Y-%m-%d %H:%M:%S') if s.sent_at else '',
-                s.sent_via
-            ])
+        for row, s in enumerate(shipments, 2):
+            ws.cell(row=row, column=1, value=s.id)
+            ws.cell(row=row, column=2, value=s.order_number)
+            ws.cell(row=row, column=3, value=s.delivery_date.strftime('%d/%m/%Y') if s.delivery_date else '')
+            ws.cell(row=row, column=4, value=s.customer_name or '')
+            ws.cell(row=row, column=5, value=s.customer_phone or '')
+            ws.cell(row=row, column=6, value=s.customer_district or '')
+            ws.cell(row=row, column=7, value=float(s.order_total) if s.order_total else 0)
+            ws.cell(row=row, column=8, value=float(s.shipping_cost) if s.shipping_cost else 0)
+            ws.cell(row=row, column=9, value=float(s.cod_amount) if s.cod_amount else 0)
+            ws.cell(row=row, column=10, value='Sí' if s.is_cod else 'No')
+            ws.cell(row=row, column=11, value=s.sent_by or '')
+            ws.cell(row=row, column=12, value=s.sent_at.strftime('%d/%m/%Y %H:%M') if s.sent_at else '')
+            ws.cell(row=row, column=13, value=s.sent_via or '')
 
-        # Crear respuesta
-        output = make_response(si.getvalue())
-        output.headers["Content-Disposition"] = f"attachment; filename=chamo_shipments_{datetime.now().strftime('%Y%m%d')}.csv"
-        output.headers["Content-type"] = "text/csv; charset=utf-8"
+        # Anchos de columna
+        col_widths = [6, 12, 14, 28, 14, 20, 13, 12, 12, 8, 14, 18, 10]
+        for col, width in enumerate(col_widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+        # Guardar en buffer y retornar
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f"chamo_envios_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        output = make_response(buffer.getvalue())
+        output.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        output.headers["Content-type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
         return output
 
