@@ -995,6 +995,9 @@
                            class="btn btn-sm btn-outline-warning" title="Ver en WooCommerce">
                             <i class="bi bi-wordpress"></i>
                         </a>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="resendOrderEmail(${order.id})" title="Re-enviar Correo">
+                            <i class="bi bi-envelope-at"></i>
+                        </button>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
                     `
                         <a href="/orders/edit/${order.id}" class="btn btn-sm btn-primary" title="Editar Pedido">
@@ -1775,6 +1778,9 @@
         } else {
             $('#detail-btn-edit').hide();
         }
+
+        // Configurar botón de re-envío de correo
+        $('#detail-btn-resend').attr('onclick', `resendOrderEmail(${order.id})`);
     }
 
     function showDetailError(message) {
@@ -2531,6 +2537,9 @@
                 <a id="detail-btn-woocommerce" href="#" target="_blank" class="btn btn-outline-warning">
                     <i class="bi bi-wordpress"></i> Ver en WooCommerce
                 </a>
+                <button id="detail-btn-resend" type="button" class="btn btn-outline-info">
+                    <i class="bi bi-envelope-at"></i> Re-enviar Correo
+                </button>
                 <a id="detail-btn-edit" href="#" class="btn btn-primary" style="display: none;">
                     <i class="bi bi-pencil"></i> Editar
                 </a>
@@ -2627,6 +2636,33 @@
                 }
             },
             error: function (xhr) {
+                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
+                showNotification('error', error);
+            }
+        });
+    }
+    function resendOrderEmail(orderId) {
+        event.stopPropagation(); // Evitar abrir el modal si se hace clic desde la lista
+
+        if (!confirm(`¿Estás seguro de que deseas re-enviar el correo del pedido #${orderId}?`)) {
+            return;
+        }
+
+        showLoadingToast('Enviando correo...');
+
+        $.ajax({
+            url: `/orders/api/resend-email/${orderId}`,
+            method: 'POST',
+            success: function (response) {
+                hideLoadingToast();
+                if (response.success) {
+                    showNotification('success', response.message);
+                } else {
+                    showNotification('error', response.error || 'Error al re-enviar correo');
+                }
+            },
+            error: function (xhr) {
+                hideLoadingToast();
                 const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
                 showNotification('error', error);
             }

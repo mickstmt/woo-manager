@@ -2626,6 +2626,51 @@ def test_email_trigger(order_id):
         return jsonify(result), 500
 
 
+@bp.route('/api/resend-email/<int:order_id>', methods=['POST'])
+@login_required
+def api_resend_email(order_id):
+    """
+    API para re-enviar manualmente el correo de un pedido.
+    """
+    try:
+        # 1. Verificar que el pedido existe y obtener sus datos de pago
+        from sqlalchemy import text
+        order_q = text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :oid")
+        order_data = db.session.execute(order_q, {'oid': order_id}).fetchone()
+        
+        if not order_data:
+            return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
+            
+        payment_method = order_data.payment_method
+        payment_method_title = order_data.payment_method_title
+        
+        # 2. Disparar email en background (no queremos bloquear la UI)
+        import threading
+        
+        def send_email_async(oid, pm, pmt, app):
+            with app.app_context():
+                try:
+                    trigger_woocommerce_email(oid, pm, pmt)
+                except Exception as e:
+                    current_app.logger.error(f"Error al re-enviar email manual para pedido {oid}: {e}")
+        
+        email_thread = threading.Thread(
+            target=send_email_async,
+            args=(order_id, payment_method, payment_method_title, current_app._get_current_object())
+        )
+        email_thread.daemon = True
+        email_thread.start()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Petición de re-envío enviada correctamente.'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error en api_resend_email: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @bp.route('/debug-last-order')
 @login_required
 def debug_last_order():

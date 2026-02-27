@@ -1437,3 +1437,30 @@ class QuotationHistory(db.Model):
             'change_reason': self.change_reason,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
+
+
+class ShippingRate(db.Model):
+    """
+    Modelo para el tarifario de envíos por distrito.
+    
+    Tabla: woo_shipping_rates
+    Propósito: Almacenar los costos de envío por distrito para CHAMO y otros.
+    """
+    __tablename__ = 'woo_shipping_rates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    district = db.Column(db.String(100), nullable=False, unique=True)
+    price = db.Column(db.Numeric(10, 2), nullable=False)
+    details = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=get_local_time)
+
+    def __repr__(self):
+        return f'<ShippingRate {self.district}: S/ {self.price}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'district': self.district,
+            'price': float(self.price),
+            'details': self.details
+        }

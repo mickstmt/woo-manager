@@ -354,6 +354,11 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-3">
+                    <!-- Shipping Rates Toggle -->
+                    <button class="theme-toggle-btn" id="shippingRatesToggle" title="Ver tarifario de envíos">
+                        <i class="bi bi-tag"></i>
+                    </button>
+
                     <!-- Theme Toggle -->
                     <button class="theme-toggle-btn" id="themeToggle" title="Cambiar tema">
                         <i class="bi bi-moon"></i>
@@ -1015,7 +1020,228 @@
                 toastEl.remove();
             });
         }
+
+        // Funciones para Toasts de carga (loading)
+        let activeLoadingToast = null;
+
+        function showLoadingToast(message = 'Procesando...') {
+            const container = document.querySelector('.toast-container');
+            if (!container) return;
+
+            // Limpiar anterior si existe
+            if (activeLoadingToast) {
+                activeLoadingToast.hide();
+            }
+
+            const toastHtml = `
+                <div id="loading-toast" class="toast align-items-center bg-info text-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            <div>${message}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const toastWrapper = document.createElement('div');
+            toastWrapper.innerHTML = toastHtml.trim();
+            const toastEl = toastWrapper.firstChild;
+
+            container.appendChild(toastEl);
+            activeLoadingToast = new bootstrap.Toast(toastEl);
+            activeLoadingToast.show();
+        }
+
+        function hideLoadingToast() {
+            if (activeLoadingToast) {
+                activeLoadingToast.hide();
+                const toastEl = document.getElementById('loading-toast');
+                if (toastEl) {
+                    toastEl.addEventListener('hidden.bs.toast', () => {
+                        toastEl.remove();
+                    });
+                }
+                activeLoadingToast = null;
+            }
+        }
     </script>
+
+    {% if current_user.is_authenticated %}
+    <!-- Modal Tarifario de Envíos -->
+    <div class="modal fade" id="shippingRatesModal" tabindex="-1" aria-labelledby="shippingRatesModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg overflow-hidden">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title d-flex align-items-center" id="shippingRatesModalLabel">
+                        <i class="bi bi-tag-fill me-2"></i> Tarifario de Envíos
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light-subtle">
+                    <div id="ratesContent" class="row g-4 justify-content-center">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Cargando tarifario...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estilos Tarifario -->
+    <style>
+        .rate-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            height: 100%;
+            transition: transform 0.2s;
+            overflow: hidden;
+        }
+
+        .rate-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .rate-card-header {
+            padding: 12px;
+            font-weight: 700;
+            text-align: center;
+            font-size: 1.1rem;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .rate-tier-8 .rate-card-header {
+            background: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        .rate-tier-10 .rate-card-header {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .rate-tier-15 .rate-card-header {
+            background: #f3e5f5;
+            color: #4a148c;
+        }
+
+        [data-theme="dark"] .rate-tier-8 .rate-card-header {
+            background: #0d47a1;
+            color: #e3f2fd;
+        }
+
+        [data-theme="dark"] .rate-tier-10 .rate-card-header {
+            background: #e65100;
+            color: #fff3e0;
+        }
+
+        [data-theme="dark"] .rate-tier-15 .rate-card-header {
+            background: #4a148c;
+            color: #f3e5f5;
+        }
+
+        .rate-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .rate-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .rate-item:last-child {
+            border-bottom: none;
+        }
+
+        .rate-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .rate-district {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .rate-details {
+            font-size: 0.75rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        [data-theme="dark"] .rate-details {
+            color: #adb5bd;
+        }
+    </style>
+
+    <script>
+        (function () {
+            const toggle = document.getElementById('shippingRatesToggle');
+            const modalEl = document.getElementById('shippingRatesModal');
+            let loaded = false;
+
+            if (toggle && modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                toggle.addEventListener('click', () => {
+                    modal.show();
+                    if (!loaded) loadRates();
+                });
+            }
+
+            async function loadRates() {
+                const container = document.getElementById('ratesContent');
+                try {
+                    const res = await fetch('/dispatch/api/shipping-rates');
+                    const data = await res.json();
+                    if (data.success) {
+                        renderRates(data.rates);
+                        loaded = true;
+                    }
+                } catch (e) {
+                    container.innerHTML = '<div class="alert alert-danger">Error al cargar</div>';
+                }
+            }
+
+            function renderRates(rates) {
+                const container = document.getElementById('ratesContent');
+                container.innerHTML = '';
+                const tiers = [
+                    { k: '8.00', l: '8 SOLES', c: 'rate-tier-8' },
+                    { k: '10.00', l: '10 SOLES', c: 'rate-tier-10' },
+                    { k: '15.00', l: '15 SOLES', c: 'rate-tier-15' }
+                ];
+                tiers.forEach(t => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4';
+                    const items = (rates[t.k] || []).map(r => `
+                        <li class="rate-item">
+                            <span class="rate-district">${r.district}</span>
+                            ${r.details ? `<span class="rate-details">${r.details}</span>` : ''}
+                        </li>
+                    `).join('');
+                    col.innerHTML = `
+                        <div class="rate-card ${t.c}">
+                            <div class="rate-card-header">${t.l}</div>
+                            <ul class="rate-list">${items}</ul>
+                        </div>
+                    `;
+                    container.appendChild(col);
+                });
+            }
+        })();
+    </script>
+    {% endif %}
 
 </body>
 

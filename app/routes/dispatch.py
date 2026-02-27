@@ -13,7 +13,7 @@ Acceso exclusivo para usuario master (Jleon).
 from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import login_required, current_user
 from app import db
-from app.models import Order, OrderMeta, DispatchHistory, DispatchPriority
+from app.models import Order, OrderMeta, DispatchHistory, DispatchPriority, ShippingRate
 from sqlalchemy import text, or_
 from datetime import datetime, timedelta
 from functools import wraps
@@ -3191,6 +3191,47 @@ def get_chamo_stats():
 
     except Exception as e:
         current_app.logger.error(f"Error obteniendo stats CHAMO: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/api/shipping-rates', methods=['GET'])
+@login_required
+def get_shipping_rates():
+    """
+    Obtiene el tarifario de envíos por distrito agrupado por precio.
+    
+    Returns:
+        JSON con los distritos organizados por categorías (8, 10, 15).
+    """
+    try:
+        rates = ShippingRate.query.order_by(ShippingRate.price, ShippingRate.district).all()
+        
+        # Agrupar por precio
+        grouped_rates = {
+            '8.00': [],
+            '10.00': [],
+            '15.00': []
+        }
+        
+        for rate in rates:
+            price_key = f"{rate.price:.2f}"
+            if price_key in grouped_rates:
+                grouped_rates[price_key].append(rate.to_dict())
+            else:
+                # Manejar otros precios si existieran
+                if price_key not in grouped_rates:
+                    grouped_rates[price_key] = []
+                grouped_rates[price_key].append(rate.to_dict())
+                
+        return jsonify({
+            'success': True,
+            'rates': grouped_rates
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error obteniendo tarifario: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
