@@ -114,96 +114,66 @@ def normalize_text(text):
     return without_accents.lower()
 
 
-def get_column_from_shipping_method(order_id):
+def map_shipping_method_to_column(shipping_method_name, order_id=None):
     """
-    Determina la columna del Kanban basándose en el historial de despacho o método de envío.
-
-    Args:
-        order_id: ID del pedido
-
-    Returns:
-        str: Nombre de la columna ('SHALOM', 'Olva Courier', 'DINSIDES', 'Recojo en Almacén',
-             'Motorizado (CHAMO)', o 'Por Asignar')
+    Mapea el nombre del método de envío a una columna del Kanban (Lógica pura).
     """
-    try:
-        # PRIMERO: Verificar si hay historial de despacho (posición manual en kanban)
-        history_query = text("""
-            SELECT dh.new_shipping_method
-            FROM woo_dispatch_history dh
-            WHERE dh.order_id = :order_id
-            ORDER BY dh.changed_at DESC
-            LIMIT 1
-        """)
-        history_result = db.session.execute(history_query, {'order_id': order_id}).fetchone()
-
-        if history_result and history_result[0]:
-            # Si hay historial, usar la última posición manual
-            current_app.logger.debug(f"[DISPATCH] Order {order_id}: Usando columna de historial '{history_result[0]}'")
-            return history_result[0]
-
-        # SEGUNDO: Si no hay historial, determinar por método de envío
-        # Obtener el nombre del método de envío (con fallback para pedidos sin shipping item)
-        query = text("""
-            SELECT
-                COALESCE(
-                    (SELECT oi.order_item_name
-                     FROM wpyz_woocommerce_order_items oi
-                     WHERE oi.order_id = o.id
-                       AND oi.order_item_type = 'shipping'
-                     LIMIT 1),
-                    -- Fallback: extraer desde _billing_entrega metadata
-                    CASE
-                        WHEN om_billing_entrega.meta_value = 'billing_recojo' THEN 'Recojo en Almacén'
-                        WHEN om_billing_entrega.meta_value LIKE '%recojo%' THEN 'Recojo en Almacén'
-                        WHEN om_billing_entrega.meta_value = 'billing_address' THEN 'Envío a domicilio'
-                        ELSE NULL
-                    END
-                ) as shipping_method
-            FROM wpyz_wc_orders o
-            LEFT JOIN wpyz_wc_orders_meta om_billing_entrega
-                ON o.id = om_billing_entrega.order_id
-                AND om_billing_entrega.meta_key = '_billing_entrega'
-            WHERE o.id = :order_id
-        """)
-
-        result = db.session.execute(query, {'order_id': order_id}).fetchone()
-
-        if result and result[0]:
-            # Normalizar el nombre del método de envío (quitar acentos y minúsculas)
-            shipping_method_name = normalize_text(result[0])
-
-            # Mapeo por palabras clave en el nombre del método (sin acentos)
-            # SHALOM
-            if 'shalom' in shipping_method_name or 'maynas' in shipping_method_name or 'iquitos' in shipping_method_name:
-                return 'SHALOM'
-
-            # OLVA COURIER
-            elif 'olva' in shipping_method_name:
-                return 'Olva Courier'
-
-            # RECOJO EN ALMACÉN
-            elif 'recojo' in shipping_method_name:
-                return 'Recojo en Almacén'
-
-            # DINSIDES (Envío rápido, Lima Sur, 1 día hábil, etc.)
-            # Búsqueda sin acentos: "envio 1 dia habil" coincide con "Envío 1 día hábil"
-            elif any(keyword in shipping_method_name for keyword in ['rapido', 'lima sur', 'envio rapido', '1 dia', 'dia habil']):
-                return 'DINSIDES'
-
-            else:
-                # Solo generar warning si NO es "Entrega a Domicilio" (caso genérico esperado)
-                if 'entrega' not in shipping_method_name and 'domicilio' not in shipping_method_name:
-                    current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{result[0]}' NO coincide con ningún patrón (normalizado: '{shipping_method_name}')")
-
-        else:
+    if not shipping_method_name:
+        if order_id:
             current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene método de envío")
-
-        # Si no se encuentra mapeo, va a "Por Asignar"
-        current_app.logger.info(f"[DISPATCH] Order {order_id}: Asignado a 'Por Asignar' (sin mapeo)")
         return 'Por Asignar'
 
+    # Normalizar el nombre (quitar acentos y minúsculas)
+    norm_name = normalize_text(shipping_method_name)
+
+    # Mapeo por palabras clave
+    if 'shalom' in norm_name or 'maynas' in norm_name or 'iquitos' in norm_name:
+        return 'SHALOM'
+    elif 'olva' in norm_name:
+        return 'Olva Courier'
+    elif 'recojo' in norm_name:
+        return 'Recojo en Almacén'
+    elif any(keyword in norm_name for keyword in ['rapido', 'lima sur', 'envio rapido', '1 dia', 'dia habil']):
+        return 'DINSIDES'
+    
+    # Solo generar warning si NO es "Entrega a Domicilio" (caso genérico esperado)
+    if order_id and 'entrega' not in norm_name and 'domicilio' not in norm_name:
+        current_app.logger.warning(f"[DISPATCH] Order {order_id}: Nombre '{shipping_method_name}' NO coincide con ningún patrón")
+
+    return 'Por Asignar'
+
+
+def get_column_from_shipping_method(order_id):
+    """
+    Versión legacy que mantiene compatibilidad pero evita N+1 si se usa correctamente.
+    """
+    try:
+        # 1. Historial
+        history_query = text("SELECT new_shipping_method FROM woo_dispatch_history WHERE order_id = :order_id ORDER BY changed_at DESC LIMIT 1")
+        history_result = db.session.execute(history_query, {'order_id': order_id}).fetchone()
+        if history_result and history_result[0]:
+            return history_result[0]
+
+        # 2. Método actual
+        query = text("""
+            SELECT COALESCE(
+                (SELECT oi.order_item_name FROM wpyz_woocommerce_order_items oi WHERE oi.order_id = o.id AND oi.order_item_type = 'shipping' LIMIT 1),
+                CASE 
+                    WHEN om.meta_value = 'billing_recojo' THEN 'Recojo en Almacén'
+                    WHEN om.meta_value LIKE '%recojo%' THEN 'Recojo en Almacén'
+                    WHEN om.meta_value = 'billing_address' THEN 'Envío a domicilio'
+                    ELSE NULL
+                END
+            )
+            FROM wpyz_wc_orders o
+            LEFT JOIN wpyz_wc_orders_meta om ON o.id = om.order_id AND om.meta_key = '_billing_entrega'
+            WHERE o.id = :order_id
+        """)
+        result = db.session.execute(query, {'order_id': order_id}).scalar()
+        return map_shipping_method_to_column(result, order_id)
+
     except Exception as e:
-        current_app.logger.error(f"[DISPATCH] Error obteniendo columna para pedido {order_id}: {str(e)}")
+        current_app.logger.error(f"[DISPATCH] Error en get_column: {str(e)}")
         return 'Por Asignar'
 
 
@@ -708,13 +678,12 @@ def get_orders():
         for row in results:
             order_id = row[0]
 
-            # Verificar si el pedido tiene un movimiento previo en el historial
+            # Verificar historial vs método de envío (SIN consultas adicionales)
+            shipping_method_str = row[10]
             if order_id in last_positions:
-                # Si tiene historial, usar la última posición guardada
                 column = last_positions[order_id]
             else:
-                # Si no hay historial, determinar columna automáticamente según método de envío
-                column = get_column_from_shipping_method(order_id)
+                column = map_shipping_method_to_column(shipping_method_str, order_id)
 
             # Aplicar filtro de métodos si existe
             if shipping_methods_filter and column not in shipping_methods_filter:
