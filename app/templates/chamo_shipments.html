@@ -131,7 +131,71 @@
     </div>
 </div>
 
+<!-- Modal: Confirmar edición de costo de envío -->
+<div class="modal fade" id="confirmShippingCostModal" tabindex="-1" aria-labelledby="confirmShippingCostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title" id="confirmShippingCostModalLabel">
+                    <i class="bi bi-pencil-square"></i> Editar Costo de Envío
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">¿Guardar el nuevo costo para el pedido <strong id="confirm-order-number"></strong>?</p>
+                <div class="d-flex justify-content-between text-muted mb-1">
+                    <span>Anterior:</span>
+                    <span id="confirm-old-cost"></span>
+                </div>
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>Nuevo:</span>
+                    <span id="confirm-new-cost" class="text-primary"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="confirm-save-btn" onclick="confirmShippingCostUpdate()">
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.shipping-cost-input {
+    width: 75px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--bs-primary);
+    font-weight: bold;
+    text-align: right;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: inherit;
+    -moz-appearance: textfield;
+}
+.shipping-cost-input::-webkit-outer-spin-button,
+.shipping-cost-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.shipping-cost-input:hover {
+    border-color: var(--bs-primary);
+    cursor: text;
+}
+.shipping-cost-input:focus {
+    border-color: var(--bs-primary);
+    background: var(--bs-body-bg);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb), 0.15);
+}
+</style>
+
 <script>
+let pendingShippingCostUpdate = null;
+let shippingCostSaved = false;
+
 // Load shipments with filters
 async function loadShipments() {
     const dateFrom = document.getElementById('filter-date-from').value;
@@ -176,7 +240,20 @@ function renderShipments(shipments) {
             <td>${s.customer_name || '-'}</td>
             <td>${s.customer_district || '-'}</td>
             <td>S/ ${(s.order_total || 0).toFixed(2)}</td>
-            <td><strong class="text-primary">S/ ${(s.shipping_cost || 0).toFixed(2)}</strong></td>
+            <td>
+                <div class="d-flex align-items-center gap-1">
+                    <span class="text-primary fw-bold">S/</span>
+                    <input type="number"
+                           class="shipping-cost-input"
+                           data-shipment-id="${s.id}"
+                           data-order-number="${s.order_number}"
+                           data-original="${(s.shipping_cost || 0).toFixed(2)}"
+                           value="${(s.shipping_cost || 0).toFixed(2)}"
+                           step="0.10" min="0"
+                           title="Presiona Enter para guardar"
+                           onkeydown="onShippingCostKeydown(event, this)">
+                </div>
+            </td>
             <td>
                 ${s.is_cod ? `<span class="badge bg-warning text-dark">COD S/ ${(s.cod_amount || 0).toFixed(2)}</span>` : '<span class="badge bg-secondary">Normal</span>'}
             </td>
@@ -185,6 +262,97 @@ function renderShipments(shipments) {
         </tr>
     `).join('');
 }
+
+// Handle keydown on shipping cost input
+function onShippingCostKeydown(event, input) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+
+        const shipmentId = input.dataset.shipmentId;
+        const orderNumber = input.dataset.orderNumber;
+        const oldCost = parseFloat(input.dataset.original);
+        const newCost = parseFloat(input.value);
+
+        if (isNaN(newCost) || newCost < 0) {
+            input.value = oldCost.toFixed(2);
+            input.blur();
+            return;
+        }
+
+        if (newCost === oldCost) {
+            input.blur();
+            return;
+        }
+
+        pendingShippingCostUpdate = { shipmentId, orderNumber, oldCost, newCost, input };
+        shippingCostSaved = false;
+
+        document.getElementById('confirm-order-number').textContent = orderNumber;
+        document.getElementById('confirm-old-cost').textContent = `S/ ${oldCost.toFixed(2)}`;
+        document.getElementById('confirm-new-cost').textContent = `S/ ${newCost.toFixed(2)}`;
+
+        const modal = new bootstrap.Modal(document.getElementById('confirmShippingCostModal'));
+        modal.show();
+    }
+
+    if (event.key === 'Escape') {
+        input.value = parseFloat(input.dataset.original).toFixed(2);
+        input.blur();
+    }
+}
+
+// Confirm and save new shipping cost
+async function confirmShippingCostUpdate() {
+    if (!pendingShippingCostUpdate) return;
+
+    const { shipmentId, newCost, oldCost, input } = pendingShippingCostUpdate;
+    const btn = document.getElementById('confirm-save-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch(`/dispatch/api/chamo-shipments/${shipmentId}/shipping-cost`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shipping_cost: newCost })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            shippingCostSaved = true;
+            input.dataset.original = newCost.toFixed(2);
+            input.value = newCost.toFixed(2);
+            bootstrap.Modal.getInstance(document.getElementById('confirmShippingCostModal')).hide();
+            loadStats();
+        } else {
+            input.value = oldCost.toFixed(2);
+            alert('Error al guardar: ' + (data.error || 'Error desconocido'));
+            bootstrap.Modal.getInstance(document.getElementById('confirmShippingCostModal')).hide();
+        }
+    } catch (error) {
+        input.value = oldCost.toFixed(2);
+        alert('Error de conexión al guardar el costo');
+        bootstrap.Modal.getInstance(document.getElementById('confirmShippingCostModal')).hide();
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+        pendingShippingCostUpdate = null;
+    }
+}
+
+// Reset on modal close (handles Escape / click outside)
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('confirmShippingCostModal').addEventListener('hidden.bs.modal', function () {
+        if (!shippingCostSaved && pendingShippingCostUpdate) {
+            pendingShippingCostUpdate.input.value = pendingShippingCostUpdate.oldCost.toFixed(2);
+        }
+        pendingShippingCostUpdate = null;
+        shippingCostSaved = false;
+        const btn = document.getElementById('confirm-save-btn');
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+    });
+});
 
 // Load statistics
 async function loadStats() {
@@ -213,7 +381,7 @@ async function loadStats() {
     }
 }
 
-// Export to CSV
+// Export to Excel
 function exportCSV() {
     const dateFrom = document.getElementById('filter-date-from').value;
     const dateTo = document.getElementById('filter-date-to').value;

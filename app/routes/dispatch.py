@@ -3045,6 +3045,45 @@ def get_chamo_shipments():
         }), 500
 
 
+@bp.route('/api/chamo-shipments/<int:shipment_id>/shipping-cost', methods=['PATCH'])
+@login_required
+@master_required
+def update_chamo_shipping_cost(shipment_id):
+    """Actualizar el costo de envío de un registro CHAMO."""
+    try:
+        from app.models import ChamoShipment
+
+        data = request.get_json()
+        new_cost = data.get('shipping_cost')
+
+        if new_cost is None:
+            return jsonify({'success': False, 'error': 'Falta shipping_cost'}), 400
+
+        new_cost = float(new_cost)
+        if new_cost < 0:
+            return jsonify({'success': False, 'error': 'El costo no puede ser negativo'}), 400
+
+        shipment = ChamoShipment.query.get(shipment_id)
+        if not shipment:
+            return jsonify({'success': False, 'error': 'Envío no encontrado'}), 404
+
+        old_cost = float(shipment.shipping_cost or 0)
+        shipment.shipping_cost = new_cost
+        db.session.commit()
+
+        current_app.logger.info(
+            f"[CHAMO] Shipping cost updated: shipment={shipment_id} "
+            f"order={shipment.order_number} {old_cost} -> {new_cost} by {current_user.username}"
+        )
+
+        return jsonify({'success': True, 'shipping_cost': float(shipment.shipping_cost)})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error actualizando costo CHAMO {shipment_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @bp.route('/api/chamo-shipments/export', methods=['GET'])
 @login_required
 @master_required
