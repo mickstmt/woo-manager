@@ -477,17 +477,17 @@ def get_orders():
         query = text("""
             SELECT
                 o.id,
-                COALESCE(om_number.meta_value, CONCAT('#', o.id)) as order_number,
-                om_number.meta_value as whatsapp_number,  -- Número W-XXXXX si existe
-                DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR) as date_created_local,
-                o.total_amount,
-                o.status,
-                o.billing_email,
+                MAX(COALESCE(om_number.meta_value, CONCAT('#', o.id))) as order_number,
+                MAX(om_number.meta_value) as whatsapp_number,
+                MAX(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as date_created_local,
+                MAX(o.total_amount) as total_amount,
+                MAX(o.status) as status,
+                MAX(o.billing_email) as billing_email,
 
                 -- Datos de cliente
-                ba.first_name,
-                ba.last_name,
-                ba.phone,
+                MAX(ba.first_name) as first_name,
+                MAX(ba.last_name) as last_name,
+                MAX(ba.phone) as phone,
 
                 -- Método de envío (con fallback para pedidos sin shipping item)
                 COALESCE(
@@ -497,30 +497,30 @@ def get_orders():
                        AND oi.order_item_type = 'shipping'
                      LIMIT 1),
                     -- Fallback: extraer desde _billing_entrega metadata
-                    CASE
+                    MAX(CASE
                         WHEN om_billing_entrega.meta_value = 'billing_recojo' THEN 'Recojo en Almacén'
                         WHEN om_billing_entrega.meta_value LIKE '%recojo%' THEN 'Recojo en Almacén'
                         WHEN om_billing_entrega.meta_value = 'billing_address' THEN 'Envío a domicilio'
                         ELSE NULL
-                    END
+                    END)
                 ) as shipping_method,
 
                 -- Prioridad (si existe)
-                dp.is_priority,
-                dp.priority_level,
-                dp.is_atendido,
+                MAX(dp.is_priority) as is_priority,
+                MAX(dp.priority_level) as priority_level,
+                MAX(dp.is_atendido) as is_atendido,
 
                 -- Tiempo sin mover (horas desde última actualización)
-                TIMESTAMPDIFF(HOUR, o.date_updated_gmt, UTC_TIMESTAMP()) as hours_since_update,
+                MAX(TIMESTAMPDIFF(HOUR, o.date_updated_gmt, UTC_TIMESTAMP())) as hours_since_update,
 
                 -- Usuario que creó el pedido
-                om_created.meta_value as created_by,
+                MAX(om_created.meta_value) as created_by,
 
                 -- Distrito de envío (para pedidos 1 día hábil)
-                sa.city as shipping_district,
+                MAX(sa.city) as shipping_district,
 
                 -- Pago contraentrega (COD)
-                om_is_cod.meta_value as is_cod,
+                MAX(om_is_cod.meta_value) as is_cod,
 
                 -- Costo de envío (para calcular monto COD)
                 (SELECT SUM(CAST(oim_cost.meta_value AS DECIMAL(10,2)))
