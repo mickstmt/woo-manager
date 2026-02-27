@@ -233,15 +233,14 @@ def register_chamo_shipment(order_id, order_number, tracking_number, delivery_da
             )
             return None
 
-        # Prevenir duplicados recientes (últimos 5 minutos)
+        # Prevenir duplicados: un pedido solo puede registrarse una vez en CHAMO
         existing = ChamoShipment.query.filter(
-            ChamoShipment.order_id == order_id,
-            ChamoShipment.sent_at >= datetime.utcnow() - timedelta(minutes=5)
+            ChamoShipment.order_id == order_id
         ).first()
 
         if existing:
             current_app.logger.info(
-                f"[CHAMO-REGISTRY] Order {order_number}: Already registered recently "
+                f"[CHAMO-REGISTRY] Order {order_number}: Already registered in CHAMO "
                 f"(ID: {existing.id}), skipping"
             )
             return existing
