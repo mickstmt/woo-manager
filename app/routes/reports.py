@@ -845,7 +845,8 @@ def export_profits_externos_excel():
                 oext.total_amount as total_venta_pen,
                 COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
                 oext.customer_first_name as cliente_nombre,
-                oext.customer_last_name as cliente_apellido
+                oext.customer_last_name as cliente_apellido,
+                oext.customer_dni
             FROM woo_orders_ext oext
             WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND oext.status != 'trash'
@@ -910,7 +911,7 @@ def export_profits_externos_excel():
         orders_data = []
 
         for row in orders_results:
-            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, cliente_nombre, cliente_apellido = row
+            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, cliente_nombre, cliente_apellido, customer_dni = row
             
             total_venta_pen = float(total_venta_pen or 0)
             costo_envio_pen = float(costo_envio_pen or 0)
@@ -947,7 +948,8 @@ def export_profits_externos_excel():
                 'costo_envio_pen': costo_envio_pen,
                 'ganancia_pen': ganancia_pen,
                 'margen_porcentaje': margen_porcentaje,
-                'cliente': cliente_completo or 'Sin nombre'
+                'cliente': cliente_completo or 'Sin nombre',
+                'customer_dni': customer_dni or '-'
             })
 
         # Crear Excel
@@ -983,7 +985,7 @@ def export_profits_externos_excel():
         # Headers (fila 4)
         if report_type == 'detailed':
             headers = [
-                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Cliente', 
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Cliente', 
                 'Producto', 'SKU', 'Cantidad', 
                 'P. Venta Linea (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
                 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
@@ -991,7 +993,7 @@ def export_profits_externos_excel():
             ]
         else:
             headers = [
-                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 
                 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 
                 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 
                 'Margen %', 'Cliente'
@@ -1026,20 +1028,21 @@ def export_profits_externos_excel():
                     ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
                     ws.cell(row=row_num, column=4, value=order['estado'])
                     ws.cell(row=row_num, column=5, value=order['metodo_pago'])
-                    ws.cell(row=row_num, column=6, value=order['cliente'])
-                    ws.cell(row=row_num, column=7, value=item['nombre'])
-                    ws.cell(row=row_num, column=8, value=item['sku'])
-                    ws.cell(row=row_num, column=9, value=item['qty'])
-                    ws.cell(row=row_num, column=10, value=venta_item_pen)
-                    ws.cell(row=row_num, column=11, value=item['costo_unit_usd'])
-                    ws.cell(row=row_num, column=12, value=costo_item_usd)
-                    ws.cell(row=row_num, column=13, value=costo_item_pen)
-                    ws.cell(row=row_num, column=14, value=ganancia_item_pen)
-                    ws.cell(row=row_num, column=15, value=margen_item)
-                    ws.cell(row=row_num, column=16, value=tc)
-                    ws.cell(row=row_num, column=17, value=order['costo_envio_pen'])
+                    ws.cell(row=row_num, column=6, value=order['customer_dni'])
+                    ws.cell(row=row_num, column=7, value=order['cliente'])
+                    ws.cell(row=row_num, column=8, value=item['nombre'])
+                    ws.cell(row=row_num, column=9, value=item['sku'])
+                    ws.cell(row=row_num, column=10, value=item['qty'])
+                    ws.cell(row=row_num, column=11, value=venta_item_pen)
+                    ws.cell(row=row_num, column=12, value=item['costo_unit_usd'])
+                    ws.cell(row=row_num, column=13, value=costo_item_usd)
+                    ws.cell(row=row_num, column=14, value=costo_item_pen)
+                    ws.cell(row=row_num, column=15, value=ganancia_item_pen)
+                    ws.cell(row=row_num, column=16, value=margen_item)
+                    ws.cell(row=row_num, column=17, value=tc)
+                    ws.cell(row=row_num, column=18, value=order['costo_envio_pen'])
 
-                    for col in range(1, 18):
+                    for col in range(1, 19):
                         ws.cell(row=row_num, column=col).border = border
                     row_num += 1
             else:
@@ -1048,27 +1051,28 @@ def export_profits_externos_excel():
                 ws.cell(row=row_num, column=3, value=str(order['fecha_pedido']))
                 ws.cell(row=row_num, column=4, value=order['estado'])
                 ws.cell(row=row_num, column=5, value=order['metodo_pago'])
-                ws.cell(row=row_num, column=6, value=round(order['total_venta_pen'], 2))
-                ws.cell(row=row_num, column=7, value=round(tc, 2))
-                ws.cell(row=row_num, column=8, value=round(order['costo_total_usd'], 2))
-                ws.cell(row=row_num, column=9, value=round(order['costo_total_pen'], 2))
-                ws.cell(row=row_num, column=10, value=round(order['comision_pen'], 2))
-                ws.cell(row=row_num, column=11, value=round(order['costo_envio_pen'], 2))
-                ws.cell(row=row_num, column=12, value=round(order['ganancia_pen'], 2))
-                ws.cell(row=row_num, column=13, value=round(order['margen_porcentaje'], 2))
-                ws.cell(row=row_num, column=14, value=order['cliente'])
+                ws.cell(row=row_num, column=6, value=order['customer_dni'])
+                ws.cell(row=row_num, column=7, value=round(order['total_venta_pen'], 2))
+                ws.cell(row=row_num, column=8, value=round(tc, 2))
+                ws.cell(row=row_num, column=9, value=round(order['costo_total_usd'], 2))
+                ws.cell(row=row_num, column=10, value=round(order['costo_total_pen'], 2))
+                ws.cell(row=row_num, column=11, value=round(order['comision_pen'], 2))
+                ws.cell(row=row_num, column=12, value=round(order['costo_envio_pen'], 2))
+                ws.cell(row=row_num, column=13, value=round(order['ganancia_pen'], 2))
+                ws.cell(row=row_num, column=14, value=round(order['margen_porcentaje'], 2))
+                ws.cell(row=row_num, column=15, value=order['cliente'])
 
                 # Aplicar bordes
-                for col in range(1, 15):
+                for col in range(1, 16):
                     ws.cell(row=row_num, column=col).border = border
 
                 row_num += 1
 
         # Ajustar anchos de columna
         if report_type == 'detailed':
-            column_widths = [10, 15, 12, 12, 20, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12]
+            column_widths = [10, 15, 12, 12, 20, 15, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12]
         else:
-            column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30]
+            column_widths = [10, 15, 12, 12, 20, 15, 12, 8, 12, 12, 12, 12, 14, 10, 30]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -1169,6 +1173,7 @@ def export_profits_excel():
                 COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago,
                 o.total_amount,
                 CONCAT(ba.first_name, ' ', ba.last_name) as cliente_nombre,
+                ba.company as customer_dni,
                 COALESCE((
                     SELECT SUM(CAST(oim_shipping.meta_value AS DECIMAL(10,2)))
                     FROM wpyz_woocommerce_order_items oi_shipping
@@ -1266,14 +1271,14 @@ def export_profits_excel():
 
         if report_type == 'detailed':
             headers = [
-                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Cliente', 
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Cliente', 
                 'Producto', 'SKU', 'Cantidad', 
                 'P. Venta Linea (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
                 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
                 'T.C.', 'Envío Pedido (PEN)', 'Comunidad'
             ]
         else:
-            headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
+            headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
         
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
@@ -1283,7 +1288,7 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, c_envio, is_comm = r
+            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, c_envio, is_comm, customer_dni = r
             tc = get_tc_for_date(fecha)
             envio_pen = float(c_envio or 0)
 
@@ -1306,21 +1311,22 @@ def export_profits_excel():
                     ws.cell(row=row_num, column=3, value=str(fecha))
                     ws.cell(row=row_num, column=4, value=status)
                     ws.cell(row=row_num, column=5, value=plataforma)
-                    ws.cell(row=row_num, column=6, value=cliente or '')
-                    ws.cell(row=row_num, column=7, value=item['nombre'])
-                    ws.cell(row=row_num, column=8, value=item['sku'])
-                    ws.cell(row=row_num, column=9, value=item['qty'])
-                    ws.cell(row=row_num, column=10, value=venta_item_pen)
-                    ws.cell(row=row_num, column=11, value=item['costo_unit_usd'])
-                    ws.cell(row=row_num, column=12, value=costo_item_usd)
-                    ws.cell(row=row_num, column=13, value=costo_item_pen)
-                    ws.cell(row=row_num, column=14, value=ganancia_item_pen)
-                    ws.cell(row=row_num, column=15, value=margen_item)
-                    ws.cell(row=row_num, column=16, value=tc)
-                    ws.cell(row=row_num, column=17, value=envio_pen)
-                    ws.cell(row=row_num, column=18, value='SÍ' if is_comm == 'yes' else 'NO')
+                    ws.cell(row=row_num, column=6, value=customer_dni or '-')
+                    ws.cell(row=row_num, column=7, value=cliente or '')
+                    ws.cell(row=row_num, column=8, value=item['nombre'])
+                    ws.cell(row=row_num, column=9, value=item['sku'])
+                    ws.cell(row=row_num, column=10, value=item['qty'])
+                    ws.cell(row=row_num, column=11, value=venta_item_pen)
+                    ws.cell(row=row_num, column=12, value=item['costo_unit_usd'])
+                    ws.cell(row=row_num, column=13, value=costo_item_usd)
+                    ws.cell(row=row_num, column=14, value=costo_item_pen)
+                    ws.cell(row=row_num, column=15, value=ganancia_item_pen)
+                    ws.cell(row=row_num, column=16, value=margen_item)
+                    ws.cell(row=row_num, column=17, value=tc)
+                    ws.cell(row=row_num, column=18, value=envio_pen)
+                    ws.cell(row=row_num, column=19, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                    for col in range(1, 19):
+                    for col in range(1, 20):
                         ws.cell(row=row_num, column=col).border = border
                     row_num += 1
             else:
@@ -1339,26 +1345,27 @@ def export_profits_excel():
                 ws.cell(row=row_num, column=3, value=str(fecha))
                 ws.cell(row=row_num, column=4, value=status)
                 ws.cell(row=row_num, column=5, value=plataforma)
-                ws.cell(row=row_num, column=6, value=float(total_venta_pen_order or 0))
-                ws.cell(row=row_num, column=7, value=tc)
-                ws.cell(row=row_num, column=8, value=costo_usd)
-                ws.cell(row=row_num, column=9, value=costo_pen)
-                ws.cell(row=row_num, column=10, value=comision_pen)
-                ws.cell(row=row_num, column=11, value=envio_pen)
-                ws.cell(row=row_num, column=12, value=ganancia_pen)
-                ws.cell(row=row_num, column=13, value=margen_porcentaje)
-                ws.cell(row=row_num, column=14, value=cliente or '')
-                ws.cell(row=row_num, column=15, value='SÍ' if is_comm == 'yes' else 'NO')
+                ws.cell(row=row_num, column=6, value=customer_dni or '-')
+                ws.cell(row=row_num, column=7, value=float(total_venta_pen_order or 0))
+                ws.cell(row=row_num, column=8, value=tc)
+                ws.cell(row=row_num, column=9, value=costo_usd)
+                ws.cell(row=row_num, column=10, value=costo_pen)
+                ws.cell(row=row_num, column=11, value=comision_pen)
+                ws.cell(row=row_num, column=12, value=envio_pen)
+                ws.cell(row=row_num, column=13, value=ganancia_pen)
+                ws.cell(row=row_num, column=14, value=margen_porcentaje)
+                ws.cell(row=row_num, column=15, value=cliente or '')
+                ws.cell(row=row_num, column=16, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                for col in range(1, 16):
+                for col in range(1, 17):
                     ws.cell(row=row_num, column=col).border = border
                 row_num += 1
 
         # Ajustar anchos de columna
         if report_type == 'detailed':
-            column_widths = [10, 15, 12, 12, 20, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12, 10]
+            column_widths = [10, 15, 12, 12, 20, 15, 30, 40, 15, 10, 15, 15, 15, 15, 15, 12, 8, 12, 10]
         else:
-            column_widths = [10, 15, 12, 12, 20, 12, 8, 12, 12, 12, 12, 14, 10, 30, 12]
+            column_widths = [10, 15, 12, 12, 20, 15, 12, 8, 12, 12, 12, 12, 14, 10, 30, 12]
             
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
