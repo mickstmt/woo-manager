@@ -935,12 +935,15 @@ def export_profits_externos_excel():
             if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
-            # Recalcular ganancia: Venta - IGV - Costo - Envío - Comisión
-            tax_total_pen = float(tax_total_pen or 0)
-            ganancia_pen = total_venta_pen - tax_total_pen - costo_total_pen - costo_envio_pen - comision_pen
+            # Recalcular IGV: Desglose estándar (Total / 1.18 * 0.18)
+            # Para un total de 39.99, el IGV es 6.10 y la base es 33.89
+            base_imponible_pen = round(total_venta_pen / 1.18, 2)
+            tax_total_pen = round(total_venta_pen - base_imponible_pen, 2)
             
-            # Margen sobre la base imponible
-            base_imponible_pen = total_venta_pen - tax_total_pen
+            # Recalcular ganancia: Base - Costo - Envío - Comisión
+            ganancia_pen = round(base_imponible_pen - costo_total_pen - costo_envio_pen - comision_pen, 2)
+            
+            # Margen sobre la base imponible (lo que realmente le queda al negocio)
             margen_porcentaje = (ganancia_pen / base_imponible_pen * 100) if base_imponible_pen > 0 else 0
 
             cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
@@ -1331,8 +1334,10 @@ def export_profits_excel():
                     costo_item_usd = item['costo_total_usd']
                     costo_item_pen = costo_item_usd * tc
                     venta_item_pen = item['venta_total_pen']
-                    igv_item_pen = item['tax_pen']
-                    subtotal_item_pen = item['subtotal_pen']
+                    
+                    # IGV = Desglose de los 18% incluidos en el total
+                    subtotal_item_pen = round(venta_item_pen / 1.18, 2)
+                    igv_item_pen = round(venta_item_pen - subtotal_item_pen, 2)
                     
                     # Ganancia = Subtotal - Costo
                     ganancia_item_pen = round(subtotal_item_pen - costo_item_pen, 2)
@@ -1366,14 +1371,14 @@ def export_profits_excel():
                 costo_usd = items_by_order.get(oid, 0.0)
                 costo_pen = costo_usd * tc
                 
-                comision_pen = round(float(total_venta_pen_order or 0) * 0.05, 2) if 'TARJETA' in plataforma else 0
-                
                 # Ganancia = Total - IGV - Costo - Envío - Comisión
-                tax_pen = float(tax_amount_pen or 0)
-                ganancia_pen = round(float(total_venta_pen_order or 0) - tax_pen - costo_pen - envio_pen - comision_pen, 2)
+                total_venta_order = float(total_venta_pen_order or 0)
+                base_venta_pen = round(total_venta_order / 1.18, 2)
+                tax_pen = round(total_venta_order - base_venta_pen, 2)
                 
-                # Para margen, usamos el monto sin impuesto
-                base_venta_pen = float(total_venta_pen_order or 0) - tax_pen
+                ganancia_pen = round(base_venta_pen - costo_pen - envio_pen - comision_pen, 2)
+                
+                # Para margen, usamos el monto sin impuesto como base
                 margen_porcentaje = round((ganancia_pen / base_venta_pen * 100), 2) if base_venta_pen > 0 else 0
 
                 # Solo incluir pedidos con items con costo (si es consolidado)
