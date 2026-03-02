@@ -995,7 +995,7 @@ def export_profits_externos_excel():
             headers = [
                 'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Cliente', 
                 'Producto', 'SKU', 'Cantidad', 
-                'P. Venta Linea (PEN)', 'IGV (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
+                'Venta Total Pedido (PEN)', 'IGV Total Pedido (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
                 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
                 'T.C.', 'Envío Pedido (PEN)'
             ]
@@ -1044,8 +1044,8 @@ def export_profits_externos_excel():
                     ws.cell(row=row_num, column=8, value=item['nombre'])
                     ws.cell(row=row_num, column=9, value=item['sku'])
                     ws.cell(row=row_num, column=10, value=item['qty'])
-                    ws.cell(row=row_num, column=11, value=round(venta_item_pen, 2))
-                    ws.cell(row=row_num, column=12, value=round(igv_item_pen, 2))
+                    ws.cell(row=row_num, column=11, value=round(total_venta_pen, 2))
+                    ws.cell(row=row_num, column=12, value=round(tax_total_pen, 2))
                     ws.cell(row=row_num, column=13, value=round(item['costo_unit_usd'], 2))
                     ws.cell(row=row_num, column=14, value=round(costo_item_usd, 2))
                     ws.cell(row=row_num, column=15, value=round(costo_item_pen, 2))
@@ -1295,7 +1295,7 @@ def export_profits_excel():
             headers = [
                 'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Cliente', 
                 'Producto', 'SKU', 'Cantidad', 
-                'P. Venta Linea (PEN)', 'IGV (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
+                'Venta Total Pedido (PEN)', 'IGV Total Pedido (PEN)', 'Costo Unit (USD)', 'Costo Total (USD)', 
                 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
                 'T.C.', 'Envío Pedido (PEN)', 'Comunidad'
             ]
@@ -1342,8 +1342,8 @@ def export_profits_excel():
                     ws.cell(row=row_num, column=8, value=item['nombre'])
                     ws.cell(row=row_num, column=9, value=item['sku'])
                     ws.cell(row=row_num, column=10, value=item['qty'])
-                    ws.cell(row=row_num, column=11, value=round(venta_item_pen, 2))
-                    ws.cell(row=row_num, column=12, value=round(igv_item_pen, 2))
+                    ws.cell(row=row_num, column=11, value=round(float(total_venta_pen_order or 0), 2))
+                    ws.cell(row=row_num, column=12, value=round(float(tax_amount_pen or 0), 2))
                     ws.cell(row=row_num, column=13, value=round(item['costo_unit_usd'], 2))
                     ws.cell(row=row_num, column=14, value=round(costo_item_usd, 2))
                     ws.cell(row=row_num, column=15, value=round(costo_item_pen, 2))
