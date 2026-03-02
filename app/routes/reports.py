@@ -843,6 +843,7 @@ def export_profits_externos_excel():
                 oext.status as estado,
                 COALESCE(oext.payment_method_title, oext.payment_method, 'N/A') as metodo_pago,
                 oext.total_amount as total_venta_pen,
+                COALESCE(oext.tax_total, 0) as tax_total_pen,
                 COALESCE(oext.shipping_cost, 0) as costo_envio_pen,
                 oext.customer_first_name as cliente_nombre,
                 oext.customer_last_name as cliente_apellido,
@@ -914,7 +915,7 @@ def export_profits_externos_excel():
         orders_data = []
 
         for row in orders_results:
-            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, cliente_nombre, cliente_apellido, customer_dni = row
+            pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, tax_total_pen, costo_envio_pen, cliente_nombre, cliente_apellido, customer_dni = row
             
             total_venta_pen = float(total_venta_pen or 0)
             costo_envio_pen = float(costo_envio_pen or 0)
@@ -931,9 +932,13 @@ def export_profits_externos_excel():
             if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
-            # Recalcular ganancia
-            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen - comision_pen
-            margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
+            # Recalcular ganancia: Venta - IGV - Costo - Envío - Comisión
+            tax_total_pen = float(tax_total_pen or 0)
+            ganancia_pen = total_venta_pen - tax_total_pen - costo_total_pen - costo_envio_pen - comision_pen
+            
+            # Margen sobre la base imponible
+            base_imponible_pen = total_venta_pen - tax_total_pen
+            margen_porcentaje = (ganancia_pen / base_imponible_pen * 100) if base_imponible_pen > 0 else 0
 
             cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
 
@@ -1179,6 +1184,7 @@ def export_profits_excel():
                 o.status,
                 COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago,
                 o.total_amount,
+                o.tax_amount,
                 CONCAT(ba.first_name, ' ', ba.last_name) as cliente_nombre,
                 ba.company as customer_dni,
                 COALESCE((
@@ -1304,8 +1310,8 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), cliente(6), dni(7), envio(8), is_comm(9)
-            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, customer_dni, c_envio, is_comm = r
+            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), tax(6), cliente(7), dni(8), envio(9), is_comm(10)
+            oid, num, fecha, status, p_raw, total_venta_pen_order, tax_amount_pen, cliente, customer_dni, c_envio, is_comm = r
             tc = get_tc_for_date(fecha)
             envio_pen = float(c_envio or 0)
 
@@ -1355,8 +1361,14 @@ def export_profits_excel():
                 costo_pen = costo_usd * tc
                 
                 comision_pen = round(float(total_venta_pen_order or 0) * 0.05, 2) if 'TARJETA' in plataforma else 0
-                ganancia_pen = round(float(total_venta_pen_order or 0) - costo_pen - envio_pen - comision_pen, 2)
-                margen_porcentaje = round((ganancia_pen / float(total_venta_pen_order or 1) * 100), 2) if total_venta_pen_order and float(total_venta_pen_order) > 0 else 0
+                
+                # Ganancia = Total - IGV - Costo - Envío - Comisión
+                tax_pen = float(tax_amount_pen or 0)
+                ganancia_pen = round(float(total_venta_pen_order or 0) - tax_pen - costo_pen - envio_pen - comision_pen, 2)
+                
+                # Para margen, usamos el monto sin impuesto
+                base_venta_pen = float(total_venta_pen_order or 0) - tax_pen
+                margen_porcentaje = round((ganancia_pen / base_venta_pen * 100), 2) if base_venta_pen > 0 else 0
 
                 # Solo incluir pedidos con items con costo (si es consolidado)
                 if costo_usd == 0 and oid not in items_by_order: continue
