@@ -326,22 +326,27 @@ def register_chamo_shipment(order_id, order_number, tracking_number, delivery_da
         )
 
         db.session.add(chamo_shipment)
-        db.session.flush()
+        
+        # Intentar commit inmediato para este registro si es individual,
+        # o flush si es bulk (el bulk manejará el commit)
+        if sent_via == 'individual':
+            db.session.commit()
+        else:
+            db.session.flush()
 
         current_app.logger.info(
-            f"[CHAMO-REGISTRY] Order {order_number}: Registrado "
+            f"[CHAMO-REGISTRY] Order {order_number} ({sent_via}): Registrado "
             f"(ID: {chamo_shipment.id}, Delivery: {delivery_date_obj}, "
-            f"COD: {is_cod}, Via: {sent_via})"
+            f"COD: {is_cod})"
         )
 
         return chamo_shipment
 
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(
             f"[CHAMO-REGISTRY] Error registrando {order_number}: {str(e)}"
         )
-        import traceback
-        current_app.logger.error(traceback.format_exc())
         return None
 
 
@@ -1781,7 +1786,6 @@ def bulk_tracking_simple():
                     ('_wc_shipment_tracking_items', serialized_items)
                 ]:
                     db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
-                    db.session.execute(query_insert, {'order_id': order_id, 'key': key, 'value': value})
 
                 # 3. GUARDAR EN HPOS
                 query_hpos = text("""
@@ -1806,22 +1810,9 @@ def bulk_tracking_simple():
                     if chamo_reg:
                         chamo_registered += 1
 
-                db.session.commit()
-
-                exitosos += 1
-                resultados.append({
-                    'order_id': order_id,
-                    'order_number': order_number,
-                    'success': True
-                })
-
                 current_app.logger.info(
                     f"[BULK-TRACKING-SIMPLE] Tracking asignado a {order_number} ({column.upper()}) por {current_user.username}"
                 )
-
-                # Rate limiting - esperar 1 segundo entre pedidos
-                if len(order_ids) > 1:
-                    time.sleep(1)
 
             except Exception as e:
                 db.session.rollback()
@@ -1832,6 +1823,16 @@ def bulk_tracking_simple():
                     'error': str(e)
                 })
                 current_app.logger.error(f"[BULK-TRACKING-SIMPLE] Error procesando order {order_id}: {str(e)}")
+            
+            finally:
+                # IMPORTANTE: Remover la sesión después de cada orden en el bulk 
+                # para asegurar que la conexión vuelva al pool rápidamente
+                # y no se mantenga ocupada durante el sleep.
+                db.session.remove()
+
+                # Rate limiting - esperar 1 segundo entre pedidos (FUERA de la conexión activa)
+                if len(order_ids) > 1:
+                    time.sleep(1)
 
         current_app.logger.info(
             f"[BULK-TRACKING-SIMPLE] Proceso completado: {exitosos} exitosos, {fallidos} fallidos"

@@ -1162,7 +1162,7 @@ class ChamoShipment(db.Model):
     __tablename__ = 'woo_chamo_shipments'
 
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    order_id = db.Column(db.BigInteger, nullable=False)
+    order_id = db.Column(db.BigInteger, nullable=False, unique=True)
     order_number = db.Column(db.String(50), nullable=False)
 
     # Shipment details
