@@ -1288,7 +1288,8 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, c_envio, is_comm, customer_dni = r
+            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), cliente(6), dni(7), envio(8), is_comm(9)
+            oid, num, fecha, status, p_raw, total_venta_pen_order, cliente, customer_dni, c_envio, is_comm = r
             tc = get_tc_for_date(fecha)
             envio_pen = float(c_envio or 0)
 
