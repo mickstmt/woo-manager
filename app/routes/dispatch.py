@@ -2274,7 +2274,10 @@ def bulk_tracking_process():
             else:
                 fallidos += 1
 
-            # Rate limiting: esperar 1 segundo entre pedidos
+            # Liberar conexión después de cada pedido
+            db.session.remove()
+
+            # Rate limiting: esperar 1 segundo entre pedidos (fuera de la sesión)
             import time
             time.sleep(1)
 
@@ -2849,7 +2852,10 @@ def bulk_tracking_olva_process():
             else:
                 fallidos += 1
 
-            # Rate limiting: esperar 1 segundo entre pedidos
+            # Liberar conexión después de cada pedido
+            db.session.remove()
+
+            # Rate limiting: esperar 1 segundo entre pedidos (fuera de la sesión)
             import time
             time.sleep(1)
 

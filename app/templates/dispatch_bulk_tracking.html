@@ -963,7 +963,7 @@
         modal.show();
     }
 
-    function executeProcess() {
+    async function executeProcess() {
         // Cerrar modal de confirmación
         const confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmProcessModal'));
         if (confirmModal) confirmModal.hide();
@@ -971,43 +971,68 @@
         // Mostrar overlay
         const overlay = document.getElementById('processing-overlay');
         overlay.classList.add('active');
-        document.getElementById('progress-total').textContent = pendingEnvios.length;
+
+        const total = pendingEnvios.length;
+        document.getElementById('progress-total').textContent = total;
         document.getElementById('progress-current').textContent = '0';
 
         // Deshabilitar botón
         const btn = document.getElementById('btn-process');
         btn.disabled = true;
 
-        fetch('/dispatch/api/bulk-tracking/process', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                envios: pendingEnvios
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                overlay.classList.remove('active');
+        const allResults = [];
+        const summary = { exitosos: 0, fallidos: 0 };
+        const BATCH_SIZE = 3; // Procesar de 3 en 3 para evitar timeouts y sobrecarga
+
+        try {
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                const batch = pendingEnvios.slice(i, i + BATCH_SIZE);
+
+                // Actualizar progreso
+                document.getElementById('progress-current').textContent = i;
+
+                const response = await fetch('/dispatch/api/bulk-tracking/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ envios: batch })
+                });
+
+                const data = await response.json();
 
                 if (data.success) {
-                    showResults(data.resultados, data.resumen);
-                    showNotification('success', `Procesamiento completado: ${data.resumen.exitosos} exitosos, ${data.resumen.fallidos} fallidos`);
-
-                    // Recargar preview para actualizar estados
-                    loadPreview();
+                    allResults.push(...data.resultados);
+                    summary.exitosos += data.resumen.exitosos;
+                    summary.fallidos += data.resumen.fallidos;
                 } else {
-                    showNotification('danger', 'Error: ' + data.error);
+                    // Si falla el batch completo, registrar errores individuales
+                    batch.forEach(env => {
+                        allResults.push({
+                            pedido_id: env.pedido_id,
+                            success: false,
+                            error: data.error || 'Error en el lote'
+                        });
+                        summary.fallidos++;
+                    });
                 }
-            })
-            .catch(error => {
-                overlay.classList.remove('active');
-                showNotification('danger', 'Error de conexi&oacute;n: ' + error.message);
-            })
-            .finally(() => {
-                btn.disabled = false;
-            });
+            }
+
+            // Finalizado
+            document.getElementById('progress-current').textContent = total;
+            overlay.classList.remove('active');
+
+            showResults(allResults, summary);
+            showNotification('success', `Procesamiento completado: ${summary.exitosos} exitosos, ${summary.fallidos} fallidos`);
+
+            // Recargar preview para actualizar estados
+            loadPreview();
+
+        } catch (error) {
+            overlay.classList.remove('active');
+            showNotification('danger', 'Error de conexión: ' + error.message);
+            console.error(error);
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     function showResults(resultados, resumen) {
