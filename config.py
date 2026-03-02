@@ -133,8 +133,8 @@ class ProductionConfig(Config):
     
     # En producción, pool más conservador para evitar sobrecargar Hostinger
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 5,               # Límite estricto de conexiones simultáneas
-        'max_overflow': 0,            # Prohibir conexiones extra para no saturar Hostinger
+        'pool_size': 10,              # Aumentado para manejar más concurrencia
+        'max_overflow': 5,            # Permitir pequeño margen extra
         'pool_recycle': 600,          # Reciclar cada 10 minutos
         'pool_pre_ping': True,        # Verificar antes de usar
         'pool_timeout': 30,           # Tiempo de espera antes de error

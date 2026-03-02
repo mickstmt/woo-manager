@@ -914,6 +914,9 @@ def export_profits_externos_excel():
         # 5. Combinar y calcular
         orders_data = []
 
+        # Liberar conexión después de traer todos los datos (el resto es CPU y memoria)
+        db.session.remove()
+
         for row in orders_results:
             pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, tax_total_pen, costo_envio_pen, cliente_nombre, cliente_apellido, customer_dni = row
             
@@ -1268,6 +1271,9 @@ def export_profits_excel():
                     'tax_pen': tax_pen,
                     'subtotal_pen': subtotal_pen
                 })
+
+        # Liberar conexión después de traer todos los datos (el resto es CPU y memoria)
+        db.session.remove()
 
         # Crear workbook de Excel
         wb = Workbook()

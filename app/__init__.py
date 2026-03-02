@@ -80,10 +80,27 @@ def create_app(config_name=None):
                     flash(login_manager.login_message, login_manager.login_message_category)
                     return redirect(url_for('auth.login', next=request.url))
                 
-                # ACTUALIZAR ÚLTIMA ACTIVIDAD (Detección automática)
-                # Solo actualizamos si no es una petición estática o pública
-                current_user.last_login = get_local_time()
-                db.session.commit()
+                # ACTUALIZAR ÚLTIMA ACTIVIDAD (Solo si pasaron más de 5 minutos para evitar saturar BD)
+                now = get_local_time()
+                last_active = current_user.last_login
+                should_update = True
+                
+                if last_active:
+                    # Sincronizar timezones para comparación segura
+                    if last_active.tzinfo is None and now.tzinfo is not None:
+                        now_cmp = now.replace(tzinfo=None)
+                        last_active_cmp = last_active
+                    else:
+                        now_cmp = now
+                        last_active_cmp = last_active
+                    
+                    diff = (now_cmp - last_active_cmp).total_seconds()
+                    if diff < 300: # 5 minutos
+                        should_update = False
+                
+                if should_update:
+                    current_user.last_login = now
+                    db.session.commit()
             except Exception as e:
                 # Si hay error de BD, limpiar y redirigir a login
                 db.session.rollback()
