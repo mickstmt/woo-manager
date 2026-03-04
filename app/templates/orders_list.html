@@ -1659,7 +1659,33 @@
 
         // Pago
         $('#detail-payment-method').text(order.payment_method_title || order.payment_method || 'N/A');
-        $('#detail-subtotal').text(`${order.currency} ${(order.subtotal || 0).toFixed(2)}`);
+
+        // Calcular subtotal de productos (precio de lista con IGV, sin descuentos)
+        // Cada product.subtotal = _line_subtotal (sin tax), product.tax = impuesto de línea
+        let itemsSubtotalWithTax = 0;
+        if (order.products) {
+            order.products.forEach(p => {
+                itemsSubtotalWithTax += (p.subtotal || 0) + (p.tax || 0);
+            });
+        }
+        $('#detail-subtotal').text(`${order.currency} ${itemsSubtotalWithTax.toFixed(2)}`);
+
+        // Mostrar filas de descuentos/fees debajo del subtotal
+        let feeRowsHtml = '';
+        if (order.fee_lines && order.fee_lines.length > 0) {
+            order.fee_lines.forEach(fee => {
+                const isDiscount = fee.amount < 0;
+                const feeClass = isDiscount ? 'text-danger' : 'text-muted';
+                feeRowsHtml += `
+                    <tr>
+                        <td class="fw-bold text-muted">${fee.name}:</td>
+                        <td class="${feeClass}">${order.currency} ${fee.amount.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+        $('#detail-fee-rows').html(feeRowsHtml);
+
         $('#detail-shipping-cost').text(`${order.currency} ${(order.shipping.cost || 0).toFixed(2)}`);
 
         // Mostrar impuestos si existen
@@ -1670,10 +1696,9 @@
             $('#detail-tax-row').hide();
         }
 
-        // Calcular total correcto: Subtotal (con IGV) + Envío
-        // En Perú, el subtotal ya incluye IGV, así que solo sumamos el envío
-        const calculatedTotal = (order.subtotal || 0) + (order.shipping.cost || 0);
-        $('#detail-total').text(`${order.currency} ${calculatedTotal.toFixed(2)}`);
+        // Total: usar el total oficial de WooCommerce (incluye descuentos y envío)
+        const officialTotal = order.total_amount || order.total || 0;
+        $('#detail-total').text(`${order.currency} ${officialTotal.toFixed(2)}`);
 
         // Badges (COD, Comunidad)
         let badges = '';
@@ -2448,9 +2473,11 @@
                                     <td id="detail-payment-method"></td>
                                 </tr>
                                 <tr>
-                                    <td class="fw-bold">Subtotal:</td>
+                                    <td class="fw-bold">Subtotal productos:</td>
                                     <td id="detail-subtotal"></td>
                                 </tr>
+                                <!-- Filas dinámicas de fees/descuentos -->
+                                <tbody id="detail-fee-rows"></tbody>
                                 <tr>
                                     <td class="fw-bold">Envío:</td>
                                     <td id="detail-shipping-cost"></td>

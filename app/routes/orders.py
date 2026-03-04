@@ -1333,39 +1333,73 @@ def get_order_detail(order_id):
         }
 
         # Agregar productos
-        subtotal_products = 0
+        subtotal_items_with_tax = 0  # Suma de precios de lista (sin descuento)
         total_products_tax = 0
         for product in products_result:
             product_tax = float(product.tax) if product.tax else 0.0
+            qty = int(product.quantity) if product.quantity else 1
 
             # Construir nombre con atributos si existen
             product_name = product.product_name
             if product.order_item_id in item_attributes and item_attributes[product.order_item_id]:
-                # Agregar atributos al nombre si no están ya incluidos
                 attributes_str = ', '.join(item_attributes[product.order_item_id])
                 if attributes_str and attributes_str not in product_name:
                     product_name = f"{product_name} - {attributes_str}"
 
+            # _line_subtotal = precio de lista (sin descuentos) * qty, sin impuesto
+            # _line_total = precio efectivo (con descuentos de cupón) * qty, sin impuesto
+            line_subtotal = float(product.subtotal) if product.subtotal else 0.0
+            line_total = float(product.total) if product.total else 0.0
+
+            # Precio por unidad usando _line_subtotal original
+            # (mostramos el precio de lista; el descuento se verá a nivel de totales)
+            price_per_unit = line_subtotal / qty if qty > 0 else 0
+
             product_data = {
                 'name': product_name,
                 'sku': product.sku or 'N/A',
-                'quantity': int(product.quantity) if product.quantity else 0,
-                'price': float(product.subtotal) / int(product.quantity) if product.quantity and float(product.quantity) > 0 else 0,
-                'subtotal': float(product.subtotal) if product.subtotal else 0.0,
-                'total': float(product.total) if product.total else 0.0,
+                'quantity': qty,
+                'price': price_per_unit,      # precio de lista por unidad (sin tax, sin descuento)
+                'subtotal': line_subtotal,     # total de lista sin tax
+                'total': line_total,           # total efectivo sin tax (post-descuento)
                 'tax': product_tax,
                 'product_id': product.product_id,
                 'variation_id': product.variation_id
             }
             order_data['products'].append(product_data)
-            # En Perú, los precios SIEMPRE incluyen IGV
-            # Sumar total + impuestos para obtener el precio real con IGV incluido
-            subtotal_products += product_data['total'] + product_tax
+            # Acumulamos para uso informativo si se necesita
+            subtotal_items_with_tax += line_subtotal + product_tax
             total_products_tax += product_tax
 
-        # El subtotal debe incluir los impuestos (contexto peruano)
-        order_data['subtotal'] = subtotal_products
+        # Obtener fee_lines (descuentos, cargos) para mostrarlos en el modal
+        fee_query = text("""
+            SELECT oi.order_item_name,
+                   MAX(CASE WHEN oim.meta_key = 'fee_amount' THEN oim.meta_value
+                            WHEN oim.meta_key = '_line_total' THEN oim.meta_value END) as amount
+            FROM wpyz_woocommerce_order_items oi
+            LEFT JOIN wpyz_woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
+                AND oim.meta_key IN ('fee_amount', '_line_total')
+            WHERE oi.order_id = :order_id AND oi.order_item_type = 'fee'
+            GROUP BY oi.order_item_id, oi.order_item_name
+        """)
+        fee_results = db.session.execute(fee_query, {'order_id': order_id}).fetchall()
+        fee_lines = []
+        total_fees = 0.0
+        for fee in fee_results:
+            amount = float(fee.amount) if fee.amount else 0.0
+            fee_lines.append({'name': fee.order_item_name, 'amount': amount})
+            total_fees += amount
+
+        # Usar el total_amount oficial de WooCommerce (incluye descuentos, envío y tax correctamente)
+        # En Perú los precios son con IGV incluido, así que total_amount es el precio final real
+        official_total = float(order_result.total_amount) if order_result.total_amount else 0.0
+
+        order_data['subtotal'] = official_total - shipping_cost  # Lo que paga sin envío
+        order_data['total_amount'] = official_total              # Total real a pagar
         order_data['total_tax'] = total_products_tax + order_data['shipping_tax']
+        order_data['fee_lines'] = fee_lines                      # Descuentos/cargos
+        order_data['total_fees'] = total_fees                    # Suma de fees (negativo = descuento)
+
 
         return jsonify({
             'success': True,
@@ -3659,17 +3693,26 @@ def update_order_items_logic(order_id, new_items, current_items):
             current = current_map[original_id]
             qty_old = int(current['quantity'])
             
-            # 1. Actualizar datos del item (nombre, total, etc) en DB
-            # En WooCommerce normal, line_total es sin impuestos, pero aquí simplificamos
-            # Asumimos que el precio viene unitario
-            line_subtotal = float(new_item['price']) * qty_new
-            line_total = line_subtotal # Si hubiera descuentos, seria menor
-            
-            # Actualizar woocommerce_order_itemmeta
-            # _qty, _line_total, _line_subtotal
+            # IMPORTANTE: WooCommerce almacena _line_total y _line_subtotal SIN impuesto (ex-tax)
+            # En Perú los precios incluyen IGV (18%), por lo tanto los dividimos entre 1.18
+            # para obtener el valor ex-tax que WooCommerce espera.
+            IGV_FACTOR = 1.18
+            price_with_tax = float(new_item['price'])
+            price_ex_tax = price_with_tax / IGV_FACTOR
+
+            line_subtotal_ex_tax = round(price_ex_tax * qty_new, 2)
+            line_total_ex_tax = line_subtotal_ex_tax  # Sin descuentos a nivel de item
+
+            # El impuesto de línea es price_with_tax - price_ex_tax por unidad * qty
+            line_tax = round((price_with_tax - price_ex_tax) * qty_new, 2)
+
             update_item_meta_val(original_id, '_qty', qty_new)
-            update_item_meta_val(original_id, '_line_subtotal', line_subtotal)
-            update_item_meta_val(original_id, '_line_total', line_total)
+            update_item_meta_val(original_id, '_line_subtotal', line_subtotal_ex_tax)
+            update_item_meta_val(original_id, '_line_total', line_total_ex_tax)
+            update_item_meta_val(original_id, '_line_subtotal_tax', line_tax)
+            update_item_meta_val(original_id, '_line_tax', line_tax)
+
+
             
             # 2. Ajuste de stock
             diff = qty_new - qty_old
@@ -3689,16 +3732,22 @@ def update_order_items_logic(order_id, new_items, current_items):
             new_item_id = res.lastrowid
             
             # Crear meta
-            line_subtotal = float(new_item['price']) * qty_new
+            # IMPORTANTE: WooCommerce almacena _line_total SIN IGV (ex-tax)
+            IGV_FACTOR = 1.18
+            price_with_tax = float(new_item['price'])
+            price_ex_tax = price_with_tax / IGV_FACTOR
+            line_subtotal_ex_tax = round(price_ex_tax * qty_new, 2)
+            line_tax = round((price_with_tax - price_ex_tax) * qty_new, 2)
+
             meta_dict = {
                 '_qty': qty_new,
                 '_product_id': new_item['product_id'],
                 '_variation_id': new_item.get('variation_id', 0),
-                '_line_subtotal': line_subtotal,
-                '_line_total': line_subtotal,
+                '_line_subtotal': line_subtotal_ex_tax,
+                '_line_total': line_subtotal_ex_tax,
                 '_tax_class': '',
-                '_line_subtotal_tax': 0,
-                '_line_tax': 0,
+                '_line_subtotal_tax': line_tax,
+                '_line_tax': line_tax,
             }
             for k, v in meta_dict.items():
                 ins_meta = text("INSERT INTO wpyz_woocommerce_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (:iid, :key, :val)")
