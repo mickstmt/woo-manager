@@ -1120,7 +1120,10 @@ def get_order_detail(order_id):
                 om_tracking_provider.meta_value as tracking_provider,
                 om_customer_note.meta_value as customer_note,
                 om_order_tax.meta_value as order_tax,
-                om_shipping_tax.meta_value as shipping_tax
+                om_shipping_tax.meta_value as shipping_tax,
+                om_doc_type.meta_value as billing_doc_type,
+                om_business_name.meta_value as billing_business_name,
+                om_ruc.meta_value as billing_ruc
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_order_number ON o.id = om_order_number.order_id AND om_order_number.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_orders_meta om_created_by ON o.id = om_created_by.order_id AND om_created_by.meta_key = '_created_by'
@@ -1132,6 +1135,9 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_wc_orders_meta om_customer_note ON o.id = om_customer_note.order_id AND om_customer_note.meta_key = '_customer_note'
             LEFT JOIN wpyz_wc_orders_meta om_order_tax ON o.id = om_order_tax.order_id AND om_order_tax.meta_key = '_order_tax'
             LEFT JOIN wpyz_wc_orders_meta om_shipping_tax ON o.id = om_shipping_tax.order_id AND om_shipping_tax.meta_key = '_order_shipping_tax'
+            LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
+            LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
+            LEFT JOIN wpyz_wc_orders_meta om_ruc ON o.id = om_ruc.order_id AND om_ruc.meta_key = '_billing_ruc'
             WHERE o.id = :order_id
         """)
 
@@ -1180,7 +1186,14 @@ def get_order_detail(order_id):
                 oim_tax.meta_value as tax,
                 oim_product_id.meta_value as product_id,
                 oim_variation_id.meta_value as variation_id,
-                oim_sku.meta_value as sku
+                (SELECT pm.meta_value 
+                 FROM wpyz_postmeta pm 
+                 WHERE pm.post_id = CASE 
+                    WHEN oim_variation_id.meta_value IS NOT NULL AND oim_variation_id.meta_value != '0' 
+                    THEN oim_variation_id.meta_value 
+                    ELSE oim_product_id.meta_value 
+                 END
+                 AND pm.meta_key = '_sku' LIMIT 1) as sku
             FROM wpyz_woocommerce_order_items oi
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id AND oim_total.meta_key = '_line_total'
@@ -1188,7 +1201,6 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_tax ON oi.order_item_id = oim_tax.order_item_id AND oim_tax.meta_key = '_line_tax'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_product_id ON oi.order_item_id = oim_product_id.order_item_id AND oim_product_id.meta_key = '_product_id'
             LEFT JOIN wpyz_woocommerce_order_itemmeta oim_variation_id ON oi.order_item_id = oim_variation_id.order_item_id AND oim_variation_id.meta_key = '_variation_id'
-            LEFT JOIN wpyz_woocommerce_order_itemmeta oim_sku ON oi.order_item_id = oim_sku.order_item_id AND oim_sku.meta_key = '_sku'
             WHERE oi.order_id = :order_id AND oi.order_item_type = 'line_item'
             ORDER BY oi.order_item_id
         """)
@@ -1281,6 +1293,9 @@ def get_order_detail(order_id):
             'order_source': order_result.order_source,
             'is_cod': order_result.is_cod == 'yes',
             'is_community': order_result.is_community == 'yes',
+            'billing_doc_type': order_result.billing_doc_type or 'dni',
+            'billing_business_name': order_result.billing_business_name or '',
+            'billing_ruc': order_result.billing_ruc or '',
             'tracking_number': order_result.tracking_number,
             'tracking_provider': order_result.tracking_provider,
             'customer_note': order_result.customer_note,
@@ -2322,6 +2337,10 @@ def create_order():
             ('_customer_note', data.get('customer_note', '')),
             ('_is_community', 'yes' if customer.get('is_community') else 'no'),
             ('_is_cod', 'yes' if is_cod else 'no'),
+            
+            # Nuevos campos de identificación
+            ('_billing_doc_type', customer.get('doc_type', 'dni')),
+            ('_billing_business_name', customer.get('business_name', '')),
 
             # Configuración de impuestos
             ('_prices_include_tax', 'yes'),  # IMPORTANTE: precios incluyen IGV
@@ -2408,6 +2427,19 @@ def create_order():
                     'meta_key': meta_key,
                     'meta_value': str(meta_value)
                 })
+
+        # Insertar metadatos adicionales en postmeta también
+        additional_postmeta = [
+            ('_billing_doc_type', customer.get('doc_type', 'dni')),
+            ('_billing_business_name', customer.get('business_name', '')),
+            ('_billing_ruc', customer.get('doc_number', '') if customer.get('doc_type') == 'ruc' else '')
+        ]
+        for meta_key, meta_value in additional_postmeta:
+            if meta_value:
+                db.session.execute(text("""
+                    INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value)
+                    VALUES (:post_id, :meta_key, :meta_value)
+                """), {'post_id': order.id, 'meta_key': meta_key, 'meta_value': str(meta_value)})
 
         # OPTIMIZACIÓN: Incluir limpieza de cache ANTES del commit para tener solo 1 commit
         # Limpiar cache de WooCommerce y LiteSpeed Cache
@@ -3536,12 +3568,17 @@ def update_order_customer_data(order_id, customer):
     # Mapeo de campos frontend a DB columns en wpyz_wc_order_addresses
     # address_type = 'billing' (Manager usa billing como principal)
     
+    # Identificación CRÍTICA (DNI/RUC/CE se guarda en company)
+    doc_number = customer.get('doc_number') or customer.get('dni') or customer.get('company') or ''
+    doc_type = customer.get('doc_type') or 'dni'
+    business_name = customer.get('business_name') or ''
+    
     update_addr = text("""
         UPDATE wpyz_wc_order_addresses
         SET 
             first_name = :first_name,
             last_name = :last_name,
-            company = :dni,
+            company = :doc_number,
             email = :email,
             phone = :phone,
             address_1 = :address,
@@ -3551,22 +3588,31 @@ def update_order_customer_data(order_id, customer):
     """)
     
     db.session.execute(update_addr, {
-        'first_name': customer.get('first_name',''),
-        'last_name': customer.get('last_name',''),
-        'dni': customer.get('dni',''), # Guardamos DNI en company por convención
+        'first_name': customer.get('first_name', ''),
+        'last_name': customer.get('last_name', ''),
+        'doc_number': doc_number,
         'email': customer.get('email', ''),
         'phone': customer.get('phone', ''),
-        'address': customer.get('address', customer.get('address_1','')),
-        'distrito': customer.get('city', ''), # Frontend manda city/distrito
+        'address': customer.get('address', customer.get('address_1', '')),
+        'distrito': customer.get('city', ''),
         'departamento': customer.get('state', ''),
         'order_id': order_id
     })
     
-    # Actualizar Custom Meta (RUC, Referencia, Tipo Entrega)
-    # Usamos helper existente o queries directos.
-    # update_meta es una funcion hipotetica, la implementamos inline aqui o usamos modelos
+    # También actualizar shipping company
+    db.session.execute(text("""
+        UPDATE wpyz_wc_order_addresses
+        SET company = :comp
+        WHERE order_id = :oid AND address_type = 'shipping'
+    """), {'comp': doc_number, 'oid': order_id})
+    
+    # Actualizar Custom Meta
     meta_updates = {
-        '_billing_ruc': customer.get('ruc', ''),
+        '_billing_doc_type': doc_type,
+        '_billing_business_name': business_name,
+        '_billing_ruc': doc_number if doc_type == 'ruc' else '',
+        '_billing_company': doc_number,
+        '_shipping_company': doc_number,
         '_billing_entrega': customer.get('billing_entrega', ''),
         '_billing_referencia': customer.get('reference', ''),
         '_is_community': 'yes' if customer.get('is_community') else 'no',
@@ -3574,16 +3620,15 @@ def update_order_customer_data(order_id, customer):
     }
     
     for key, val in meta_updates.items():
-        # Upsert meta
-        check_meta = text("SELECT id FROM wpyz_wc_orders_meta WHERE order_id=:oid AND meta_key=:key")
-        res = db.session.execute(check_meta, {'oid': order_id, 'key': key}).fetchone()
-        
-        if res:
-            upd = text("UPDATE wpyz_wc_orders_meta SET meta_value=:val WHERE id=:mid")
-            db.session.execute(upd, {'val': val, 'mid': res[0]})
-        else:
-            ins = text("INSERT INTO wpyz_wc_orders_meta (order_id, meta_key, meta_value) VALUES (:oid, :key, :val)")
-            db.session.execute(ins, {'oid': order_id, 'key': key, 'val': val})
+        if val is not None:
+            upsert_order_meta(order_id, key, val)
+            # También actualizar wpyz_postmeta para compatibilidad
+            check_pm = text("SELECT meta_id FROM wpyz_postmeta WHERE post_id=:oid AND meta_key=:key")
+            pm_res = db.session.execute(check_pm, {'oid': order_id, 'key': key}).fetchone()
+            if pm_res:
+                db.session.execute(text("UPDATE wpyz_postmeta SET meta_value=:val WHERE meta_id=:mid"), {'val': str(val), 'mid': pm_res[0]})
+            else:
+                db.session.execute(text("INSERT INTO wpyz_postmeta (post_id, meta_key, meta_value) VALUES (:oid, :key, :val)"), {'oid': order_id, 'key': key, 'val': str(val)})
 
 
 def update_order_items_logic(order_id, new_items, current_items):

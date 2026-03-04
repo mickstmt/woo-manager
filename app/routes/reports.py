@@ -464,11 +464,15 @@ def api_profits():
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
                 ), 0) as costo_envio,
-                om_community.meta_value as is_community
+                om_community.meta_value as is_community,
+                om_doc_type.meta_value as doc_type,
+                om_business_name.meta_value as business_name
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
+            LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
+            LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -535,7 +539,7 @@ def api_profits():
         total_ganancia_pen = 0.0
 
         for r in orders_results:
-            oid, num, fecha, status, total_venta, fname, lname, c_envio, is_comm = r
+            oid, num, fecha, status, total_venta, fname, lname, c_envio, is_comm, doc_type, b_name = r
             tc = get_tc_for_date(fecha)
             items = items_by_order.get(oid, [])
             
@@ -564,6 +568,8 @@ def api_profits():
                 'margen_porcentaje': round(margen, 2),
                 'cliente_nombre': fname or 'Sin nombre',
                 'cliente_apellido': lname or '',
+                'doc_type': doc_type or 'dni',
+                'business_name': b_name,
                 'is_community': is_comm == 'yes',
                 'items': items,
                 'total_items': len(items)
@@ -1199,14 +1205,19 @@ def export_profits_excel():
                     FROM wpyz_woocommerce_order_items oi_shipping
                     INNER JOIN wpyz_woocommerce_order_itemmeta oim_shipping ON oi_shipping.order_item_id = oim_shipping.order_item_id
                     WHERE oi_shipping.order_id = o.id
+                        AND oi_shipping.order_id = o.id
                         AND oi_shipping.order_item_type = 'shipping'
                         AND oim_shipping.meta_key = 'cost'
                 ), 0) as costo_envio,
-                om_community.meta_value as is_community
+                om_community.meta_value as is_community,
+                om_doc_type.meta_value as doc_type,
+                om_business_name.meta_value as business_name
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
+            LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
+            LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -1303,14 +1314,14 @@ def export_profits_excel():
 
         if report_type == 'detailed':
             headers = [
-                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Cliente', 
+                'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Tipo Doc', 'Nro Doc', 'Razón Social', 'Cliente', 
                 'Producto', 'SKU', 'Cantidad', 
                 'Venta Total Pedido (PEN)', 'Precio Venta Item (PEN)', 'IGV Total Pedido (PEN)', 'Costo Unit (USD)', 
                 'Costo Total (USD)', 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
                 'T.C.', 'Envío Pedido (PEN)', 'Comunidad'
             ]
         else:
-            headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'DNI', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
+            headers = ['Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Tipo Doc', 'Nro Doc', 'Razón Social', 'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)', 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad']
         
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
@@ -1320,8 +1331,8 @@ def export_profits_excel():
         # Datos
         row_num = 5
         for r in orders_results:
-            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), tax(6), cliente(7), dni(8), envio(9), is_comm(10)
-            oid, num, fecha, status, p_raw, total_venta_pen_order, tax_amount_pen, cliente, customer_dni, c_envio, is_comm = r
+            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), tax(6), cliente(7), dni(8), envio(9), is_comm(10), doc_type(11), b_name(12)
+            oid, num, fecha, status, p_raw, total_venta_pen_order, tax_amount_pen, cliente, customer_dni, c_envio, is_comm, doc_type, b_name = r
             tc = get_tc_for_date(fecha)
             envio_pen = float(c_envio or 0)
 
@@ -1349,9 +1360,11 @@ def export_profits_excel():
                     ws.cell(row=row_num, column=3, value=str(fecha))
                     ws.cell(row=row_num, column=4, value=status)
                     ws.cell(row=row_num, column=5, value=plataforma)
-                    ws.cell(row=row_num, column=6, value=customer_dni or '-')
-                    ws.cell(row=row_num, column=7, value=cliente or '')
-                    ws.cell(row=row_num, column=8, value=item['nombre'])
+                    ws.cell(row=row_num, column=6, value=(doc_type or 'dni').upper())
+                    ws.cell(row=row_num, column=7, value=customer_dni or '-')
+                    ws.cell(row=row_num, column=8, value=b_name or '-')
+                    ws.cell(row=row_num, column=9, value=cliente or '')
+                    ws.cell(row=row_num, column=10, value=item['nombre'])
                     ws.cell(row=row_num, column=9, value=item['sku'])
                     ws.cell(row=row_num, column=10, value=item['qty'])
                     ws.cell(row=row_num, column=11, value=round(float(total_venta_pen_order or 0), 2))
@@ -1362,11 +1375,11 @@ def export_profits_excel():
                     ws.cell(row=row_num, column=16, value=round(costo_item_pen, 2))
                     ws.cell(row=row_num, column=17, value=round(ganancia_item_pen, 2))
                     ws.cell(row=row_num, column=18, value=round(margen_item, 2))
-                    ws.cell(row=row_num, column=19, value=round(tc, 3))
-                    ws.cell(row=row_num, column=20, value=round(envio_pen, 2))
-                    ws.cell(row=row_num, column=21, value='SÍ' if is_comm == 'yes' else 'NO')
+                    ws.cell(row=row_num, column=21, value=round(tc, 3))
+                    ws.cell(row=row_num, column=22, value=round(envio_pen, 2))
+                    ws.cell(row=row_num, column=23, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                    for col in range(1, 22):
+                    for col in range(1, 24):
                         ws.cell(row=row_num, column=col).border = border
                     row_num += 1
             else:
@@ -1391,19 +1404,21 @@ def export_profits_excel():
                 ws.cell(row=row_num, column=3, value=str(fecha))
                 ws.cell(row=row_num, column=4, value=status)
                 ws.cell(row=row_num, column=5, value=plataforma)
-                ws.cell(row=row_num, column=6, value=customer_dni or '-')
-                ws.cell(row=row_num, column=7, value=round(float(total_venta_pen_order or 0), 2))
-                ws.cell(row=row_num, column=8, value=round(tc, 3))
-                ws.cell(row=row_num, column=9, value=round(costo_usd, 2))
-                ws.cell(row=row_num, column=10, value=round(costo_pen, 2))
-                ws.cell(row=row_num, column=11, value=round(comision_pen, 2))
-                ws.cell(row=row_num, column=12, value=round(envio_pen, 2))
-                ws.cell(row=row_num, column=13, value=round(ganancia_pen, 2))
-                ws.cell(row=row_num, column=14, value=round(margen_porcentaje, 2))
-                ws.cell(row=row_num, column=15, value=cliente or '')
-                ws.cell(row=row_num, column=16, value='SÍ' if is_comm == 'yes' else 'NO')
+                ws.cell(row=row_num, column=6, value=(doc_type or 'dni').upper())
+                ws.cell(row=row_num, column=7, value=customer_dni or '-')
+                ws.cell(row=row_num, column=8, value=b_name or '-')
+                ws.cell(row=row_num, column=9, value=round(float(total_venta_pen_order or 0), 2))
+                ws.cell(row=row_num, column=10, value=round(tc, 3))
+                ws.cell(row=row_num, column=11, value=round(costo_usd, 2))
+                ws.cell(row=row_num, column=12, value=round(costo_pen, 2))
+                ws.cell(row=row_num, column=13, value=round(comision_pen, 2))
+                ws.cell(row=row_num, column=14, value=round(envio_pen, 2))
+                ws.cell(row=row_num, column=15, value=round(ganancia_pen, 2))
+                ws.cell(row=row_num, column=16, value=round(margen_porcentaje, 2))
+                ws.cell(row=row_num, column=17, value=cliente or '')
+                ws.cell(row=row_num, column=18, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                for col in range(1, 17):
+                for col in range(1, 19):
                     ws.cell(row=row_num, column=col).border = border
                 row_num += 1
 

@@ -635,15 +635,26 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">DNI / CE <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="dni" required>
-                            <small class="text-muted">Documento de identidad</small>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tipo de Documento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="doc-type" onchange="updateDocFields()" required>
+                                <option value="dni" selected>DNI</option>
+                                <option value="ruc">RUC</option>
+                                <option value="ce">Carnet de Extranjería</option>
+                            </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">RUC (Opcional)</label>
-                            <input type="text" class="form-control" id="ruc" maxlength="11">
-                            <small class="text-muted">Solo si necesita factura</small>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label" id="doc-number-label">Número de DNI <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="doc-number" required
+                                placeholder="Ingrese número">
+                        </div>
+                    </div>
+                    <div class="row" id="business-name-container" style="display: none;">
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="business-name"
+                                placeholder="Nombre de la empresa">
                         </div>
                     </div>
                 </div>
@@ -1160,7 +1171,7 @@
 
                             // Buscar opción que contenga "1 día hábil"
                             let unDiaHabilOption = null;
-                            $shippingSelect.find('option').each(function() {
+                            $shippingSelect.find('option').each(function () {
                                 const text = $(this).text().toLowerCase();
                                 if (text.includes('1 día hábil') || text.includes('1 hábil') || text.includes('1 dia habil') || text.includes('1 habíl')) {
                                     unDiaHabilOption = $(this);
@@ -2342,16 +2353,15 @@
         $('#cart-summary').html(html);
     }
 
-    // ==================== PASO 3: CONFIRMACIÓN ====================
-
     function showStep3Summary() {
         // Resumen del cliente
+        const docTypeLabel = $('#doc-type option:selected').text();
         const customerHtml = `
         <p><strong>Nombre:</strong> ${$('#first-name').val()} ${$('#last-name').val()}</p>
         <p><strong>Email:</strong> ${$('#email').val()}</p>
         <p><strong>Teléfono:</strong> ${$('#phone').val()}</p>
-        <p><strong>DNI/CE:</strong> ${$('#dni').val()}</p>
-        ${$('#ruc').val() ? `<p><strong>RUC:</strong> ${$('#ruc').val()}</p>` : ''}
+        <p><strong>${docTypeLabel}:</strong> ${$('#doc-number').val()}</p>
+        ${$('#doc-type').val() === 'ruc' ? `<p><strong>Razón Social:</strong> ${$('#business-name').val()}</p>` : ''}
     `;
         $('#customer-summary').html(customerHtml);
 
@@ -2491,7 +2501,7 @@
 
     function validateStep2() {
         // Campos siempre requeridos
-        const alwaysRequired = ['first-name', 'last-name', 'email', 'phone', 'dni'];
+        const alwaysRequired = ['first-name', 'last-name', 'email', 'phone', 'doc-number'];
 
         // Validar campos siempre requeridos
         for (const field of alwaysRequired) {
@@ -2499,6 +2509,16 @@
             if (!value || value.trim() === '') {
                 showNotification('error', `Por favor completa todos los campos requeridos`);
                 $(`#${field}`).focus();
+                return false;
+            }
+        }
+
+        // Validar Razón Social si es RUC
+        if ($('#doc-type').val() === 'ruc') {
+            const businessName = $('#business-name').val();
+            if (!businessName || businessName.trim() === '') {
+                showNotification('error', `Por favor ingresa la Razón Social para el RUC`);
+                $('#business-name').focus();
                 return false;
             }
         }
@@ -2585,8 +2605,17 @@
         $('#last-name').val(cust.last_name);
         $('#email').val(cust.email);
         $('#phone').val(cust.phone);
-        $('#dni').val(cust.company); // Usamos company para DNI
-        $('#ruc').val(cust.billing_ruc);
+
+        // Inferir doc_type
+        let docType = cust.billing_doc_type || 'dni';
+        if (!cust.billing_doc_type && cust.billing_ruc) {
+            docType = 'ruc';
+        }
+
+        $('#doc-type').val(docType).trigger('change');
+        $('#doc-number').val(cust.company || cust.billing_ruc || '');
+        $('#business-name').val(cust.billing_business_name || '');
+
         $('#is-community').prop('checked', cust.is_community);
         $('#is-cod').prop('checked', cust.is_cod).trigger('change'); // Trigger change para aplicar lógica de COD
 
@@ -2789,9 +2818,10 @@
                 last_name: $('#last-name').val(),
                 email: $('#email').val(),
                 phone: $('#phone').val(),
-                dni: $('#dni').val(),  // DNI/CE
-                ruc: $('#ruc').val() || '',
-                company: $('#dni').val(),  // Para compatibilidad con WooCommerce (billing_company)
+                doc_type: $('#doc-type').val(),
+                doc_number: $('#doc-number').val(),
+                business_name: $('#business-name').val(),
+                company: $('#doc-number').val(), // Para compatibilidad con WooCommerce (billing_company)
                 // Si es recojo en almacén, usar valores por defecto; si no, usar los del formulario
                 address_1: isPickup ? 'Recojo en Almacén' : $('#address').val(),
                 city: isPickup ? 'Lima' : $('#city').val(),
@@ -3022,6 +3052,39 @@
         });
     }
 
+    // Funciones para el tipo de documento
+    function updateDocFields() {
+        const docType = $('#doc-type').val();
+        const docNumberLabel = $('#doc-number-label');
+        const docNumberInput = $('#doc-number');
+        const businessNameContainer = $('#business-name-container');
+        const businessNameInput = $('#business-name');
+
+        switch (docType) {
+            case 'dni':
+                docNumberLabel.html('Número de DNI <span class="text-danger">*</span>');
+                docNumberInput.attr('placeholder', 'Ingrese 8 dígitos');
+                docNumberInput.attr('maxlength', '8');
+                businessNameContainer.hide();
+                businessNameInput.removeAttr('required');
+                break;
+            case 'ruc':
+                docNumberLabel.html('Número de RUC <span class="text-danger">*</span>');
+                docNumberInput.attr('placeholder', 'Ingrese 11 dígitos');
+                docNumberInput.attr('maxlength', '11');
+                businessNameContainer.show();
+                businessNameInput.attr('required', 'required');
+                break;
+            case 'ce':
+                docNumberLabel.html('Número de CE <span class="text-danger">*</span>');
+                docNumberInput.attr('placeholder', 'Ingrese número de CE');
+                docNumberInput.removeAttr('maxlength');
+                businessNameContainer.hide();
+                businessNameInput.removeAttr('required');
+                break;
+        }
+    }
+
     // ==================== UTILIDADES ====================
 
     function showNotification(type, message) {
@@ -3190,10 +3253,10 @@
     }
 
     // Event listener para resetear flag cuando el modal se cierre
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const orderModal = document.getElementById('orderCreatedModal');
         if (orderModal) {
-            orderModal.addEventListener('hidden.bs.modal', function() {
+            orderModal.addEventListener('hidden.bs.modal', function () {
                 console.log('Modal cerrado, reseteando flag processingModalActive');
                 processingModalActive = false;
             });
@@ -3202,7 +3265,7 @@
         // Event listener para checkbox de COD (Pago Contraentrega)
         const codCheckbox = document.getElementById('is-cod');
         if (codCheckbox) {
-            codCheckbox.addEventListener('change', function(e) {
+            codCheckbox.addEventListener('change', function (e) {
                 const isCod = this.checked;
                 console.log('COD checkbox changed:', isCod);
 
@@ -3225,14 +3288,14 @@
                     if (distrito && distrito.trim() !== '') {
                         console.log('Recargando métodos de envío para COD, distrito:', distrito);
 
-                        loadMetodosEnvio(distrito, function() {
+                        loadMetodosEnvio(distrito, function () {
                             // Callback: después de cargar métodos, seleccionar "1 día hábil"
                             const $shippingSelect = $('#shipping-method');
                             const options = $shippingSelect.find('option');
 
                             // Buscar opción que contenga "1 día hábil" o "1 hábil"
                             let unDiaHabilOption = null;
-                            options.each(function() {
+                            options.each(function () {
                                 const text = $(this).text().toLowerCase();
                                 if (text.includes('1 día hábil') || text.includes('1 hábil') || text.includes('1 dia habil') || text.includes('1 habíl')) {
                                     unDiaHabilOption = $(this);

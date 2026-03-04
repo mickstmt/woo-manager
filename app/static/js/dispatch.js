@@ -672,7 +672,19 @@ async function showOrderDetail(orderId) {
         }
         document.getElementById('modal-customer-name').textContent = order.customer_name;
         document.getElementById('modal-customer-phone').textContent = order.customer_phone;
+        const docTypeLabels = { 'dni': 'DNI', 'ruc': 'RUC', 'ce': 'CE' };
+        const docType = order.customer_doc_type || 'dni';
+        document.getElementById('modal-doc-type-label').textContent = (docTypeLabels[docType] || docType.toUpperCase()) + ':';
         document.getElementById('modal-customer-dni').textContent = order.customer_dni || '-';
+
+        const businessNameContainer = document.getElementById('modal-business-name-container');
+        const businessNameElement = document.getElementById('modal-business-name');
+        if (docType === 'ruc' && order.customer_business_name) {
+            businessNameElement.textContent = order.customer_business_name;
+            businessNameContainer.style.display = 'block';
+        } else {
+            businessNameContainer.style.display = 'none';
+        }
         document.getElementById('modal-customer-email').textContent = order.email;
         document.getElementById('modal-total').textContent = order.total.toFixed(2);
         document.getElementById('modal-date-created').textContent = order.date_created;

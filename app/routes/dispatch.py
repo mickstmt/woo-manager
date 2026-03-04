@@ -1193,7 +1193,10 @@ def get_order_detail(order_id):
                  FROM wpyz_postmeta
                  WHERE post_id = o.id
                    AND meta_key = '_billing_referencia'
-                 LIMIT 1) as shipping_reference
+                 LIMIT 1) as shipping_reference,
+                -- Nuevos campos de identificación
+                om_doc_type.meta_value as doc_type,
+                om_business_name.meta_value as business_name
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_number
                 ON o.id = om_number.order_id
@@ -1210,6 +1213,12 @@ def get_order_detail(order_id):
             LEFT JOIN wpyz_wc_orders_meta om_is_cod
                 ON o.id = om_is_cod.order_id
                 AND om_is_cod.meta_key = '_is_cod'
+            LEFT JOIN wpyz_wc_orders_meta om_doc_type
+                ON o.id = om_doc_type.order_id
+                AND om_doc_type.meta_key = '_billing_doc_type'
+            LEFT JOIN wpyz_wc_orders_meta om_business_name
+                ON o.id = om_business_name.order_id
+                AND om_business_name.meta_key = '_billing_business_name'
             WHERE o.id = :order_id
         """)
 
@@ -1393,6 +1402,8 @@ def get_order_detail(order_id):
             'shipping_cost': float(order_result[19]) if order_result[19] else 0,
             # Referencia de la dirección
             'shipping_reference': order_result[20] or None,
+            'customer_doc_type': order_result[21] or 'dni',
+            'customer_business_name': order_result[22] or None,
             'products': products_list
         }
 

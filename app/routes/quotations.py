@@ -1101,6 +1101,22 @@ def api_convert_to_order(quotation_id):
 
         current_app.logger.info(f"Converting quotation {quotation.quote_number} to order")
 
+        # Determinar tipo de documento y razón social
+        doc_type = 'dni'
+        doc_number = quotation.customer_dni or ''
+        business_name = ''
+
+        if quotation.customer_ruc:
+            doc_type = 'ruc'
+            doc_number = quotation.customer_ruc
+            business_name = quotation.customer_name
+        elif quotation.customer_dni:
+            doc_type = 'dni'
+            doc_number = quotation.customer_dni
+        elif hasattr(quotation, 'customer_ce') and quotation.customer_ce: # Por si acaso se agrega CE
+            doc_type = 'ce'
+            doc_number = quotation.customer_ce
+
         # ===== CALCULAR TOTALES =====
         # Los precios en la cotización ya incluyen IGV
         subtotal = quotation.subtotal - quotation.discount_amount  # Base imponible
@@ -1487,6 +1503,8 @@ def api_convert_to_order(quotation_id):
             ('_wc_order_attribution_session_count', '1'),
             ('_wc_order_attribution_device_type', 'Desktop'),
             ('_wc_order_attribution_user_agent', request.headers.get('User-Agent', '')[:200]),
+            ('_billing_doc_type', doc_type),
+            ('_billing_business_name', business_name),
         ]
 
         # Guardar en ambos sistemas

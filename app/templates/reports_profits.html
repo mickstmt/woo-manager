@@ -340,6 +340,7 @@
                                 <th>Pedido</th>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
+                                <th class="hide-mobile">Documento</th>
                                 <th class="hide-mobile">Estado</th>
                                 <th class="text-center hide-mobile">Items</th>
                                 <th class="text-end">Venta (PEN)</th>
@@ -353,7 +354,7 @@
                         </thead>
                         <tbody id="orders-table">
                             <tr>
-                                <td colspan="13" class="text-center py-5">
+                                <td colspan="14" class="text-center py-5">
                                     <div class="text-muted">
                                         <i
                                             class="bi bi-file-earmark-bar-graph display-1 d-block mb-3 text-secondary opacity-25"></i>
@@ -739,7 +740,7 @@
         if (orders.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="13" class="text-center text-muted">
+                    <td colspan="14" class="text-center text-muted">
                         No hay pedidos en el rango seleccionado
                     </td>
                 </tr>
@@ -752,7 +753,10 @@
             const statusBadge = getStatusBadge(order.estado);
             const clienteNombre = order.cliente_nombre && order.cliente_apellido
                 ? `${order.cliente_nombre} ${order.cliente_apellido}`
-                : 'Sin nombre';
+                : order.cliente_nombre || 'Sin nombre';
+
+            const docTypeBadge = `<span class="badge bg-light text-dark border" style="font-size: 0.7rem;">${(order.doc_type || 'dni').toUpperCase()}</span>`;
+            const businessNameInfo = order.business_name ? `<br><small class="text-muted" style="font-size: 0.75rem;">${order.business_name}</small>` : '';
 
             const rowId = `order-${order.pedido_id}`;
             const detailsId = `details-${order.pedido_id}`;
@@ -766,6 +770,9 @@
                     <td><a href="/orders/${order.pedido_id}" onclick="event.stopPropagation();">${order.numero_pedido}</a></td>
                     <td>${formatDate(order.fecha_pedido)}</td>
                     <td>${clienteNombre} ${order.is_community ? '<br><span class="badge" style="background-color: #6f42c1; font-size: 0.7rem;">Comunidad</span>' : ''}</td>
+                    <td class="hide-mobile">
+                        ${docTypeBadge} ${order.customer_dni || '-'} ${businessNameInfo}
+                    </td>
                     <td class="hide-mobile">${statusBadge}</td>
                     <td class="text-center hide-mobile"><span class="badge bg-secondary">${order.total_items}</span></td>
                     <td class="text-end">S/. ${formatNumber(order.total_venta_pen)}</td>
@@ -785,7 +792,7 @@
             // Fila de detalles (oculta por defecto)
             html += `
                 <tr id="${detailsId}" class="details-row" style="display: none;">
-                    <td colspan="13">
+                    <td colspan="14">
                         <div class="p-3">
                             <h6 class="mb-3"><i class="bi bi-box-seam"></i> Productos del pedido</h6>
                             <table class="table table-sm table-bordered mb-0">
