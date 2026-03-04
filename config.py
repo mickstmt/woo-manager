@@ -131,11 +131,11 @@ class ProductionConfig(Config):
     # Construir URL de conexión
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{encoded_password}@{db_host}/{db_name}"
     
-    # En producción, pool más conservador para evitar sobrecargar Hostinger
+    # En producción, pool más robusto para evitar "Too many connections"
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 10,              # Aumentado para manejar más concurrencia
-        'max_overflow': 5,            # Permitir pequeño margen extra
-        'pool_recycle': 600,          # Reciclar cada 10 minutos
+        'pool_size': 20,              # Aumentado para manejar más concurrencia
+        'max_overflow': 10,           # Permitir margen extra para picos
+        'pool_recycle': 300,          # Reciclar cada 5 minutos (evita que Hostinger cierre conexiones inactivas)
         'pool_pre_ping': True,        # Verificar antes de usar
         'pool_timeout': 30,           # Tiempo de espera antes de error
         'connect_args': {

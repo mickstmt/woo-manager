@@ -57,8 +57,22 @@ def get_department_name(code):
     for dept in _ubigeo_cache.get('departamentos', []):
         if dept.get('code') == code:
             return dept.get('name', code)
-
     return code
+
+
+def get_wc_api(timeout=30):
+    """
+    Inicializa la API de WooCommerce con un timeout configurado.
+    Centraliza la creación para facilitar cambios globales.
+    """
+    from woocommerce import API
+    return API(
+        url=current_app.config['WC_API_URL'],
+        consumer_key=current_app.config['WC_CONSUMER_KEY'],
+        consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
+        version="wc/v3",
+        timeout=timeout
+    )
 
 
 # ============================================
@@ -119,8 +133,8 @@ def map_shipping_method_to_column(shipping_method_name, order_id=None):
     Mapea el nombre del método de envío a una columna del Kanban (Lógica pura).
     """
     if not shipping_method_name:
-        if order_id:
-            current_app.logger.warning(f"[DISPATCH] Order {order_id}: NO tiene método de envío")
+        # Silenciar warning si el valor es vacío para evitar ruido excesivo en logs
+        # (Es un caso común en ciertos flujos de creación)
         return 'Por Asignar'
 
     # Normalizar el nombre (quitar acentos y minúsculas)
@@ -1515,14 +1529,7 @@ def add_tracking():
         # Esto triggera los emails y el cambio de estado oficial en WooCommerce
         if mark_as_shipped:
             try:
-                from woocommerce import API
-                wc_api = API(
-                    url=current_app.config['WC_API_URL'],
-                    consumer_key=current_app.config['WC_CONSUMER_KEY'],
-                    consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
-                    version="wc/v3",
-                    timeout=15 
-                )
+                wc_api = get_wc_api()
 
                 # Preservar payment_method del pedido
                 payment_method = order.get_meta('_payment_method') or order.payment_method
@@ -1704,14 +1711,7 @@ def bulk_tracking_simple():
         timestamp = int(datetime.utcnow().timestamp())
 
         # Inicializar API de WooCommerce
-        from woocommerce import API
-        wc_api = API(
-            url=current_app.config['WC_API_URL'],
-            consumer_key=current_app.config['WC_CONSUMER_KEY'],
-            consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
-            version="wc/v3",
-            timeout=15
-        )
+        wc_api = get_wc_api()
 
         resultados = []
         exitosos = 0
@@ -2351,14 +2351,7 @@ def process_single_tracking(order_id, tracking_number, shipping_provider, date_s
         # 1. ACTUALIZAR VÍA API (para disparar emails)
         if mark_as_shipped:
             try:
-                from woocommerce import API
-                wc_api = API(
-                    url=current_app.config['WC_API_URL'],
-                    consumer_key=current_app.config['WC_CONSUMER_KEY'],
-                    consumer_secret=current_app.config['WC_CONSUMER_SECRET'],
-                    version="wc/v3",
-                    timeout=15
-                )
+                wc_api = get_wc_api()
 
                 payment_method = order.get_meta('_payment_method') or order.payment_method
 
