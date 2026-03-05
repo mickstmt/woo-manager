@@ -466,7 +466,8 @@ def api_profits():
                 ), 0) as costo_envio,
                 om_community.meta_value as is_community,
                 om_doc_type.meta_value as doc_type,
-                om_business_name.meta_value as business_name
+                om_business_name.meta_value as business_name,
+                COALESCE(o.payment_method_title, o.payment_method, 'N/A') as metodo_pago
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
@@ -536,34 +537,39 @@ def api_profits():
         total_costos_usd = 0.0
         total_costos_pen = 0.0
         total_envio_pen = 0.0
+        total_comision_pen = 0.0
         total_ganancia_pen = 0.0
 
         for r in orders_results:
-            oid, num, fecha, status, total_venta, fname, lname, c_envio, is_comm, doc_type, b_name = r
+            oid, num, fecha, status, total_venta, fname, lname, c_envio, is_comm, doc_type, b_name, p_raw = r
             tc = get_tc_for_date(fecha)
             items = items_by_order.get(oid, [])
-            
+
             costo_pedido_usd = sum(i['costo_total_usd'] for i in items)
             costo_pedido_pen = costo_pedido_usd * tc
             c_envio = float(c_envio or 0)
-            ganancia = float(total_venta or 0) - costo_pedido_pen - c_envio
-            margen = (ganancia / float(total_venta or 1) * 100) if total_venta and float(total_venta) > 0 else 0
+            total_v = float(total_venta or 0)
+            plataforma_check = normalize_payment_method(p_raw or '')
+            comision = round(total_v * 0.05, 2) if 'TARJETA' in plataforma_check else 0
+            ganancia = total_v - costo_pedido_pen - c_envio - comision
+            margen = ganancia / total_v * 100 if total_v > 0 else 0
 
             # Solo incluir pedidos con items con costo (para coincidir con el HAVING anterior)
-            # O si prefieres incluir todos, quitar este check. 
+            # O si prefieres incluir todos, quitar este check.
             # El original decía: HAVING costo_total_usd IS NOT NULL
-            if costo_pedido_usd == 0 and not items: continue 
+            if costo_pedido_usd == 0 and not items: continue
 
             final_orders.append({
                 'pedido_id': oid,
                 'numero_pedido': num or str(oid),
                 'fecha_pedido': str(fecha),
                 'estado': status,
-                'total_venta_pen': float(total_venta or 0),
+                'total_venta_pen': total_v,
                 'tipo_cambio': tc,
                 'costo_total_usd': costo_pedido_usd,
                 'costo_total_pen': costo_pedido_pen,
                 'costo_envio_pen': c_envio,
+                'comision_pen': comision,
                 'ganancia_pen': ganancia,
                 'margen_porcentaje': round(margen, 2),
                 'cliente_nombre': fname or 'Sin nombre',
@@ -577,10 +583,11 @@ def api_profits():
 
             # Acumular resumen
             total_p += 1
-            total_ventas_pen += float(total_venta or 0)
+            total_ventas_pen += total_v
             total_costos_usd += costo_pedido_usd
             total_costos_pen += costo_pedido_pen
             total_envio_pen += c_envio
+            total_comision_pen += comision
             total_ganancia_pen += ganancia
 
         return jsonify({
@@ -593,6 +600,7 @@ def api_profits():
                     'costos_totales_usd': round(total_costos_usd, 2),
                     'costos_totales_pen': round(total_costos_pen, 2),
                     'costos_envio_totales_pen': round(total_envio_pen, 2),
+                    'comisiones_totales_pen': round(total_comision_pen, 2),
                     'ganancias_totales_pen': round(total_ganancia_pen, 2),
                     'margen_promedio_porcentaje': round((total_ganancia_pen / total_ventas_pen * 100) if total_ventas_pen > 0 else 0, 2)
                 },
@@ -708,9 +716,8 @@ def api_profits_externos():
             if sku:
                 for fc_sku, cost in fc_costs_map.items():
                     if fc_sku in sku:
-                        costo_unitario = cost
+                        costo_unitario += cost
                         tiene_costo = True
-                        break
 
             items_by_order[oid].append({
                 'producto': name or 'Sin nombre',
@@ -728,20 +735,23 @@ def api_profits_externos():
         total_costos_usd = 0
         total_costos_pen = 0
         total_envios = 0
+        total_comisiones = 0
         total_ganancias = 0
 
         for row in orders_results:
             pedido_id, numero_pedido, fecha_pedido, estado, metodo_pago, total_venta_pen, costo_envio_pen, c_nombre, c_apellido = row
-            
+
             total_venta_pen = float(total_venta_pen or 0)
             costo_envio_pen = float(costo_envio_pen or 0)
             tipo_cambio = get_tc_for_date(fecha_pedido)
-            
+
             items = items_by_order.get(pedido_id, [])
             costo_total_usd = sum(i['costo_total_usd'] for i in items)
             costo_total_pen = costo_total_usd * tipo_cambio
-            
-            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen
+
+            plataforma = normalize_payment_method(metodo_pago or '', is_whatsapp=True)
+            comision_pen = round(total_venta_pen * 0.05, 2) if 'TARJETA' in plataforma else 0
+            ganancia_pen = total_venta_pen - costo_total_pen - costo_envio_pen - comision_pen
             margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
 
             orders_list.append({
@@ -749,12 +759,13 @@ def api_profits_externos():
                 'numero_pedido': numero_pedido or str(pedido_id),
                 'fecha_pedido': fecha_pedido.isoformat() if fecha_pedido else None,
                 'estado': estado,
-                'metodo_pago': metodo_pago,
+                'metodo_pago': plataforma,
                 'total_venta_pen': round(total_venta_pen, 2),
                 'tipo_cambio': round(tipo_cambio, 2),
                 'costo_total_usd': round(costo_total_usd, 2),
                 'costo_total_pen': round(costo_total_pen, 2),
                 'costo_envio_pen': round(costo_envio_pen, 2),
+                'comision_pen': comision_pen,
                 'ganancia_pen': round(ganancia_pen, 2),
                 'margen_porcentaje': round(margen_porcentaje, 2),
                 'cliente_nombre': c_nombre or 'Sin nombre',
@@ -767,6 +778,7 @@ def api_profits_externos():
             total_costos_usd += costo_total_usd
             total_costos_pen += costo_total_pen
             total_envios += costo_envio_pen
+            total_comisiones += comision_pen
             total_ganancias += ganancia_pen
 
         margen_promedio = (total_ganancias / total_ventas * 100) if total_ventas > 0 else 0
@@ -780,6 +792,7 @@ def api_profits_externos():
                 'costos_totales_usd': round(total_costos_usd, 2),
                 'costos_totales_pen': round(total_costos_pen, 2),
                 'costos_envio_totales_pen': round(total_envios, 2),
+                'comisiones_totales_pen': round(total_comisiones, 2),
                 'ganancias_totales_pen': round(total_ganancias, 2),
                 'margen_promedio_porcentaje': round(margen_promedio, 2)
             }
@@ -895,13 +908,12 @@ def export_profits_externos_excel():
             if oid not in costo_total_usd_by_order: costo_total_usd_by_order[oid] = 0.0
             if oid not in detailed_items: detailed_items[oid] = []
             
-            # Buscar costo del SKU
+            # Buscar costo del SKU (sumar todos los componentes que hagan match)
             costo_unitario_usd = 0.0
             if sku:
                 for fc_sku, cost in fc_costs_map.items():
                     if fc_sku in sku:
-                        costo_unitario_usd = float(cost)
-                        break
+                        costo_unitario_usd += float(cost)
             
             costo_total_item_usd = costo_unitario_usd * int(qty or 1)
             costo_total_usd_by_order[oid] += costo_total_item_usd
@@ -941,16 +953,9 @@ def export_profits_externos_excel():
             if 'TARJETA' in plataforma:
                 comision_pen = round(total_venta_pen * 0.05, 2)
 
-            # Recalcular IGV: Desglose estándar (Total / 1.18 * 0.18)
-            # Para un total de 39.99, el IGV es 6.10 y la base es 33.89
-            base_imponible_pen = round(total_venta_pen / 1.18, 2)
-            tax_total_pen = round(total_venta_pen - base_imponible_pen, 2)
-            
-            # Recalcular ganancia: Base - Costo - Envío - Comisión
-            ganancia_pen = round(base_imponible_pen - costo_total_pen - costo_envio_pen - comision_pen, 2)
-            
-            # Margen sobre la base imponible (lo que realmente le queda al negocio)
-            margen_porcentaje = (ganancia_pen / base_imponible_pen * 100) if base_imponible_pen > 0 else 0
+            # Ganancia: Venta total - Costo - Envío - Comisión (sin descontar IGV)
+            ganancia_pen = round(total_venta_pen - costo_total_pen - costo_envio_pen - comision_pen, 2)
+            margen_porcentaje = (ganancia_pen / total_venta_pen * 100) if total_venta_pen > 0 else 0
 
             cliente_completo = f"{cliente_nombre or ''} {cliente_apellido or ''}".strip() or 'Sin nombre'
 
@@ -961,6 +966,7 @@ def export_profits_externos_excel():
                 'estado': estado,
                 'metodo_pago': plataforma,
                 'total_venta_pen': total_venta_pen,
+                'tax_total_pen': float(tax_total_pen or 0),
                 'tipo_cambio': tipo_cambio,
                 'costo_total_usd': costo_total_usd,
                 'costo_total_pen': costo_total_pen,
@@ -1039,12 +1045,10 @@ def export_profits_externos_excel():
                     costo_item_usd = item['costo_total_usd']
                     costo_item_pen = costo_item_usd * tc
                     venta_item_pen = item['venta_total_pen']
-                    igv_item_pen = item['igv_pen']
-                    subtotal_item_pen = item['subtotal_pen']
-                    
-                    # Ganancia = Subtotal - Costo
-                    ganancia_item_pen = round(subtotal_item_pen - costo_item_pen, 2)
-                    margen_item = round((ganancia_item_pen / subtotal_item_pen * 100), 2) if subtotal_item_pen > 0 else 0
+
+                    # Ganancia = Venta item - Costo (sin descontar IGV)
+                    ganancia_item_pen = round(venta_item_pen - costo_item_pen, 2)
+                    margen_item = round((ganancia_item_pen / venta_item_pen * 100), 2) if venta_item_pen > 0 else 0
 
                     ws.cell(row=row_num, column=1, value=oid)
                     ws.cell(row=row_num, column=2, value=order['numero_pedido'])
@@ -1058,7 +1062,7 @@ def export_profits_externos_excel():
                     ws.cell(row=row_num, column=10, value=item['qty'])
                     ws.cell(row=row_num, column=11, value=round(order['total_venta_pen'], 2))
                     ws.cell(row=row_num, column=12, value=round(venta_item_pen, 2))
-                    ws.cell(row=row_num, column=13, value=round(tax_total_pen, 2))
+                    ws.cell(row=row_num, column=13, value=round(order['tax_total_pen'], 2))
                     ws.cell(row=row_num, column=14, value=round(item['costo_unit_usd'], 2))
                     ws.cell(row=row_num, column=15, value=round(costo_item_usd, 2))
                     ws.cell(row=row_num, column=16, value=round(costo_item_pen, 2))
@@ -1211,13 +1215,15 @@ def export_profits_excel():
                 ), 0) as costo_envio,
                 om_community.meta_value as is_community,
                 om_doc_type.meta_value as doc_type,
-                om_business_name.meta_value as business_name
+                om_business_name.meta_value as business_name,
+                COALESCE(om_discount.meta_value, 0) as order_discount
             FROM wpyz_wc_orders o
             LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
             LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
             LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
             LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
             LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
+            LEFT JOIN wpyz_wc_orders_meta om_discount ON o.id = om_discount.order_id AND om_discount.meta_key = '_wc_discount_amount'
             LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
@@ -1242,33 +1248,35 @@ def export_profits_excel():
                     oim_qty.meta_value as qty,
                     pm_sku.meta_value as sku,
                     oim_total.meta_value as line_total,
-                    oim_tax.meta_value as line_tax
+                    oim_tax.meta_value as line_tax,
+                    oim_subtotal.meta_value as line_subtotal
                 FROM wpyz_woocommerce_order_items oi
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id AND oim_pid.meta_key = '_product_id'
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_total ON oi.order_item_id = oim_total.order_item_id AND oim_total.meta_key = '_line_total'
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id AND oim_vid.meta_key = '_variation_id'
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_tax ON oi.order_item_id = oim_tax.order_item_id AND oim_tax.meta_key = '_line_tax'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_subtotal ON oi.order_item_id = oim_subtotal.order_item_id AND oim_subtotal.meta_key = '_line_subtotal'
                 LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id AND pm_sku.meta_key = '_sku'
                 WHERE oi.order_id IN :order_ids AND oi.order_item_type = 'line_item'
             """)
             items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
             
-            for oid, name, qty, sku, line_total, line_tax in items_results:
-                # Calcular costo unitario
+            for oid, name, qty, sku, line_total, line_tax, line_subtotal in items_results:
+                # Calcular costo unitario (sumar todos los componentes que hagan match)
                 costo_unitario_usd = 0.0
                 if sku:
                     for fc_sku, cost in fc_costs_map.items():
                         if fc_sku in sku:
-                            costo_unitario_usd = float(cost)
-                            break
-                
+                            costo_unitario_usd += float(cost)
+
                 costo_total_usd = costo_unitario_usd * int(qty or 1)
-                
+
                 # Precios y Tax
-                subtotal_pen = float(line_total or 0)
+                line_total_pen = float(line_total or 0)   # ex-tax
                 tax_pen = float(line_tax or 0)
-                total_venta_linea_pen = subtotal_pen + tax_pen
+                line_subtotal_pen = float(line_subtotal or 0)  # ex-tax antes de descuento
+                venta_item_pen = line_total_pen + tax_pen  # total con IGV, ya con descuento
 
                 # Para el reporte Consolidado
                 if oid not in items_by_order: items_by_order[oid] = 0.0
@@ -1282,9 +1290,10 @@ def export_profits_excel():
                     'sku': sku or 'N/A',
                     'costo_unit_usd': costo_unitario_usd,
                     'costo_total_usd': costo_total_usd,
-                    'venta_total_pen': total_venta_linea_pen,
+                    'venta_item_pen': venta_item_pen,
+                    'line_subtotal_pen': line_subtotal_pen,
+                    'line_total_pen': line_total_pen,
                     'tax_pen': tax_pen,
-                    'subtotal_pen': subtotal_pen
                 })
 
         # Liberar conexión después de traer todos los datos (el resto es CPU y memoria)
@@ -1301,8 +1310,8 @@ def export_profits_excel():
         header_alignment = Alignment(horizontal="center", vertical="center")
         border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-        # Detailed: 22 cols (A-V), Consolidated: 17 cols (A-Q)
-        title_end_col = 'V' if report_type == 'detailed' else 'Q'
+        # Detailed: 25 cols (A-Y), Consolidated: 18 cols (A-R)
+        title_end_col = 'Y' if report_type == 'detailed' else 'R'
         ws.merge_cells(f'A1:{title_end_col}1')
         title_cell = ws['A1']
         title_cell.value = f"Reporte de Ganancias - {source_name}"
@@ -1319,14 +1328,18 @@ def export_profits_excel():
             headers = [
                 'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Tipo Doc', 'Nro Doc', 'Cliente',
                 'Producto', 'SKU', 'Cantidad',
-                'Venta Total Pedido (PEN)', 'Precio Venta Item (PEN)', 'IGV Total Pedido (PEN)', 'Costo Unit (USD)',
-                'Costo Total (USD)', 'Costo Total (PEN)', 'Ganancia Linea (PEN)', 'Margen Linea %',
+                'Venta Total Pedido (PEN)', 'Precio Venta Item (PEN)',
+                'Monto Descuento (PEN)', '% Descuento',
+                'IGV Total Pedido (PEN)', 'Costo Unit (USD)',
+                'Costo Total (USD)', 'Costo Total (PEN)', 'Comisión 5%',
+                'Ganancia Linea (PEN)', 'Margen Linea %',
                 'T.C.', 'Envío Pedido (PEN)', 'Comunidad'
             ]
         else:
             headers = [
                 'Pedido ID', 'Número', 'Fecha', 'Estado', 'Plataforma', 'Tipo Doc', 'Nro Doc',
-                'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión (PEN)',
+                'Descuento (PEN)',
+                'Venta (PEN)', 'T.C.', 'Costo (USD)', 'Costo (PEN)', 'Comisión 5%',
                 'Envío (PEN)', 'Ganancia (PEN)', 'Margen %', 'Cliente', 'Comunidad'
             ]
 
@@ -1337,33 +1350,42 @@ def export_profits_excel():
 
         # Datos
         row_num = 5
-        comision_pen = 0  # No se calcula en el export, se reserva la columna para uso futuro
         for r in orders_results:
-            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), tax(6), cliente(7), dni(8), envio(9), is_comm(10), doc_type(11), b_name(12)
-            oid, num, fecha, status, p_raw, total_venta_pen_order, tax_amount_pen, cliente, customer_dni, c_envio, is_comm, doc_type, b_name = r
+            # Orden en SQL: oid(0), num(1), fecha(2), status(3), p_raw(4), total(5), tax(6),
+            #               cliente(7), dni(8), envio(9), is_comm(10), doc_type(11), b_name(12), order_discount(13)
+            oid, num, fecha, status, p_raw, total_venta_pen_order, tax_amount_pen, cliente, customer_dni, c_envio, is_comm, doc_type, b_name, order_discount = r
             tc = get_tc_for_date(fecha)
             envio_pen = float(c_envio or 0)
+            total_venta_order = float(total_venta_pen_order or 0)
+            descuento_orden = float(order_discount or 0)
 
             # Si el pedido es de tipo RUC, mostrar razón social; si no, mostrar nombre del cliente
             cliente_display = (b_name or cliente or '') if (doc_type or 'dni').lower() == 'ruc' else (cliente or '')
 
-            # Normalizar plataforma
+            # Normalizar plataforma y calcular comisión
             is_whatsapp = num and str(num).startswith('W-')
             plataforma = normalize_payment_method(p_raw, is_whatsapp=is_whatsapp)
+            comision_pen = round(total_venta_order * 0.05, 2) if 'TARJETA' in plataforma else 0
 
             if report_type == 'detailed':
                 items = detailed_items.get(oid, [])
+                # Calcular comisión proporcional por item
+                total_items_venta = sum(i['venta_item_pen'] for i in items)
                 for item in items:
                     costo_item_usd = item['costo_total_usd']
                     costo_item_pen = costo_item_usd * tc
-                    venta_item_pen = item['venta_total_pen']
+                    venta_item_pen = item['venta_item_pen']
 
-                    # IGV = Desglose de los 18% incluidos en el total
-                    subtotal_item_pen = round(venta_item_pen / 1.18, 2)
+                    # Descuento por item (ex-tax): subtotal - line_total
+                    monto_desc_item = max(0.0, round(item['line_subtotal_pen'] - item['line_total_pen'], 2))
+                    pct_desc_item = round(monto_desc_item / item['line_subtotal_pen'] * 100, 2) if item['line_subtotal_pen'] > 0 else 0.0
 
-                    # Ganancia = Subtotal - Costo
-                    ganancia_item_pen = round(subtotal_item_pen - costo_item_pen, 2)
-                    margen_item = round((ganancia_item_pen / subtotal_item_pen * 100), 2) if subtotal_item_pen > 0 else 0
+                    # Comisión proporcional
+                    comision_item = round((venta_item_pen / total_items_venta) * comision_pen, 2) if total_items_venta > 0 else 0
+
+                    # Ganancia = Venta item - Costo - Comisión proporcional (sin descontar IGV)
+                    ganancia_item_pen = round(venta_item_pen - costo_item_pen - comision_item, 2)
+                    margen_item = round((ganancia_item_pen / venta_item_pen * 100), 2) if venta_item_pen > 0 else 0
 
                     ws.cell(row=row_num, column=1,  value=oid)
                     ws.cell(row=row_num, column=2,  value=num or oid)
@@ -1376,33 +1398,31 @@ def export_profits_excel():
                     ws.cell(row=row_num, column=9,  value=item['nombre'])
                     ws.cell(row=row_num, column=10, value=item['sku'])
                     ws.cell(row=row_num, column=11, value=item['qty'])
-                    ws.cell(row=row_num, column=12, value=round(float(total_venta_pen_order or 0), 2))
+                    ws.cell(row=row_num, column=12, value=round(total_venta_order, 2))
                     ws.cell(row=row_num, column=13, value=round(venta_item_pen, 2))
-                    ws.cell(row=row_num, column=14, value=round(float(tax_amount_pen or 0), 2))
-                    ws.cell(row=row_num, column=15, value=round(item['costo_unit_usd'], 2))
-                    ws.cell(row=row_num, column=16, value=round(costo_item_usd, 2))
-                    ws.cell(row=row_num, column=17, value=round(costo_item_pen, 2))
-                    ws.cell(row=row_num, column=18, value=round(ganancia_item_pen, 2))
-                    ws.cell(row=row_num, column=19, value=round(margen_item, 2))
-                    ws.cell(row=row_num, column=20, value=round(tc, 3))
-                    ws.cell(row=row_num, column=21, value=round(envio_pen, 2))
-                    ws.cell(row=row_num, column=22, value='SÍ' if is_comm == 'yes' else 'NO')
+                    ws.cell(row=row_num, column=14, value=monto_desc_item)
+                    ws.cell(row=row_num, column=15, value=pct_desc_item)
+                    ws.cell(row=row_num, column=16, value=round(float(tax_amount_pen or 0), 2))
+                    ws.cell(row=row_num, column=17, value=round(item['costo_unit_usd'], 2))
+                    ws.cell(row=row_num, column=18, value=round(costo_item_usd, 2))
+                    ws.cell(row=row_num, column=19, value=round(costo_item_pen, 2))
+                    ws.cell(row=row_num, column=20, value=comision_item)
+                    ws.cell(row=row_num, column=21, value=round(ganancia_item_pen, 2))
+                    ws.cell(row=row_num, column=22, value=round(margen_item, 2))
+                    ws.cell(row=row_num, column=23, value=round(tc, 3))
+                    ws.cell(row=row_num, column=24, value=round(envio_pen, 2))
+                    ws.cell(row=row_num, column=25, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                    for col in range(1, 23):
+                    for col in range(1, 26):
                         ws.cell(row=row_num, column=col).border = border
                     row_num += 1
             else:
                 costo_usd = items_by_order.get(oid, 0.0)
                 costo_pen = costo_usd * tc
 
-                # Ganancia = Base sin IGV - Costo - Envío - Comisión
-                total_venta_order = float(total_venta_pen_order or 0)
-                base_venta_pen = round(total_venta_order / 1.18, 2)
-
-                ganancia_pen = round(base_venta_pen - costo_pen - envio_pen - comision_pen, 2)
-
-                # Para margen, usamos el monto sin impuesto como base
-                margen_porcentaje = round((ganancia_pen / base_venta_pen * 100), 2) if base_venta_pen > 0 else 0
+                # Ganancia = Venta total - Envío - Costo - Comisión (sin descontar IGV)
+                ganancia_pen = round(total_venta_order - costo_pen - envio_pen - comision_pen, 2)
+                margen_porcentaje = round((ganancia_pen / total_venta_order * 100), 2) if total_venta_order > 0 else 0
 
                 # Solo incluir pedidos con items con costo (si es consolidado)
                 if costo_usd == 0 and oid not in items_by_order: continue
@@ -1414,33 +1434,35 @@ def export_profits_excel():
                 ws.cell(row=row_num, column=5,  value=plataforma)
                 ws.cell(row=row_num, column=6,  value=(doc_type or 'dni').upper())
                 ws.cell(row=row_num, column=7,  value=customer_dni or '-')
-                ws.cell(row=row_num, column=8,  value=round(float(total_venta_pen_order or 0), 2))
-                ws.cell(row=row_num, column=9,  value=round(tc, 3))
-                ws.cell(row=row_num, column=10, value=round(costo_usd, 2))
-                ws.cell(row=row_num, column=11, value=round(costo_pen, 2))
-                ws.cell(row=row_num, column=12, value=round(comision_pen, 2))
-                ws.cell(row=row_num, column=13, value=round(envio_pen, 2))
-                ws.cell(row=row_num, column=14, value=round(ganancia_pen, 2))
-                ws.cell(row=row_num, column=15, value=round(margen_porcentaje, 2))
-                ws.cell(row=row_num, column=16, value=cliente_display)
-                ws.cell(row=row_num, column=17, value='SÍ' if is_comm == 'yes' else 'NO')
+                ws.cell(row=row_num, column=8,  value=round(descuento_orden, 2))
+                ws.cell(row=row_num, column=9,  value=round(total_venta_order, 2))
+                ws.cell(row=row_num, column=10, value=round(tc, 3))
+                ws.cell(row=row_num, column=11, value=round(costo_usd, 2))
+                ws.cell(row=row_num, column=12, value=round(costo_pen, 2))
+                ws.cell(row=row_num, column=13, value=round(comision_pen, 2))
+                ws.cell(row=row_num, column=14, value=round(envio_pen, 2))
+                ws.cell(row=row_num, column=15, value=round(ganancia_pen, 2))
+                ws.cell(row=row_num, column=16, value=round(margen_porcentaje, 2))
+                ws.cell(row=row_num, column=17, value=cliente_display)
+                ws.cell(row=row_num, column=18, value='SÍ' if is_comm == 'yes' else 'NO')
 
-                for col in range(1, 18):
+                for col in range(1, 19):
                     ws.cell(row=row_num, column=col).border = border
                 row_num += 1
 
         # Ajustar anchos de columna
         if report_type == 'detailed':
-            # 22 columnas: ID, Num, Fecha, Estado, Plataforma, TipoDoc, NroDoc, Cliente,
-            #              Producto, SKU, Cant, VentaTotalPed, PrecioItem, IGV,
-            #              CostoUnitUSD, CostoTotalUSD, CostoTotalPEN, GananciaLinea, MargenLinea,
-            #              TC, EnvioPed, Comunidad
-            column_widths = [10, 15, 12, 12, 20, 10, 15, 30, 40, 15, 10, 20, 20, 18, 15, 15, 15, 18, 12, 8, 14, 10]
+            # 25 columnas: ID, Num, Fecha, Estado, Plataforma, TipoDoc, NroDoc, Cliente,
+            #              Producto, SKU, Cant, VentaTotalPed, PrecioItem,
+            #              MontoDesc, PctDesc, IGV,
+            #              CostoUnitUSD, CostoTotalUSD, CostoTotalPEN, Comision5%,
+            #              GananciaLinea, MargenLinea, TC, EnvioPed, Comunidad
+            column_widths = [10, 15, 12, 12, 20, 10, 15, 30, 40, 15, 10, 20, 20, 18, 12, 18, 15, 15, 15, 14, 18, 12, 8, 14, 10]
         else:
-            # 17 columnas: ID, Num, Fecha, Estado, Plataforma, TipoDoc, NroDoc,
-            #              Venta, TC, CostoUSD, CostoPEN, Comision, Envio, Ganancia, Margen,
+            # 18 columnas: ID, Num, Fecha, Estado, Plataforma, TipoDoc, NroDoc,
+            #              Descuento, Venta, TC, CostoUSD, CostoPEN, Comision5%, Envio, Ganancia, Margen,
             #              Cliente, Comunidad
-            column_widths = [10, 15, 12, 12, 20, 10, 15, 15, 8, 12, 12, 14, 12, 14, 12, 30, 10]
+            column_widths = [10, 15, 12, 12, 20, 10, 15, 14, 15, 8, 12, 12, 14, 12, 14, 12, 30, 10]
             
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
