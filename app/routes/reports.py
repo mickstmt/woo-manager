@@ -1249,7 +1249,8 @@ def export_profits_excel():
                     pm_sku.meta_value as sku,
                     oim_total.meta_value as line_total,
                     oim_tax.meta_value as line_tax,
-                    oim_subtotal.meta_value as line_subtotal
+                    oim_subtotal.meta_value as line_subtotal,
+                    oim_subtotal_tax.meta_value as line_subtotal_tax
                 FROM wpyz_woocommerce_order_items oi
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_pid ON oi.order_item_id = oim_pid.order_item_id AND oim_pid.meta_key = '_product_id'
                 INNER JOIN wpyz_woocommerce_order_itemmeta oim_qty ON oi.order_item_id = oim_qty.order_item_id AND oim_qty.meta_key = '_qty'
@@ -1257,12 +1258,13 @@ def export_profits_excel():
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_vid ON oi.order_item_id = oim_vid.order_item_id AND oim_vid.meta_key = '_variation_id'
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_tax ON oi.order_item_id = oim_tax.order_item_id AND oim_tax.meta_key = '_line_tax'
                 LEFT JOIN wpyz_woocommerce_order_itemmeta oim_subtotal ON oi.order_item_id = oim_subtotal.order_item_id AND oim_subtotal.meta_key = '_line_subtotal'
+                LEFT JOIN wpyz_woocommerce_order_itemmeta oim_subtotal_tax ON oi.order_item_id = oim_subtotal_tax.order_item_id AND oim_subtotal_tax.meta_key = '_line_subtotal_tax'
                 LEFT JOIN wpyz_postmeta pm_sku ON CAST(COALESCE(NULLIF(oim_vid.meta_value, '0'), oim_pid.meta_value) AS UNSIGNED) = pm_sku.post_id AND pm_sku.meta_key = '_sku'
                 WHERE oi.order_id IN :order_ids AND oi.order_item_type = 'line_item'
             """)
             items_results = db.session.execute(items_sql, {'order_ids': order_ids}).fetchall()
             
-            for oid, name, qty, sku, line_total, line_tax, line_subtotal in items_results:
+            for oid, name, qty, sku, line_total, line_tax, line_subtotal, line_subtotal_tax in items_results:
                 # Calcular costo unitario (sumar todos los componentes que hagan match)
                 costo_unitario_usd = 0.0
                 if sku:
@@ -1273,10 +1275,12 @@ def export_profits_excel():
                 costo_total_usd = costo_unitario_usd * int(qty or 1)
 
                 # Precios y Tax
-                line_total_pen = float(line_total or 0)   # ex-tax
-                tax_pen = float(line_tax or 0)
-                line_subtotal_pen = float(line_subtotal or 0)  # ex-tax antes de descuento
-                venta_item_pen = line_total_pen + tax_pen  # total con IGV, ya con descuento
+                line_total_pen = float(line_total or 0)          # ex-tax después de descuento
+                tax_pen = float(line_tax or 0)                   # IGV sobre precio descontado
+                line_subtotal_pen = float(line_subtotal or 0)    # ex-tax antes de descuento
+                line_subtotal_tax_pen = float(line_subtotal_tax or 0)  # IGV sobre precio original
+                venta_item_pen = line_total_pen + tax_pen        # bruto con IGV, ya con descuento
+                precio_bruto_antes = line_subtotal_pen + line_subtotal_tax_pen  # bruto con IGV, sin descuento
 
                 # Para el reporte Consolidado
                 if oid not in items_by_order: items_by_order[oid] = 0.0
@@ -1291,6 +1295,7 @@ def export_profits_excel():
                     'costo_unit_usd': costo_unitario_usd,
                     'costo_total_usd': costo_total_usd,
                     'venta_item_pen': venta_item_pen,
+                    'precio_bruto_antes': precio_bruto_antes,
                     'line_subtotal_pen': line_subtotal_pen,
                     'line_total_pen': line_total_pen,
                     'tax_pen': tax_pen,
@@ -1376,9 +1381,10 @@ def export_profits_excel():
                     costo_item_pen = costo_item_usd * tc
                     venta_item_pen = item['venta_item_pen']
 
-                    # Descuento por item (ex-tax): subtotal - line_total
-                    monto_desc_item = max(0.0, round(item['line_subtotal_pen'] - item['line_total_pen'], 2))
-                    pct_desc_item = round(monto_desc_item / item['line_subtotal_pen'] * 100, 2) if item['line_subtotal_pen'] > 0 else 0.0
+                    # Descuento por item (bruto con IGV): precio original - precio pagado
+                    precio_bruto_antes = item['precio_bruto_antes']
+                    monto_desc_item = max(0.0, round(precio_bruto_antes - venta_item_pen, 2))
+                    pct_desc_item = round(monto_desc_item / precio_bruto_antes * 100, 2) if precio_bruto_antes > 0 else 0.0
 
                     # Comisión proporcional
                     comision_item = round((venta_item_pen / total_items_venta) * comision_pen, 2) if total_items_venta > 0 else 0
