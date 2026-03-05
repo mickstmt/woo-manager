@@ -1479,7 +1479,7 @@ def export_profits_excel():
         excel_file.seek(0)
 
         # Nombre del archivo
-        filename = f"ganancias_{source_name.lower()}_{start_date}_{end_date}.xlsx"
+        filename = f"{report_type}_ganancias_{source_name.lower()}_{start_date}_{end_date}.xlsx"
 
         return send_file(
             excel_file,
