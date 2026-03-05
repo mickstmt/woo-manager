@@ -1384,7 +1384,7 @@ def export_profits_excel():
                     # Descuento por item (bruto con IGV): precio original - precio pagado
                     precio_bruto_antes = item['precio_bruto_antes']
                     monto_desc_item = max(0.0, round(precio_bruto_antes - venta_item_pen, 2))
-                    pct_desc_item = round(monto_desc_item / precio_bruto_antes * 100, 2) if precio_bruto_antes > 0 else 0.0
+                    pct_desc_item = round(monto_desc_item / precio_bruto_antes * 100) if precio_bruto_antes > 0 else 0
 
                     # Comisión proporcional
                     comision_item = round((venta_item_pen / total_items_venta) * comision_pen, 2) if total_items_venta > 0 else 0
