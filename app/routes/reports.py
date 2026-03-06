@@ -474,7 +474,7 @@ def api_profits():
             LEFT JOIN wpyz_wc_orders_meta om_community ON o.id = om_community.order_id AND om_community.meta_key = '_is_community'
             LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
             LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
-            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
+            LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
@@ -1256,7 +1256,7 @@ def export_profits_excel():
             LEFT JOIN wpyz_wc_orders_meta om_doc_type ON o.id = om_doc_type.order_id AND om_doc_type.meta_key = '_billing_doc_type'
             LEFT JOIN wpyz_wc_orders_meta om_business_name ON o.id = om_business_name.order_id AND om_business_name.meta_key = '_billing_business_name'
             LEFT JOIN wpyz_wc_orders_meta om_discount ON o.id = om_discount.order_id AND om_discount.meta_key = '_wc_discount_amount'
-            LEFT JOIN woo_orders_ext oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
+            LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
             WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                 AND o.status != 'trash'
                 {status_filter}
