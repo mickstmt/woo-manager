@@ -995,7 +995,7 @@
                            class="btn btn-sm btn-outline-warning" title="Ver en WooCommerce">
                             <i class="bi bi-wordpress"></i>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-info" onclick="resendOrderEmail(${order.id})" title="Re-enviar Correo">
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="resendOrderEmail(${order.id}, '${order.status}')" title="Re-enviar Correo">
                             <i class="bi bi-envelope-at"></i>
                         </button>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
@@ -1820,7 +1820,7 @@
         }
 
         // Configurar botón de re-envío de correo
-        $('#detail-btn-resend').attr('onclick', `resendOrderEmail(${order.id})`);
+        $('#detail-btn-resend').attr('onclick', `resendOrderEmail(${order.id}, '${order.status}')`);
     }
 
     function showDetailError(message) {
@@ -2415,6 +2415,47 @@
     </div>
 </div>
 
+<!-- Modal: Confirmar Re-envío de Correo -->
+<div class="modal fade" id="resendEmailModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-envelope-at"></i> Re-enviar Correo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Pedido <strong id="resend-order-number"></strong> — elige el tipo de correo:</p>
+                <div class="d-flex flex-column gap-2">
+                    <div class="form-check p-3 border rounded">
+                        <input class="form-check-input" type="radio" name="resendEmailType"
+                               id="resend-type-confirmation" value="confirmation">
+                        <label class="form-check-label" for="resend-type-confirmation">
+                            <strong><i class="bi bi-bag-check"></i> Confirmación de Compra</strong>
+                            <div class="text-muted small mt-1">Correo enviado al realizar el pedido.</div>
+                        </label>
+                    </div>
+                    <div class="form-check p-3 border rounded">
+                        <input class="form-check-input" type="radio" name="resendEmailType"
+                               id="resend-type-tracking" value="tracking">
+                        <label class="form-check-label" for="resend-type-tracking">
+                            <strong><i class="bi bi-truck"></i> Tracking / Completado</strong>
+                            <div class="text-muted small mt-1">Correo con información de envío Shalom.</div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info text-white" id="confirm-resend-btn">
+                    <i class="bi bi-send"></i> Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Detalles del Pedido -->
 <div class="modal fade" id="orderDetailModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
@@ -2690,32 +2731,52 @@
             }
         });
     }
-    function resendOrderEmail(orderId) {
-        event.stopPropagation(); // Evitar abrir el modal si se hace clic desde la lista
+    let currentResendOrderId = null;
 
-        if (!confirm(`¿Estás seguro de que deseas re-enviar el correo del pedido #${orderId}?`)) {
-            return;
+    function resendOrderEmail(orderId, orderStatus) {
+        event.stopPropagation();
+        currentResendOrderId = orderId;
+        $('#resend-order-number').text('#' + orderId);
+
+        // Pre-selección inteligente basada en el estado del pedido
+        if (orderStatus === 'wc-completed') {
+            $('#resend-type-tracking').prop('checked', true);
+        } else {
+            $('#resend-type-confirmation').prop('checked', true);
         }
 
+        $('#resendEmailModal').modal('show');
+    }
+
+    $('#confirm-resend-btn').on('click', function () {
+        if (!currentResendOrderId) return;
+        const emailType = $('input[name="resendEmailType"]:checked').val();
+        if (!emailType) { showNotification('warning', 'Selecciona un tipo de correo.'); return; }
+
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Enviando...');
+        $('#resendEmailModal').modal('hide');
         showLoadingToast('Enviando correo...');
 
         $.ajax({
-            url: `/orders/api/resend-email/${orderId}`,
+            url: `/orders/api/resend-email/${currentResendOrderId}`,
             method: 'POST',
-            success: function (response) {
+            contentType: 'application/json',
+            data: JSON.stringify({ email_type: emailType }),
+            success: function (r) {
                 hideLoadingToast();
-                if (response.success) {
-                    showNotification('success', response.message);
-                } else {
-                    showNotification('error', response.error || 'Error al re-enviar correo');
-                }
+                if (r.success) showNotification('success', r.message);
+                else showNotification('error', r.error || 'Error al re-enviar correo');
             },
             error: function (xhr) {
                 hideLoadingToast();
-                const error = xhr.responseJSON ? xhr.responseJSON.error : 'Error de conexión';
-                showNotification('error', error);
+                showNotification('error', xhr.responseJSON?.error || 'Error de conexión');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="bi bi-send"></i> Enviar');
+                currentResendOrderId = null;
             }
         });
-    }
+    });
 </script>
 {% endblock %}

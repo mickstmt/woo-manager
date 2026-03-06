@@ -423,6 +423,83 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
         return False
 
 
+def trigger_woocommerce_tracking_email(order_id, payment_method=None, payment_method_title=None):
+    """
+    Dispara el envío del correo de tracking/completado de WooCommerce.
+
+    ESTRATEGIA:
+    - Si el pedido YA está en completed: cycling completed→processing→completed
+      para re-triggerear el hook wc_customer_completed_order.
+    - Si NO está en completed: transición directa →completed.
+    """
+    import requests
+    from requests.auth import HTTPBasicAuth
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    import time
+
+    try:
+        wc_url = current_app.config.get('WC_API_URL')
+        consumer_key = current_app.config.get('WC_CONSUMER_KEY')
+        consumer_secret = current_app.config.get('WC_CONSUMER_SECRET')
+        if not all([wc_url, consumer_key, consumer_secret]):
+            current_app.logger.error("WooCommerce API credentials not configured")
+            return False
+
+        api_url = f"{wc_url}/wp-json/wc/v3/orders/{order_id}"
+        auth = HTTPBasicAuth(consumer_key, consumer_secret)
+
+        retry_strategy = Retry(
+            total=3, backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["PUT", "GET"], raise_on_status=False
+        )
+        session = requests.Session()
+        session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
+        session.mount("http://", HTTPAdapter(max_retries=retry_strategy))
+
+        current_app.logger.info(f"Triggering TRACKING email for order {order_id}")
+
+        # 1. Obtener estado actual del pedido
+        response_get = session.get(api_url, auth=auth, timeout=30)
+        if response_get.status_code != 200:
+            current_app.logger.error(f"Failed to get order {order_id} status: {response_get.status_code}")
+            return False
+        current_status = response_get.json().get('status', '')
+        current_app.logger.info(f"Order {order_id} current status: {current_status}")
+
+        def build_payload(status):
+            p = {'status': status}
+            if payment_method: p['payment_method'] = payment_method
+            if payment_method_title: p['payment_method_title'] = payment_method_title
+            return p
+
+        # 2. Si ya está completed: pasar a processing para luego re-triggerear
+        if current_status == 'completed':
+            r = session.put(api_url, json=build_payload('processing'), auth=auth, timeout=30)
+            if r.status_code != 200:
+                current_app.logger.error(f"Failed to cycle order {order_id} to processing: {r.status_code}")
+                return False
+            current_app.logger.info(f"Order {order_id} cycled to processing")
+            time.sleep(0.5)
+
+        # 3. Transición final → completed (dispara wc_customer_completed_order)
+        r = session.put(api_url, json=build_payload('completed'), auth=auth, timeout=30)
+        if r.status_code == 200:
+            current_app.logger.info(f"Successfully triggered tracking email for order {order_id}")
+            return True
+        else:
+            current_app.logger.error(f"Failed to trigger tracking email for order {order_id}: {r.status_code}")
+            return False
+
+    except requests.exceptions.Timeout as e:
+        current_app.logger.error(f"Timeout triggering tracking email for order {order_id}: {str(e)}")
+        return False
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error triggering tracking email for order {order_id}: {str(e)}")
+        return False
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -2697,41 +2774,47 @@ def test_email_trigger(order_id):
 def api_resend_email(order_id):
     """
     API para re-enviar manualmente el correo de un pedido.
+    Acepta email_type en el body JSON:
+      - 'confirmation': correo de confirmación de compra (pending→processing)
+      - 'tracking':     correo de tracking/completado (→completed, con cycling si ya estaba completed)
     """
     try:
-        # 1. Verificar que el pedido existe y obtener sus datos de pago
+        data = request.get_json(silent=True) or {}
+        email_type = data.get('email_type', 'confirmation')
+        if email_type not in ('confirmation', 'tracking'):
+            return jsonify({'success': False, 'error': 'Tipo de correo no válido'}), 400
+
         from sqlalchemy import text
         order_q = text("SELECT payment_method, payment_method_title FROM wpyz_wc_orders WHERE id = :oid")
         order_data = db.session.execute(order_q, {'oid': order_id}).fetchone()
-        
+
         if not order_data:
             return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
-            
+
         payment_method = order_data.payment_method
         payment_method_title = order_data.payment_method_title
-        
-        # 2. Disparar email en background (no queremos bloquear la UI)
+
         import threading
-        
-        def send_email_async(oid, pm, pmt, app):
+
+        def send_email_async(oid, pm, pmt, etype, app):
             with app.app_context():
                 try:
-                    trigger_woocommerce_email(oid, pm, pmt)
+                    if etype == 'tracking':
+                        trigger_woocommerce_tracking_email(oid, pm, pmt)
+                    else:
+                        trigger_woocommerce_email(oid, pm, pmt)
                 except Exception as e:
                     current_app.logger.error(f"Error al re-enviar email manual para pedido {oid}: {e}")
-        
-        email_thread = threading.Thread(
+
+        threading.Thread(
             target=send_email_async,
-            args=(order_id, payment_method, payment_method_title, current_app._get_current_object())
-        )
-        email_thread.daemon = True
-        email_thread.start()
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Petición de re-envío enviada correctamente.'
-        })
-        
+            args=(order_id, payment_method, payment_method_title, email_type, current_app._get_current_object()),
+            daemon=True
+        ).start()
+
+        label = 'tracking' if email_type == 'tracking' else 'confirmación'
+        return jsonify({'success': True, 'message': f'Re-envío de correo de {label} enviado correctamente.'})
+
     except Exception as e:
         current_app.logger.error(f"Error en api_resend_email: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
