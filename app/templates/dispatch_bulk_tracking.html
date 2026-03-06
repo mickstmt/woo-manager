@@ -846,7 +846,7 @@
                     <input type="checkbox" class="form-check-input envio-checkbox"
                            data-index="${index}"
                            ${canSelect ? '' : 'disabled'}
-                           onchange="updateSelectedCount()">
+                           onchange="toggleCheckbox(this)">
                 </td>
                 <td><code>${envio.dni_destinatario || '-'}</code></td>
                 <td>
@@ -916,19 +916,19 @@
         updateSelectedCount();
     }
 
-    function updateSelectedCount() {
-        const activeCheckboxes = document.querySelectorAll('.envio-checkbox:checked');
-        const selectedIndices = new Set();
+    function toggleCheckbox(cb) {
+        // Sincronizar el par desktop/móvil con el mismo data-index
+        document.querySelectorAll(`.envio-checkbox[data-index="${cb.dataset.index}"]`).forEach(sibling => {
+            sibling.checked = cb.checked;
+        });
+        updateSelectedCount();
+    }
 
-        activeCheckboxes.forEach(cb => {
+    function updateSelectedCount() {
+        const selectedIndices = new Set();
+        document.querySelectorAll('.envio-checkbox:checked').forEach(cb => {
             selectedIndices.add(cb.dataset.index);
         });
-
-        // Sincronizar checkboxes del mismo índice
-        document.querySelectorAll('.envio-checkbox').forEach(cb => {
-            cb.checked = selectedIndices.has(cb.dataset.index);
-        });
-
         const count = selectedIndices.size;
         document.getElementById('selected-count').textContent = count;
         document.getElementById('btn-process').disabled = count === 0;
@@ -939,8 +939,12 @@
 
     function processSelected() {
         pendingEnvios = [];
+        const processedIndices = new Set();
 
         document.querySelectorAll('.envio-checkbox:checked').forEach(cb => {
+            if (processedIndices.has(cb.dataset.index)) return;
+            processedIndices.add(cb.dataset.index);
+
             const index = parseInt(cb.dataset.index);
             const envio = enviosData[index];
 
