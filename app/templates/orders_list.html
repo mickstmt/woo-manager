@@ -1000,7 +1000,7 @@
                         </button>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
                     `
-                        <a href="#" class="btn btn-sm btn-secondary disabled" title="Edición deshabilitada temporalmente" style="pointer-events: none; opacity: 0.6;">
+                        <a href="/orders/edit/${order.id}" class="btn btn-sm btn-warning" title="Editar pedido">
                             <i class="bi bi-pencil"></i>
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmTrashOrder(${order.id}, '${order.order_number}')" title="Mover a Papelera">
@@ -1441,7 +1441,7 @@
                         </a>
                         ${['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status) ?
                     `
-                        <a href="#" class="btn btn-sm btn-secondary disabled" title="Edición deshabilitada temporalmente" style="pointer-events: none; opacity: 0.6;">
+                        <a href="/orders/edit/${order.id}" class="btn btn-sm btn-warning" title="Editar pedido">
                             <i class="bi bi-pencil"></i>
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmTrashOrder(${order.id}, '${order.order_number}')" title="Mover a Papelera">
@@ -1814,8 +1814,7 @@
         $('#detail-btn-woocommerce').attr('href', `https://www.izistoreperu.com/wp-admin/admin.php?page=wc-orders&action=edit&id=${order.id}`);
 
         if (['wc-pending', 'wc-processing', 'wc-on-hold'].includes(order.status)) {
-            // Edición bloqueada temporalmente
-            $('#detail-btn-edit').attr('href', '#').addClass('disabled').css({ 'pointer-events': 'none', 'opacity': '0.6' }).attr('title', 'Edición deshabilitada temporalmente').show();
+            $('#detail-btn-edit').attr('href', `/orders/edit/${order.id}`).removeClass('disabled').css({ 'pointer-events': '', 'opacity': '' }).attr('title', 'Editar pedido').show();
         } else {
             $('#detail-btn-edit').hide();
         }
