@@ -342,7 +342,7 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
             total=3,  # Total de 3 intentos
             backoff_factor=2,  # Espera 2s, 4s, 8s entre reintentos
             status_forcelist=[429, 500, 502, 503, 504],  # Códigos HTTP a reintentar
-            allowed_methods=["PUT"],  # Permitir reintentos en PUT
+            allowed_methods=["GET", "PUT"],  # Permitir reintentos en GET y PUT
             raise_on_status=False  # No lanzar excepción en status codes
         )
 
@@ -355,6 +355,14 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
         session.mount("http://", adapter)
 
         current_app.logger.info(f"Triggering email for order {order_id} (with auto-retry on timeout/5xx errors)")
+
+        # PASO 0: Obtener estado actual para restaurar al finalizar
+        response_get = session.get(api_url, auth=auth, timeout=30)
+        if response_get.status_code != 200:
+            current_app.logger.error(f"Failed to get order {order_id} current status: {response_get.status_code}")
+            return False
+        original_status = response_get.json().get('status', 'processing')
+        current_app.logger.info(f"Order {order_id} original status: {original_status}")
 
         # PASO 1: Cambiar a 'pending' (estado intermedio)
         # Esto asegura que luego podamos hacer una transición real
@@ -404,12 +412,27 @@ def trigger_woocommerce_email(order_id, payment_method=None, payment_method_titl
             timeout=30  # Aumentado de 10 a 30 segundos
         )
 
-        if response_processing.status_code == 200:
-            current_app.logger.info(f"Successfully triggered email for order {order_id} via status transition")
-            return True
-        else:
+        if response_processing.status_code != 200:
             current_app.logger.error(f"Failed to trigger email for order {order_id}: {response_processing.status_code} - {response_processing.text}")
             return False
+
+        current_app.logger.info(f"Successfully triggered email for order {order_id} via status transition")
+
+        # PASO 3: Restaurar estado original si era diferente de 'processing'
+        if original_status != 'processing':
+            time.sleep(0.3)
+            payload_restore = {'status': original_status}
+            if payment_method:
+                payload_restore['payment_method'] = payment_method
+            if payment_method_title:
+                payload_restore['payment_method_title'] = payment_method_title
+            r_restore = session.put(api_url, json=payload_restore, auth=auth, timeout=30)
+            if r_restore.status_code == 200:
+                current_app.logger.info(f"Order {order_id} restored to original status: {original_status}")
+            else:
+                current_app.logger.warning(f"Could not restore order {order_id} to {original_status}: {r_restore.status_code} (email was already sent)")
+
+        return True
 
     except requests.exceptions.Timeout as e:
         current_app.logger.error(f"Timeout triggering email for order {order_id} after 3 retries: {str(e)}")
