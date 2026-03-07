@@ -442,9 +442,9 @@ def api_profits():
         # 3. Construir filtros
         source_filter = ""
         if source == 'whatsapp':
-            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
         elif source == 'woocommerce':
-            source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
+            source_filter = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
 
         # 4. Consulta de Órdenes (Solo datos básicos)
         orders_sql = text(f"""
@@ -1205,10 +1205,10 @@ def export_profits_excel():
         source_filter = ""
         source_name = "Todos"
         if source == 'whatsapp':
-            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.id IS NOT NULL)"
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
             source_name = "WhatsApp"
         elif source == 'woocommerce':
-            source_filter = "AND om_numero.meta_value IS NULL AND oext.id IS NULL"
+            source_filter = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
             source_name = "WooCommerce"
 
         # 1. Obtener todos los costos de FC en un diccionario para búsqueda rápida
