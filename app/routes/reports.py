@@ -479,6 +479,7 @@ def api_profits():
                 AND o.status != 'trash'
                 AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
                 {source_filter}
+            GROUP BY o.id
             ORDER BY fecha DESC, o.id DESC
         """)
         
@@ -1261,6 +1262,7 @@ def export_profits_excel():
                 AND o.status != 'trash'
                 {status_filter}
                 {source_filter}
+            GROUP BY o.id
             ORDER BY fecha DESC, o.id DESC
         """)
         
