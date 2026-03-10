@@ -2344,16 +2344,32 @@ def api_campaigns():
                     LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
                     INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id AND oi.order_item_type = 'line_item'
                     LEFT JOIN (
-                        SELECT order_item_id, MIN(meta_value) as val
-                        FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_color', 'Color', 'color', 'colores', 'Colores')
-                        GROUP BY order_item_id
+                        SELECT oim.order_item_id,
+                            COALESCE(
+                                MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
+                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN COALESCE(t_color.name, oim.meta_value) END)
+                            ) as val
+                        FROM wpyz_woocommerce_order_itemmeta oim
+                        LEFT JOIN wpyz_terms t_color ON (
+                            oim.meta_key = 'pa_color' AND t_color.slug = oim.meta_value
+                            AND t_color.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy = 'pa_color')
+                        )
+                        WHERE oim.meta_key IN ('color', 'colores', 'Color', 'Colores', 'pa_color')
+                        GROUP BY oim.order_item_id
                     ) color_m ON oi.order_item_id = color_m.order_item_id
                     LEFT JOIN (
-                        SELECT order_item_id, MIN(meta_value) as val
-                        FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas', 'Size', 'size', 'pa_size')
-                        GROUP BY order_item_id
+                        SELECT oim.order_item_id,
+                            COALESCE(
+                                MAX(CASE WHEN oim.meta_key IN ('talla', 'Talla', 'medida', 'medidas') THEN oim.meta_value END),
+                                MAX(CASE WHEN oim.meta_key IN ('pa_talla', 'pa_medida') THEN COALESCE(t_talla.name, oim.meta_value) END)
+                            ) as val
+                        FROM wpyz_woocommerce_order_itemmeta oim
+                        LEFT JOIN wpyz_terms t_talla ON (
+                            oim.meta_key IN ('pa_talla', 'pa_medida') AND t_talla.slug = oim.meta_value
+                            AND t_talla.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy IN ('pa_talla', 'pa_medida'))
+                        )
+                        WHERE oim.meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas')
+                        GROUP BY oim.order_item_id
                     ) talla_m ON oi.order_item_id = talla_m.order_item_id
                     WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                         AND o.status NOT IN ('trash', 'wc-cancelled', 'wc-refunded', 'wc-failed')
@@ -2459,16 +2475,32 @@ def export_campaigns_excel():
                     LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
                     INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id AND oi.order_item_type = 'line_item'
                     LEFT JOIN (
-                        SELECT order_item_id, MIN(meta_value) as val
-                        FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_color', 'Color', 'color', 'colores', 'Colores')
-                        GROUP BY order_item_id
+                        SELECT oim.order_item_id,
+                            COALESCE(
+                                MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
+                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN COALESCE(t_color.name, oim.meta_value) END)
+                            ) as val
+                        FROM wpyz_woocommerce_order_itemmeta oim
+                        LEFT JOIN wpyz_terms t_color ON (
+                            oim.meta_key = 'pa_color' AND t_color.slug = oim.meta_value
+                            AND t_color.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy = 'pa_color')
+                        )
+                        WHERE oim.meta_key IN ('color', 'colores', 'Color', 'Colores', 'pa_color')
+                        GROUP BY oim.order_item_id
                     ) color_m ON oi.order_item_id = color_m.order_item_id
                     LEFT JOIN (
-                        SELECT order_item_id, MIN(meta_value) as val
-                        FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas', 'Size', 'size', 'pa_size')
-                        GROUP BY order_item_id
+                        SELECT oim.order_item_id,
+                            COALESCE(
+                                MAX(CASE WHEN oim.meta_key IN ('talla', 'Talla', 'medida', 'medidas') THEN oim.meta_value END),
+                                MAX(CASE WHEN oim.meta_key IN ('pa_talla', 'pa_medida') THEN COALESCE(t_talla.name, oim.meta_value) END)
+                            ) as val
+                        FROM wpyz_woocommerce_order_itemmeta oim
+                        LEFT JOIN wpyz_terms t_talla ON (
+                            oim.meta_key IN ('pa_talla', 'pa_medida') AND t_talla.slug = oim.meta_value
+                            AND t_talla.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy IN ('pa_talla', 'pa_medida'))
+                        )
+                        WHERE oim.meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas')
+                        GROUP BY oim.order_item_id
                     ) talla_m ON oi.order_item_id = talla_m.order_item_id
                     WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
                         AND o.status != 'trash'
