@@ -2324,7 +2324,7 @@ def api_campaigns():
 
                 sql = text(f"""
                     SELECT
-                        COALESCE(om_numero.meta_value, CAST(o.id AS CHAR)) as numero_pedido,
+                        CAST(o.id AS CHAR) as numero_pedido,
                         DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
                         TRIM(CONCAT(COALESCE(ba.first_name, ''), ' ', COALESCE(ba.last_name, ''))) as nombre_completo,
                         COALESCE(ba.city, '') as ciudad,
@@ -2335,7 +2335,7 @@ def api_campaigns():
                             ELSE 'WooCommerce'
                         END as fuente,
                         oi.order_item_name as producto,
-                        COALESCE(color_m.val, '') as color,
+                        COALESCE(pm_color.color_val, item_m.item_color, '') as color,
                         COALESCE(talla_m.val, '') as talla
                     FROM wpyz_wc_orders o
                     LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
@@ -2347,16 +2347,23 @@ def api_campaigns():
                         SELECT oim.order_item_id,
                             COALESCE(
                                 MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN COALESCE(t_color.name, oim.meta_value) END)
-                            ) as val
+                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END)
+                            ) as item_color,
+                            MAX(CASE WHEN oim.meta_key = '_variation_id' THEN NULLIF(oim.meta_value, '0') END) as variation_id,
+                            MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id
                         FROM wpyz_woocommerce_order_itemmeta oim
-                        LEFT JOIN wpyz_terms t_color ON (
-                            oim.meta_key = 'pa_color' AND t_color.slug = oim.meta_value
-                            AND t_color.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy = 'pa_color')
-                        )
-                        WHERE oim.meta_key IN ('color', 'colores', 'Color', 'Colores', 'pa_color')
                         GROUP BY oim.order_item_id
-                    ) color_m ON oi.order_item_id = color_m.order_item_id
+                    ) item_m ON oi.order_item_id = item_m.order_item_id
+                    LEFT JOIN (
+                        SELECT post_id,
+                            COALESCE(
+                                MAX(CASE WHEN meta_key = 'attribute_pa_color' THEN meta_value END),
+                                MAX(CASE WHEN meta_key = 'attribute_color' THEN meta_value END)
+                            ) as color_val
+                        FROM wpyz_postmeta
+                        WHERE meta_key IN ('attribute_pa_color', 'attribute_color')
+                        GROUP BY post_id
+                    ) pm_color ON pm_color.post_id = CAST(COALESCE(item_m.variation_id, item_m.product_id) AS UNSIGNED)
                     LEFT JOIN (
                         SELECT oim.order_item_id,
                             COALESCE(
@@ -2455,7 +2462,7 @@ def export_campaigns_excel():
 
                 sql = text(f"""
                     SELECT
-                        COALESCE(om_numero.meta_value, CAST(o.id AS CHAR)) as numero_pedido,
+                        CAST(o.id AS CHAR) as numero_pedido,
                         DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
                         TRIM(CONCAT(COALESCE(ba.first_name, ''), ' ', COALESCE(ba.last_name, ''))) as nombre_completo,
                         COALESCE(ba.city, '') as ciudad,
@@ -2466,7 +2473,7 @@ def export_campaigns_excel():
                             ELSE 'WooCommerce'
                         END as fuente,
                         oi.order_item_name as producto,
-                        COALESCE(color_m.val, '') as color,
+                        COALESCE(pm_color.color_val, item_m.item_color, '') as color,
                         COALESCE(talla_m.val, '') as talla
                     FROM wpyz_wc_orders o
                     LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
@@ -2478,16 +2485,23 @@ def export_campaigns_excel():
                         SELECT oim.order_item_id,
                             COALESCE(
                                 MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN COALESCE(t_color.name, oim.meta_value) END)
-                            ) as val
+                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END)
+                            ) as item_color,
+                            MAX(CASE WHEN oim.meta_key = '_variation_id' THEN NULLIF(oim.meta_value, '0') END) as variation_id,
+                            MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id
                         FROM wpyz_woocommerce_order_itemmeta oim
-                        LEFT JOIN wpyz_terms t_color ON (
-                            oim.meta_key = 'pa_color' AND t_color.slug = oim.meta_value
-                            AND t_color.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy = 'pa_color')
-                        )
-                        WHERE oim.meta_key IN ('color', 'colores', 'Color', 'Colores', 'pa_color')
                         GROUP BY oim.order_item_id
-                    ) color_m ON oi.order_item_id = color_m.order_item_id
+                    ) item_m ON oi.order_item_id = item_m.order_item_id
+                    LEFT JOIN (
+                        SELECT post_id,
+                            COALESCE(
+                                MAX(CASE WHEN meta_key = 'attribute_pa_color' THEN meta_value END),
+                                MAX(CASE WHEN meta_key = 'attribute_color' THEN meta_value END)
+                            ) as color_val
+                        FROM wpyz_postmeta
+                        WHERE meta_key IN ('attribute_pa_color', 'attribute_color')
+                        GROUP BY post_id
+                    ) pm_color ON pm_color.post_id = CAST(COALESCE(item_m.variation_id, item_m.product_id) AS UNSIGNED)
                     LEFT JOIN (
                         SELECT oim.order_item_id,
                             COALESCE(
