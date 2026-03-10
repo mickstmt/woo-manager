@@ -2346,13 +2346,13 @@ def api_campaigns():
                     LEFT JOIN (
                         SELECT order_item_id, MIN(meta_value) as val
                         FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_color', 'Color', 'color')
+                        WHERE meta_key IN ('pa_color', 'Color', 'color', 'colores', 'Colores')
                         GROUP BY order_item_id
                     ) color_m ON oi.order_item_id = color_m.order_item_id
                     LEFT JOIN (
                         SELECT order_item_id, MIN(meta_value) as val
                         FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'Size', 'size', 'pa_size')
+                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas', 'Size', 'size', 'pa_size')
                         GROUP BY order_item_id
                     ) talla_m ON oi.order_item_id = talla_m.order_item_id
                     WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
@@ -2461,13 +2461,13 @@ def export_campaigns_excel():
                     LEFT JOIN (
                         SELECT order_item_id, MIN(meta_value) as val
                         FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_color', 'Color', 'color')
+                        WHERE meta_key IN ('pa_color', 'Color', 'color', 'colores', 'Colores')
                         GROUP BY order_item_id
                     ) color_m ON oi.order_item_id = color_m.order_item_id
                     LEFT JOIN (
                         SELECT order_item_id, MIN(meta_value) as val
                         FROM wpyz_woocommerce_order_itemmeta
-                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'Size', 'size', 'pa_size')
+                        WHERE meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas', 'Size', 'size', 'pa_size')
                         GROUP BY order_item_id
                     ) talla_m ON oi.order_item_id = talla_m.order_item_id
                     WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
