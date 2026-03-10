@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Campañas IziStore - WooCommerce Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card { transition: transform 0.2s; }
+    .metric-card:hover { transform: translateY(-3px); }
+    .metric-value { font-size: 1.6rem; font-weight: bold; }
+
+    #campaigns-table th { white-space: nowrap; font-size: 0.82rem; }
+    #campaigns-table td { font-size: 0.82rem; vertical-align: middle; }
+
+    .badge-fuente-woo      { background-color: #0d6efd; }
+    .badge-fuente-manager  { background-color: #198754; }
+    .badge-fuente-externo  { background-color: #6c757d; }
+
+    .loading-spinner {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 60px 0; gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+        .hide-mobile { display: none !important; }
+        .metric-value { font-size: 1.2rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3 mb-md-4">
+    <div class="col-12 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+        <div>
+            <h1 class="mb-0">
+                <i class="bi bi-megaphone"></i>
+                <span class="d-none d-sm-inline">Campañas IziStore</span>
+                <span class="d-sm-none">Campañas</span>
+            </h1>
+            <p class="text-muted mb-0 d-none d-md-block">Datos de pedidos para campañas de marketing</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filtro de fechas -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Inicio</label>
+                        <input type="date" id="start-date" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha Fin</label>
+                        <input type="date" id="end-date" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="loadReport()">
+                            <i class="bi bi-search"></i> Generar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100" onclick="exportToExcel()">
+                            <i class="bi bi-file-earmark-excel"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pestañas de origen -->
+<div class="row mb-3">
+    <div class="col-12">
+        <ul class="nav nav-tabs" id="sourceTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-source="all" type="button" onclick="changeSource('all')">
+                    <i class="bi bi-globe"></i> Todos
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-source="whatsapp" type="button" onclick="changeSource('whatsapp')">
+                    <i class="bi bi-whatsapp"></i> WhatsApp
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-source="woocommerce" type="button" onclick="changeSource('woocommerce')">
+                    <i class="bi bi-shop"></i> WooCommerce
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-source="externos" type="button" onclick="changeSource('externos')">
+                    <i class="bi bi-file-earmark-text"></i> Externos
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- Métricas resumen -->
+<div class="row mb-4" id="metrics-row" style="display:none;">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card metric-card bg-primary text-white">
+            <div class="card-body py-3">
+                <h6 class="card-title mb-1"><i class="bi bi-list-ol"></i> Total Filas</h6>
+                <div class="metric-value" id="total-filas">-</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card metric-card bg-info text-white">
+            <div class="card-body py-3">
+                <h6 class="card-title mb-1"><i class="bi bi-receipt"></i> Pedidos Únicos</h6>
+                <div class="metric-value" id="total-pedidos">-</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estado: cargando -->
+<div id="loading-state" style="display:none;">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" style="width:3rem;height:3rem;" role="status"></div>
+        <span class="text-muted">Cargando datos...</span>
+    </div>
+</div>
+
+<!-- Estado: error -->
+<div id="error-state" class="alert alert-danger" style="display:none;">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Error al cargar el reporte:</strong> <span id="error-msg"></span>
+</div>
+
+<!-- Mensaje inicial -->
+<div class="row mb-4" id="initial-message">
+    <div class="col-12">
+        <div class="alert alert-info border-0 shadow-sm" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-megaphone-fill fs-3 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Campañas IziStore</h5>
+                    <p class="mb-0">Selecciona un rango de fechas y presiona <strong>Generar</strong> para ver los datos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de resultados -->
+<div id="table-container" style="display:none;">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-table"></i> Resultados</span>
+            <small class="text-muted" id="results-count"></small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0" id="campaigns-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-center">Pedido</th>
+                            <th class="text-center hide-mobile">Fecha</th>
+                            <th>Nombre Completo</th>
+                            <th class="text-center hide-mobile">Ciudad</th>
+                            <th class="text-center hide-mobile">Sexo</th>
+                            <th class="text-end">Precio Venta</th>
+                            <th class="text-center hide-mobile">Fuente</th>
+                            <th>Producto</th>
+                            <th class="text-center hide-mobile">Color</th>
+                            <th class="text-center hide-mobile">Talla</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaigns-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal exportar -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Selecciona los estados de pedidos a incluir:</p>
+
+                <div class="mb-3">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="status-select-all" checked
+                            onchange="toggleAllStatuses(this)">
+                        <label class="form-check-label fw-bold" for="status-select-all">Seleccionar todos</label>
+                    </div>
+                    <hr class="my-2">
+                </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-completed" id="exp-completed" checked>
+                            <label class="form-check-label" for="exp-completed"><span class="badge bg-success">Completado</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-processing" id="exp-processing" checked>
+                            <label class="form-check-label" for="exp-processing"><span class="badge bg-primary">Procesando</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-on-hold" id="exp-on-hold" checked>
+                            <label class="form-check-label" for="exp-on-hold"><span class="badge bg-info">En espera</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-enviado" id="exp-enviado" checked>
+                            <label class="form-check-label" for="exp-enviado"><span class="badge" style="background-color:#17a2b8;color:white;">Enviado</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-en-transito" id="exp-transito" checked>
+                            <label class="form-check-label" for="exp-transito"><span class="badge" style="background-color:#6f42c1;color:white;">En tránsito</span></label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-pending" id="exp-pending" checked>
+                            <label class="form-check-label" for="exp-pending"><span class="badge bg-warning text-dark">Pendiente</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-cancelled" id="exp-cancelled">
+                            <label class="form-check-label" for="exp-cancelled"><span class="badge bg-danger">Cancelado</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-refunded" id="exp-refunded">
+                            <label class="form-check-label" for="exp-refunded"><span class="badge bg-secondary">Reembolsado</span></label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input export-status-check" type="checkbox" value="wc-failed" id="exp-failed">
+                            <label class="form-check-label" for="exp-failed"><span class="badge bg-dark">Fallido</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    <small><i class="bi bi-info-circle"></i> El Excel incluye todas las columnas: Pedido, Fecha, Nombre Completo, Ciudad, Sexo, Precio Venta, Fuente, Producto, Color, Talla.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmExport()">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentSource = 'all';
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const startInput = document.getElementById('start-date');
+        const endInput = document.getElementById('end-date');
+
+        if (startInput._flatpickr) {
+            startInput._flatpickr.setDate(firstDay, true);
+        } else {
+            startInput.valueAsDate = firstDay;
+        }
+        if (endInput._flatpickr) {
+            endInput._flatpickr.setDate(today, true);
+        } else {
+            endInput.valueAsDate = today;
+        }
+
+        loadReport();
+    });
+
+    function loadReport() {
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
+
+        document.getElementById('initial-message').style.display = 'none';
+        document.getElementById('error-state').style.display = 'none';
+        document.getElementById('table-container').style.display = 'none';
+        document.getElementById('metrics-row').style.display = 'none';
+        document.getElementById('loading-state').style.display = 'block';
+
+        fetch(`/reports/api/campaigns?start_date=${startDate}&end_date=${endDate}&source=${currentSource}`)
+            .then(r => r.json())
+            .then(result => {
+                document.getElementById('loading-state').style.display = 'none';
+                if (result.success) {
+                    renderTable(result.data);
+                    updateMetrics(result.data, result.total);
+                    document.getElementById('table-container').style.display = 'block';
+                    document.getElementById('metrics-row').style.display = '';
+                } else {
+                    document.getElementById('error-msg').textContent = result.error || 'Error desconocido';
+                    document.getElementById('error-state').style.display = 'block';
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('error-msg').textContent = err.message;
+                document.getElementById('error-state').style.display = 'block';
+            });
+    }
+
+    function changeSource(source) {
+        currentSource = source;
+        document.querySelectorAll('#sourceTabs .nav-link').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.source === source);
+        });
+        loadReport();
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('campaigns-tbody');
+        document.getElementById('results-count').textContent = data.length + ' registros';
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No se encontraron registros para el período seleccionado</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(row => {
+            const fuenteClass = row.fuente === 'WooCommerce' ? 'badge-fuente-woo'
+                : row.fuente === 'WooManager' ? 'badge-fuente-manager' : 'badge-fuente-externo';
+            return `
+            <tr>
+                <td class="text-center"><small class="fw-semibold">${esc(row.numero_pedido)}</small></td>
+                <td class="text-center hide-mobile"><small>${fmtDate(row.fecha)}</small></td>
+                <td><small>${esc(row.nombre_completo) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(row.ciudad) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(row.sexo) || '-'}</small></td>
+                <td class="text-end"><small>S/. ${fmtNum(row.precio_venta)}</small></td>
+                <td class="text-center hide-mobile"><span class="badge ${fuenteClass}">${esc(row.fuente)}</span></td>
+                <td><small>${esc(row.producto) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(row.color) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(row.talla) || '-'}</small></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function updateMetrics(data, total) {
+        document.getElementById('total-filas').textContent = total.toLocaleString('es-PE');
+        const unique = new Set(data.map(r => r.numero_pedido)).size;
+        document.getElementById('total-pedidos').textContent = unique.toLocaleString('es-PE');
+    }
+
+    function exportToExcel() {
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        modal.show();
+    }
+
+    function confirmExport() {
+        const startDate = getDateValue('start-date');
+        const endDate = getDateValue('end-date');
+        const checked = document.querySelectorAll('#exportModal .export-status-check:checked');
+        const statuses = Array.from(checked).map(cb => cb.value);
+
+        if (statuses.length === 0) {
+            alert('Selecciona al menos un estado para exportar.');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            start_date: startDate,
+            end_date: endDate,
+            source: currentSource,
+            statuses: statuses.join(',')
+        });
+
+        window.location.href = `/reports/api/campaigns/export?${params}`;
+        bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+    }
+
+    function toggleAllStatuses(master) {
+        document.querySelectorAll('#exportModal .export-status-check').forEach(cb => {
+            cb.checked = master.checked;
+        });
+    }
+
+    function fmtDate(d) {
+        if (!d) return '-';
+        const p = d.split('-');
+        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
+    }
+
+    function fmtNum(n) {
+        return parseFloat(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+</script>
+{% endblock %}
