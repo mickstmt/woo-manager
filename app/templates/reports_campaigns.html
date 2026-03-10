@@ -161,6 +161,7 @@
                 <table class="table table-hover table-sm mb-0" id="campaigns-table">
                     <thead class="table-dark">
                         <tr>
+                            <th style="width:32px;"></th>
                             <th class="text-center">Pedido</th>
                             <th class="text-center hide-mobile">Fecha</th>
                             <th>Nombre Completo</th>
@@ -168,9 +169,7 @@
                             <th class="text-center hide-mobile">Sexo</th>
                             <th class="text-end">Precio Venta</th>
                             <th class="text-center hide-mobile">Fuente</th>
-                            <th>Producto</th>
-                            <th class="text-center hide-mobile">Color</th>
-                            <th class="text-center hide-mobile">Talla</th>
+                            <th class="text-center">Items</th>
                         </tr>
                     </thead>
                     <tbody id="campaigns-tbody">
@@ -327,35 +326,105 @@
 
     function renderTable(data) {
         const tbody = document.getElementById('campaigns-tbody');
-        document.getElementById('results-count').textContent = data.length + ' registros';
 
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No se encontraron registros para el período seleccionado</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No se encontraron registros para el período seleccionado</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.map(row => {
-            const fuenteClass = row.fuente === 'WooCommerce' ? 'badge-fuente-woo'
-                : row.fuente === 'WooManager' ? 'badge-fuente-manager' : 'badge-fuente-externo';
-            return `
-            <tr>
-                <td class="text-center"><small class="fw-semibold">${esc(row.numero_pedido)}</small></td>
-                <td class="text-center hide-mobile"><small>${fmtDate(row.fecha)}</small></td>
-                <td><small>${esc(row.nombre_completo) || '-'}</small></td>
-                <td class="text-center hide-mobile"><small>${esc(row.ciudad) || '-'}</small></td>
-                <td class="text-center hide-mobile"><small>${esc(row.sexo) || '-'}</small></td>
-                <td class="text-end"><small>S/. ${fmtNum(row.precio_venta)}</small></td>
-                <td class="text-center hide-mobile"><span class="badge ${fuenteClass}">${esc(row.fuente)}</span></td>
-                <td><small>${esc(row.producto) || '-'}</small></td>
-                <td class="text-center hide-mobile"><small>${esc(row.color) || '-'}</small></td>
-                <td class="text-center hide-mobile"><small>${esc(row.talla) || '-'}</small></td>
+        // Agrupar items por pedido manteniendo el orden
+        const ordersMap = new Map();
+        data.forEach(row => {
+            const key = row.numero_pedido;
+            if (!ordersMap.has(key)) {
+                ordersMap.set(key, {
+                    numero_pedido: row.numero_pedido,
+                    fecha: row.fecha,
+                    nombre_completo: row.nombre_completo,
+                    ciudad: row.ciudad,
+                    sexo: row.sexo,
+                    precio_venta: row.precio_venta,
+                    fuente: row.fuente,
+                    items: []
+                });
+            }
+            if (row.producto) {
+                ordersMap.get(key).items.push({
+                    producto: row.producto,
+                    color: row.color,
+                    talla: row.talla
+                });
+            }
+        });
+
+        const orders = Array.from(ordersMap.values());
+        document.getElementById('results-count').textContent = orders.length + ' pedidos';
+
+        let html = '';
+        orders.forEach((order, idx) => {
+            const fuenteClass = order.fuente === 'WooCommerce' ? 'badge-fuente-woo'
+                : order.fuente === 'WooManager' ? 'badge-fuente-manager' : 'badge-fuente-externo';
+            const detailId = `detail-${idx}`;
+            const hasItems = order.items.length > 0;
+
+            html += `
+            <tr class="order-row" onclick="${hasItems ? `toggleOrder('${detailId}', this)` : ''}" style="${hasItems ? 'cursor:pointer;' : ''}">
+                <td class="text-center py-2">
+                    ${hasItems ? `<i class="bi bi-chevron-right toggle-icon" style="font-size:0.75rem;transition:transform 0.2s;"></i>` : ''}
+                </td>
+                <td class="text-center"><small class="fw-semibold">${esc(order.numero_pedido)}</small></td>
+                <td class="text-center hide-mobile"><small>${fmtDate(order.fecha)}</small></td>
+                <td><small>${esc(order.nombre_completo) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(order.ciudad) || '-'}</small></td>
+                <td class="text-center hide-mobile"><small>${esc(order.sexo) || '-'}</small></td>
+                <td class="text-end"><small>S/. ${fmtNum(order.precio_venta)}</small></td>
+                <td class="text-center hide-mobile"><span class="badge ${fuenteClass}">${esc(order.fuente)}</span></td>
+                <td class="text-center"><span class="badge bg-secondary">${order.items.length}</span></td>
             </tr>`;
-        }).join('');
+
+            if (hasItems) {
+                html += `
+            <tr id="${detailId}" class="detail-row" style="display:none;">
+                <td></td>
+                <td colspan="8" class="p-0">
+                    <div class="bg-body-secondary border-start border-3 border-primary ps-2 py-2">
+                        <table class="table table-sm mb-0" style="font-size:0.78rem;">
+                            <thead>
+                                <tr class="text-muted">
+                                    <th style="width:50%;">Producto</th>
+                                    <th class="text-center" style="width:25%;">Color</th>
+                                    <th class="text-center" style="width:25%;">Talla</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${order.items.map(item => `
+                                <tr>
+                                    <td>${esc(item.producto)}</td>
+                                    <td class="text-center">${esc(item.color) || '-'}</td>
+                                    <td class="text-center">${esc(item.talla) || '-'}</td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>`;
+            }
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    function toggleOrder(detailId, row) {
+        const detailRow = document.getElementById(detailId);
+        const icon = row.querySelector('.toggle-icon');
+        const isVisible = detailRow.style.display !== 'none';
+        detailRow.style.display = isVisible ? 'none' : '';
+        if (icon) icon.style.transform = isVisible ? '' : 'rotate(90deg)';
     }
 
     function updateMetrics(data, total) {
-        document.getElementById('total-filas').textContent = total.toLocaleString('es-PE');
         const unique = new Set(data.map(r => r.numero_pedido)).size;
+        document.getElementById('total-filas').textContent = total.toLocaleString('es-PE');
         document.getElementById('total-pedidos').textContent = unique.toLocaleString('es-PE');
     }
 
