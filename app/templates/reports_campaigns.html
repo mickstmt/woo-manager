@@ -164,9 +164,10 @@
                             <th style="width:32px;"></th>
                             <th class="text-center">Pedido</th>
                             <th class="text-center hide-mobile">Fecha</th>
-                            <th>Nombre Completo</th>
+                            <th>Nombres</th>
+                            <th>Apellidos</th>
+                            <th class="hide-mobile">Teléfono</th>
                             <th class="text-center hide-mobile">Ciudad</th>
-                            <th class="text-center hide-mobile">Sexo</th>
                             <th class="text-end">Precio Venta</th>
                             <th class="text-center hide-mobile">Fuente</th>
                             <th class="text-center">Items</th>
@@ -246,7 +247,7 @@
                 </div>
 
                 <div class="alert alert-info mt-3 mb-0">
-                    <small><i class="bi bi-info-circle"></i> El Excel incluye todas las columnas: Pedido, Fecha, Nombre Completo, Ciudad, Sexo, Precio Venta, Fuente, Producto, Color, Talla.</small>
+                    <small><i class="bi bi-info-circle"></i> El Excel incluye dos hojas: <strong>Consolidado</strong> (un pedido por fila) y <strong>Detallado</strong> (un ítem por fila), con Nombres, Apellidos, Teléfono, Correo, Ciudad, Precio Venta, Fuente, Producto, Color, Talla.</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -328,7 +329,7 @@
         const tbody = document.getElementById('campaigns-tbody');
 
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No se encontraron registros para el período seleccionado</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No se encontraron registros para el período seleccionado</td></tr>';
             return;
         }
 
@@ -340,7 +341,10 @@
                 ordersMap.set(key, {
                     numero_pedido: row.numero_pedido,
                     fecha: row.fecha,
-                    nombre_completo: row.nombre_completo,
+                    nombres: row.nombres,
+                    apellidos: row.apellidos,
+                    telefono: row.telefono,
+                    correo: row.correo,
                     ciudad: row.ciudad,
                     sexo: row.sexo,
                     precio_venta: row.precio_venta,
@@ -374,9 +378,10 @@
                 </td>
                 <td class="text-center"><small class="fw-semibold">${esc(order.numero_pedido)}</small></td>
                 <td class="text-center hide-mobile"><small>${fmtDate(order.fecha)}</small></td>
-                <td><small>${esc(order.nombre_completo) || '-'}</small></td>
+                <td><small>${esc(order.nombres) || '-'}</small></td>
+                <td><small>${esc(order.apellidos) || '-'}</small></td>
+                <td class="hide-mobile"><small>${esc(order.telefono) || '-'}</small></td>
                 <td class="text-center hide-mobile"><small>${esc(order.ciudad) || '-'}</small></td>
-                <td class="text-center hide-mobile"><small>${esc(order.sexo) || '-'}</small></td>
                 <td class="text-end"><small>S/. ${fmtNum(order.precio_venta)}</small></td>
                 <td class="text-center hide-mobile"><span class="badge ${fuenteClass}">${esc(order.fuente)}</span></td>
                 <td class="text-center"><span class="badge bg-secondary">${order.items.length}</span></td>
@@ -386,7 +391,7 @@
                 html += `
             <tr id="${detailId}" class="detail-row" style="display:none;">
                 <td></td>
-                <td colspan="8" class="p-0">
+                <td colspan="9" class="p-0">
                     <div class="bg-body-secondary border-start border-3 border-primary ps-2 py-2">
                         <table class="table table-sm mb-0" style="font-size:0.78rem;">
                             <thead>

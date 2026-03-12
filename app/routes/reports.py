@@ -2282,6 +2282,129 @@ def api_profits_low_margin_products():
 
 # ========== CAMPAÑAS IZISTORE ==========
 
+def _campaigns_sql(source_filter='', status_filter='', for_export=False):
+    """Genera el SQL base para el reporte de campañas.
+    Columnas: 0=numero_pedido, 1=fecha, 2=nombres, 3=apellidos, 4=telefono,
+              5=correo, 6=ciudad, 7=sexo, 8=precio_venta, 9=fuente,
+              10=producto, 11=color, 12=talla
+    """
+    limit_clause = '' if for_export else 'LIMIT 5000'
+    return f"""
+        SELECT
+            CAST(o.id AS CHAR) as numero_pedido,
+            DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
+            COALESCE(ba.first_name, '') as nombres,
+            COALESCE(ba.last_name, '') as apellidos,
+            COALESCE(ba.phone, '') as telefono,
+            COALESCE(ba.email, '') as correo,
+            COALESCE(ba.city, '') as ciudad,
+            COALESCE(om_sexo.meta_value, '') as sexo,
+            COALESCE(o.total_amount, 0) as precio_venta,
+            CASE
+                WHEN om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL THEN 'WooManager'
+                ELSE 'WooCommerce'
+            END as fuente,
+            oi.order_item_name as producto,
+            COALESCE(pm_color.color_val, item_m.item_color, '') as color,
+            COALESCE(talla_m.val, '') as talla
+        FROM wpyz_wc_orders o
+        LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
+        LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
+        LEFT JOIN wpyz_wc_orders_meta om_sexo ON o.id = om_sexo.order_id AND om_sexo.meta_key = '_billing_sexo'
+        LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext
+            ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
+        INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id AND oi.order_item_type = 'line_item'
+        LEFT JOIN (
+            SELECT oim.order_item_id,
+                COALESCE(
+                    MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
+                    MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END)
+                ) as item_color,
+                MAX(CASE WHEN oim.meta_key = '_variation_id' THEN NULLIF(oim.meta_value, '0') END) as variation_id,
+                MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id
+            FROM wpyz_woocommerce_order_itemmeta oim
+            GROUP BY oim.order_item_id
+        ) item_m ON oi.order_item_id = item_m.order_item_id
+        LEFT JOIN (
+            SELECT post_id,
+                COALESCE(
+                    MAX(CASE WHEN meta_key = 'attribute_pa_color' THEN meta_value END),
+                    MAX(CASE WHEN meta_key = 'attribute_color' THEN meta_value END)
+                ) as color_val
+            FROM wpyz_postmeta
+            WHERE meta_key IN ('attribute_pa_color', 'attribute_color')
+            GROUP BY post_id
+        ) pm_color ON pm_color.post_id = CAST(COALESCE(item_m.variation_id, item_m.product_id) AS UNSIGNED)
+        LEFT JOIN (
+            SELECT oim.order_item_id,
+                COALESCE(
+                    MAX(CASE WHEN oim.meta_key IN ('talla', 'Talla', 'medida', 'medidas') THEN oim.meta_value END),
+                    MAX(CASE WHEN oim.meta_key IN ('pa_talla', 'pa_medida') THEN COALESCE(t_talla.name, oim.meta_value) END)
+                ) as val
+            FROM wpyz_woocommerce_order_itemmeta oim
+            LEFT JOIN wpyz_terms t_talla ON (
+                oim.meta_key IN ('pa_talla', 'pa_medida') AND t_talla.slug = oim.meta_value
+                AND t_talla.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy IN ('pa_talla', 'pa_medida'))
+            )
+            WHERE oim.meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas')
+            GROUP BY oim.order_item_id
+        ) talla_m ON oi.order_item_id = talla_m.order_item_id
+        WHERE o.date_created_gmt >= DATE_ADD(:start_date, INTERVAL 5 HOUR)
+            AND o.date_created_gmt < DATE_ADD(DATE_ADD(:end_date, INTERVAL 1 DAY), INTERVAL 5 HOUR)
+            AND o.status NOT IN ('trash', 'wc-cancelled', 'wc-refunded', 'wc-failed')
+            {status_filter}
+            {source_filter}
+        ORDER BY fecha DESC, o.id DESC
+        {limit_clause}
+    """
+
+
+def _campaigns_ext_sql(ext_status_filter='', for_export=False):
+    """SQL para pedidos externos."""
+    limit_clause = '' if for_export else 'LIMIT 5000'
+    return f"""
+        SELECT
+            oext.order_number as numero_pedido,
+            DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
+            COALESCE(oext.customer_first_name, '') as nombres,
+            COALESCE(oext.customer_last_name, '') as apellidos,
+            COALESCE(oext.customer_phone, '') as telefono,
+            COALESCE(oext.customer_email, '') as correo,
+            COALESCE(oext.shipping_city, '') as ciudad,
+            '' as sexo,
+            COALESCE(oext.total_amount, 0) as precio_venta,
+            'Externo' as fuente,
+            COALESCE(oext_item.product_name, '') as producto,
+            '' as color, '' as talla
+        FROM woo_orders_ext oext
+        LEFT JOIN woo_orders_ext_items oext_item ON oext.id = oext_item.order_ext_id
+        WHERE oext.date_created_gmt >= DATE_ADD(:start_date, INTERVAL 5 HOUR)
+            AND oext.date_created_gmt < DATE_ADD(DATE_ADD(:end_date, INTERVAL 1 DAY), INTERVAL 5 HOUR)
+            AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
+            {ext_status_filter}
+        ORDER BY fecha DESC, oext.id DESC
+        {limit_clause}
+    """
+
+
+def _row_to_dict(row):
+    return {
+        'numero_pedido': str(row[0] or ''),
+        'fecha': str(row[1]) if row[1] else '',
+        'nombres': str(row[2] or ''),
+        'apellidos': str(row[3] or ''),
+        'telefono': str(row[4] or ''),
+        'correo': str(row[5] or ''),
+        'ciudad': str(row[6] or ''),
+        'sexo': str(row[7] or ''),
+        'precio_venta': float(row[8] or 0),
+        'fuente': str(row[9] or ''),
+        'producto': str(row[10] or ''),
+        'color': str(row[11] or ''),
+        'talla': str(row[12] or ''),
+    }
+
+
 @bp.route('/campaigns')
 @login_required
 def campaigns():
@@ -2296,111 +2419,20 @@ def api_campaigns():
         end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
         source = request.args.get('source', 'all')
 
+        source_filter = ''
+        if source == 'whatsapp':
+            source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
+        elif source == 'woocommerce':
+            source_filter = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
+
         with db.engine.connect() as conn:
             if source == 'externos':
-                sql = text("""
-                    SELECT
-                        oext.order_number as numero_pedido,
-                        DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
-                        TRIM(CONCAT(COALESCE(oext.customer_first_name, ''), ' ', COALESCE(oext.customer_last_name, ''))) as nombre_completo,
-                        '' as ciudad, '' as sexo,
-                        COALESCE(oext.total_amount, 0) as precio_venta,
-                        'Externo' as fuente,
-                        COALESCE(oext_item.product_name, '') as producto,
-                        '' as color, '' as talla
-                    FROM woo_orders_ext oext
-                    LEFT JOIN woo_orders_ext_items oext_item ON oext.id = oext_item.order_ext_id
-                    WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                        AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')
-                    ORDER BY fecha DESC, oext.id DESC
-                    LIMIT 5000
-                """)
+                sql = text(_campaigns_ext_sql())
             else:
-                source_filter = ""
-                if source == 'whatsapp':
-                    source_filter = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
-                elif source == 'woocommerce':
-                    source_filter = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
-
-                sql = text(f"""
-                    SELECT
-                        CAST(o.id AS CHAR) as numero_pedido,
-                        DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
-                        TRIM(CONCAT(COALESCE(ba.first_name, ''), ' ', COALESCE(ba.last_name, ''))) as nombre_completo,
-                        COALESCE(ba.city, '') as ciudad,
-                        COALESCE(om_sexo.meta_value, '') as sexo,
-                        COALESCE(o.total_amount, 0) as precio_venta,
-                        CASE
-                            WHEN om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL THEN 'WooManager'
-                            ELSE 'WooCommerce'
-                        END as fuente,
-                        oi.order_item_name as producto,
-                        COALESCE(pm_color.color_val, item_m.item_color, '') as color,
-                        COALESCE(talla_m.val, '') as talla
-                    FROM wpyz_wc_orders o
-                    LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
-                    LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
-                    LEFT JOIN wpyz_wc_orders_meta om_sexo ON o.id = om_sexo.order_id AND om_sexo.meta_key = '_billing_sexo'
-                    LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
-                    INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id AND oi.order_item_type = 'line_item'
-                    LEFT JOIN (
-                        SELECT oim.order_item_id,
-                            COALESCE(
-                                MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END)
-                            ) as item_color,
-                            MAX(CASE WHEN oim.meta_key = '_variation_id' THEN NULLIF(oim.meta_value, '0') END) as variation_id,
-                            MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id
-                        FROM wpyz_woocommerce_order_itemmeta oim
-                        GROUP BY oim.order_item_id
-                    ) item_m ON oi.order_item_id = item_m.order_item_id
-                    LEFT JOIN (
-                        SELECT post_id,
-                            COALESCE(
-                                MAX(CASE WHEN meta_key = 'attribute_pa_color' THEN meta_value END),
-                                MAX(CASE WHEN meta_key = 'attribute_color' THEN meta_value END)
-                            ) as color_val
-                        FROM wpyz_postmeta
-                        WHERE meta_key IN ('attribute_pa_color', 'attribute_color')
-                        GROUP BY post_id
-                    ) pm_color ON pm_color.post_id = CAST(COALESCE(item_m.variation_id, item_m.product_id) AS UNSIGNED)
-                    LEFT JOIN (
-                        SELECT oim.order_item_id,
-                            COALESCE(
-                                MAX(CASE WHEN oim.meta_key IN ('talla', 'Talla', 'medida', 'medidas') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key IN ('pa_talla', 'pa_medida') THEN COALESCE(t_talla.name, oim.meta_value) END)
-                            ) as val
-                        FROM wpyz_woocommerce_order_itemmeta oim
-                        LEFT JOIN wpyz_terms t_talla ON (
-                            oim.meta_key IN ('pa_talla', 'pa_medida') AND t_talla.slug = oim.meta_value
-                            AND t_talla.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy IN ('pa_talla', 'pa_medida'))
-                        )
-                        WHERE oim.meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas')
-                        GROUP BY oim.order_item_id
-                    ) talla_m ON oi.order_item_id = talla_m.order_item_id
-                    WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                        AND o.status NOT IN ('trash', 'wc-cancelled', 'wc-refunded', 'wc-failed')
-                        {source_filter}
-                    ORDER BY fecha DESC, o.id DESC
-                    LIMIT 5000
-                """)
-
+                sql = text(_campaigns_sql(source_filter=source_filter))
             rows = conn.execute(sql, {'start_date': start_date, 'end_date': end_date}).fetchall()
 
-        data = []
-        for row in rows:
-            data.append({
-                'numero_pedido': str(row[0] or ''),
-                'fecha': str(row[1]) if row[1] else '',
-                'nombre_completo': str(row[2] or ''),
-                'ciudad': str(row[3] or ''),
-                'sexo': str(row[4] or ''),
-                'precio_venta': float(row[5] or 0),
-                'fuente': str(row[6] or ''),
-                'producto': str(row[7] or ''),
-                'color': str(row[8] or ''),
-                'talla': str(row[9] or ''),
-            })
+        data = [_row_to_dict(r) for r in rows]
 
         return jsonify({
             'success': True,
@@ -2432,103 +2464,23 @@ def export_campaigns_excel():
             status_filter = f"AND o.status IN ({status_placeholders})"
             ext_status_filter = f"AND oext.status IN ({status_placeholders})"
         else:
-            status_filter = "AND o.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
-            ext_status_filter = "AND oext.status NOT IN ('wc-cancelled', 'wc-refunded', 'wc-failed')"
+            status_filter = ''
+            ext_status_filter = ''
+
+        source_filter_sql = ''
+        if source == 'whatsapp':
+            source_filter_sql = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
+        elif source == 'woocommerce':
+            source_filter_sql = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
 
         with db.engine.connect() as conn:
             if source == 'externos':
-                sql = text(f"""
-                    SELECT
-                        oext.order_number,
-                        DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
-                        TRIM(CONCAT(COALESCE(oext.customer_first_name, ''), ' ', COALESCE(oext.customer_last_name, ''))) as nombre_completo,
-                        '' as ciudad, '' as sexo,
-                        COALESCE(oext.total_amount, 0) as precio_venta,
-                        'Externo' as fuente,
-                        COALESCE(oext_item.product_name, '') as producto,
-                        '' as color, '' as talla
-                    FROM woo_orders_ext oext
-                    LEFT JOIN woo_orders_ext_items oext_item ON oext.id = oext_item.order_ext_id
-                    WHERE DATE(DATE_SUB(oext.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                        {ext_status_filter}
-                    ORDER BY fecha DESC, oext.id DESC
-                """)
+                sql = text(_campaigns_ext_sql(ext_status_filter=ext_status_filter, for_export=True))
             else:
-                source_filter_sql = ""
-                if source == 'whatsapp':
-                    source_filter_sql = "AND (om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL)"
-                elif source == 'woocommerce':
-                    source_filter_sql = "AND om_numero.meta_value IS NULL AND oext.order_number IS NULL"
-
-                sql = text(f"""
-                    SELECT
-                        CAST(o.id AS CHAR) as numero_pedido,
-                        DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) as fecha,
-                        TRIM(CONCAT(COALESCE(ba.first_name, ''), ' ', COALESCE(ba.last_name, ''))) as nombre_completo,
-                        COALESCE(ba.city, '') as ciudad,
-                        COALESCE(om_sexo.meta_value, '') as sexo,
-                        COALESCE(o.total_amount, 0) as precio_venta,
-                        CASE
-                            WHEN om_numero.meta_value IS NOT NULL OR oext.order_number IS NOT NULL THEN 'WooManager'
-                            ELSE 'WooCommerce'
-                        END as fuente,
-                        oi.order_item_name as producto,
-                        COALESCE(pm_color.color_val, item_m.item_color, '') as color,
-                        COALESCE(talla_m.val, '') as talla
-                    FROM wpyz_wc_orders o
-                    LEFT JOIN wpyz_wc_orders_meta om_numero ON o.id = om_numero.order_id AND om_numero.meta_key = '_order_number'
-                    LEFT JOIN wpyz_wc_order_addresses ba ON o.id = ba.order_id AND ba.address_type = 'billing'
-                    LEFT JOIN wpyz_wc_orders_meta om_sexo ON o.id = om_sexo.order_id AND om_sexo.meta_key = '_billing_sexo'
-                    LEFT JOIN (SELECT DISTINCT order_number FROM woo_orders_ext) oext ON om_numero.meta_value COLLATE utf8mb4_unicode_ci = oext.order_number
-                    INNER JOIN wpyz_woocommerce_order_items oi ON o.id = oi.order_id AND oi.order_item_type = 'line_item'
-                    LEFT JOIN (
-                        SELECT oim.order_item_id,
-                            COALESCE(
-                                MAX(CASE WHEN oim.meta_key IN ('color', 'colores', 'Color', 'Colores') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END)
-                            ) as item_color,
-                            MAX(CASE WHEN oim.meta_key = '_variation_id' THEN NULLIF(oim.meta_value, '0') END) as variation_id,
-                            MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id
-                        FROM wpyz_woocommerce_order_itemmeta oim
-                        GROUP BY oim.order_item_id
-                    ) item_m ON oi.order_item_id = item_m.order_item_id
-                    LEFT JOIN (
-                        SELECT post_id,
-                            COALESCE(
-                                MAX(CASE WHEN meta_key = 'attribute_pa_color' THEN meta_value END),
-                                MAX(CASE WHEN meta_key = 'attribute_color' THEN meta_value END)
-                            ) as color_val
-                        FROM wpyz_postmeta
-                        WHERE meta_key IN ('attribute_pa_color', 'attribute_color')
-                        GROUP BY post_id
-                    ) pm_color ON pm_color.post_id = CAST(COALESCE(item_m.variation_id, item_m.product_id) AS UNSIGNED)
-                    LEFT JOIN (
-                        SELECT oim.order_item_id,
-                            COALESCE(
-                                MAX(CASE WHEN oim.meta_key IN ('talla', 'Talla', 'medida', 'medidas') THEN oim.meta_value END),
-                                MAX(CASE WHEN oim.meta_key IN ('pa_talla', 'pa_medida') THEN COALESCE(t_talla.name, oim.meta_value) END)
-                            ) as val
-                        FROM wpyz_woocommerce_order_itemmeta oim
-                        LEFT JOIN wpyz_terms t_talla ON (
-                            oim.meta_key IN ('pa_talla', 'pa_medida') AND t_talla.slug = oim.meta_value
-                            AND t_talla.term_id IN (SELECT term_id FROM wpyz_term_taxonomy WHERE taxonomy IN ('pa_talla', 'pa_medida'))
-                        )
-                        WHERE oim.meta_key IN ('pa_talla', 'Talla', 'talla', 'pa_medida', 'medida', 'medidas')
-                        GROUP BY oim.order_item_id
-                    ) talla_m ON oi.order_item_id = talla_m.order_item_id
-                    WHERE DATE(DATE_SUB(o.date_created_gmt, INTERVAL 5 HOUR)) BETWEEN :start_date AND :end_date
-                        AND o.status != 'trash'
-                        {status_filter}
-                        {source_filter_sql}
-                    ORDER BY fecha DESC, o.id DESC
-                """)
-
+                sql = text(_campaigns_sql(source_filter=source_filter_sql, status_filter=status_filter, for_export=True))
             rows = conn.execute(sql, {'start_date': start_date, 'end_date': end_date}).fetchall()
 
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Campañas IziStore"
-
+        # Estilos compartidos
         header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True, size=11)
         header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -2539,48 +2491,99 @@ def export_campaigns_excel():
         center_align = Alignment(horizontal="center", vertical="center")
         left_align = Alignment(horizontal="left", vertical="center")
 
-        ws.merge_cells('A1:J1')
-        ws['A1'] = f'Campañas IziStore - {source_name}'
-        ws['A1'].font = Font(bold=True, size=14)
-        ws['A1'].alignment = Alignment(horizontal="center")
-        ws.row_dimensions[1].height = 22
+        def write_title(ws, ncols, title, period):
+            col_letter = get_column_letter(ncols)
+            ws.merge_cells(f'A1:{col_letter}1')
+            ws['A1'] = title
+            ws['A1'].font = Font(bold=True, size=14)
+            ws['A1'].alignment = Alignment(horizontal="center")
+            ws.row_dimensions[1].height = 22
+            ws.merge_cells(f'A2:{col_letter}2')
+            ws['A2'] = f'Período: {period[0]} al {period[1]}'
+            ws['A2'].alignment = Alignment(horizontal="center")
+            ws.row_dimensions[2].height = 18
 
-        ws.merge_cells('A2:J2')
-        ws['A2'] = f'Período: {start_date} al {end_date}'
-        ws['A2'].alignment = Alignment(horizontal="center")
-        ws.row_dimensions[2].height = 18
+        def write_headers(ws, headers, row_num=4):
+            for col_idx, header in enumerate(headers, 1):
+                cell = ws.cell(row=row_num, column=col_idx, value=header)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_align
+                cell.border = thin_border
+            ws.row_dimensions[row_num].height = 30
 
-        headers = ['Pedido', 'Fecha', 'Nombre Completo', 'Ciudad', 'Sexo',
-                   'Precio Venta (PEN)', 'Fuente', 'Producto', 'Color', 'Talla']
-        for col_idx, header in enumerate(headers, 1):
-            cell = ws.cell(row=4, column=col_idx, value=header)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_align
-            cell.border = thin_border
-        ws.row_dimensions[4].height = 30
-
-        for row_idx, row in enumerate(rows, 5):
-            values = [
-                str(row[0] or ''), str(row[1]) if row[1] else '',
-                str(row[2] or ''), str(row[3] or ''), str(row[4] or ''),
-                float(row[5] or 0), str(row[6] or ''), str(row[7] or ''),
-                str(row[8] or ''), str(row[9] or ''),
-            ]
+        def write_row(ws, row_idx, values, center_cols, price_col=None):
             for col_idx, value in enumerate(values, 1):
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.border = thin_border
-                if col_idx == 6:
+                if price_col and col_idx == price_col:
                     cell.alignment = center_align
                     cell.number_format = '#,##0.00'
-                elif col_idx in (1, 2, 5, 7, 9, 10):
+                elif col_idx in center_cols:
                     cell.alignment = center_align
                 else:
                     cell.alignment = left_align
 
-        col_widths = [12, 12, 32, 20, 8, 18, 14, 38, 15, 10]
-        for col_idx, width in enumerate(col_widths, 1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = width
+        def set_col_widths(ws, widths):
+            for col_idx, width in enumerate(widths, 1):
+                ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+        wb = Workbook()
+
+        # ── Hoja 1: Consolidado (un pedido por fila) ──────────────────────────
+        ws_cons = wb.active
+        ws_cons.title = "Consolidado"
+
+        cons_headers = ['Pedido', 'Fecha', 'Nombres', 'Apellidos', 'Teléfono', 'Correo',
+                        'Ciudad', 'Sexo', 'Precio Venta (PEN)', 'Fuente', 'Items']
+        write_title(ws_cons, len(cons_headers), f'Campañas IziStore - {source_name} (Consolidado)', (start_date, end_date))
+        write_headers(ws_cons, cons_headers)
+
+        seen_orders = {}  # numero_pedido -> row index (first occurrence)
+        order_items_count = {}
+
+        # Primera pasada: recopilar datos únicos por pedido
+        for row in rows:
+            key = str(row[0] or '')
+            if key not in seen_orders:
+                seen_orders[key] = row
+                order_items_count[key] = 1
+            else:
+                order_items_count[key] += 1
+
+        for row_idx, (key, row) in enumerate(seen_orders.items(), 5):
+            values = [
+                str(row[0] or ''), str(row[1]) if row[1] else '',
+                str(row[2] or ''), str(row[3] or ''),
+                str(row[4] or ''), str(row[5] or ''),
+                str(row[6] or ''), str(row[7] or ''),
+                float(row[8] or 0), str(row[9] or ''),
+                order_items_count[key],
+            ]
+            write_row(ws_cons, row_idx, values, center_cols={1, 2, 8, 10, 11}, price_col=9)
+
+        set_col_widths(ws_cons, [12, 12, 22, 22, 15, 32, 20, 8, 18, 14, 8])
+
+        # ── Hoja 2: Detallado (un item por fila) ─────────────────────────────
+        ws_det = wb.create_sheet(title="Detallado")
+
+        det_headers = ['Pedido', 'Fecha', 'Nombres', 'Apellidos', 'Teléfono', 'Correo',
+                       'Ciudad', 'Sexo', 'Precio Venta (PEN)', 'Fuente', 'Producto', 'Color', 'Talla']
+        write_title(ws_det, len(det_headers), f'Campañas IziStore - {source_name} (Detallado)', (start_date, end_date))
+        write_headers(ws_det, det_headers)
+
+        for row_idx, row in enumerate(rows, 5):
+            values = [
+                str(row[0] or ''), str(row[1]) if row[1] else '',
+                str(row[2] or ''), str(row[3] or ''),
+                str(row[4] or ''), str(row[5] or ''),
+                str(row[6] or ''), str(row[7] or ''),
+                float(row[8] or 0), str(row[9] or ''),
+                str(row[10] or ''), str(row[11] or ''), str(row[12] or ''),
+            ]
+            write_row(ws_det, row_idx, values, center_cols={1, 2, 8, 10, 12, 13}, price_col=9)
+
+        set_col_widths(ws_det, [12, 12, 22, 22, 15, 32, 20, 8, 18, 14, 38, 15, 10])
 
         output = BytesIO()
         wb.save(output)
